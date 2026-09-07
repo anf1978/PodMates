@@ -404,6 +404,7 @@
   <div id="authBar" style="display:flex; justify-content:flex-end; align-items:center; gap:10px; margin-bottom:8px; font-size:12.5px; color:var(--text-soft); min-height:24px;">
     <span id="authStatusText"></span>
     <button id="authOpenBtn" class="ghost" style="padding:4px 10px; font-size:12px; display:none;">Sign In</button>
+    <button id="authProfileBtn" class="ghost" style="padding:4px 10px; font-size:12px; display:none;">My Profile</button>
     <button id="authSignOutBtn" class="ghost" style="padding:4px 10px; font-size:12px; display:none;">Sign Out</button>
   </div>
   <header>
@@ -19502,6 +19503,7 @@ function renderAuthModal(modal, errorMsg) {
       showToast(result.switchedToExisting
         ? `Welcome back, ${result.user.displayName || result.user.email}. Decks saved earlier in this guest session weren’t moved to this account automatically — re-save them now if you’d like to keep them.`
         : `Signed in as ${result.user.displayName || result.user.email}.`);
+      if (isSignup && !result.switchedToExisting) showProfileModal({ welcome: true });
     } else {
       renderAuthModal(modal, result.error);
     }
@@ -19516,6 +19518,7 @@ function renderAuthModal(modal, errorMsg) {
       showToast(result.switchedToExisting
         ? `Welcome back, ${result.user.displayName || result.user.email}. Decks saved earlier in this guest session weren’t moved to this account automatically — re-save them now if you’d like to keep them.`
         : `Signed in as ${result.user.displayName || result.user.email}.`);
+      if (!result.switchedToExisting) showProfileModal({ welcome: true });
     } else {
       renderAuthModal(modal, result.error);
     }
@@ -19540,16 +19543,143 @@ function showToast(message) {
   toast._hideTimer = setTimeout(() => { toast.style.display = 'none'; }, 6000);
 }
 
+// ============================================================
+// PROFILE BUILDER — link Archidekt/Moxfield, sync decks
+// ============================================================
+// Only reachable by real (non-anonymous) accounts, since a persistent,
+// cross-device profile doesn't mean anything for a per-browser guest
+// session. Opens automatically once right after a successful sign-UP
+// (not login) as a welcome step, and any time afterward via "My Profile"
+// in the auth bar. Always skippable -- never blocks using the app.
+
+async function showProfileModal(opts) {
+  if (!window.PodmatesCloud) return;
+  injectTryADeckStyles();
+  closeTryADeckModal();
+  const overlay = document.createElement('div');
+  overlay.className = 'tad-overlay';
+  overlay.id = 'tadOverlay';
+  const modal = document.createElement('div');
+  modal.className = 'tad-modal';
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
+
+  modal.innerHTML = `<p style="text-align:center; color:var(--text-soft); font-size:13px;">Loading your profile…</p>`;
+
+  let profile = {};
+  try { profile = await window.PodmatesCloud.loadProfile(); } catch (e) { /* fine -- just start blank */ }
+
+  renderProfileModal(modal, profile, { archidekt: null, moxfield: null }, opts);
+}
+
+function renderProfileModal(modal, profile, syncResults, opts) {
+  const isWelcome = !!(opts && opts.welcome);
+  modal.innerHTML = `
+    <button class="tad-close" id="tadCloseBtn">Close ×</button>
+    <h2 style="margin-bottom:4px;">${isWelcome ? 'Welcome! Set up your profile' : 'My Profile'}</h2>
+    <p style="font-size:12.5px; color:var(--text-soft); margin:0 0 16px;">
+      ${isWelcome
+        ? 'Optional — link Archidekt or Moxfield to pull in your decks automatically. Skip this and come back anytime from "My Profile."'
+        : 'Link Archidekt or Moxfield to pull in your decks automatically.'}
+    </p>
+    <div class="row" style="margin-bottom:10px; align-items:center;">
+      <label style="font-size:12px; letter-spacing:0.06em; text-transform:uppercase; color:var(--gold); min-width:90px;">Archidekt</label>
+      <input id="profileArchidekt" type="text" placeholder="Archidekt username" value="${escapeHtml(profile.archidektUsername || '')}" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
+    </div>
+    <div class="row" style="margin-bottom:14px; align-items:center;">
+      <label style="font-size:12px; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-soft); min-width:90px;">Moxfield</label>
+      <input id="profileMoxfield" type="text" placeholder="Moxfield username" value="${escapeHtml(profile.moxfieldUsername || '')}" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
+    </div>
+    <div class="row" style="margin-bottom:14px; gap:10px;">
+      <button id="profileFetchBtn" class="ghost">Fetch My Decks</button>
+      <button id="profileSaveBtn">Save Profile</button>
+    </div>
+    <div id="profileSyncStatus" style="font-size:12.5px; color:var(--text-soft); margin-bottom:10px;"></div>
+    <div id="profileDeckResults"></div>
+    ${isWelcome ? `<p style="text-align:center; margin-top:10px;"><a href="#" id="profileSkipLink" style="font-size:12.5px; color:var(--text-soft); text-decoration:underline;">Skip for now</a></p>` : ''}
+  `;
+
+  document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
+  const skipLink = document.getElementById('profileSkipLink');
+  if (skipLink) skipLink.addEventListener('click', (e) => { e.preventDefault(); closeTryADeckModal(); });
+
+  renderDeckResults(syncResults);
+
+  document.getElementById('profileFetchBtn').addEventListener('click', async () => {
+    const archidektUsername = (document.getElementById('profileArchidekt').value || '').trim();
+    const moxfieldUsername = (document.getElementById('profileMoxfield').value || '').trim();
+    const statusEl = document.getElementById('profileSyncStatus');
+    if (!archidektUsername && !moxfieldUsername) {
+      statusEl.textContent = 'Enter at least one username above first.';
+      return;
+    }
+    const btn = document.getElementById('profileFetchBtn');
+    btn.disabled = true;
+    btn.textContent = 'Fetching…';
+    statusEl.textContent = 'Checking Archidekt and Moxfield…';
+
+    const [archidektResult, moxfieldResult] = await Promise.all([
+      archidektUsername ? window.PodmatesCloud.fetchExternalDecks('archidekt', archidektUsername) : Promise.resolve(null),
+      moxfieldUsername ? window.PodmatesCloud.fetchExternalDecks('moxfield', moxfieldUsername) : Promise.resolve(null),
+    ]);
+
+    btn.disabled = false;
+    btn.textContent = 'Fetch My Decks';
+    statusEl.textContent = '';
+    renderDeckResults({ archidekt: archidektResult, moxfield: moxfieldResult });
+  });
+
+  document.getElementById('profileSaveBtn').addEventListener('click', async () => {
+    const archidektUsername = (document.getElementById('profileArchidekt').value || '').trim();
+    const moxfieldUsername = (document.getElementById('profileMoxfield').value || '').trim();
+    const btn = document.getElementById('profileSaveBtn');
+    const statusEl = document.getElementById('profileSyncStatus');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    try {
+      await window.PodmatesCloud.saveProfile({ archidektUsername, moxfieldUsername });
+      closeTryADeckModal();
+      showToast('Profile saved.');
+    } catch (e) {
+      statusEl.textContent = 'Could not save profile: ' + e.message;
+      btn.disabled = false;
+      btn.textContent = 'Save Profile';
+    }
+  });
+}
+
+function renderDeckResults(results) {
+  const el = document.getElementById('profileDeckResults');
+  if (!el) return;
+  let html = '';
+  const sources = [['Archidekt', results.archidekt], ['Moxfield', results.moxfield]];
+  for (const [label, result] of sources) {
+    if (!result) continue;
+    if (result.ok) {
+      html += `<div style="margin-bottom:14px;">
+        <div style="font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold); margin-bottom:6px;">${label} — ${result.decks.length} deck${result.decks.length === 1 ? '' : 's'} found</div>
+        ${result.decks.length ? result.decks.map(d => `<div style="font-size:13px; margin-bottom:4px;"><a href="${escapeHtml(d.url)}" target="_blank" rel="noopener" style="color:var(--text-primary); text-decoration:none; border-bottom:1px dotted var(--text-soft);">${escapeHtml(d.name)}</a>${d.format ? ` <span style="color:var(--text-soft);">(${escapeHtml(d.format)})</span>` : ''}</div>`).join('') : `<div style="font-size:13px; color:var(--text-soft);">No public decks found for that username.</div>`}
+      </div>`;
+    } else {
+      html += `<div style="margin-bottom:14px; font-size:12.5px; color:var(--danger);">${label}: ${escapeHtml(result.error)}</div>`;
+    }
+  }
+  el.innerHTML = html;
+}
+
 function updateAuthBar(user) {
   const statusText = $('authStatusText');
   const openBtn = $('authOpenBtn');
+  const profileBtn = $('authProfileBtn');
   const signOutBtn = $('authSignOutBtn');
-  if (!statusText || !openBtn || !signOutBtn) return;
+  if (!statusText || !openBtn || !profileBtn || !signOutBtn) return;
   const signedInForReal = user && !user.isAnonymous;
   statusText.textContent = signedInForReal
     ? `Signed in as ${user.displayName || user.email}`
     : 'Playing as guest';
   openBtn.style.display = signedInForReal ? 'none' : 'inline-block';
+  profileBtn.style.display = signedInForReal ? 'inline-block' : 'none';
   signOutBtn.style.display = signedInForReal ? 'inline-block' : 'none';
 }
 
@@ -22185,6 +22315,9 @@ if (window.PodmatesCloud) {
 const authOpenBtn = $('authOpenBtn');
 if (authOpenBtn) authOpenBtn.addEventListener('click', showAuthModal);
 
+const authProfileBtn = $('authProfileBtn');
+if (authProfileBtn) authProfileBtn.addEventListener('click', () => showProfileModal());
+
 const authSignOutBtn = $('authSignOutBtn');
 if (authSignOutBtn) authSignOutBtn.addEventListener('click', () => {
   showConfirmModal('Sign out? You\u2019ll keep using PodMates as a guest, and anything already saved to the cloud stays there for next time you sign in.', async () => {
@@ -22226,7 +22359,7 @@ if (authSignOutBtn) authSignOutBtn.addEventListener('click', () => {
     sendPasswordResetEmail, updateProfile,
   } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
   import {
-    getFirestore, doc, setDoc, getDocs, deleteDoc, collection, serverTimestamp,
+    getFirestore, doc, setDoc, getDoc, getDocs, deleteDoc, collection, serverTimestamp,
   } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -22411,6 +22544,41 @@ if (authSignOutBtn) authSignOutBtn.addEventListener('click', () => {
     return out;
   }
 
+  // --- Profile (display name + linked Archidekt/Moxfield usernames) ---
+
+  async function saveProfile(profile) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    await setDoc(doc(db, 'users', currentUser.uid), {
+      archidektUsername: profile.archidektUsername || '',
+      moxfieldUsername: profile.moxfieldUsername || '',
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+  }
+
+  async function loadProfile() {
+    if (!currentUser) throw new Error('Not signed in yet');
+    const snap = await getDoc(doc(db, 'users', currentUser.uid));
+    return snap.exists() ? snap.data() : {};
+  }
+
+  // --- Archidekt/Moxfield deck sync, via the Cloudflare Worker --------
+  // Runs server-side (see worker.js) since neither site reliably allows a
+  // request made directly from another website's own browser code.
+
+  const SYNC_WORKER_URL = 'https://spring-unit-49d9.anthony-ef7.workers.dev/';
+
+  async function fetchExternalDecks(source, username) {
+    if (!username) return { ok: false, error: 'No username provided.' };
+    try {
+      const res = await fetch(`${SYNC_WORKER_URL}?source=${encodeURIComponent(source)}&username=${encodeURIComponent(username)}`);
+      const data = await res.json();
+      if (!res.ok) return { ok: false, error: data.error || `Request failed (status ${res.status}).`, detail: data };
+      return { ok: true, decks: data.decks || [] };
+    } catch (err) {
+      return { ok: false, error: 'Could not reach the sync service: ' + err.message };
+    }
+  }
+
   window.PodmatesCloud = {
     get ready() { return isReady; },
     get uid() { return currentUser ? currentUser.uid : null; },
@@ -22424,6 +22592,8 @@ if (authSignOutBtn) authSignOutBtn.addEventListener('click', () => {
     saveDeck: cloudSaveDeck,
     deleteDeck: cloudDeleteDeck,
     loadAllDecks: cloudLoadAllDecks,
+    saveProfile, loadProfile,
+    fetchExternalDecks,
   };
 
   // Scripts loaded with type="module" (required for Firebase's import
