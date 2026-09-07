@@ -22163,11 +22163,23 @@ function mergeCloudDecksIntoLocal() {
   }).catch(() => {}); // silent -- this is a background convenience sync, not a user-facing action
 }
 
-if (window.PodmatesCloud) {
+// Module scripts (required for Firebase) always finish loading AFTER
+// ordinary scripts like this one, so window.PodmatesCloud does not exist
+// yet at the moment this code first runs -- waiting for the event the
+// module script fires once it's actually ready avoids silently missing
+// the registration below (which is exactly what caused the auth bar to
+// never update, with no console error, before this fix).
+function wireCloudAuth() {
+  if (!window.PodmatesCloud) return;
   window.PodmatesCloud.onAuthChange((user) => {
     updateAuthBar(user);
     if (user) mergeCloudDecksIntoLocal();
   });
+}
+if (window.PodmatesCloud) {
+  wireCloudAuth();
+} else {
+  window.addEventListener('podmates-cloud-init', wireCloudAuth, { once: true });
 }
 
 const authOpenBtn = $('authOpenBtn');
@@ -22413,6 +22425,14 @@ if (authSignOutBtn) authSignOutBtn.addEventListener('click', () => {
     deleteDeck: cloudDeleteDeck,
     loadAllDecks: cloudLoadAllDecks,
   };
+
+  // Scripts loaded with type="module" (required for Firebase's import
+  // syntax) always run AFTER every ordinary <script> on the page has
+  // already finished -- regardless of where this block sits in the file.
+  // app-script.js's own startup code runs earlier than this line, so it
+  // can never safely assume window.PodmatesCloud already exists at that
+  // point; this event is the signal it waits for instead.
+  window.dispatchEvent(new CustomEvent('podmates-cloud-init'));
 </script>
 
 </body>
