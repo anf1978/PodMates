@@ -19562,6 +19562,7 @@ async function showProfileModal(opts) {
   if (!window.PodmatesCloud) return;
   injectTryADeckStyles();
   closeTryADeckModal();
+  expandedLinkedDeckIds = new Set(); // fresh collapsed state each time the modal opens
   const overlay = document.createElement('div');
   overlay.className = 'tad-overlay';
   overlay.id = 'tadOverlay';
@@ -19615,22 +19616,90 @@ function renderProfileModal(modal, linkedDecks, opts) {
     btn.textContent = 'Adding…';
     statusEl.textContent = '';
 
-    const result = await window.PodmatesCloud.addLinkedDeck(url);
-
-    btn.disabled = false;
-    btn.textContent = 'Add Deck';
-
-    if (!result.ok) {
-      statusEl.textContent = result.error;
+    try {
+      const result = await window.PodmatesCloud.addLinkedDeck(url);
+      if (!result.ok) {
+        statusEl.textContent = result.error;
+        statusEl.className = 'status err';
+        return;
+      }
+      input.value = '';
+      statusEl.textContent = `Added “${result.deck.name}.”`;
+      statusEl.className = 'status';
+      const refreshed = await window.PodmatesCloud.loadLinkedDecks();
+      renderLinkedDecksList(modal, refreshed, isWelcome);
+    } catch (e) {
+      // Most likely cause: a Firestore permission error (missing/incorrect
+      // security rule for this data), surfaced honestly instead of leaving
+      // the button stuck on "Adding..." forever with no explanation.
+      statusEl.textContent = 'Could not save this deck: ' + e.message;
       statusEl.className = 'status err';
-      return;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Add Deck';
     }
-    input.value = '';
-    statusEl.textContent = `Added “${result.deck.name}.”`;
-    statusEl.className = 'status';
-    const refreshed = await window.PodmatesCloud.loadLinkedDecks();
-    renderLinkedDecksList(modal, refreshed, isWelcome);
   });
+}
+
+let expandedLinkedDeckIds = new Set();
+const linkedDeckSummaryCache = new Map();
+
+function computeQuickSummary(deck) {
+  if (linkedDeckSummaryCache.has(deck.id)) return linkedDeckSummaryCache.get(deck.id);
+  if (!dbReady) return { error: 'Card database still loading — try again in a moment.' };
+
+  try {
+    const parsed = parseDecklist(deck.decklistText);
+    const { matched } = matchDecklist(parsed.entries, CARD_DB, indexes);
+    if (!matched.length) return { error: 'Could not read this deck\u2019s cards.' };
+    const commanders = (deck.commander || '').split(/\s*\/\s*|\s+&\s+/).map(s => s.trim()).filter(Boolean);
+    const agg = analyzeDeck(matched, commanders);
+    agg.commanders = commanders;
+    const winCons = detectWinCondition(agg);
+    const hasSpecificWinCon = winCons.length > 0 && winCons[0].confidence !== 'fallback';
+    const speed = scoreSpeed(agg, hasSpecificWinCon);
+    const consistency = scoreConsistency(agg);
+    const versatility = scoreVersatility(agg, winCons.length);
+    const disruption = scoreDisruption(agg);
+    const powerLevel = scorePowerLevel(agg);
+    const commandSpark = computeSpark(speed, consistency, versatility, disruption, powerLevel);
+    const bracket = detectBracket(agg, commandSpark);
+    const summary = {
+      commander: commanders.join(' / ') || 'Unknown',
+      winConditionLabel: (winCons[0] && winCons[0].label) || 'Combat damage',
+      commandSpark, speed, consistency, versatility, disruption, powerLevel,
+      bracket: bracket.bracket,
+    };
+    linkedDeckSummaryCache.set(deck.id, summary);
+    return summary;
+  } catch (e) {
+    return { error: 'Could not analyze this deck: ' + e.message };
+  }
+}
+
+function renderLinkedDeckSummary(deck) {
+  const s = computeQuickSummary(deck);
+  if (s.error) {
+    return `<div style="padding:12px 0; font-size:12.5px; color:var(--text-soft);">${escapeHtml(s.error)}</div>`;
+  }
+  const chip = (label, val) => `<div style="text-align:center;"><div style="font-size:16px; font-weight:700; color:var(--gold-bright);">${val.toFixed(1)}</div><div style="font-size:9.5px; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-soft);">${label}</div></div>`;
+  return `
+    <div style="padding:12px 0 6px;">
+      <div style="font-size:13px; color:var(--text-primary); margin-bottom:2px;"><strong>Commander:</strong> ${escapeHtml(s.commander)}</div>
+      <div style="font-size:12.5px; color:var(--text-soft); margin-bottom:10px;"><strong>Win Condition:</strong> ${escapeHtml(s.winConditionLabel)} · <strong>Bracket:</strong> ${escapeHtml(String(s.bracket))}</div>
+      <div style="display:flex; align-items:center; gap:16px; margin-bottom:12px;">
+        <div style="text-align:center;">
+          <div style="font-family:'Cinzel',Georgia,serif; font-size:28px; font-weight:700; color:var(--text-primary);">${s.commandSpark.toFixed(1)}</div>
+          <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:var(--gold);">Spark</div>
+        </div>
+        <div style="display:flex; gap:12px; flex:1; justify-content:space-around;">
+          ${chip('Speed', s.speed)}${chip('Consist.', s.consistency)}${chip('Versat.', s.versatility)}${chip('Disrupt.', s.disruption)}${chip('Power', s.powerLevel)}
+        </div>
+      </div>
+      <button class="ghost" data-action="open-chart" data-id="${escapeHtml(deck.id)}" style="width:100%; font-size:12.5px;">Open in Deck Chart →</button>
+      <div style="text-align:center; margin-top:8px;"><a href="${escapeHtml(deck.url)}" target="_blank" rel="noopener" style="font-size:11.5px; color:var(--text-soft); text-decoration:underline;">View original on ${escapeHtml(deck.platform === 'archidekt' ? 'Archidekt' : 'Moxfield')} ↗</a></div>
+    </div>
+  `;
 }
 
 function renderLinkedDecksList(modal, linkedDecks, isWelcome) {
@@ -19643,48 +19712,81 @@ function renderLinkedDecksList(modal, linkedDecks, isWelcome) {
     return;
   }
 
-  container.innerHTML = linkedDecks.map(d => `
-    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line);">
-      <div style="min-width:0;">
-        <a href="${escapeHtml(d.url)}" target="_blank" rel="noopener" style="color:var(--text-primary); text-decoration:none; border-bottom:1px dotted var(--text-soft); font-size:13.5px;">${escapeHtml(d.name)}</a>
-        <div style="font-size:11.5px; color:var(--text-soft); margin-top:2px;">${escapeHtml(d.platform === 'archidekt' ? 'Archidekt' : 'Moxfield')}${d.commander ? ` · ${escapeHtml(d.commander)}` : ''} · ${d.cardCount} cards</div>
+  container.innerHTML = linkedDecks.map(d => {
+    const isOpen = expandedLinkedDeckIds.has(d.id);
+    return `
+    <div style="border-bottom:1px solid var(--line);">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 0; cursor:pointer;" data-action="toggle" data-id="${escapeHtml(d.id)}">
+        <div style="min-width:0; display:flex; align-items:center; gap:8px;">
+          <span style="color:var(--gold); font-size:11px; transition:transform 0.15s ease; display:inline-block; transform:rotate(${isOpen ? '90' : '0'}deg);">▶</span>
+          <div>
+            <div style="font-size:13.5px; color:var(--text-primary);">${escapeHtml(d.name)}</div>
+            <div style="font-size:11.5px; color:var(--text-soft); margin-top:2px;">${escapeHtml(d.platform === 'archidekt' ? 'Archidekt' : 'Moxfield')}${d.commander ? ` · ${escapeHtml(d.commander)}` : ''} · ${d.cardCount} cards</div>
+          </div>
+        </div>
+        <div style="display:flex; gap:6px; flex-shrink:0;">
+          <button class="ghost" data-action="refresh" data-id="${escapeHtml(d.id)}" style="padding:5px 10px; font-size:12px;">Refresh</button>
+          <button class="ghost" data-action="remove" data-id="${escapeHtml(d.id)}" style="padding:5px 10px; font-size:12px; border-color:var(--danger); color:var(--danger);">Remove</button>
+        </div>
       </div>
-      <div style="display:flex; gap:6px; flex-shrink:0;">
-        <button class="ghost" data-action="load" data-id="${escapeHtml(d.id)}" style="padding:5px 10px; font-size:12px;">Load</button>
-        <button class="ghost" data-action="refresh" data-id="${escapeHtml(d.id)}" style="padding:5px 10px; font-size:12px;">Refresh</button>
-        <button class="ghost" data-action="remove" data-id="${escapeHtml(d.id)}" style="padding:5px 10px; font-size:12px; border-color:var(--danger); color:var(--danger);">Remove</button>
+      <div style="display:${isOpen ? 'block' : 'none'};" data-summary-for="${escapeHtml(d.id)}">
+        ${isOpen ? renderLinkedDeckSummary(d) : ''}
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 
-  container.querySelectorAll('button[data-action]').forEach(btn => {
-    const id = btn.getAttribute('data-id');
+  container.querySelectorAll('[data-action]').forEach(el => {
+    const id = el.getAttribute('data-id');
     const deck = linkedDecks.find(d => d.id === id);
-    btn.addEventListener('click', async () => {
-      const action = btn.getAttribute('data-action');
-      if (action === 'load') {
+    el.addEventListener('click', async (e) => {
+      const action = el.getAttribute('data-action');
+      if (action === 'toggle') {
+        if (expandedLinkedDeckIds.has(id)) expandedLinkedDeckIds.delete(id);
+        else expandedLinkedDeckIds.add(id);
+        renderLinkedDecksList(modal, linkedDecks, isWelcome);
+      } else if (action === 'open-chart') {
+        e.stopPropagation();
+        if (!dbReady) { showToast('Card database still loading — try again in a moment.'); return; }
         $('decklistInput').value = deck.decklistText;
         if (deck.commander) $('commanderInput').value = deck.commander;
         closeTryADeckModal();
-        showToast(`Loaded “${deck.name}” into the Decklist box.`);
+        setMode('single');
+        runAnalysis();
+        $('resultsSection').scrollIntoView({ behavior: 'smooth' });
       } else if (action === 'refresh') {
-        btn.disabled = true;
-        btn.textContent = '…';
-        const result = await window.PodmatesCloud.refreshLinkedDeck(id, deck.url);
-        if (result.ok) {
-          const refreshed = await window.PodmatesCloud.loadLinkedDecks();
-          renderLinkedDecksList(modal, refreshed, isWelcome);
-          showToast(`“${deck.name}” refreshed.`);
-        } else {
-          btn.disabled = false;
-          btn.textContent = 'Refresh';
-          showToast(`Could not refresh: ${result.error}`);
+        e.stopPropagation();
+        el.disabled = true;
+        el.textContent = '…';
+        try {
+          const result = await window.PodmatesCloud.refreshLinkedDeck(id, deck.url);
+          if (result.ok) {
+            linkedDeckSummaryCache.delete(id); // stale after a refresh -- recompute next expand
+            const refreshed = await window.PodmatesCloud.loadLinkedDecks();
+            renderLinkedDecksList(modal, refreshed, isWelcome);
+            showToast(`“${deck.name}” refreshed.`);
+          } else {
+            el.disabled = false;
+            el.textContent = 'Refresh';
+            showToast(`Could not refresh: ${result.error}`);
+          }
+        } catch (err) {
+          el.disabled = false;
+          el.textContent = 'Refresh';
+          showToast(`Could not refresh: ${err.message}`);
         }
       } else if (action === 'remove') {
+        e.stopPropagation();
         showConfirmModal(`Remove "${deck.name}" from your profile?`, async () => {
-          await window.PodmatesCloud.removeLinkedDeck(id);
-          const refreshed = await window.PodmatesCloud.loadLinkedDecks();
-          renderProfileModal(modal, refreshed, { welcome: isWelcome });
+          try {
+            await window.PodmatesCloud.removeLinkedDeck(id);
+            expandedLinkedDeckIds.delete(id);
+            linkedDeckSummaryCache.delete(id);
+            const refreshed = await window.PodmatesCloud.loadLinkedDecks();
+            renderProfileModal(modal, refreshed, { welcome: isWelcome });
+          } catch (err) {
+            showToast(`Could not remove this deck: ${err.message}`);
+          }
         });
       }
     });
