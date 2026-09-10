@@ -480,6 +480,12 @@
       <label style="font-size:12px; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-soft); min-width:90px;">Player</label>
       <input id="playerInput" type="text" placeholder="Required — e.g. Alex" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
     </div>
+    <div class="row" style="margin-bottom:14px; align-items:center; gap:8px; padding:10px; background:var(--bg-main); border:1px dashed var(--line); border-radius:5px;">
+      <label style="font-size:11.5px; letter-spacing:0.05em; text-transform:uppercase; color:var(--text-soft); white-space:nowrap;">Or paste a deck link</label>
+      <input id="deckLinkInput" type="text" placeholder="archidekt.com/decks/... or moxfield.com/decks/..." style="flex:1; background:var(--bg-panel); border:1px solid var(--line); border-radius:3px; padding:7px 9px; color:var(--text-primary); font-family:inherit; font-size:13px;">
+      <button id="deckLinkLoadBtn" class="ghost" style="padding:7px 14px; font-size:12.5px; white-space:nowrap;">Load Deck</button>
+    </div>
+    <div id="deckLinkStatus" style="font-size:12.5px; margin-bottom:10px;"></div>
     <textarea id="decklistInput" placeholder="1 Sol Ring
 1 Command Tower
 1 Swords to Plowshares
@@ -19567,36 +19573,28 @@ async function showProfileModal(opts) {
 
   modal.innerHTML = `<p style="text-align:center; color:var(--text-soft); font-size:13px;">Loading your profile…</p>`;
 
-  let profile = {};
-  try { profile = await window.PodmatesCloud.loadProfile(); } catch (e) { /* fine -- just start blank */ }
+  let linkedDecks = [];
+  try { linkedDecks = await window.PodmatesCloud.loadLinkedDecks(); } catch (e) { /* fine -- just start empty */ }
 
-  renderProfileModal(modal, profile, { archidekt: null, moxfield: null }, opts);
+  renderProfileModal(modal, linkedDecks, opts);
 }
 
-function renderProfileModal(modal, profile, syncResults, opts) {
+function renderProfileModal(modal, linkedDecks, opts) {
   const isWelcome = !!(opts && opts.welcome);
   modal.innerHTML = `
     <button class="tad-close" id="tadCloseBtn">Close ×</button>
     <h2 style="margin-bottom:4px;">${isWelcome ? 'Welcome! Set up your profile' : 'My Profile'}</h2>
     <p style="font-size:12.5px; color:var(--text-soft); margin:0 0 16px;">
       ${isWelcome
-        ? 'Optional — link Archidekt or Moxfield to pull in your decks automatically. Skip this and come back anytime from "My Profile."'
-        : 'Link Archidekt or Moxfield to pull in your decks automatically.'}
+        ? 'Optional — paste links to your Archidekt or Moxfield decks to add them here, ready to load anytime. Skip this and come back anytime from "My Profile."'
+        : 'Paste a link to an Archidekt or Moxfield deck to add it below.'}
     </p>
-    <div class="row" style="margin-bottom:10px; align-items:center;">
-      <label style="font-size:12px; letter-spacing:0.06em; text-transform:uppercase; color:var(--gold); min-width:90px;">Archidekt</label>
-      <input id="profileArchidekt" type="text" placeholder="Archidekt username" value="${escapeHtml(profile.archidektUsername || '')}" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
+    <div class="row" style="margin-bottom:14px; gap:8px; align-items:center;">
+      <input id="profileDeckLinkInput" type="text" placeholder="archidekt.com/decks/... or moxfield.com/decks/..." style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
+      <button id="profileAddDeckBtn" class="ghost" style="white-space:nowrap;">Add Deck</button>
     </div>
-    <div class="row" style="margin-bottom:14px; align-items:center;">
-      <label style="font-size:12px; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-soft); min-width:90px;">Moxfield</label>
-      <input id="profileMoxfield" type="text" placeholder="Moxfield username" value="${escapeHtml(profile.moxfieldUsername || '')}" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
-    </div>
-    <div class="row" style="margin-bottom:14px; gap:10px;">
-      <button id="profileFetchBtn" class="ghost">Fetch My Decks</button>
-      <button id="profileSaveBtn">Save Profile</button>
-    </div>
-    <div id="profileSyncStatus" style="font-size:12.5px; color:var(--text-soft); margin-bottom:10px;"></div>
-    <div id="profileDeckResults"></div>
+    <div id="profileSyncStatus" style="font-size:12.5px; margin-bottom:12px;"></div>
+    <div id="profileLinkedDecks" style="margin-bottom:10px;"></div>
     ${isWelcome ? `<p style="text-align:center; margin-top:10px;"><a href="#" id="profileSkipLink" style="font-size:12.5px; color:var(--text-soft); text-decoration:underline;">Skip for now</a></p>` : ''}
   `;
 
@@ -19604,68 +19602,93 @@ function renderProfileModal(modal, profile, syncResults, opts) {
   const skipLink = document.getElementById('profileSkipLink');
   if (skipLink) skipLink.addEventListener('click', (e) => { e.preventDefault(); closeTryADeckModal(); });
 
-  renderDeckResults(syncResults);
+  renderLinkedDecksList(modal, linkedDecks, isWelcome);
 
-  document.getElementById('profileFetchBtn').addEventListener('click', async () => {
-    const archidektUsername = (document.getElementById('profileArchidekt').value || '').trim();
-    const moxfieldUsername = (document.getElementById('profileMoxfield').value || '').trim();
+  document.getElementById('profileAddDeckBtn').addEventListener('click', async () => {
+    const input = document.getElementById('profileDeckLinkInput');
     const statusEl = document.getElementById('profileSyncStatus');
-    if (!archidektUsername && !moxfieldUsername) {
-      statusEl.textContent = 'Enter at least one username above first.';
-      return;
-    }
-    const btn = document.getElementById('profileFetchBtn');
-    btn.disabled = true;
-    btn.textContent = 'Fetching…';
-    statusEl.textContent = 'Checking Archidekt and Moxfield…';
+    const url = (input.value || '').trim();
+    if (!url) { statusEl.textContent = 'Paste a deck link first.'; statusEl.className = 'status err'; return; }
 
-    const [archidektResult, moxfieldResult] = await Promise.all([
-      archidektUsername ? window.PodmatesCloud.fetchExternalDecks('archidekt', archidektUsername) : Promise.resolve(null),
-      moxfieldUsername ? window.PodmatesCloud.fetchExternalDecks('moxfield', moxfieldUsername) : Promise.resolve(null),
-    ]);
+    const btn = document.getElementById('profileAddDeckBtn');
+    btn.disabled = true;
+    btn.textContent = 'Adding…';
+    statusEl.textContent = '';
+
+    const result = await window.PodmatesCloud.addLinkedDeck(url);
 
     btn.disabled = false;
-    btn.textContent = 'Fetch My Decks';
-    statusEl.textContent = '';
-    renderDeckResults({ archidekt: archidektResult, moxfield: moxfieldResult });
-  });
+    btn.textContent = 'Add Deck';
 
-  document.getElementById('profileSaveBtn').addEventListener('click', async () => {
-    const archidektUsername = (document.getElementById('profileArchidekt').value || '').trim();
-    const moxfieldUsername = (document.getElementById('profileMoxfield').value || '').trim();
-    const btn = document.getElementById('profileSaveBtn');
-    const statusEl = document.getElementById('profileSyncStatus');
-    btn.disabled = true;
-    btn.textContent = 'Saving…';
-    try {
-      await window.PodmatesCloud.saveProfile({ archidektUsername, moxfieldUsername });
-      closeTryADeckModal();
-      showToast('Profile saved.');
-    } catch (e) {
-      statusEl.textContent = 'Could not save profile: ' + e.message;
-      btn.disabled = false;
-      btn.textContent = 'Save Profile';
+    if (!result.ok) {
+      statusEl.textContent = result.error;
+      statusEl.className = 'status err';
+      return;
     }
+    input.value = '';
+    statusEl.textContent = `Added “${result.deck.name}.”`;
+    statusEl.className = 'status';
+    const refreshed = await window.PodmatesCloud.loadLinkedDecks();
+    renderLinkedDecksList(modal, refreshed, isWelcome);
   });
 }
 
-function renderDeckResults(results) {
-  const el = document.getElementById('profileDeckResults');
-  if (!el) return;
-  let html = '';
-  const sources = [['Archidekt', results.archidekt], ['Moxfield', results.moxfield]];
-  for (const [label, result] of sources) {
-    if (!result) continue;
-    if (result.ok) {
-      html += `<div style="margin-bottom:14px;">
-        <div style="font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold); margin-bottom:6px;">${label} — ${result.decks.length} deck${result.decks.length === 1 ? '' : 's'} found</div>
-        ${result.decks.length ? result.decks.map(d => `<div style="font-size:13px; margin-bottom:4px;"><a href="${escapeHtml(d.url)}" target="_blank" rel="noopener" style="color:var(--text-primary); text-decoration:none; border-bottom:1px dotted var(--text-soft);">${escapeHtml(d.name)}</a>${d.format ? ` <span style="color:var(--text-soft);">(${escapeHtml(d.format)})</span>` : ''}</div>`).join('') : `<div style="font-size:13px; color:var(--text-soft);">No public decks found for that username.</div>`}
-      </div>`;
-    } else {
-      html += `<div style="margin-bottom:14px; font-size:12.5px; color:var(--danger);">${label}: ${escapeHtml(result.error)}</div>`;
-    }
+function renderLinkedDecksList(modal, linkedDecks, isWelcome) {
+  const el = modal.querySelector ? modal.querySelector('#profileLinkedDecks') : document.getElementById('profileLinkedDecks');
+  const container = el || document.getElementById('profileLinkedDecks');
+  if (!container) return;
+
+  if (!linkedDecks.length) {
+    container.innerHTML = `<div style="font-size:13px; color:var(--text-soft);">No decks added yet.</div>`;
+    return;
   }
-  el.innerHTML = html;
+
+  container.innerHTML = linkedDecks.map(d => `
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line);">
+      <div style="min-width:0;">
+        <a href="${escapeHtml(d.url)}" target="_blank" rel="noopener" style="color:var(--text-primary); text-decoration:none; border-bottom:1px dotted var(--text-soft); font-size:13.5px;">${escapeHtml(d.name)}</a>
+        <div style="font-size:11.5px; color:var(--text-soft); margin-top:2px;">${escapeHtml(d.platform === 'archidekt' ? 'Archidekt' : 'Moxfield')}${d.commander ? ` · ${escapeHtml(d.commander)}` : ''} · ${d.cardCount} cards</div>
+      </div>
+      <div style="display:flex; gap:6px; flex-shrink:0;">
+        <button class="ghost" data-action="load" data-id="${escapeHtml(d.id)}" style="padding:5px 10px; font-size:12px;">Load</button>
+        <button class="ghost" data-action="refresh" data-id="${escapeHtml(d.id)}" style="padding:5px 10px; font-size:12px;">Refresh</button>
+        <button class="ghost" data-action="remove" data-id="${escapeHtml(d.id)}" style="padding:5px 10px; font-size:12px; border-color:var(--danger); color:var(--danger);">Remove</button>
+      </div>
+    </div>
+  `).join('');
+
+  container.querySelectorAll('button[data-action]').forEach(btn => {
+    const id = btn.getAttribute('data-id');
+    const deck = linkedDecks.find(d => d.id === id);
+    btn.addEventListener('click', async () => {
+      const action = btn.getAttribute('data-action');
+      if (action === 'load') {
+        $('decklistInput').value = deck.decklistText;
+        if (deck.commander) $('commanderInput').value = deck.commander;
+        closeTryADeckModal();
+        showToast(`Loaded “${deck.name}” into the Decklist box.`);
+      } else if (action === 'refresh') {
+        btn.disabled = true;
+        btn.textContent = '…';
+        const result = await window.PodmatesCloud.refreshLinkedDeck(id, deck.url);
+        if (result.ok) {
+          const refreshed = await window.PodmatesCloud.loadLinkedDecks();
+          renderLinkedDecksList(modal, refreshed, isWelcome);
+          showToast(`“${deck.name}” refreshed.`);
+        } else {
+          btn.disabled = false;
+          btn.textContent = 'Refresh';
+          showToast(`Could not refresh: ${result.error}`);
+        }
+      } else if (action === 'remove') {
+        showConfirmModal(`Remove "${deck.name}" from your profile?`, async () => {
+          await window.PodmatesCloud.removeLinkedDeck(id);
+          const refreshed = await window.PodmatesCloud.loadLinkedDecks();
+          renderProfileModal(modal, refreshed, { welcome: isWelcome });
+        });
+      }
+    });
+  });
 }
 
 function updateAuthBar(user) {
@@ -22325,6 +22348,36 @@ if (authSignOutBtn) authSignOutBtn.addEventListener('click', () => {
     showToast('Signed out.');
   });
 });
+
+const deckLinkLoadBtn = $('deckLinkLoadBtn');
+if (deckLinkLoadBtn) deckLinkLoadBtn.addEventListener('click', async () => {
+  const input = $('deckLinkInput');
+  const statusEl = $('deckLinkStatus');
+  const url = (input.value || '').trim();
+  if (!url) { statusEl.textContent = 'Paste an Archidekt or Moxfield deck link first.'; statusEl.className = 'status err'; return; }
+  if (!window.PodmatesCloud) { statusEl.textContent = 'Still connecting -- try again in a moment.'; statusEl.className = 'status err'; return; }
+
+  deckLinkLoadBtn.disabled = true;
+  deckLinkLoadBtn.textContent = 'Loading…';
+  statusEl.textContent = '';
+
+  const result = await window.PodmatesCloud.fetchDeckByLink(url);
+
+  deckLinkLoadBtn.disabled = false;
+  deckLinkLoadBtn.textContent = 'Load Deck';
+
+  if (!result.ok) {
+    statusEl.textContent = result.error;
+    statusEl.className = 'status err';
+    return;
+  }
+
+  const d = result.deck;
+  $('decklistInput').value = d.decklistText;
+  if (d.commander) $('commanderInput').value = d.commander;
+  statusEl.textContent = `Loaded “${d.name}” — ${d.cardCount} cards${d.commander ? `, commander: ${d.commander}` : ' (commander not auto-detected — enter it above if needed)'}.`;
+  statusEl.className = 'status';
+});
 </script>
 
 <!-- ============================================================
@@ -22544,13 +22597,13 @@ if (authSignOutBtn) authSignOutBtn.addEventListener('click', () => {
     return out;
   }
 
-  // --- Profile (display name + linked Archidekt/Moxfield usernames) ---
+  // --- Profile (display name only now -- usernames replaced by linked
+  // deck-by-link below, since neither Archidekt nor Moxfield has a
+  // reliable "list decks by username" API) ---------------------------
 
   async function saveProfile(profile) {
     if (!currentUser) throw new Error('Not signed in yet');
     await setDoc(doc(db, 'users', currentUser.uid), {
-      archidektUsername: profile.archidektUsername || '',
-      moxfieldUsername: profile.moxfieldUsername || '',
       updatedAt: serverTimestamp(),
     }, { merge: true });
   }
@@ -22561,22 +22614,68 @@ if (authSignOutBtn) authSignOutBtn.addEventListener('click', () => {
     return snap.exists() ? snap.data() : {};
   }
 
-  // --- Archidekt/Moxfield deck sync, via the Cloudflare Worker --------
+  // --- Deck-by-link fetching, via the Cloudflare Worker ---------------
   // Runs server-side (see worker.js) since neither site reliably allows a
-  // request made directly from another website's own browser code.
+  // request made directly from another website's own browser code. Given
+  // a specific deck link (not a username -- see build notes on why), the
+  // Worker returns that one deck's full card list as plain decklist text.
 
   const SYNC_WORKER_URL = 'https://spring-unit-49d9.anthony-ef7.workers.dev/';
 
-  async function fetchExternalDecks(source, username) {
-    if (!username) return { ok: false, error: 'No username provided.' };
+  async function fetchDeckByLink(deckUrl) {
+    if (!deckUrl) return { ok: false, error: 'No deck link provided.' };
     try {
-      const res = await fetch(`${SYNC_WORKER_URL}?source=${encodeURIComponent(source)}&username=${encodeURIComponent(username)}`);
+      const res = await fetch(`${SYNC_WORKER_URL}?deckUrl=${encodeURIComponent(deckUrl)}`);
       const data = await res.json();
-      if (!res.ok) return { ok: false, error: data.error || `Request failed (status ${res.status}).`, detail: data };
-      return { ok: true, decks: data.decks || [] };
+      if (!res.ok) return { ok: false, error: data.error || `Request failed (status ${res.status}).` };
+      return { ok: true, deck: data };
     } catch (err) {
       return { ok: false, error: 'Could not reach the sync service: ' + err.message };
     }
+  }
+
+  // --- Linked decks (profile-level list of decks added by pasted link,
+  // separate from the "My Saved Decks" browser-local list) ------------
+
+  async function addLinkedDeck(deckUrl) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    const result = await fetchDeckByLink(deckUrl);
+    if (!result.ok) return result;
+    const d = result.deck;
+    const id = `${d.platform}-${d.deckId}`;
+    await setDoc(doc(db, 'users', currentUser.uid, 'linkedDecks', id), {
+      platform: d.platform, deckId: d.deckId, url: d.url, name: d.name,
+      commander: d.commander, decklistText: d.decklistText, cardCount: d.cardCount,
+      addedAt: Date.now(), syncedAt: Date.now(),
+    });
+    return { ok: true, deck: d, id };
+  }
+
+  async function refreshLinkedDeck(id, deckUrl) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    const result = await fetchDeckByLink(deckUrl);
+    if (!result.ok) return result;
+    const d = result.deck;
+    await setDoc(doc(db, 'users', currentUser.uid, 'linkedDecks', id), {
+      platform: d.platform, deckId: d.deckId, url: d.url, name: d.name,
+      commander: d.commander, decklistText: d.decklistText, cardCount: d.cardCount,
+      syncedAt: Date.now(),
+    }, { merge: true });
+    return { ok: true, deck: d };
+  }
+
+  async function removeLinkedDeck(id) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    await deleteDoc(doc(db, 'users', currentUser.uid, 'linkedDecks', id));
+  }
+
+  async function loadLinkedDecks() {
+    if (!currentUser) throw new Error('Not signed in yet');
+    const snap = await getDocs(collection(db, 'users', currentUser.uid, 'linkedDecks'));
+    const out = [];
+    snap.forEach(docSnap => out.push({ id: docSnap.id, ...docSnap.data() }));
+    out.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+    return out;
   }
 
   window.PodmatesCloud = {
@@ -22593,7 +22692,7 @@ if (authSignOutBtn) authSignOutBtn.addEventListener('click', () => {
     deleteDeck: cloudDeleteDeck,
     loadAllDecks: cloudLoadAllDecks,
     saveProfile, loadProfile,
-    fetchExternalDecks,
+    fetchDeckByLink, addLinkedDeck, refreshLinkedDeck, removeLinkedDeck, loadLinkedDecks,
   };
 
   // Scripts loaded with type="module" (required for Firebase's import
