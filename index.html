@@ -405,6 +405,7 @@
     <span id="authStatusText"></span>
     <button id="authOpenBtn" class="ghost" style="padding:4px 10px; font-size:12px; display:none;">Sign In</button>
     <button id="authProfileBtn" class="ghost" style="padding:4px 10px; font-size:12px; display:none;">My Profile</button>
+    <button id="authPodBtn" class="ghost" style="padding:4px 10px; font-size:12px; display:none;">My Pod</button>
     <button id="authSignOutBtn" class="ghost" style="padding:4px 10px; font-size:12px; display:none;">Sign Out</button>
   </div>
   <header>
@@ -19507,7 +19508,7 @@ function renderAuthModal(modal, errorMsg) {
     if (result.ok) {
       closeTryADeckModal();
       showToast(result.switchedToExisting
-        ? `Welcome back, ${result.user.displayName || result.user.email}. Decks saved earlier in this guest session weren’t moved to this account automatically — re-save them now if you’d like to keep them.`
+        ? `Welcome back, ${result.user.displayName || result.user.email} — you already had an account, so we logged you in instead of creating a new one.`
         : `Signed in as ${result.user.displayName || result.user.email}.`);
       if (isSignup && !result.switchedToExisting) showProfileModal({ welcome: true });
     } else {
@@ -19521,10 +19522,8 @@ function renderAuthModal(modal, errorMsg) {
     const result = await window.PodmatesCloud.signInWithGoogle();
     if (result.ok) {
       closeTryADeckModal();
-      showToast(result.switchedToExisting
-        ? `Welcome back, ${result.user.displayName || result.user.email}. Decks saved earlier in this guest session weren’t moved to this account automatically — re-save them now if you’d like to keep them.`
-        : `Signed in as ${result.user.displayName || result.user.email}.`);
-      if (!result.switchedToExisting) showProfileModal({ welcome: true });
+      showToast(`Signed in as ${result.user.displayName || result.user.email}.`);
+      showProfileModal({ welcome: true });
     } else {
       renderAuthModal(modal, result.error);
     }
@@ -19547,6 +19546,21 @@ function showToast(message) {
   toast.style.display = 'block';
   clearTimeout(toast._hideTimer);
   toast._hideTimer = setTimeout(() => { toast.style.display = 'none'; }, 6000);
+}
+
+// Every save-related action in the app funnels through this one check.
+// PodMates' policy: charting/analyzing a deck is always free and requires
+// nothing, but saving anything at all -- a deck, a linked Archidekt/
+// Moxfield import, a pod -- requires a real account. There is no local or
+// anonymous fallback anymore. Returns true if the caller may proceed;
+// otherwise shows the reminder and opens sign-up, and the caller should
+// stop right there.
+function requireAccountToSave(what) {
+  const user = window.PodmatesCloud && window.PodmatesCloud.user;
+  if (user) return true;
+  showToast(`Sign up or log in to save ${what || 'your progress'} — using PodMates to chart decks stays free either way.`);
+  showAuthModal();
+  return false;
 }
 
 // ============================================================
@@ -19793,18 +19807,359 @@ function renderLinkedDecksList(modal, linkedDecks, isWelcome) {
   });
 }
 
+// ============================================================
+// PODS — create/join, members, leader controls, invite links
+// ============================================================
+// Reachable only by real (non-anonymous) accounts, same reasoning as the
+// Profile Builder: a per-browser guest identity can't meaningfully belong
+// to a persistent group. A player can belong to more than one pod; a
+// switcher appears once they're in more than one.
+
+let currentPodViewId = null; // which pod is showing in the modal right now
+let pendingJoinCode = null;  // set from a ?join=CODE link before sign-in completes
+
+function getInviteLink(code) {
+  return `${window.location.origin}${window.location.pathname}?join=${code}`;
+}
+
+async function showPodModal(opts) {
+  if (!window.PodmatesCloud) return;
+  injectTryADeckStyles();
+  closeTryADeckModal();
+  const overlay = document.createElement('div');
+  overlay.className = 'tad-overlay';
+  overlay.id = 'tadOverlay';
+  const modal = document.createElement('div');
+  modal.className = 'tad-modal';
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
+
+  modal.innerHTML = `<p style="text-align:center; color:var(--text-soft); font-size:13px;">Loading your pods…</p>`;
+
+  let pods = [];
+  try { pods = await window.PodmatesCloud.loadMyPods(); } catch (e) { /* fine -- just start empty */ }
+
+  if (opts && opts.focusPodId) currentPodViewId = opts.focusPodId;
+  if (!currentPodViewId || !pods.some(p => p.id === currentPodViewId)) {
+    currentPodViewId = pods.length ? pods[0].id : null;
+  }
+
+  await renderPodModal(modal, pods);
+}
+
+async function renderPodModal(modal, pods) {
+  if (!pods.length) {
+    renderNoPodsView(modal);
+    return;
+  }
+  await renderPodDetailView(modal, pods);
+}
+
+function renderNoPodsView(modal) {
+  modal.innerHTML = `
+    <button class="tad-close" id="tadCloseBtn">Close ×</button>
+    <h2 style="margin-bottom:4px;">My Pod</h2>
+    <p style="font-size:12.5px; color:var(--text-soft); margin:0 0 18px;">You're not in a pod yet. Start one, or join one with an invite link.</p>
+    <div style="margin-bottom:20px;">
+      <div style="font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold); margin-bottom:8px;">Create a Pod</div>
+      <div class="row" style="gap:8px;">
+        <input id="podCreateNameInput" type="text" placeholder="Pod name (e.g. Thursday Night Crew)" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
+        <button id="podCreateBtn" style="white-space:nowrap;">Create</button>
+      </div>
+    </div>
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:20px;">
+      <div style="flex:1; height:1px; background:var(--line);"></div>
+      <span style="font-size:11.5px; color:var(--text-soft);">or</span>
+      <div style="flex:1; height:1px; background:var(--line);"></div>
+    </div>
+    <div>
+      <div style="font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold); margin-bottom:8px;">Join a Pod</div>
+      <div class="row" style="gap:8px;">
+        <input id="podJoinCodeInput" type="text" placeholder="Paste an invite link or code" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
+        <button id="podJoinBtn" class="ghost" style="white-space:nowrap;">Join</button>
+      </div>
+    </div>
+    <div id="podModalStatus" style="font-size:12.5px; margin-top:14px;"></div>
+  `;
+
+  document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
+
+  document.getElementById('podCreateBtn').addEventListener('click', async () => {
+    const nameInput = document.getElementById('podCreateNameInput');
+    const statusEl = document.getElementById('podModalStatus');
+    const btn = document.getElementById('podCreateBtn');
+    btn.disabled = true;
+    btn.textContent = 'Creating…';
+    try {
+      const result = await window.PodmatesCloud.createPod(nameInput.value);
+      currentPodViewId = result.podId;
+      const pods = await window.PodmatesCloud.loadMyPods();
+      await renderPodModal(modal, pods);
+      showToast(`"${(nameInput.value || 'My Pod').trim() || 'My Pod'}" created.`);
+    } catch (e) {
+      statusEl.textContent = 'Could not create the pod: ' + e.message;
+      statusEl.className = 'status err';
+      btn.disabled = false;
+      btn.textContent = 'Create';
+    }
+  });
+
+  document.getElementById('podJoinBtn').addEventListener('click', async () => {
+    const codeInput = document.getElementById('podJoinCodeInput');
+    const statusEl = document.getElementById('podModalStatus');
+    const btn = document.getElementById('podJoinBtn');
+    const rawInput = (codeInput.value || '').trim();
+    if (!rawInput) { statusEl.textContent = 'Paste an invite link or code first.'; statusEl.className = 'status err'; return; }
+    // Accept either a bare code or a full invite link -- pull the code back
+    // out of the link's ?join= parameter if that's what was pasted.
+    let code = rawInput;
+    try {
+      const asUrl = new URL(rawInput);
+      const fromQuery = asUrl.searchParams.get('join');
+      if (fromQuery) code = fromQuery;
+    } catch (e) { /* not a URL -- treat the whole input as the code itself */ }
+
+    btn.disabled = true;
+    btn.textContent = 'Joining…';
+    try {
+      const result = await window.PodmatesCloud.joinPodByInviteCode(code);
+      if (!result.ok) {
+        statusEl.textContent = result.error;
+        statusEl.className = 'status err';
+        btn.disabled = false;
+        btn.textContent = 'Join';
+        return;
+      }
+      currentPodViewId = result.podId;
+      const pods = await window.PodmatesCloud.loadMyPods();
+      await renderPodModal(modal, pods);
+      showToast(`Joined "${result.podName}."`);
+    } catch (e) {
+      statusEl.textContent = 'Could not join: ' + e.message;
+      statusEl.className = 'status err';
+      btn.disabled = false;
+      btn.textContent = 'Join';
+    }
+  });
+}
+
+async function renderPodDetailView(modal, pods) {
+  const pod = pods.find(p => p.id === currentPodViewId) || pods[0];
+  currentPodViewId = pod.id;
+
+  modal.innerHTML = `<p style="text-align:center; color:var(--text-soft); font-size:13px;">Loading members…</p>`;
+  let members = [];
+  try { members = await window.PodmatesCloud.loadPodMembers(pod.id); } catch (e) { /* fine -- render with an empty list */ }
+
+  const myUid = window.PodmatesCloud.uid;
+  const myRole = (members.find(m => m.uid === myUid) || {}).role || 'member';
+  const isLeader = myRole === 'leader';
+  const isCoLeader = myRole === 'co-leader';
+  const canManage = isLeader || isCoLeader;
+
+  const switcherHtml = pods.length > 1 ? `
+    <select id="podSwitcher" style="background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:6px 8px; color:var(--text-primary); font-family:inherit; font-size:13px; margin-bottom:14px;">
+      ${pods.map(p => `<option value="${escapeHtml(p.id)}" ${p.id === pod.id ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join('')}
+    </select>
+  ` : '';
+
+  modal.innerHTML = `
+    <button class="tad-close" id="tadCloseBtn">Close ×</button>
+    ${switcherHtml}
+    <h2 style="margin-bottom:4px;">${escapeHtml(pod.name)}</h2>
+    <p style="font-size:11.5px; color:var(--text-soft); margin:0 0 16px;">${members.length} member${members.length === 1 ? '' : 's'} · you're ${isLeader ? 'the leader' : isCoLeader ? 'a co-leader' : 'a member'}</p>
+
+    <div style="margin-bottom:18px;">
+      <div style="font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold); margin-bottom:8px;">Invite Link</div>
+      <div class="row" style="gap:8px;">
+        <input id="podInviteLinkField" type="text" readonly value="${escapeHtml(getInviteLink(pod.inviteCode))}" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:7px 9px; color:var(--text-soft); font-family:inherit; font-size:12.5px;">
+        <button id="podCopyInviteBtn" class="ghost" style="white-space:nowrap; font-size:12px;">Copy</button>
+      </div>
+    </div>
+
+    <div style="margin-bottom:14px;">
+      <div style="font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold); margin-bottom:8px;">Members</div>
+      <div id="podMembersList"></div>
+    </div>
+
+    ${canManage ? `
+    <details style="margin-top:16px; padding-top:14px; border-top:1px solid var(--line);">
+      <summary style="cursor:pointer; color:var(--gold); font-weight:600; font-size:13px;">Pod Settings</summary>
+      <div style="margin-top:12px;">
+        <div class="row" style="gap:8px; margin-bottom:10px;">
+          <input id="podRenameInput" type="text" placeholder="Rename pod" value="${escapeHtml(pod.name)}" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:7px 9px; color:var(--text-primary); font-family:inherit; font-size:13px;">
+          <button id="podRenameBtn" class="ghost" style="font-size:12px;">Rename</button>
+        </div>
+        <button id="podRegenerateBtn" class="ghost" style="width:100%; margin-bottom:10px; font-size:12.5px;">Regenerate Invite Link</button>
+        ${isLeader ? `<button id="podDeleteBtn" class="ghost" style="width:100%; border-color:var(--danger); color:var(--danger); font-size:12.5px;">Delete Pod</button>` : ''}
+      </div>
+    </details>` : ''}
+
+    <p style="text-align:center; margin-top:18px;"><a href="#" id="podLeaveLink" style="font-size:12.5px; color:var(--danger); text-decoration:underline;">Leave this pod</a></p>
+    <p style="text-align:center; margin-top:6px;"><a href="#" id="podAnotherLink" style="font-size:12px; color:var(--text-soft); text-decoration:underline;">Create or join another pod</a></p>
+  `;
+
+  document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
+
+  const switcher = document.getElementById('podSwitcher');
+  if (switcher) switcher.addEventListener('change', async () => {
+    currentPodViewId = switcher.value;
+    await renderPodDetailView(modal, pods);
+  });
+
+  document.getElementById('podCopyInviteBtn').addEventListener('click', () => {
+    const field = document.getElementById('podInviteLinkField');
+    field.select();
+    try { document.execCommand('copy'); showToast('Invite link copied.'); }
+    catch (e) { showToast('Could not copy automatically -- select and copy the link manually.'); }
+  });
+
+  document.getElementById('podAnotherLink').addEventListener('click', (e) => {
+    e.preventDefault();
+    renderNoPodsView(modal);
+  });
+
+  document.getElementById('podLeaveLink').addEventListener('click', (e) => {
+    e.preventDefault();
+    if (isLeader && members.length > 1) {
+      showToast('As the leader, hand off leadership to someone else before leaving -- see Pod Settings.');
+      return;
+    }
+    showConfirmModal(`Leave "${pod.name}"?`, async () => {
+      try {
+        await window.PodmatesCloud.leavePod(pod.id);
+        currentPodViewId = null;
+        const refreshed = await window.PodmatesCloud.loadMyPods();
+        await renderPodModal(modal, refreshed);
+        showToast(`Left "${pod.name}."`);
+      } catch (err) {
+        showToast('Could not leave the pod: ' + err.message);
+      }
+    });
+  });
+
+  if (canManage) {
+    document.getElementById('podRenameBtn').addEventListener('click', async () => {
+      const input = document.getElementById('podRenameInput');
+      try {
+        await window.PodmatesCloud.renamePod(pod.id, input.value);
+        const refreshed = await window.PodmatesCloud.loadMyPods();
+        await renderPodModal(modal, refreshed);
+        showToast('Pod renamed.');
+      } catch (err) {
+        showToast('Could not rename: ' + err.message);
+      }
+    });
+
+    document.getElementById('podRegenerateBtn').addEventListener('click', () => {
+      showConfirmModal('Regenerate the invite link? The old link will stop working immediately.', async () => {
+        try {
+          await window.PodmatesCloud.regenerateInviteCode(pod.id);
+          const refreshed = await window.PodmatesCloud.loadMyPods();
+          await renderPodModal(modal, refreshed);
+          showToast('New invite link generated.');
+        } catch (err) {
+          showToast('Could not regenerate: ' + err.message);
+        }
+      });
+    });
+
+    const deleteBtn = document.getElementById('podDeleteBtn');
+    if (deleteBtn) deleteBtn.addEventListener('click', () => {
+      showConfirmModal(`Delete "${pod.name}" for everyone? This removes all ${members.length} member${members.length === 1 ? '' : 's'} and cannot be undone.`, async () => {
+        try {
+          await window.PodmatesCloud.deletePod(pod.id);
+          currentPodViewId = null;
+          const refreshed = await window.PodmatesCloud.loadMyPods();
+          await renderPodModal(modal, refreshed);
+          showToast(`"${pod.name}" deleted.`);
+        } catch (err) {
+          showToast('Could not delete the pod: ' + err.message);
+        }
+      });
+    });
+  }
+
+  renderPodMembersList(modal, pod, members, myUid, canManage, isLeader);
+}
+
+function renderPodMembersList(modal, pod, members, myUid, canManage, isLeader) {
+  const container = document.getElementById('podMembersList');
+  if (!container) return;
+
+  container.innerHTML = members.map(m => `
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--line);">
+      <div style="min-width:0;">
+        <span style="font-size:13.5px; color:var(--text-primary);">${escapeHtml(m.displayName || 'Player')}</span>
+        ${m.uid === myUid ? '<span style="font-size:11px; color:var(--text-soft);"> (you)</span>' : ''}
+        <div style="font-size:11px; color:var(--gold); text-transform:uppercase; letter-spacing:0.04em; margin-top:1px;">${escapeHtml(m.role || 'member')}</div>
+      </div>
+      ${(canManage && m.uid !== myUid && m.role !== 'leader') ? `
+        <div style="display:flex; gap:6px; flex-shrink:0;">
+          ${m.role !== 'co-leader' ? `<button class="ghost" data-action="promote" data-uid="${escapeHtml(m.uid)}" style="padding:4px 8px; font-size:11px;">Promote</button>` : ''}
+          ${isLeader ? `<button class="ghost" data-action="transfer" data-uid="${escapeHtml(m.uid)}" style="padding:4px 8px; font-size:11px;">Make Leader</button>` : ''}
+          <button class="ghost" data-action="remove" data-uid="${escapeHtml(m.uid)}" style="padding:4px 8px; font-size:11px; border-color:var(--danger); color:var(--danger);">Remove</button>
+        </div>
+      ` : ''}
+    </div>
+  `).join('');
+
+  container.querySelectorAll('button[data-action]').forEach(btn => {
+    const uid = btn.getAttribute('data-uid');
+    const member = members.find(m => m.uid === uid);
+    btn.addEventListener('click', async () => {
+      const action = btn.getAttribute('data-action');
+      if (action === 'promote') {
+        try {
+          await window.PodmatesCloud.promoteToCoLeader(pod.id, uid);
+          const refreshedMembers = await window.PodmatesCloud.loadPodMembers(pod.id);
+          renderPodMembersList(modal, pod, refreshedMembers, myUid, canManage, isLeader);
+          showToast(`${member.displayName} is now a co-leader.`);
+        } catch (err) {
+          showToast('Could not promote: ' + err.message);
+        }
+      } else if (action === 'transfer') {
+        showConfirmModal(`Make ${member.displayName} the pod leader? You'll become a co-leader.`, async () => {
+          try {
+            await window.PodmatesCloud.transferLeadership(pod.id, uid);
+            const pods = await window.PodmatesCloud.loadMyPods();
+            await renderPodModal(modal, pods);
+            showToast(`${member.displayName} is now the leader.`);
+          } catch (err) {
+            showToast('Could not transfer leadership: ' + err.message);
+          }
+        });
+      } else if (action === 'remove') {
+        showConfirmModal(`Remove ${member.displayName} from "${pod.name}"?`, async () => {
+          try {
+            await window.PodmatesCloud.removePodMember(pod.id, uid);
+            const refreshedMembers = await window.PodmatesCloud.loadPodMembers(pod.id);
+            renderPodMembersList(modal, pod, refreshedMembers, myUid, canManage, isLeader);
+            showToast(`${member.displayName} removed.`);
+          } catch (err) {
+            showToast('Could not remove this member: ' + err.message);
+          }
+        });
+      }
+    });
+  });
+}
+
 function updateAuthBar(user) {
   const statusText = $('authStatusText');
   const openBtn = $('authOpenBtn');
   const profileBtn = $('authProfileBtn');
+  const podBtn = $('authPodBtn');
   const signOutBtn = $('authSignOutBtn');
-  if (!statusText || !openBtn || !profileBtn || !signOutBtn) return;
+  if (!statusText || !openBtn || !profileBtn || !podBtn || !signOutBtn) return;
   const signedInForReal = user && !user.isAnonymous;
   statusText.textContent = signedInForReal
     ? `Signed in as ${user.displayName || user.email}`
     : 'Playing as guest';
   openBtn.style.display = signedInForReal ? 'none' : 'inline-block';
   profileBtn.style.display = signedInForReal ? 'inline-block' : 'none';
+  podBtn.style.display = signedInForReal ? 'inline-block' : 'none';
   signOutBtn.style.display = signedInForReal ? 'inline-block' : 'none';
 }
 
@@ -20363,7 +20718,7 @@ function signatureOfGroup(group) {
 // decks use, so a candidate group's overlap with a recent night can be
 // measured directly.
 function getRecentChronicleKeySets(limit) {
-  const chronicles = getChroniclesWithIds();
+  const chronicles = loadMatches();
   return [...chronicles]
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
     .slice(0, limit || 10)
@@ -20766,23 +21121,32 @@ function podRosterFinalizeChart() {
   runPodAnalysis();
 }
 
-function podRosterSave() {
+async function podRosterSave() {
   const nameInput = $('podRosterNameInput');
   const name = nameInput ? nameInput.value.trim() : '';
   if (!name) { setPodStatus('Give the Pod a name first.', true); return; }
   if (podRosterDraftPlayers.length < 2) { setPodStatus('Add at least 2 players before saving.', true); return; }
-  const rosters = loadPodRosters();
-  // Editing an existing roster under a new name shouldn't leave the old entry behind.
-  if (podRosterDraftEditing && podRosterDraftEditing !== name) delete rosters[podRosterDraftEditing];
-  rosters[name] = { name, players: [...podRosterDraftPlayers], savedAt: Date.now() };
-  savePodRosters(rosters);
-  activePodRoster = rosters[name];
-  podRosterPresentDraft = []; epicMatchupShown = new Set(); // reset both so presence AND reroll-exclusion start fresh for THIS pod, not a stale one
-  podRosterUIState = 'active';
-  podRosterDraftPlayers = [];
-  podRosterDraftEditing = null;
-  setPodStatus(`Saved Pod "${name}" with ${rosters[name].players.length} players.`);
-  renderPodRosterPanel();
+  if (!requireAccountToSave('pod rosters')) return;
+
+  const entry = { name, players: [...podRosterDraftPlayers], savedAt: Date.now() };
+  try {
+    // Editing an existing roster under a new name shouldn't leave the old
+    // entry behind -- delete it on Firebase too, not just from the cache.
+    if (podRosterDraftEditing && podRosterDraftEditing !== name) {
+      await window.PodmatesCloud.deleteRoster(podRosterDraftEditing);
+    }
+    await window.PodmatesCloud.saveRoster(name, entry);
+    await refreshCloudRostersCache();
+    activePodRoster = entry;
+    podRosterPresentDraft = []; epicMatchupShown = new Set(); // reset both so presence AND reroll-exclusion start fresh for THIS pod, not a stale one
+    podRosterUIState = 'active';
+    podRosterDraftPlayers = [];
+    podRosterDraftEditing = null;
+    setPodStatus(`Saved Pod "${name}" with ${entry.players.length} players.`);
+    renderPodRosterPanel();
+  } catch (e) {
+    setPodStatus('Could not save: ' + e.message, true);
+  }
 }
 
 document.addEventListener('change', (e) => {
@@ -20877,16 +21241,20 @@ document.addEventListener('click', (e) => {
   } else if (kind === 'delete') {
     if (!activePodRoster) return;
     const name = activePodRoster.name;
-    showConfirmModal(`Delete Pod "${name}"? This only removes the roster, not any saved decks or Chronicles.`, () => {
-      const rosters = loadPodRosters();
-      delete rosters[name];
-      savePodRosters(rosters);
-      activePodRoster = null;
-      podRosterPresentDraft = [];
-      epicMatchupShown = new Set();
-      podRosterUIState = 'idle';
-      setPodStatus(`Deleted Pod "${name}".`);
-      renderPodRosterPanel();
+    if (!requireAccountToSave('pod rosters')) return;
+    showConfirmModal(`Delete Pod "${name}"? This only removes the roster, not any saved decks or Chronicles.`, async () => {
+      try {
+        await window.PodmatesCloud.deleteRoster(name);
+        await refreshCloudRostersCache();
+        activePodRoster = null;
+        podRosterPresentDraft = [];
+        epicMatchupShown = new Set();
+        podRosterUIState = 'idle';
+        setPodStatus(`Deleted Pod "${name}".`);
+        renderPodRosterPanel();
+      } catch (e) {
+        setPodStatus('Could not delete: ' + e.message, true);
+      }
     });
   }
 });
@@ -21578,20 +21946,40 @@ $('podClearBtn').addEventListener('click', () => {
 });
 
 // ============================================================
-// LOCAL STORAGE — saved decks & match history
+// SAVED DATA — decks, pod rosters, table formations, chronicles
+// All Firebase-only as of the no-local-storage rewrite; nothing in this
+// section touches localStorage anymore, and saving anything here requires
+// a real signed-in account (see requireAccountToSave).
 // ============================================================
 
-const STORAGE_DECKS = 'deckCompass_savedDecks';
-const STORAGE_MATCHES = 'deckCompass_matches';
+// Saved decks now live entirely on Firebase, tied to a real account -- no
+// local storage, no anonymous fallback. cloudDecksCache is an in-memory
+// mirror ONLY (never persisted anywhere itself); it exists purely so the
+// many existing call sites that expect loadSavedDecks() to return
+// synchronously can keep working unchanged, while the actual data always
+// comes from and goes to Firestore. Reloading the page always re-fetches
+// fresh from the cloud -- there is deliberately nothing to fall back to
+// locally if that fetch hasn't completed yet, matching "nothing saved
+// locally" as an actual guarantee, not just a default.
+let cloudDecksCache = {};
 
 function loadSavedDecks() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_DECKS) || '{}');
-  } catch (e) { return {}; }
+  return cloudDecksCache;
 }
 
-function saveSavedDecks(obj) {
-  try { localStorage.setItem(STORAGE_DECKS, JSON.stringify(obj)); } catch (e) {}
+async function refreshCloudDecksCache() {
+  const user = window.PodmatesCloud && window.PodmatesCloud.user;
+  if (!user) {
+    cloudDecksCache = {};
+    refreshSavedDeckSelect();
+    return;
+  }
+  try {
+    cloudDecksCache = await window.PodmatesCloud.loadAllDecks();
+  } catch (e) {
+    cloudDecksCache = {};
+  }
+  refreshSavedDeckSelect();
 }
 
 function refreshSavedDeckSelect() {
@@ -21618,27 +22006,17 @@ function saveCurrentDeck() {
     if ($('playerInput')) $('playerInput').focus();
     return;
   }
+  if (!requireAccountToSave('decks')) return;
+
   const key = `${cmd} (${player})`;
-  try {
-    const decks = loadSavedDecks();
-    const entry = { list: raw, commander: cmd, player: player, savedAt: Date.now() };
-    decks[key] = entry;
-    saveSavedDecks(decks);
-    refreshSavedDeckSelect();
-    // Cloud backup is additive to the instant local save above, never a
-    // blocker for it -- if Firebase hasn't finished signing in yet, or the
-    // write fails, the deck is still safely saved to this browser.
-    if (window.PodmatesCloud) {
-      window.PodmatesCloud.onReady(() => {
-        window.PodmatesCloud.saveDeck(key, entry)
-          .then(() => setDeckMgmtStatus(`Saved “${key}” — backed up to the cloud.`))
-          .catch(() => setDeckMgmtStatus(`Saved “${key}” to this browser (cloud backup failed).`));
-      });
-    }
-    setDeckMgmtStatus(`Saved “${key}” to this browser.`);
-  } catch (e) {
-    setDeckMgmtStatus('Could not save (browser storage may be blocked).', true);
-  }
+  const entry = { list: raw, commander: cmd, player: player, savedAt: Date.now() };
+  setDeckMgmtStatus('Saving…');
+  window.PodmatesCloud.saveDeck(key, entry)
+    .then(async () => {
+      await refreshCloudDecksCache();
+      setDeckMgmtStatus(`Saved “${key}” to your account.`);
+    })
+    .catch((e) => setDeckMgmtStatus('Could not save: ' + e.message, true));
 }
 
 function loadDeckByKey(key, target) {
@@ -21766,14 +22144,17 @@ document.addEventListener('click', (e) => {
   const deleteBtn = e.target && e.target.closest ? e.target.closest('[data-delete-deck-key]') : null;
   if (deleteBtn) {
     const key = deleteBtn.getAttribute('data-delete-deck-key');
-    showConfirmModal(`Delete saved deck "${key}"?`, () => {
-      const decks = loadSavedDecks();
-      delete decks[key];
-      saveSavedDecks(decks);
-      refreshSavedDeckSelect();
-      renderLoadDeckPlayerChips();
-      renderLoadDeckList();
-      setDeckMgmtStatus('Deleted.');
+    if (!requireAccountToSave('decks')) return;
+    showConfirmModal(`Delete saved deck "${key}"?`, async () => {
+      try {
+        await window.PodmatesCloud.deleteDeck(key);
+        await refreshCloudDecksCache();
+        renderLoadDeckPlayerChips();
+        renderLoadDeckList();
+        setDeckMgmtStatus('Deleted.');
+      } catch (err) {
+        setDeckMgmtStatus('Could not delete: ' + err.message, true);
+      }
     });
     return;
   }
@@ -21794,7 +22175,7 @@ function setSyncStatus(msg, isErr) {
 
 function buildExportPayload() {
   const decks = loadSavedDecks();
-  const chronicles = getChroniclesWithIds();
+  const chronicles = loadMatches();
   const podRosters = loadPodRosters();
   const deckCount = Object.keys(decks).length;
   const chronicleCount = chronicles.length;
@@ -21880,56 +22261,66 @@ function downloadExportFile() {
 // Last-write-wins by savedAt, same reasoning as mergeSavedDecks -- a Pod
 // roster has one current membership list per name, not an append-only
 // journal like Chronicles, so "newest edit wins" is the right model here.
-function mergePodRosters(importedRosters) {
+async function mergePodRosters(importedRosters) {
+  if (!requireAccountToSave('pod rosters')) {
+    return { added: 0, updated: 0, skipped: 0, total: Object.keys(importedRosters).length, blocked: true };
+  }
   const existing = loadPodRosters();
   let added = 0, updated = 0, skipped = 0;
+  const writes = [];
   for (const [name, incoming] of Object.entries(importedRosters)) {
     const current = existing[name];
     if (!current) {
-      existing[name] = incoming;
+      writes.push(window.PodmatesCloud.saveRoster(name, incoming));
       added++;
     } else {
       const currentTime = current.savedAt || 0;
       const incomingTime = incoming.savedAt || 0;
       if (incomingTime > currentTime) {
-        existing[name] = incoming;
+        writes.push(window.PodmatesCloud.saveRoster(name, incoming));
         updated++;
       } else {
         skipped++;
       }
     }
   }
-  savePodRosters(existing);
+  await Promise.all(writes);
+  await refreshCloudRostersCache();
   return { added, updated, skipped, total: Object.keys(importedRosters).length };
 }
 
-function mergeSavedDecks(importedDecks) {
-  const existing = loadSavedDecks();
+async function mergeSavedDecks(importedDecks) {
+  if (!requireAccountToSave('decks')) {
+    return { added: 0, updated: 0, skipped: 0, total: Object.keys(importedDecks).length, blocked: true };
+  }
+  const existing = loadSavedDecks(); // current Firebase-backed cache
   let added = 0, updated = 0, skipped = 0;
+  const writes = [];
   for (const [key, incoming] of Object.entries(importedDecks)) {
     const incomingObj = (typeof incoming === 'string')
       ? { list: incoming, commander: '', player: '', savedAt: 0 }
       : incoming;
     const current = existing[key];
     if (!current) {
-      existing[key] = incomingObj;
+      writes.push(window.PodmatesCloud.saveDeck(key, incomingObj));
       added++;
     } else {
       const currentTime = (typeof current === 'object' ? current.savedAt : 0) || 0;
       const incomingTime = incomingObj.savedAt || 0;
       if (incomingTime > currentTime) {
-        existing[key] = incomingObj;
+        writes.push(window.PodmatesCloud.saveDeck(key, incomingObj));
         updated++;
       } else {
         skipped++;
       }
     }
   }
-  saveSavedDecks(existing);
+  await Promise.all(writes);
+  await refreshCloudDecksCache();
   return { added, updated, skipped, total: Object.keys(importedDecks).length };
 }
 
-function importAndMergeDecks(jsonText) {
+async function importAndMergeDecks(jsonText) {
   let payload;
   try {
     payload = JSON.parse(jsonText);
@@ -21960,19 +22351,30 @@ function importAndMergeDecks(jsonText) {
     return;
   }
 
-  const deckResult = decksToMerge ? mergeSavedDecks(decksToMerge) : null;
-  const chronicleResult = chroniclesToMerge.length ? mergeChronicles(chroniclesToMerge) : null;
-  const rosterResult = podRostersToMerge ? mergePodRosters(podRostersToMerge) : null;
-  refreshSavedDeckSelect();
-  renderMatchLog();
-  renderPodRosterPanel();
-
   const fromWho = (payload && payload.exportedBy) ? ` from ${escapeHtml(payload.exportedBy)}` : '';
-  const parts = [];
-  if (deckResult) parts.push(`decks — ${deckResult.added} new, ${deckResult.updated} updated, ${deckResult.skipped} already up to date`);
-  if (rosterResult) parts.push(`Pods — ${rosterResult.added} new, ${rosterResult.updated} updated, ${rosterResult.skipped} already up to date`);
-  if (chronicleResult) parts.push(`chronicles — ${chronicleResult.added} new, ${chronicleResult.skipped} duplicate`);
-  setSyncStatus(`Merged export${fromWho}: ${parts.join('; ')}.`);
+  try {
+    const deckResult = decksToMerge ? await mergeSavedDecks(decksToMerge) : null;
+    const chronicleResult = chroniclesToMerge.length ? await mergeChronicles(chroniclesToMerge) : null;
+    const rosterResult = podRostersToMerge ? await mergePodRosters(podRostersToMerge) : null;
+    renderMatchLog();
+    renderPodRosterPanel();
+
+    const parts = [];
+    if (deckResult && deckResult.blocked) parts.push('decks — sign up or log in first to import these');
+    else if (deckResult) parts.push(`decks — ${deckResult.added} new, ${deckResult.updated} updated, ${deckResult.skipped} already up to date`);
+    if (rosterResult && rosterResult.blocked) parts.push('Pods — sign up or log in first to import these');
+    else if (rosterResult) parts.push(`Pods — ${rosterResult.added} new, ${rosterResult.updated} updated, ${rosterResult.skipped} already up to date`);
+    if (chronicleResult && chronicleResult.blocked) parts.push('chronicles — sign up or log in first to import these');
+    else if (chronicleResult) parts.push(`chronicles — ${chronicleResult.added} new, ${chronicleResult.skipped} duplicate`);
+    setSyncStatus(`Merged export${fromWho}: ${parts.join('; ')}.`);
+  } catch (e) {
+    // The three merge functions call Firebase writes that don't guarantee
+    // they never throw (unlike the auth functions elsewhere in this file)
+    // -- a permission or network error partway through an import would
+    // otherwise fail completely silently, with no status message at all
+    // and no way to tell how much of the import actually went through.
+    setSyncStatus('Import did not fully complete: ' + e.message + ' — some entries may have been saved before the error.', true);
+  }
 }
 
 const syncExportBtn = $('syncExportBtn');
@@ -22008,17 +22410,15 @@ function deleteSelectedDeck() {
   const sel = $('savedDeckSelect');
   if (!sel || !sel.value) return;
   const key = sel.value;
-  showConfirmModal(`Delete saved deck "${key}"?`, () => {
-    const decks = loadSavedDecks();
-    delete decks[key];
-    saveSavedDecks(decks);
-    refreshSavedDeckSelect();
-    if (window.PodmatesCloud) {
-      window.PodmatesCloud.onReady(() => {
-        window.PodmatesCloud.deleteDeck(key).catch(() => {});
-      });
+  if (!requireAccountToSave('decks')) return;
+  showConfirmModal(`Delete saved deck "${key}"?`, async () => {
+    try {
+      await window.PodmatesCloud.deleteDeck(key);
+      await refreshCloudDecksCache();
+      setDeckMgmtStatus('Deleted.');
+    } catch (e) {
+      setDeckMgmtStatus('Could not delete: ' + e.message, true);
     }
-    setDeckMgmtStatus('Deleted.');
   });
 }
 
@@ -22030,15 +22430,28 @@ function deleteSelectedDeck() {
 // fresh each time a game gets charted, not baked into the roster itself.
 // ============================================================
 
-const STORAGE_POD_ROSTERS = 'deckCompass_podRosters';
+// Pod Rosters now live entirely on Firebase, same "in-memory cache, no
+// local persistence" pattern as saved decks -- see refreshCloudDecksCache
+// for the full reasoning. A page reload always re-fetches fresh.
+let cloudRostersCache = {};
 
 function loadPodRosters() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_POD_ROSTERS) || '{}'); }
-  catch (e) { return {}; }
+  return cloudRostersCache;
 }
 
-function savePodRosters(obj) {
-  try { localStorage.setItem(STORAGE_POD_ROSTERS, JSON.stringify(obj)); } catch (e) {}
+async function refreshCloudRostersCache() {
+  const user = window.PodmatesCloud && window.PodmatesCloud.user;
+  if (!user) {
+    cloudRostersCache = {};
+    renderPodRosterPanel();
+    return;
+  }
+  try {
+    cloudRostersCache = await window.PodmatesCloud.loadAllRosters();
+  } catch (e) {
+    cloudRostersCache = {};
+  }
+  renderPodRosterPanel();
 }
 
 // Every player name that's ever been attached to a saved deck -- no
@@ -22052,15 +22465,29 @@ function getKnownPlayerNames() {
 
 let activePodRoster = null; // { name, players: [...], savedAt } once created or loaded
 
-const STORAGE_PODS = 'deckCompass_savedPods';
+// "Table Formations" (the old "saved pod group" feature -- a snapshot of
+// all 6 comparison-table seats, distinct from both the Pod Roster tool
+// above and the real Firebase Pods feature) now live entirely on
+// Firebase, same in-memory-cache pattern as everything else in this file.
+let cloudTableFormationsCache = {};
 
 function loadSavedPods() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_PODS) || '{}'); }
-  catch (e) { return {}; }
+  return cloudTableFormationsCache;
 }
 
-function saveSavedPods(obj) {
-  try { localStorage.setItem(STORAGE_PODS, JSON.stringify(obj)); } catch (e) {}
+async function refreshCloudTableFormationsCache() {
+  const user = window.PodmatesCloud && window.PodmatesCloud.user;
+  if (!user) {
+    cloudTableFormationsCache = {};
+    refreshSavedPodSelect();
+    return;
+  }
+  try {
+    cloudTableFormationsCache = await window.PodmatesCloud.loadAllTableFormations();
+  } catch (e) {
+    cloudTableFormationsCache = {};
+  }
+  refreshSavedPodSelect();
 }
 
 function refreshSavedPodSelect() {
@@ -22092,15 +22519,15 @@ function saveCurrentPodFormation() {
     setPodStatus('Fill in at least one seat before saving a pod group.', true);
     return;
   }
-  try {
-    const pods = loadSavedPods();
-    pods[name] = { seats, savedAt: Date.now() };
-    saveSavedPods(pods);
-    refreshSavedPodSelect();
-    setPodStatus(`Saved pod group “${name}” with ${seats.length} seat(s) to this browser.`);
-  } catch (e) {
-    setPodStatus('Could not save (browser storage may be blocked).', true);
-  }
+  if (!requireAccountToSave('pod groups')) return;
+
+  const entry = { seats, savedAt: Date.now() };
+  window.PodmatesCloud.saveTableFormation(name, entry)
+    .then(async () => {
+      await refreshCloudTableFormationsCache();
+      setPodStatus(`Saved pod group “${name}” with ${seats.length} seat(s) to your account.`);
+    })
+    .catch((e) => setPodStatus('Could not save: ' + e.message, true));
 }
 
 function loadSelectedPodFormation() {
@@ -22131,12 +22558,15 @@ function deleteSelectedPodFormation() {
   const sel = $('savedPodSelect');
   if (!sel || !sel.value) return;
   const key = sel.value;
-  showConfirmModal(`Delete saved pod group "${key}"?`, () => {
-    const pods = loadSavedPods();
-    delete pods[key];
-    saveSavedPods(pods);
-    refreshSavedPodSelect();
-    setPodStatus('Pod group deleted.');
+  if (!requireAccountToSave('pod groups')) return;
+  showConfirmModal(`Delete saved pod group "${key}"?`, async () => {
+    try {
+      await window.PodmatesCloud.deleteTableFormation(key);
+      await refreshCloudTableFormationsCache();
+      setPodStatus('Pod group deleted.');
+    } catch (e) {
+      setPodStatus('Could not delete: ' + e.message, true);
+    }
   });
 }
 
@@ -22249,65 +22679,73 @@ document.addEventListener('click', (e) => {
 const buildSavedDecksTableBtn = $('buildSavedDecksTableBtn');
 if (buildSavedDecksTableBtn) buildSavedDecksTableBtn.addEventListener('click', buildSavedDecksTable);
 
+// Chronicles now live entirely on Firebase, same in-memory-cache pattern
+// as everything else above. Unlike the key-value collections, Chronicles
+// is an append-only list with a real Firestore-generated ID from the
+// moment an entry is created -- so unlike before, there's no local
+// ID-backfilling step needed for anything written going forward (see
+// chronicleContentKey below, kept only for deduplicating older imports
+// that may still lack one).
+let cloudChroniclesCache = [];
+
 function loadMatches() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_MATCHES) || '[]'); }
-  catch (e) { return []; }
+  return cloudChroniclesCache;
 }
 
-function saveMatches(arr) {
-  try { localStorage.setItem(STORAGE_MATCHES, JSON.stringify(arr)); } catch (e) {
-    console.warn('Match history save failed (storage full?)', e);
+async function refreshCloudChroniclesCache() {
+  const user = window.PodmatesCloud && window.PodmatesCloud.user;
+  if (!user) {
+    cloudChroniclesCache = [];
+    renderMatchLog();
+    return;
   }
+  try {
+    cloudChroniclesCache = await window.PodmatesCloud.loadAllChronicles();
+  } catch (e) {
+    cloudChroniclesCache = [];
+  }
+  renderMatchLog();
 }
 
 function makeChronicleId() {
   return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
 }
 
-// A stable content fingerprint for dedup when an entry has no id yet (older
-// entries logged before sync existed, like anyone's pre-existing write-ups).
+// A stable content fingerprint for dedup when an imported entry has no id
+// of its own -- e.g. a JSON export from before this Firebase migration, or
+// before the sync feature existed at all.
 function chronicleContentKey(m) {
   return JSON.stringify([m.date, m.notes, m.decks]);
 }
 
-// Backfills id/createdAt on any entries that predate the sync feature, so
-// merging has something stable to key on. createdAt is synthesized from
-// current array position (entries are already newest-first via unshift),
-// preserving existing chronological order rather than guessing wrong.
-function getChroniclesWithIds() {
-  const matches = loadMatches();
-  let changed = false;
-  matches.forEach((m, i) => {
-    if (!m.id) { m.id = makeChronicleId(); changed = true; }
-    if (!m.createdAt) { m.createdAt = Date.now() - i; changed = true; }
-  });
-  if (changed) saveMatches(matches);
-  return matches;
-}
-
 // Chronicles aren't single-record state like a saved deck -- there's no one
-// "current" version to reconcile toward. This appends anything genuinely
-// new and skips exact duplicates (by id, or by content for pre-sync
-// entries), but deliberately does NOT let one write-up overwrite another:
-// different accounts of the same night are a feature here, not a conflict.
-function mergeChronicles(importedEntries) {
-  const existing = getChroniclesWithIds();
+// "current" version to reconcile toward. This adds anything genuinely new
+// to Firebase and skips exact duplicates (by id, or by content for
+// entries that predate real IDs), but deliberately does NOT let one
+// write-up overwrite another: different accounts of the same night are a
+// feature here, not a conflict.
+async function mergeChronicles(importedEntries) {
+  if (!requireAccountToSave('chronicles')) {
+    return { added: 0, skipped: 0, total: importedEntries.length, blocked: true };
+  }
+  const existing = loadMatches(); // current Firebase-backed cache
   const existingIds = new Set(existing.map(m => m.id));
   const existingContentKeys = new Set(existing.map(chronicleContentKey));
   let added = 0, skipped = 0;
+  const writes = [];
   for (const entry of importedEntries) {
     const withId = entry.id ? entry : { ...entry, id: makeChronicleId(), createdAt: entry.createdAt || 0 };
     if (existingIds.has(withId.id) || existingContentKeys.has(chronicleContentKey(withId))) {
       skipped++;
       continue;
     }
-    existing.push(withId);
+    writes.push(window.PodmatesCloud.addChronicleEntry(withId));
     existingIds.add(withId.id);
     existingContentKeys.add(chronicleContentKey(withId));
     added++;
   }
-  existing.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-  saveMatches(existing);
+  await Promise.all(writes);
+  await refreshCloudChroniclesCache();
   return { added, skipped, total: importedEntries.length };
 }
 
@@ -22338,10 +22776,10 @@ function logCurrentMatch() {
     setPodStatus('Run a pod comparison first.', true);
     return;
   }
+  if (!requireAccountToSave('chronicles')) return;
+
   const notes = ($('matchNotes') || {}).value || '';
-  const matches = loadMatches();
-  matches.unshift({
-    id: makeChronicleId(),
+  const entry = {
     createdAt: Date.now(),
     date: new Date().toLocaleString(),
     notes: notes.trim(),
@@ -22351,11 +22789,14 @@ function logCurrentMatch() {
       spark: d.commandSpark.toFixed(1),
       style: d.style
     }))
-  });
-  saveMatches(matches);
-  if ($('matchNotes')) $('matchNotes').value = '';
-  renderMatchLog();
-  setPodStatus('Chapter added to our Chronicles (this browser only).');
+  };
+  window.PodmatesCloud.addChronicleEntry(entry)
+    .then(async () => {
+      await refreshCloudChroniclesCache();
+      if ($('matchNotes')) $('matchNotes').value = '';
+      setPodStatus('Chapter added to your Chronicles.');
+    })
+    .catch((e) => setPodStatus('Could not save: ' + e.message, true));
 }
 
 // Wire save/load
@@ -22380,9 +22821,14 @@ if (deletePodBtn) deletePodBtn.addEventListener('click', deleteSelectedPodFormat
 
 const clearHistBtn = $('clearMatchHistoryBtn');
 if (clearHistBtn) clearHistBtn.addEventListener('click', () => {
-  showConfirmModal('Clear all Chronicles entries? This cannot be undone.', () => {
-    saveMatches([]);
-    renderMatchLog();
+  if (!requireAccountToSave('chronicles')) return;
+  showConfirmModal('Clear all Chronicles entries? This cannot be undone.', async () => {
+    try {
+      await window.PodmatesCloud.clearAllChronicles();
+      await refreshCloudChroniclesCache();
+    } catch (e) {
+      setPodStatus('Could not clear: ' + e.message, true);
+    }
   });
 });
 
@@ -22391,32 +22837,18 @@ refreshSavedPodSelect();
 renderMatchLog();
 initDatabase();
 
-// Pulls any decks backed up to the cloud under whichever identity is
-// currently signed in and folds them into local storage. Newest savedAt
-// wins per key, so this never clobbers a more recent edit made locally
-// (e.g. on a slow connection) with stale cloud data, or vice versa. Runs
-// once at page load, then again after every sign-in/sign-up/log-in --
-// switching to an existing real account can bring its OWN previously
-// saved decks (from a different browser/session) that this browser has
-// never seen before.
-function mergeCloudDecksIntoLocal() {
-  if (!window.PodmatesCloud) return;
-  window.PodmatesCloud.loadAllDecks().then(cloudDecks => {
-    const localDecks = loadSavedDecks();
-    let changed = false;
-    for (const [key, cloudEntry] of Object.entries(cloudDecks)) {
-      const localEntry = localDecks[key];
-      if (!localEntry || (cloudEntry.savedAt || 0) > (localEntry.savedAt || 0)) {
-        localDecks[key] = cloudEntry;
-        changed = true;
-      }
-    }
-    if (changed) {
-      saveSavedDecks(localDecks);
-      refreshSavedDeckSelect();
-    }
-  }).catch(() => {}); // silent -- this is a background convenience sync, not a user-facing action
-}
+// Replaced by refreshCloudDecksCache() (defined earlier, alongside
+// loadSavedDecks) now that saved decks live on Firebase only -- there is
+// no local copy left to merge cloud data into. The old version of this
+// function existed specifically to keep a local mirror in sync; removed
+// as of the no-local-storage rewrite rather than left as dead code.
+
+// If this page was opened via a pod invite link (?join=CODE), remember the
+// code immediately -- read at script load time since it depends only on
+// the URL, not on Firebase being ready yet.
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('join')) pendingJoinCode = urlParams.get('join');
+let hasPromptedForPendingJoin = false;
 
 // Module scripts (required for Firebase) always finish loading AFTER
 // ordinary scripts like this one, so window.PodmatesCloud does not exist
@@ -22426,9 +22858,54 @@ function mergeCloudDecksIntoLocal() {
 // never update, with no console error, before this fix).
 function wireCloudAuth() {
   if (!window.PodmatesCloud) return;
-  window.PodmatesCloud.onAuthChange((user) => {
+  window.PodmatesCloud.onAuthChange(async (user) => {
     updateAuthBar(user);
-    if (user) mergeCloudDecksIntoLocal();
+    // Each of these already handles both cases correctly -- fetches fresh
+    // from Firebase for a real user, clears back to empty otherwise (e.g.
+    // right after signing out) -- so it's always safe to call all four
+    // unconditionally here rather than branching on `user` first.
+    await Promise.all([
+      refreshCloudDecksCache(),
+      refreshCloudRostersCache(),
+      refreshCloudTableFormationsCache(),
+      refreshCloudChroniclesCache(),
+    ]);
+
+    if (!pendingJoinCode) return;
+    if (user && !user.isAnonymous) {
+      // Signed in for real, and a pod invite is waiting -- following an
+      // invite link is a strong enough signal of intent to just join
+      // directly (same convention Discord/Slack invite links use) rather
+      // than adding an extra confirmation click.
+      const code = pendingJoinCode;
+      pendingJoinCode = null;
+      try {
+        const result = await window.PodmatesCloud.joinPodByInviteCode(code);
+        // Clean the ?join= param out of the address bar either way, so a
+        // page refresh doesn't try to rejoin (or re-show the same message).
+        window.history.replaceState({}, '', window.location.pathname);
+        if (result.ok) {
+          currentPodViewId = result.podId;
+          showToast(`Joined "${result.podName}."`);
+          showPodModal();
+        } else {
+          showToast(result.error);
+        }
+      } catch (e) {
+        // joinPodByInviteCode's Firestore calls aren't individually
+        // guarded (unlike fetchDeckByLink/the auth functions, which all
+        // guarantee they never throw) -- catching here means a permission
+        // or network error still cleans up the URL and tells the person
+        // something went wrong, instead of failing with zero feedback and
+        // an already-consumed invite code.
+        window.history.replaceState({}, '', window.location.pathname);
+        showToast('Could not join the pod: ' + e.message);
+      }
+    } else if (!hasPromptedForPendingJoin) {
+      hasPromptedForPendingJoin = true;
+      showToast('Sign in or create an account to join this pod.');
+      showAuthModal();
+    }
   });
 }
 if (window.PodmatesCloud) {
@@ -22443,11 +22920,18 @@ if (authOpenBtn) authOpenBtn.addEventListener('click', showAuthModal);
 const authProfileBtn = $('authProfileBtn');
 if (authProfileBtn) authProfileBtn.addEventListener('click', () => showProfileModal());
 
+const authPodBtn = $('authPodBtn');
+if (authPodBtn) authPodBtn.addEventListener('click', () => showPodModal());
+
 const authSignOutBtn = $('authSignOutBtn');
 if (authSignOutBtn) authSignOutBtn.addEventListener('click', () => {
   showConfirmModal('Sign out? You\u2019ll keep using PodMates as a guest, and anything already saved to the cloud stays there for next time you sign in.', async () => {
-    if (window.PodmatesCloud) await window.PodmatesCloud.signOutUser();
-    showToast('Signed out.');
+    try {
+      if (window.PodmatesCloud) await window.PodmatesCloud.signOutUser();
+      showToast('Signed out.');
+    } catch (e) {
+      showToast('Sign out didn\u2019t fully complete: ' + e.message + ' -- try again if anything looks off.');
+    }
   });
 });
 
@@ -22507,14 +22991,13 @@ if (deckLinkLoadBtn) deckLinkLoadBtn.addEventListener('click', async () => {
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
   import {
-    getAuth, signInAnonymously, onAuthStateChanged, signOut,
-    EmailAuthProvider, GoogleAuthProvider,
-    linkWithCredential, linkWithPopup, signInWithCredential, signInWithPopup,
-    createUserWithEmailAndPassword, signInWithEmailAndPassword,
+    getAuth, onAuthStateChanged, signOut, signInWithPopup,
+    GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword,
     sendPasswordResetEmail, updateProfile,
   } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
   import {
-    getFirestore, doc, setDoc, getDoc, getDocs, deleteDoc, collection, serverTimestamp,
+    getFirestore, doc, setDoc, getDocs, deleteDoc, collection, serverTimestamp,
+    query, where, arrayUnion, arrayRemove,
   } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -22573,53 +23056,45 @@ if (deckLinkLoadBtn) deckLinkLoadBtn.addEventListener('click', async () => {
   const authChangeCallbacks = [];
   let isReady = false;
 
+  // PodMates' policy: saving anything requires a real account, so there's
+  // no automatic anonymous sign-in on load (removed as of this rewrite --
+  // see build notes for the reasoning). A visitor who hasn't signed up has
+  // NO Firebase user at all; currentUser stays null until they do.
   onAuthStateChanged(auth, (user) => {
     currentUser = user;
-    if (user && !isReady) {
+    if (!isReady) {
+      // Firebase confirming "nobody is signed in" is itself a definitive,
+      // ready signal -- not something to keep waiting past. This used to
+      // only fire when `user` was truthy, back when everyone was expected
+      // to have at least an anonymous identity; that assumption no longer
+      // holds, so a null user must set isReady too, or it would never fire
+      // at all for anyone who hasn't signed up.
       isReady = true;
       readyCallbacks.splice(0).forEach(cb => { try { cb(); } catch (e) { console.error(e); } });
     }
     authChangeCallbacks.forEach(cb => { try { cb(describeUser(user)); } catch (e) { console.error(e); } });
   });
 
-  function ensureSignedIn() {
-    if (!auth.currentUser) {
-      signInAnonymously(auth).catch((err) => {
-        console.error('PodMates cloud sign-in failed:', err);
-        window.dispatchEvent(new CustomEvent('podmates-cloud-error', { detail: err }));
-      });
-    }
-  }
-  ensureSignedIn();
-
-  // --- Sign-up / log-in / link / sign-out ----------------------------
+  // --- Sign-up / log-in / sign-out -------------------------------------
   // Every one of these resolves to { ok: true, user } or { ok: false, error }
   // -- never throws -- so calling code never needs a try/catch of its own.
 
   async function signUpWithEmail(email, password, displayName) {
     try {
-      let cred;
-      if (auth.currentUser && auth.currentUser.isAnonymous) {
-        // Upgrade path: keep the current (anonymous) uid, and whatever
-        // was already saved under it, rather than starting a fresh one.
-        try {
-          cred = await linkWithCredential(auth.currentUser, EmailAuthProvider.credential(email, password));
-        } catch (linkErr) {
-          if (linkErr.code === 'auth/email-already-in-use' || linkErr.code === 'auth/credential-already-in-use') {
-            // That email already belongs to a real, separate account --
-            // fall back to logging into it instead of failing outright.
-            cred = await signInWithEmailAndPassword(auth, email, password);
-            if (displayName) return { ok: true, user: describeUser(cred.user), switchedToExisting: true };
-          } else {
-            throw linkErr;
-          }
-        }
-      } else {
-        cred = await createUserWithEmailAndPassword(auth, email, password);
-      }
-      if (displayName && cred.user) await updateProfile(cred.user, { displayName });
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      if (displayName) await updateProfile(cred.user, { displayName });
       return { ok: true, user: describeUser(cred.user) };
     } catch (err) {
+      if (err.code === 'auth/email-already-in-use') {
+        // That email already has an account -- fall back to logging into
+        // it instead of just failing outright.
+        try {
+          const cred = await signInWithEmailAndPassword(auth, email, password);
+          return { ok: true, user: describeUser(cred.user), switchedToExisting: true };
+        } catch (loginErr) {
+          return { ok: false, error: friendlyAuthError(loginErr) };
+        }
+      }
       return { ok: false, error: friendlyAuthError(err) };
     }
   }
@@ -22635,21 +23110,7 @@ if (deckLinkLoadBtn) deckLinkLoadBtn.addEventListener('click', async () => {
 
   async function signInWithGoogle() {
     try {
-      let cred;
-      if (auth.currentUser && auth.currentUser.isAnonymous) {
-        try {
-          cred = await linkWithPopup(auth.currentUser, googleProvider);
-        } catch (linkErr) {
-          if (linkErr.code === 'auth/credential-already-in-use') {
-            const existingCred = GoogleAuthProvider.credentialFromError(linkErr);
-            cred = await signInWithCredential(auth, existingCred);
-            return { ok: true, user: describeUser(cred.user), switchedToExisting: true };
-          }
-          throw linkErr;
-        }
-      } else {
-        cred = await signInWithPopup(auth, googleProvider);
-      }
+      const cred = await signInWithPopup(auth, googleProvider);
       return { ok: true, user: describeUser(cred.user) };
     } catch (err) {
       return { ok: false, error: friendlyAuthError(err) };
@@ -22666,8 +23127,10 @@ if (deckLinkLoadBtn) deckLinkLoadBtn.addEventListener('click', async () => {
   }
 
   async function signOutUser() {
+    // No fallback re-sign-in needed anymore -- currentUser simply becomes
+    // null again afterward, which is now a normal, fully-supported "not
+    // signed in" state rather than something the app tries to paper over.
     await signOut(auth);
-    ensureSignedIn(); // drop back to a fresh anonymous session so the app keeps working
   }
 
   // --- Firestore deck storage (unchanged from before, keyed off whoever
@@ -22699,22 +23162,103 @@ if (deckLinkLoadBtn) deckLinkLoadBtn.addEventListener('click', async () => {
     return out;
   }
 
-  // --- Profile (display name only now -- usernames replaced by linked
-  // deck-by-link below, since neither Archidekt nor Moxfield has a
-  // reliable "list decks by username" API) ---------------------------
+  // --- Pod Rosters (the "Our Table" comparison tool's saved player
+  // lists) and Table Formations (that same tool's saved 6-seat deck
+  // snapshots) -- both personal, per-account data, same key-value-map
+  // shape and pattern as saved decks above. Named "tableFormations" in
+  // Firestore specifically to avoid any collision with the unrelated
+  // `pods` collection (the real, invite-link Firebase Pods feature) --
+  // these predate that feature and are a different concept entirely,
+  // despite the overlapping "pod" name in the UI text.
 
-  async function saveProfile(profile) {
+  async function cloudSaveRoster(name, entry) {
     if (!currentUser) throw new Error('Not signed in yet');
-    await setDoc(doc(db, 'users', currentUser.uid), {
+    await setDoc(doc(db, 'users', currentUser.uid, 'rosters', safeDocId(name)), {
+      name, players: entry.players || [], savedAt: entry.savedAt || Date.now(),
       updatedAt: serverTimestamp(),
-    }, { merge: true });
+    });
   }
 
-  async function loadProfile() {
+  async function cloudDeleteRoster(name) {
     if (!currentUser) throw new Error('Not signed in yet');
-    const snap = await getDoc(doc(db, 'users', currentUser.uid));
-    return snap.exists() ? snap.data() : {};
+    await deleteDoc(doc(db, 'users', currentUser.uid, 'rosters', safeDocId(name)));
   }
+
+  async function cloudLoadAllRosters() {
+    if (!currentUser) throw new Error('Not signed in yet');
+    const snap = await getDocs(collection(db, 'users', currentUser.uid, 'rosters'));
+    const out = {};
+    snap.forEach(docSnap => {
+      const d = docSnap.data();
+      out[d.name] = { name: d.name, players: d.players, savedAt: d.savedAt };
+    });
+    return out;
+  }
+
+  async function cloudSaveTableFormation(name, entry) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    await setDoc(doc(db, 'users', currentUser.uid, 'tableFormations', safeDocId(name)), {
+      name, seats: entry.seats || [], savedAt: entry.savedAt || Date.now(),
+      updatedAt: serverTimestamp(),
+    });
+  }
+
+  async function cloudDeleteTableFormation(name) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    await deleteDoc(doc(db, 'users', currentUser.uid, 'tableFormations', safeDocId(name)));
+  }
+
+  async function cloudLoadAllTableFormations() {
+    if (!currentUser) throw new Error('Not signed in yet');
+    const snap = await getDocs(collection(db, 'users', currentUser.uid, 'tableFormations'));
+    const out = {};
+    snap.forEach(docSnap => {
+      const d = docSnap.data();
+      out[d.name] = { seats: d.seats, savedAt: d.savedAt };
+    });
+    return out;
+  }
+
+  // --- Chronicles (the match-history journal) -- structurally different
+  // from the two collections above: entries are an append-only LIST with
+  // auto-generated IDs, not a name-keyed map a person edits in place.
+  // Personal to the signed-in account for now (not yet shared across a
+  // Pod's members) -- see build notes on why that's a deliberate, separate
+  // next step rather than bundled into this migration.
+
+  async function cloudAddChronicleEntry(entry) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    const ref = doc(collection(db, 'users', currentUser.uid, 'chronicles'));
+    await setDoc(ref, {
+      date: entry.date || '', notes: entry.notes || '', decks: entry.decks || [],
+      createdAt: entry.createdAt || Date.now(),
+    });
+    return ref.id;
+  }
+
+  async function cloudLoadAllChronicles() {
+    if (!currentUser) throw new Error('Not signed in yet');
+    const snap = await getDocs(collection(db, 'users', currentUser.uid, 'chronicles'));
+    const out = [];
+    snap.forEach(docSnap => out.push({ id: docSnap.id, ...docSnap.data() }));
+    out.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    return out;
+  }
+
+  async function cloudClearAllChronicles() {
+    if (!currentUser) throw new Error('Not signed in yet');
+    const snap = await getDocs(collection(db, 'users', currentUser.uid, 'chronicles'));
+    const deletions = [];
+    snap.forEach(docSnap => deletions.push(deleteDoc(docSnap.ref)));
+    await Promise.all(deletions);
+  }
+
+  // Note: an earlier version of the Profile Builder used real usernames
+  // (saveProfile/loadProfile, storing archidektUsername/moxfieldUsername)
+  // before that approach was replaced with per-deck links below, since
+  // neither Archidekt nor Moxfield has a reliable "list decks by username"
+  // API. Those two functions were dead code after the rewrite -- defined,
+  // exported, never called -- and have been removed as of this review.
 
   // --- Deck-by-link fetching, via the Cloudflare Worker ---------------
   // Runs server-side (see worker.js) since neither site reliably allows a
@@ -22780,6 +23324,137 @@ if (deckLinkLoadBtn) deckLinkLoadBtn.addEventListener('click', async () => {
     return out;
   }
 
+  // --- Pods -------------------------------------------------------------
+  // Membership is tracked ONLY on the pod document itself (memberIds array,
+  // queried with array-contains) rather than also mirrored onto each
+  // member's own user document. That second, denormalized copy was the
+  // original plan, but it doesn't work under Firestore's security model: a
+  // user can only write their OWN /users/{uid} document, so a pod leader
+  // removing someone else could never legally update THAT PERSON's doc.
+  // Keeping the pod document as the single source of truth avoids needing
+  // any cross-user write at all.
+
+  function generateInviteCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O or 1/I/L -- easy to misread otherwise
+    let code = '';
+    for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)];
+    return code;
+  }
+
+  async function createPod(name) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    const podRef = doc(collection(db, 'pods'));
+    const inviteCode = generateInviteCode();
+    await setDoc(podRef, {
+      name: (name || '').trim() || 'My Pod',
+      leaderId: currentUser.uid,
+      coLeaderIds: [],
+      memberIds: [currentUser.uid],
+      inviteCode,
+      createdAt: serverTimestamp(),
+    });
+    await setDoc(doc(db, 'pods', podRef.id, 'members', currentUser.uid), {
+      displayName: currentUser.displayName || currentUser.email || 'Player',
+      role: 'leader',
+      joinedAt: Date.now(),
+    });
+    return { ok: true, podId: podRef.id, inviteCode };
+  }
+
+  async function joinPodByInviteCode(rawCode) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    const code = (rawCode || '').trim().toUpperCase();
+    if (!code) return { ok: false, error: 'Enter an invite code or paste an invite link.' };
+    const q = query(collection(db, 'pods'), where('inviteCode', '==', code));
+    const snap = await getDocs(q);
+    if (snap.empty) return { ok: false, error: 'No pod found with that invite code -- double check the link.' };
+    const podDoc = snap.docs[0];
+    const podId = podDoc.id;
+    const podData = podDoc.data();
+    if ((podData.memberIds || []).includes(currentUser.uid)) {
+      return { ok: false, error: `You're already a member of "${podData.name}."`, podId, podName: podData.name };
+    }
+    await setDoc(doc(db, 'pods', podId), { memberIds: arrayUnion(currentUser.uid) }, { merge: true });
+    await setDoc(doc(db, 'pods', podId, 'members', currentUser.uid), {
+      displayName: currentUser.displayName || currentUser.email || 'Player',
+      role: 'member',
+      joinedAt: Date.now(),
+    });
+    return { ok: true, podId, podName: podData.name };
+  }
+
+  async function loadMyPods() {
+    if (!currentUser) throw new Error('Not signed in yet');
+    const q = query(collection(db, 'pods'), where('memberIds', 'array-contains', currentUser.uid));
+    const snap = await getDocs(q);
+    const pods = [];
+    snap.forEach(d => pods.push({ id: d.id, ...d.data() }));
+    return pods;
+  }
+
+  async function loadPodMembers(podId) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    const snap = await getDocs(collection(db, 'pods', podId, 'members'));
+    const members = [];
+    snap.forEach(d => members.push({ uid: d.id, ...d.data() }));
+    members.sort((a, b) => (a.joinedAt || 0) - (b.joinedAt || 0));
+    return members;
+  }
+
+  async function leavePod(podId) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    await deleteDoc(doc(db, 'pods', podId, 'members', currentUser.uid));
+    await setDoc(doc(db, 'pods', podId), { memberIds: arrayRemove(currentUser.uid) }, { merge: true });
+  }
+
+  async function removePodMember(podId, uid) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    await deleteDoc(doc(db, 'pods', podId, 'members', uid));
+    await setDoc(doc(db, 'pods', podId), { memberIds: arrayRemove(uid) }, { merge: true });
+    // Not yet implemented: wiping this member's decks from the pod's own
+    // records. That's intentional -- pod-scoped shared records (separate
+    // from each player's personal deck list) don't exist as a feature yet.
+    // This is the hook point to add that cleanup once they do.
+  }
+
+  async function renamePod(podId, newName) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    await setDoc(doc(db, 'pods', podId), { name: (newName || '').trim() || 'My Pod' }, { merge: true });
+  }
+
+  async function regenerateInviteCode(podId) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    const newCode = generateInviteCode();
+    await setDoc(doc(db, 'pods', podId), { inviteCode: newCode }, { merge: true });
+    return newCode;
+  }
+
+  async function promoteToCoLeader(podId, uid) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    await setDoc(doc(db, 'pods', podId), { coLeaderIds: arrayUnion(uid) }, { merge: true });
+    await setDoc(doc(db, 'pods', podId, 'members', uid), { role: 'co-leader' }, { merge: true });
+  }
+
+  async function transferLeadership(podId, newLeaderUid) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    const oldLeaderUid = currentUser.uid;
+    await setDoc(doc(db, 'pods', podId), {
+      leaderId: newLeaderUid,
+      coLeaderIds: arrayUnion(oldLeaderUid),
+    }, { merge: true });
+    await setDoc(doc(db, 'pods', podId, 'members', newLeaderUid), { role: 'leader' }, { merge: true });
+    await setDoc(doc(db, 'pods', podId, 'members', oldLeaderUid), { role: 'co-leader' }, { merge: true });
+  }
+
+  async function deletePod(podId) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    const members = await loadPodMembers(podId);
+    for (const m of members) {
+      await deleteDoc(doc(db, 'pods', podId, 'members', m.uid));
+    }
+    await deleteDoc(doc(db, 'pods', podId));
+  }
+
   window.PodmatesCloud = {
     get ready() { return isReady; },
     get uid() { return currentUser ? currentUser.uid : null; },
@@ -22793,8 +23468,14 @@ if (deckLinkLoadBtn) deckLinkLoadBtn.addEventListener('click', async () => {
     saveDeck: cloudSaveDeck,
     deleteDeck: cloudDeleteDeck,
     loadAllDecks: cloudLoadAllDecks,
-    saveProfile, loadProfile,
     fetchDeckByLink, addLinkedDeck, refreshLinkedDeck, removeLinkedDeck, loadLinkedDecks,
+    createPod, joinPodByInviteCode, loadMyPods, loadPodMembers, leavePod, removePodMember,
+    renamePod, regenerateInviteCode, promoteToCoLeader, transferLeadership, deletePod,
+    saveRoster: cloudSaveRoster, deleteRoster: cloudDeleteRoster, loadAllRosters: cloudLoadAllRosters,
+    saveTableFormation: cloudSaveTableFormation, deleteTableFormation: cloudDeleteTableFormation,
+    loadAllTableFormations: cloudLoadAllTableFormations,
+    addChronicleEntry: cloudAddChronicleEntry, loadAllChronicles: cloudLoadAllChronicles,
+    clearAllChronicles: cloudClearAllChronicles,
   };
 
   // Scripts loaded with type="module" (required for Firebase's import
