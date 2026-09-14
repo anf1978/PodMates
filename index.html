@@ -5,29 +5,47 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Pod Mates — Playgroup Companion for Commander</title>
 <style>
-  :root{
-    --bg-main: #120C09;
-    --bg-panel: #1D160F;
-    --bg-panel-raised: #291F15;
-    --text-primary: #F2E7D0;
-    --text-soft: #C7B79A;
-    --gold: #C6992C;
-    --gold-bright: #E8C158;
-    --bronze: #8A6423;
-    --wine: #5E1E28;
-    --wine-bright: #7E2C38;
-    --line: rgba(240,233,220,0.14);
-    --line-strong: rgba(198,153,44,0.4);
-    --danger: #D6553A;
-    --success-text: #9FD98A;
-    --success-bg: rgba(111,154,92,0.22);
-    --medium-bg: rgba(198,153,44,0.18);
-    --w: #E8CE7B;
-    --u: #8AB1E0;
-    --b: #A79FB0;
-    --r: #E0977A;
-    --g: #8FBF78;
-  }
+  :root {
+  /* Deep earthy / cave backgrounds */
+  --bg-main:            #0F0C0A;
+  --bg-panel:           #1A1510;
+  --bg-panel-raised:    #241C14;
+  --bg-slot:            #12100C;          /* inventory-slot feel */
+
+  /* Text */
+  --text-primary:       #F0E6D2;
+  --text-soft:          #B8A88A;
+  --text-dim:           #8A7B63;
+
+  /* Terraria-leaning accents */
+  --gold:               #E8C14A;          /* rare-item gold */
+  --gold-bright:        #FFE07A;
+  --cyan:               #4EC8E0;          /* mana / crystal accent */
+  --cyan-dim:           #2A8A9C;
+  --leaf:               #6FBF4E;          /* nature / success */
+  --bronze:             #A67C2A;
+  --wine:               #6B2A32;
+  --wine-bright:        #9A3A48;
+
+  /* Borders & lines (thicker / blockier) */
+  --line:               rgba(232, 193, 74, 0.18);
+  --line-strong:        rgba(232, 193, 74, 0.45);
+  --slot-border:        #3A3228;
+  --slot-border-hi:     #5C4E3A;
+
+  /* Status */
+  --danger:             #E0553A;
+  --success-text:       #8FDF6A;
+  --success-bg:         rgba(111, 191, 78, 0.22);
+  --medium-bg:          rgba(232, 193, 74, 0.18);
+
+  /* Mana colors (kept for card identity) */
+  --w: #E8CE7B;
+  --u: #8AB1E0;
+  --b: #A79FB0;
+  --r: #E0977A;
+  --g: #8FBF78;
+}
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
   body{
@@ -374,6 +392,16 @@
   }
   .info-btn:hover{background:var(--gold); color:var(--bg-main);}
 
+  .card-name-link{
+    cursor:pointer;
+    border-bottom:1px dotted var(--gold);
+    color:inherit;
+  }
+  .card-name-link:hover{
+    color:var(--gold-bright);
+    border-bottom-color:var(--gold-bright);
+  }
+
   .gc-chip{
     display:inline-block;
     padding:1px 8px;
@@ -397,6 +425,461 @@
   footer::after{content:' ⚜'; color:var(--wine-bright); font-style:normal;}
 
   #resultsSection{display:none;}
+
+
+/* ============================================================
+   Terraria x MTG Arena theme -- appended override rules
+   (from PodMates_Terraria_Arena_Theme_CSS.pdf)
+   ============================================================ */
+/* Base */
+*{ box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+
+body {
+  background:
+    /* subtle pixel-grid / dirt texture suggestion */
+    repeating-linear-gradient(
+      0deg,
+      transparent 0px,
+      transparent 3px,
+      rgba(255,255,255,0.012) 3px,
+      rgba(255,255,255,0.012) 4px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px,
+      transparent 3px,
+      rgba(255,255,255,0.012) 3px,
+      rgba(255,255,255,0.012) 4px
+    ),
+    radial-gradient(ellipse 900px 500px at 15% -5%, rgba(78, 200, 224, 0.07), transparent 55%),
+    radial-gradient(ellipse 700px 500px at 100% 10%, rgba(107, 42, 50, 0.14), transparent 55%),
+    radial-gradient(ellipse 1000px 700px at 50% 110%, rgba(0,0,0,0.5), transparent 60%),
+    var(--bg-main);
+  color: var(--text-primary);
+  font-family: 'Crimson Pro', 'Palatino Linotype', 'Iowan Old Style', Georgia, serif;
+  min-height: 100vh;
+  padding: 28px 16px 56px;
+}
+
+.wrap { max-width: 1200px; margin: 0 auto; }
+
+::selection { background: var(--gold); color: var(--bg-main); }
+
+/* Scrollbar – chunky “item bar” feel */
+::-webkit-scrollbar { width: 12px; height: 12px; }
+::-webkit-scrollbar-track { background: var(--bg-main); }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(var(--bronze), var(--gold));
+  border: 2px solid var(--bg-main);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--gold-bright); }
+
+/* Header */
+header { text-align: center; margin-bottom: 28px; }
+
+.eyebrow {
+  font-family: 'Cormorant SC', 'Trajan Pro', Georgia, serif;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  font-size: 12.5px;
+  color: var(--gold);
+  margin-bottom: 6px;
+}
+.eyebrow::before { content: '◆ '; color: var(--cyan); }
+.eyebrow::after { content: ' ◆'; color: var(--cyan); }
+
+h1 {
+  font-family: 'Cinzel', 'Trajan Pro', Georgia, serif;
+  font-weight: 700;
+  font-size: clamp(26px, 4vw, 40px);
+  margin: 0 0 8px;
+  text-shadow: 0 0 18px rgba(232, 193, 74, 0.35);
+  letter-spacing: 0.02em;
+}
+
+.sub {
+  font-size: 15.5px;
+  color: var(--text-soft);
+  font-style: italic;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.rule {
+  width: 200px;
+  margin: 18px auto 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.rule::before,
+.rule::after {
+  content: '';
+  height: 2px;
+  flex: 1;
+  background: linear-gradient(90deg, transparent, var(--gold));
+}
+.rule::after { background: linear-gradient(90deg, var(--gold), transparent); }
+
+/* Panels → inventory / crafting-window feel */
+.panel {
+  background:
+    linear-gradient(165deg, rgba(78, 200, 224, 0.04), transparent 45%),
+    var(--bg-panel);
+  border: 3px solid var(--slot-border);
+  border-radius: 0;                    /* hard corners = Terraria */
+  box-shadow:
+    0 0 0 1px var(--slot-border-hi),
+    inset 0 1px 0 rgba(255,255,255,0.04),
+    0 8px 24px rgba(0,0,0,0.5);
+  padding: 20px 20px 22px;
+  position: relative;
+  margin-bottom: 18px;
+  overflow: hidden;
+}
+
+/* Inner frame like a Terraria inventory window */
+.panel::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 1px solid rgba(232, 193, 74, 0.22);
+  pointer-events: none;
+}
+
+/* Corner accents – small “pixel” studs */
+.panel::after {
+  content: "";
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 10px; height: 10px;
+  border-top: 2px solid var(--gold);
+  border-left: 2px solid var(--gold);
+  pointer-events: none;
+  opacity: 0.9;
+}
+
+.panel > * { position: relative; z-index: 1; }
+
+.panel h2 {
+  font-family: 'Cinzel', 'Trajan Pro', Georgia, serif;
+  font-size: 14px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin: 0 0 14px;
+  font-weight: 600;
+  color: var(--gold);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.panel h2::before {
+  content: '■';
+  color: var(--cyan);
+  font-size: 12px;
+}
+
+/* Collapsible headers */
+.panel summary.panel-toggle {
+  font-family: 'Cinzel', 'Trajan Pro', Georgia, serif;
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--gold);
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 0;
+}
+.panel summary.panel-toggle::-webkit-details-marker { display: none; }
+.panel summary.panel-toggle::after {
+  content: '+';
+  font-size: 18px;
+  color: var(--text-soft);
+}
+.panel details.panel-collapsible[open] > summary.panel-toggle::after {
+  content: '−';
+}
+.panel details.panel-collapsible[open] > summary.panel-toggle {
+  margin-bottom: 12px;
+}
+
+/* Inputs – look like inventory slots */
+textarea,
+input[type="text"],
+select {
+  background: var(--bg-slot);
+  border: 2px solid var(--slot-border);
+  border-radius: 0;
+  color: var(--text-primary);
+  font-family: inherit;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.45);
+}
+
+textarea {
+  width: 100%;
+  min-height: 240px;
+  resize: vertical;
+  padding: 12px;
+  font-size: 15px;
+  line-height: 1.55;
+}
+textarea:focus,
+input[type="text"]:focus,
+select:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow:
+    inset 0 2px 6px rgba(0,0,0,0.45),
+    0 0 0 1px var(--gold-bright);
+}
+textarea::placeholder,
+input::placeholder { color: #8A7B63; }
+
+/* Buttons → hotbar / item-button style */
+button {
+  font-family: 'Cinzel', 'Trajan Pro', Georgia, serif;
+  font-size: 12.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 11px 20px;
+  border: 2px solid var(--bronze);
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+  color: #1A1208;
+  cursor: pointer;
+  font-weight: 700;
+  border-radius: 0;                      /* square = Terraria */
+  box-shadow:
+    0 3px 0 #5C3F12,
+    inset 0 1px 0 rgba(255,255,255,0.35);
+  transition: transform 0.1s ease, filter 0.1s ease;
+}
+button:hover {
+  filter: brightness(1.08);
+  box-shadow:
+    0 3px 0 #5C3F12,
+    0 0 12px rgba(232, 193, 74, 0.35),
+    inset 0 1px 0 rgba(255,255,255,0.4);
+}
+button:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #5C3F12, inset 0 1px 0 rgba(255,255,255,0.3);
+}
+button.ghost {
+  background: var(--bg-slot);
+  color: var(--text-primary);
+  border-color: var(--slot-border-hi);
+  box-shadow: 0 2px 0 #1A1510;
+}
+button.ghost:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: rgba(232, 193, 74, 0.08);
+}
+button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Mode tabs – hotbar style */
+.mode-tabs {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.mode-btn {
+  border-radius: 0 !important;
+  border-width: 2px !important;
+}
+.mode-btn.active {
+  background: var(--gold) !important;
+  color: var(--bg-main) !important;
+  border-color: var(--gold-bright) !important;
+  box-shadow: 0 0 16px rgba(232, 193, 74, 0.45) !important;
+}
+
+/* Callouts & stats – slot cards */
+.callout,
+.stat {
+  background: var(--bg-panel-raised);
+  border: 2px solid var(--slot-border);
+  border-radius: 0;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+}
+.callout {
+  border-top: 3px solid var(--bronze);
+  padding: 14px 16px;
+}
+.callout .label {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 5px;
+}
+.callout .value {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+.callout .detail {
+  font-size: 13px;
+  color: var(--text-soft);
+  line-height: 1.45;
+}
+
+.stats-strip {
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+.stat {
+  text-align: center;
+  padding: 11px 6px;
+  border-bottom: 3px solid var(--bronze);
+}
+.stat .num {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 18px;
+  display: block;
+  color: var(--gold-bright);
+}
+.stat .lbl {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+
+/* Tables */
+table.type-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+table.type-table th,
+table.type-table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13.5px;
+}
+table.type-table th {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+  border-bottom: 2px solid var(--bronze);
+}
+table.type-table tr:hover td {
+  background: rgba(78, 200, 224, 0.05);
+}
+
+/* Confidence / chips */
+.confidence-tag {
+  display: inline-block;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 0;
+  margin-left: 6px;
+  vertical-align: middle;
+  border: 1px solid currentColor;
+}
+.confidence-high    { background: var(--success-bg); color: var(--success-text); }
+.confidence-medium { background: var(--medium-bg); color: var(--gold-bright); }
+.confidence-fallback { background: rgba(180,170,150,0.12); color: var(--text-soft); }
+
+.gc-chip {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 0;
+  font-size: 12px;
+  background: var(--bg-slot);
+  border: 1px solid var(--slot-border);
+}
+.gc-chip-clickable {
+  border-color: var(--gold);
+  color: var(--gold);
+  cursor: pointer;
+}
+.gc-chip-clickable:hover {
+  background: var(--gold);
+  color: var(--bg-main);
+}
+
+/* Loading bar – more “progress bar / item durability” */
+.db-load-bar {
+  height: 10px;
+  background: var(--bg-slot);
+  border: 2px solid var(--slot-border);
+  border-radius: 0;
+  overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
+}
+.db-load-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--bronze), var(--gold-bright));
+  border-radius: 0;
+  transition: width 0.5s ease;
+}
+.db-load-fill.done {
+  background: var(--leaf);
+}
+.db-load-fill.err {
+  background: var(--danger);
+}
+
+/* Footer */
+footer {
+  text-align: center;
+  margin-top: 32px;
+  font-size: 12px;
+  color: var(--text-soft);
+  font-style: italic;
+}
+footer::before { content: '◆ '; color: var(--cyan); font-style: normal; }
+footer::after { content: ' ◆'; color: var(--cyan); font-style: normal; }
+
+/* Utility */
+.row { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.two-col { display: grid; grid-template-columns: 1fr 1.3fr; gap: 18px; align-items: start; }
+@media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+
+.callout-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+.callout-row-3 { grid-template-columns: 1fr 1fr 1fr; }
+@media (max-width: 980px) { .callout-row-3 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 700px) {
+  .callout-row,
+  .callout-row-3 { grid-template-columns: 1fr; }
+}
+
+.status { margin-top: 10px; font-size: 13px; color: var(--text-soft); min-height: 18px; }
+.status.err { color: var(--danger); }
+
+/* Chart / radar text */
+.axis-label { font-size: 15px; fill: var(--text-primary); font-weight: 600; }
+.axis-value { font-size: 28px; fill: var(--gold-bright); font-weight: 700; }
+.axis-percentile { font-size: 12px; fill: var(--text-soft); }
+.grid-ring { fill: none; stroke: rgba(232, 193, 74, 0.18); stroke-width: 1; }
+.grid-spoke { stroke: rgba(232, 193, 74, 0.18); stroke-width: 1; }
+.deck-shape { fill: rgba(78, 200, 224, 0.18); stroke: var(--cyan); stroke-width: 2.5; stroke-linejoin: round; }
+.deck-point { fill: var(--gold-bright); stroke: var(--wine-bright); stroke-width: 1.5; }
+
+/* Auth bar & misc small buttons already use .ghost – they inherit the new style */
 </style>
 </head>
 <body>
@@ -405,7 +888,7 @@
     <span id="authStatusText"></span>
     <button id="authOpenBtn" class="ghost" style="padding:4px 10px; font-size:12px; display:none;">Sign In</button>
     <button id="authProfileBtn" class="ghost" style="padding:4px 10px; font-size:12px; display:none;">My Profile</button>
-    <button id="authPodBtn" class="ghost" style="padding:4px 10px; font-size:12px; display:none;">My Pod</button>
+    <button id="authPodBtn" class="ghost" style="padding:4px 10px; font-size:12px; display:none;">OurPod</button>
     <button id="authSignOutBtn" class="ghost" style="padding:4px 10px; font-size:12px; display:none;">Sign Out</button>
   </div>
   <header>
@@ -464,8 +947,7 @@
   <div style="border:1px solid var(--line-strong); border-radius:6px; padding:10px; margin-bottom:20px; background:var(--bg-panel, rgba(255,255,255,0.02));">
     <div class="mode-tabs" style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
       <button id="modeSingleBtn" class="mode-btn active" style="font-family:'Cinzel',Georgia,serif; font-size:14.5px; letter-spacing:0.08em; text-transform:uppercase; padding:14px 24px; border-radius:5px; border:1.5px solid var(--gold); background:var(--gold); color:var(--bg-main); cursor:pointer; font-weight:700; box-shadow:0 0 14px rgba(224,178,77,0.45); transition:all 0.15s ease;">Deck Chart</button>
-      <button id="modePodBtn" class="mode-btn ghost" style="font-family:'Cinzel',Georgia,serif; font-size:14.5px; letter-spacing:0.08em; text-transform:uppercase; padding:14px 24px; border-radius:5px; border:1.5px solid var(--line-strong); background:rgba(224,178,77,0.06); color:var(--text-primary); cursor:pointer; font-weight:700; transition:all 0.15s ease;">Our Table (up to 6)</button>
-      <button id="modeSyncBtn" class="mode-btn ghost" style="font-family:'Cinzel',Georgia,serif; font-size:14.5px; letter-spacing:0.08em; text-transform:uppercase; padding:14px 24px; border-radius:5px; border:1.5px solid var(--line-strong); background:rgba(224,178,77,0.06); color:var(--text-primary); cursor:pointer; font-weight:700; transition:all 0.15s ease;">PodMates Sync</button>
+      <button id="modePodBtn" class="mode-btn ghost" style="font-family:'Cinzel',Georgia,serif; font-size:14.5px; letter-spacing:0.08em; text-transform:uppercase; padding:14px 24px; border-radius:5px; border:1.5px solid var(--line-strong); background:rgba(224,178,77,0.06); color:var(--text-primary); cursor:pointer; font-weight:700; transition:all 0.15s ease;">Game Night (up to 6)</button>
     </div>
   </div>
 
@@ -496,6 +978,7 @@
 One card per line. Formats like &quot;1x Sol Ring&quot;, plain names, or Moxfield/Archidekt-style paste all work — including a Commander: section, if your export has one."></textarea>
     <div class="row">
       <button id="chartBtn" disabled>Chart This Deck</button>
+      <button id="viewDeckBtn" class="ghost">View Deck</button>
       <button id="sampleBtn" class="ghost">Try a Deck</button>
       <button id="clearBtn" class="ghost">Clear</button>
     </div>
@@ -516,9 +999,9 @@ One card per line. Formats like &quot;1x Sol Ring&quot;, plain names, or Moxfiel
 
   <div id="podMode" style="display:none;">
     <div class="panel">
-      <h2>Your Pod</h2>
-      <p style="font-size:13.5px; color:var(--text-soft); margin:0 0 14px;">A Pod is your regular group of people, not a specific set of decks — who's bringing what gets chosen fresh each time you chart a game.</p>
-      <div id="podRosterArea"></div>
+      <h2>OurPod</h2>
+      <p style="font-size:13.5px; color:var(--text-soft); margin:0 0 14px;">An OurPod is your regular group of people, not a specific set of decks — who's bringing what gets chosen fresh each time you chart a game night.</p>
+      <div id="ourPodPanelArea"></div>
     </div>
 
     <div class="panel" style="border-color:var(--gold); box-shadow:0 0 0 1px var(--gold) inset;">
@@ -529,14 +1012,14 @@ One card per line. Formats like &quot;1x Sol Ring&quot;, plain names, or Moxfiel
     </div>
 
     <div class="panel">
-      <h2>Our Table <span style="font-weight:400; font-size:12px; letter-spacing:normal; text-transform:none; color:var(--text-soft);">(up to 6 mates)</span></h2>
+      <h2>Tonight's Lineup <span style="font-weight:400; font-size:12px; letter-spacing:normal; text-transform:none; color:var(--text-soft);">(up to 6 mates)</span></h2>
       <p style="font-size:13.5px; color:var(--text-soft); margin:0 0 14px;">Each seat needs a <strong>commander</strong> (required). Player name is optional. Empty seats are skipped. This is our shared vibe check before we shuffle.</p>
       <div class="row" style="margin-bottom:14px;">
         <button id="loadExamplePodBtn" class="ghost">Load Example Pod (6 sample decks)</button>
       </div>
       <div id="podInputs" style="display:grid; gap:14px;"></div>
       <div class="row" style="margin-top:16px;">
-        <button id="podChartBtn" disabled>Align Our Table</button>
+        <button id="podChartBtn" disabled>Align Game Night</button>
         <button id="podClearBtn" class="ghost">Clear Seats</button>
       </div>
       <div class="row" style="margin-top:10px; align-items:center;">
@@ -555,60 +1038,10 @@ One card per line. Formats like &quot;1x Sol Ring&quot;, plain names, or Moxfiel
     </div>
   </div>
 
-  <div id="syncMode" style="display:none;">
-    <div class="panel">
-      <h2>PodMates Sync</h2>
-      <p style="font-size:13.5px; color:var(--text-soft); margin:0 0 14px;">Keep everyone's saved decks and Chronicles in sync across phones — no accounts, no server. Export your library, send it to the group, and everyone merges it into their own.</p>
-
-      <details style="margin-bottom:18px;">
-        <summary style="cursor:pointer; color:var(--gold); font-weight:600; font-family:'Cinzel',Georgia,serif; font-size:13px; letter-spacing:0.05em;">How this works — read first</summary>
-        <div style="margin-top:10px; font-size:13px; color:var(--text-soft); line-height:1.7;">
-          <p>There's no shared server here, so each person's phone holds its own saved decks, Pods, and Chronicles. <strong>Export</strong> bundles all three into text you can send. <strong>Import &amp; Merge</strong> folds someone else's text into yours, without deleting anything you already have.</p>
-          <p><strong>If you're viewing this in a plain HTML viewer app rather than a full browser</strong> (common on phones, and likely how your podmates will use it too), stick to copy and paste — it's the one method that works essentially everywhere, since it doesn't depend on the app supporting file downloads or file pickers, which many lightweight viewers don't. The download button and "pick a file" option are there as a bonus in case your specific viewer happens to support them, but don't rely on them.</p>
-          <p><strong>Decks and Pods merge as "latest wins."</strong> If one only exists on one side, it's added. If it exists on both sides, whichever was saved more recently wins — nobody has to manually resolve anything.</p>
-          <p><strong>Chronicles merge differently, on purpose.</strong> A deck has one current version, but a night at the table might have write-ups from more than one person — that's a feature, not a conflict. So Chronicles entries are never overwritten; anything genuinely new is added, and only exact duplicates (the same entry arriving twice) are skipped. Two different accounts of the same night both stay.</p>
-          <p><strong>One thing worth knowing:</strong> deleting a deck locally doesn't remove it from anyone else's copy. If an older export gets merged in later, a deck you deleted can reappear. For a small pod this is rarely worth worrying about — just delete it again locally if it resurfaces.</p>
-          <p><strong>Suggested workflow for a pod using a group chat (e.g. LINE):</strong> one person acts as the hub. Everyone exports and sends their text to the hub whenever they've added something new (as a pasted message, or a text file if that's easier). The hub merges each one in as it arrives. Periodically — or right after an event — the hub exports the now-combined library and sends it back out. Everyone merges that in, and the whole pod converges without anyone needing to be online at the same time.</p>
-        </div>
-      </details>
-
-      <div style="border-top:1px solid var(--line); padding-top:16px; margin-bottom:20px;">
-        <h3 style="font-family:'Cinzel',Georgia,serif; font-size:14px; letter-spacing:0.05em; color:var(--gold); margin:0 0 10px;">Export</h3>
-        <div class="row" style="margin-bottom:10px;">
-          <input type="text" id="syncExportName" placeholder="Your name (optional — helps others know who sent it)"
-            style="flex:1; min-width:200px; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
-        </div>
-        <button id="syncExportBtn" class="ghost">Prepare Export (Decks + Chronicles)</button>
-        <p style="font-size:12px; color:var(--text-soft); margin:10px 0 6px;">Then send the text below to your pod — copy it into a LINE message, or long-press the box to select all and copy.</p>
-        <div class="row" style="margin-bottom:8px;">
-          <button id="syncCopyBtn" class="ghost" style="display:none;">Copy to Clipboard</button>
-          <button id="syncDownloadBtn" class="ghost" style="display:none;">Also Try: Download as File</button>
-        </div>
-        <textarea id="syncExportOutput" readonly placeholder="Tap “Prepare Export” above — the text to send will appear here."
-          style="width:100%; min-height:110px; resize:vertical; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:10px; font-family:inherit; font-size:11.5px; color:var(--text-primary);"></textarea>
-      </div>
-
-      <div style="border-top:1px solid var(--line); padding-top:16px;">
-        <h3 style="font-family:'Cinzel',Georgia,serif; font-size:14px; letter-spacing:0.05em; color:var(--gold); margin:0 0 10px;">Import &amp; Merge</h3>
-        <p style="font-size:12.5px; color:var(--text-soft); margin:0 0 10px;">Received text from someone on LINE? Paste it below — this works everywhere, including in a plain HTML viewer app.</p>
-        <textarea id="syncImportTextarea" placeholder="Paste the exported text here…"
-          style="width:100%; min-height:110px; resize:vertical; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:10px; font-family:inherit; font-size:12.5px; color:var(--text-primary); margin-bottom:8px;"></textarea>
-        <button id="syncImportPasteBtn" class="ghost">Merge Pasted Text</button>
-        <details style="margin-top:12px;">
-          <summary style="cursor:pointer; color:var(--text-soft); font-size:12.5px;">Got a file instead? Try picking it directly</summary>
-          <div style="margin-top:8px;">
-            <p style="font-size:11.5px; color:var(--text-soft); margin:0 0 8px;">This may not work in every viewer app — if nothing happens when you pick a file, open it another way (e.g. Files app preview, or a notes app), select all, copy, and paste into the box above instead.</p>
-            <input type="file" id="syncImportFile" accept=".json,application/json" style="width:100%;">
-          </div>
-        </details>
-        <div class="status" id="syncStatus" style="margin-top:10px;"></div>
-      </div>
-    </div>
-  </div>
-
   <div id="resultsSection">
     <div class="panel">
       <h2>Deck Profile</h2>
+      <div id="commanderHeroArea"></div>
       <div class="chart-area" id="chartArea"></div>
     </div>
 
@@ -720,7 +1153,7 @@ One card per line. Formats like &quot;1x Sol Ring&quot;, plain names, or Moxfiel
     </div>
     <div class="panel">
       <h2>Save This Chapter</h2>
-      <p style="font-size:13px; color:var(--text-soft); margin:0 0 10px;">Add tonight’s game to our Chronicles — a shared story, not a scoreboard. Stored only in this browser.</p>
+      <p style="font-size:13px; color:var(--text-soft); margin:0 0 10px;">Add tonight’s game to your OurPod’s Chronicles — a shared story, not a scoreboard. Visible to every member of your active OurPod.</p>
       <div class="row">
         <input id="matchNotes" placeholder="What felt great, what we learned, a shoutout…" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
         <button id="logMatchBtn" class="ghost">Add to Chronicles</button>
@@ -18351,6 +18784,221 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+// ============================================================
+// CARD ART — fetched on demand from Scryfall, not stored anywhere.
+// Scryfall's API sets CORS headers for all requests (confirmed directly
+// against their docs), so this calls it straight from the browser --
+// no server-side proxy needed, unlike Archidekt/Moxfield earlier.
+// This is the shared foundation stage 2+ (the full visual deck viewer,
+// thumbnails inside the analysis callouts) will build on.
+// ============================================================
+
+// In-memory only, per page load -- nothing here is worth persisting.
+// Re-fetching is cheap, and art can change with reprints anyway, so a
+// stale cached URL would be a worse outcome than just asking again.
+const cardImageCache = new Map();
+
+async function fetchCardImageUrl(cardName, size) {
+  size = size || 'art_crop'; // small | normal | large | art_crop | png
+  const cacheKey = cardName + '|' + size;
+  if (cardImageCache.has(cacheKey)) return cardImageCache.get(cacheKey);
+  try {
+    const res = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cardName)}`);
+    if (!res.ok) { cardImageCache.set(cacheKey, null); return null; }
+    const data = await res.json();
+    let url = null;
+    if (data.image_uris) {
+      url = data.image_uris[size] || null;
+    } else if (Array.isArray(data.card_faces) && data.card_faces[0] && data.card_faces[0].image_uris) {
+      // Double-faced cards (and some split cards) keep images per face
+      // rather than at the top level of the card object.
+      url = data.card_faces[0].image_uris[size] || null;
+    }
+    cardImageCache.set(cacheKey, url);
+    return url;
+  } catch (e) {
+    cardImageCache.set(cacheKey, null);
+    return null;
+  }
+}
+
+// Shows up to 2 commander portraits (partners / Background pairs) above
+// the radar chart -- an instant visual "which deck is this" before
+// reading a single stat. A rare 3rd+ commander (some Background +
+// partner combinations) isn't specially laid out for now; simplicity
+// over handling an uncommon edge case.
+async function renderCommanderHero(commanders) {
+  const area = $('commanderHeroArea');
+  if (!area) return;
+  if (!commanders || !commanders.length) { area.innerHTML = ''; return; }
+
+  const toShow = commanders.slice(0, 2);
+  area.innerHTML = `
+    <div style="display:flex; gap:10px; justify-content:center; margin-bottom:16px;">
+      ${toShow.map((name, i) => `
+        <div id="commanderHeroSlot${i}" style="display:none; flex:1; max-width:280px; aspect-ratio:1.37; overflow:hidden; border:2px solid var(--line-strong); border-radius:0; background:var(--bg-slot, var(--bg-main));"></div>
+      `).join('')}
+    </div>
+  `;
+
+  const results = await Promise.all(toShow.map(name => fetchCardImageUrl(name, 'art_crop')));
+  results.forEach((url, i) => {
+    const slot = $('commanderHeroSlot' + i);
+    if (!slot) return;
+    if (!url) { slot.style.display = 'none'; return; } // fails quietly -- a missing image is never worth blocking or cluttering the report
+    slot.style.display = 'block';
+    slot.innerHTML = `<img src="${escapeHtml(url)}" alt="${escapeHtml(toShow[i])}" loading="lazy" style="width:100%; height:100%; object-fit:cover; display:block;">`;
+  });
+}
+
+// ============================================================
+// VIEW DECK — full visual gallery of a decklist, grouped by category,
+// read-only. Similar shape to Archidekt/Moxfield's image views, minus
+// the editing/tagging they offer -- PodMates analyzes decks, it doesn't
+// build them.
+// ============================================================
+
+// Single-category assignment for grouping (distinct from typeFrequency's
+// multi-credit logic in the engine, which deliberately counts an Artifact
+// Creature toward BOTH buckets for stats purposes -- a gallery grouping
+// needs exactly one bucket per card, or the same image would appear
+// twice and the displayed count wouldn't match the deck's real size).
+// Order matters: this is priority, most-specific-first, matching the
+// convention most deckbuilding sites default to (an Artifact Creature
+// groups under Creature, not Artifact; an Enchantment Creature under
+// Creature, not Enchantment).
+const VIEWER_CATEGORY_ORDER = ['Planeswalker', 'Battle', 'Creature', 'Sorcery', 'Instant', 'Artifact', 'Enchantment', 'Land'];
+
+function getCardViewerCategory(typeLine) {
+  const prefix = (typeLine || '').split('—')[0];
+  for (const cat of VIEWER_CATEGORY_ORDER) {
+    if (prefix.includes(cat)) return cat;
+  }
+  return 'Other';
+}
+
+// Batches into groups of <=75 (Scryfall's hard limit on /cards/collection)
+// and fires those requests in parallel -- a 100-card Commander deck is at
+// most 2 batches, nowhere near enough to be a rate-limit concern. Returns
+// a Map of card name -> normal-size image URL (or no entry at all for a
+// name Scryfall couldn't find, surfaced via the returned notFound array
+// rather than silently guessed at).
+async function fetchCardImagesBatch(cardNames) {
+  const unique = [...new Set(cardNames)];
+  const chunks = [];
+  for (let i = 0; i < unique.length; i += 75) chunks.push(unique.slice(i, i + 75));
+
+  const urlMap = new Map();
+  const notFound = [];
+
+  await Promise.all(chunks.map(async (chunk) => {
+    try {
+      const res = await fetch('https://api.scryfall.com/cards/collection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifiers: chunk.map(name => ({ name })) }),
+      });
+      if (!res.ok) { notFound.push(...chunk); return; }
+      const data = await res.json();
+      (data.data || []).forEach(card => {
+        let url = null;
+        if (card.image_uris) url = card.image_uris.normal || null;
+        else if (Array.isArray(card.card_faces) && card.card_faces[0] && card.card_faces[0].image_uris) {
+          url = card.card_faces[0].image_uris.normal || null;
+        }
+        if (url) urlMap.set(card.name, url);
+      });
+      (data.not_found || []).forEach(id => { if (id && id.name) notFound.push(id.name); });
+    } catch (e) {
+      notFound.push(...chunk);
+    }
+  }));
+
+  return { urlMap, notFound };
+}
+
+async function showDeckViewerModal(decklistText, commanderStr) {
+  if (!dbReady) { showToast('Card database still loading — try again in a moment.'); return; }
+  const parsed = parseDecklist(decklistText || '');
+  if (!parsed.entries.length) { showToast('Paste a decklist first.'); return; }
+  const { matched } = matchDecklist(parsed.entries, CARD_DB, indexes);
+  if (!matched.length) { showToast('Could not read any cards from this decklist.'); return; }
+
+  const commanderNames = new Set((commanderStr || '').split(/\s*\/\s*|\s+&\s+/).map(s => s.trim()).filter(Boolean));
+
+  injectTryADeckStyles();
+  closeTryADeckModal();
+  const overlay = document.createElement('div');
+  overlay.className = 'tad-overlay';
+  overlay.id = 'tadOverlay';
+  const modal = document.createElement('div');
+  modal.className = 'tad-modal tad-modal-wide';
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
+
+  modal.innerHTML = `<p style="text-align:center; color:var(--text-soft); font-size:13px;">Loading card art…</p>`;
+
+  // Group first (cheap, synchronous), so the loading state is brief and
+  // the grouping itself never depends on network success.
+  const groups = { Commander: [] };
+  VIEWER_CATEGORY_ORDER.forEach(cat => { groups[cat] = []; });
+  groups.Other = [];
+  const totalsByKey = new Map(); // dedupe multiple lines of the same card (e.g. two separate "1 Forest" entries)
+
+  for (const m of matched) {
+    const key = m.card.n;
+    if (totalsByKey.has(key)) {
+      totalsByKey.set(key, totalsByKey.get(key) + m.qty);
+      continue;
+    }
+    totalsByKey.set(key, m.qty);
+    const bucket = commanderNames.has(key) ? 'Commander' : getCardViewerCategory(m.card.t);
+    groups[bucket].push(m.card);
+  }
+
+  const allNames = [...totalsByKey.keys()];
+  const { urlMap, notFound } = await fetchCardImagesBatch(allNames);
+
+  const orderedGroupNames = ['Commander', ...VIEWER_CATEGORY_ORDER, 'Other'];
+  const sections = orderedGroupNames
+    .filter(g => groups[g] && groups[g].length)
+    .map(g => {
+      const cards = groups[g].slice().sort((a, b) => a.n.localeCompare(b.n));
+      const cardsHtml = cards.map(card => {
+        const qty = totalsByKey.get(card.n);
+        const url = urlMap.get(card.n);
+        if (!url) {
+          // Missing art shouldn't silently vanish from the count -- show a
+          // plain named placeholder rather than skipping the card entirely.
+          return `<div style="aspect-ratio:0.717; background:var(--bg-slot, var(--bg-main)); border:1.5px solid var(--line); display:flex; align-items:center; justify-content:center; padding:6px; text-align:center;">
+            <span style="font-size:11px; color:var(--text-soft);">${escapeHtml(card.n)}</span>
+          </div>`;
+        }
+        return `<div style="position:relative;">
+          <img src="${escapeHtml(url)}" alt="${escapeHtml(card.n)}" loading="lazy" title="${escapeHtml(card.n)}" style="width:100%; display:block; border:1.5px solid var(--line); border-radius:0;">
+          ${qty > 1 ? `<span style="position:absolute; top:4px; right:4px; background:rgba(15,12,10,0.85); color:var(--gold-bright); font-size:11px; font-weight:700; padding:2px 6px; border:1px solid var(--gold);">×${qty}</span>` : ''}
+        </div>`;
+      }).join('');
+      return `
+        <div style="margin-bottom:20px;">
+          <div style="font-family:'Cinzel',Georgia,serif; font-size:13px; letter-spacing:0.06em; text-transform:uppercase; color:var(--gold); margin-bottom:10px; border-bottom:1px solid var(--line); padding-bottom:6px;">${escapeHtml(g)} (${cards.reduce((sum, c) => sum + totalsByKey.get(c.n), 0)})</div>
+          <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(110px, 1fr)); gap:10px;">${cardsHtml}</div>
+        </div>
+      `;
+    }).join('');
+
+  modal.innerHTML = `
+    <button class="tad-close" id="tadCloseBtn">Close ×</button>
+    <h2 style="margin-bottom:4px;">View Deck</h2>
+    <p style="font-size:12px; color:var(--text-soft); margin:0 0 16px;">
+      ${matched.length} card line${matched.length === 1 ? '' : 's'}${notFound.length ? ` · ${notFound.length} card${notFound.length === 1 ? '' : 's'} shown without art` : ''}
+    </p>
+    ${sections}
+  `;
+  document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
+}
+
 function setStatus(msg, isErr) {
   $('status').textContent = msg;
   $('status').className = 'status' + (isErr ? ' err' : '');
@@ -18443,6 +19091,7 @@ function runAnalysis() {
   }
   const agg = analyzeDeck(matched, commanders);
   agg.commanders = commanders;
+  renderCommanderHero(commanders);
   const winCons = detectWinCondition(agg);
   currentWinCons = winCons;
 
@@ -19295,13 +19944,13 @@ function renderKeyPieces(agg) {
   if (agg.commanders && agg.commanders.length) {
     sections.push(`<div style="margin-bottom:10px;"><strong style="color:var(--gold);">Commander</strong><br>${agg.commanders.map(escapeHtml).join(' / ')}</div>`);
   }
-  if (agg.gameChangers.length) sections.push(`<div style="margin-bottom:10px;"><strong style="color:var(--gold);">Game Changers</strong><br>${gameChangerChips(agg.gameChangers)}</div>`);
-  if (agg.detectedCombos.length) sections.push(`<div style="margin-bottom:10px;"><strong style="color:var(--gold);">Detected Combos</strong><br>${agg.detectedCombos.map(escapeHtml).join('<br>')}</div>`);
-  if (agg.fastManaCards.length) sections.push(`<div style="margin-bottom:10px;"><strong style="color:var(--gold);">Fast Mana</strong><br>${[...new Set(agg.fastManaCards)].map(escapeHtml).join(', ')}</div>`);
-  if (agg.tutorCards.length) sections.push(`<div style="margin-bottom:10px;"><strong style="color:var(--gold);">Tutors</strong><br>${[...new Set(agg.tutorCards)].map(escapeHtml).join(', ')}</div>`);
-  if (agg.mldCards.length) sections.push(`<div style="margin-bottom:10px;"><strong style="color:var(--danger);">Mass Land Denial</strong><br>${[...new Set(agg.mldCards)].map(escapeHtml).join(', ')}</div>`);
-  if (agg.staxCards.length) sections.push(`<div style="margin-bottom:10px;"><strong style="color:var(--gold);">Stax / Tax</strong><br>${[...new Set(agg.staxCards)].slice(0,12).map(escapeHtml).join(', ')}${agg.staxCards.length > 12 ? '…' : ''}</div>`);
-  if (agg.counterCards.length) sections.push(`<div style="margin-bottom:10px;"><strong style="color:var(--gold);">Counter Magic</strong><br>${[...new Set(agg.counterCards)].slice(0,10).map(escapeHtml).join(', ')}${agg.counterCards.length > 10 ? '…' : ''}</div>`);
+  if (agg.gameChangers.length) sections.push(`<div style="margin-bottom:10px;"><strong style="color:var(--gold);">Game Changers</strong><div id="gameChangerThumbs" style="margin:6px 0;"></div>${gameChangerChips(agg.gameChangers)}</div>`);
+  if (agg.detectedCombos.length) sections.push(`<div style="margin-bottom:10px;"><strong style="color:var(--gold);">Detected Combos</strong><div id="comboThumbs"></div></div>`);
+  if (agg.fastManaCards.length) sections.push(`<div style="margin-bottom:10px;"><strong style="color:var(--gold);">Fast Mana</strong><br>${[...new Set(agg.fastManaCards)].map(cardNameLink).join(', ')}</div>`);
+  if (agg.tutorCards.length) sections.push(`<div style="margin-bottom:10px;"><strong style="color:var(--gold);">Tutors</strong><br>${[...new Set(agg.tutorCards)].map(cardNameLink).join(', ')}</div>`);
+  if (agg.mldCards.length) sections.push(`<div style="margin-bottom:10px;"><strong style="color:var(--danger);">Mass Land Denial</strong><br>${[...new Set(agg.mldCards)].map(cardNameLink).join(', ')}</div>`);
+  if (agg.staxCards.length) sections.push(`<div style="margin-bottom:10px;"><strong style="color:var(--gold);">Stax / Tax</strong><br>${[...new Set(agg.staxCards)].slice(0,12).map(cardNameLink).join(', ')}${agg.staxCards.length > 12 ? '…' : ''}</div>`);
+  if (agg.counterCards.length) sections.push(`<div style="margin-bottom:10px;"><strong style="color:var(--gold);">Counter Magic</strong><br>${[...new Set(agg.counterCards)].slice(0,10).map(cardNameLink).join(', ')}${agg.counterCards.length > 10 ? '…' : ''}</div>`);
 
   if (sections.length === 0) {
     panel.style.display = 'none';
@@ -19309,6 +19958,50 @@ function renderKeyPieces(agg) {
   }
   area.innerHTML = `<div style="font-size:13.5px; line-height:1.55; color:var(--text-soft);">${sections.join('')}</div>`;
   panel.style.display = 'block';
+
+  // Thumbnails are fetched and filled in separately, after this synchronous
+  // text/chip render completes -- the existing report (including the
+  // already-interactive Game Changer chips, click-to-explain and all)
+  // shows up exactly as fast as it always has; art fills in a moment later
+  // without blocking or reflowing anything already on screen.
+  enhanceKeyPiecesWithThumbnails(agg);
+}
+
+// Small art strips for Game Changers and Detected Combos specifically --
+// deliberately not extended to every category in this panel (Fast Mana,
+// Tutors, Stax, Counters can run to a dozen-plus cards each; a wall of
+// always-visible thumbnails there would add clutter more than clarity).
+// Those other categories instead get click-for-art via cardNameLink()
+// above -- a card is one tap away from its art, without every list in
+// this panel turning into an image gallery by default. Game Changers and
+// Combos are both the most narratively significant cards in a report AND
+// naturally few in count, so an always-visible row stays tasteful there.
+async function enhanceKeyPiecesWithThumbnails(agg) {
+  const gcNames = [...new Set(agg.gameChangers || [])];
+  const comboDetails = agg.detectedComboDetails || [];
+  const comboCardNames = [...new Set(comboDetails.flatMap(c => c.cards || []))];
+  const allNames = [...new Set([...gcNames, ...comboCardNames])];
+  if (!allNames.length) return;
+
+  const { urlMap } = await fetchCardImagesBatch(allNames);
+
+  const thumbHtml = (names) => names.map(name => {
+    const url = urlMap.get(name);
+    if (!url) return ''; // no placeholder here -- the text chips/labels right below already name every card either way
+    return `<img src="${escapeHtml(url)}" alt="${escapeHtml(name)}" title="${escapeHtml(name)}" loading="lazy" style="width:52px; height:72.6px; object-fit:cover; border:1.5px solid var(--line); border-radius:0; margin:0 4px 4px 0;">`;
+  }).join('');
+
+  const gcArea = $('gameChangerThumbs');
+  if (gcArea && gcNames.length) gcArea.innerHTML = thumbHtml(gcNames);
+
+  const comboArea = $('comboThumbs');
+  if (comboArea && comboDetails.length) {
+    comboArea.innerHTML = comboDetails.map(combo => `
+      <div style="margin:6px 0 8px;">
+        <div>${thumbHtml(combo.cards || [])}</div>
+      </div>
+    `).join('');
+  }
 }
 
 function stat(num, label) {
@@ -19334,36 +20027,51 @@ function explainerBtn(key) {
   return ` <button class="info-btn" data-explain="${key}" title="How is this calculated?">?</button>`;
 }
 
+// Builds one "Label: card, card, card" line with each card name clickable
+// for its art, pre-wrapped in the { raw: true } shape getContributorsForAxis
+// already expects (see the existing Game Changers line below, which this
+// generalizes) -- needed because the final render step escapes every
+// entry that ISN'T explicitly marked raw, which would otherwise turn any
+// <span> tags this injects into visible, broken-looking text instead of
+// working clickable names.
+function contribLine(label, cards, cap) {
+  const unique = [...new Set(cards)];
+  if (!unique.length) return null;
+  const shown = cap ? unique.slice(0, cap) : unique;
+  const suffix = (cap && unique.length > cap) ? '…' : '';
+  return { raw: true, text: `${escapeHtml(label)}: ${shown.map(cardNameLink).join(', ')}${suffix}` };
+}
+
 function getContributorsForAxis(key) {
   if (!currentAgg) return '';
   const lists = {
     speed: [
-      currentAgg.fastManaCards.length ? `Fast mana: ${[...new Set(currentAgg.fastManaCards)].join(', ')}` : null,
-      currentAgg.rampCards.length ? `Ramp: ${[...new Set(currentAgg.rampCards)].slice(0, 8).join(', ')}${currentAgg.rampCards.length > 8 ? '…' : ''}` : null,
-      currentAgg.reanimateCards.length ? `Reanimate: ${[...new Set(currentAgg.reanimateCards)].join(', ')}` : null,
+      contribLine('Fast mana', currentAgg.fastManaCards),
+      contribLine('Ramp', currentAgg.rampCards, 8),
+      contribLine('Reanimate', currentAgg.reanimateCards),
     ],
     consistency: [
-      currentAgg.tutorCards.length ? `Tutors: ${[...new Set(currentAgg.tutorCards)].join(', ')}` : null,
-      currentAgg.protectionCards.length ? `Protection: ${[...new Set(currentAgg.protectionCards)].slice(0, 6).join(', ')}${currentAgg.protectionCards.length > 6 ? '…' : ''}` : null,
+      contribLine('Tutors', currentAgg.tutorCards),
+      contribLine('Protection', currentAgg.protectionCards, 6),
     ],
     disruption: [
-      currentAgg.freeInteractionCards && currentAgg.freeInteractionCards.length ? `Free interaction: ${[...new Set(currentAgg.freeInteractionCards)].join(', ')}` : null,
-      currentAgg.staxCards.length ? `Stax: ${[...new Set(currentAgg.staxCards)].slice(0, 6).join(', ')}${currentAgg.staxCards.length > 6 ? '…' : ''}` : null,
-      currentAgg.counterCards.length ? `Counters: ${[...new Set(currentAgg.counterCards)].slice(0, 6).join(', ')}` : null,
-      currentAgg.discardCards.length ? `Discard: ${[...new Set(currentAgg.discardCards)].join(', ')}` : null,
-      currentAgg.mldCards.length ? `MLD: ${[...new Set(currentAgg.mldCards)].join(', ')}` : null,
+      currentAgg.freeInteractionCards ? contribLine('Free interaction', currentAgg.freeInteractionCards) : null,
+      contribLine('Stax', currentAgg.staxCards, 6),
+      contribLine('Counters', currentAgg.counterCards, 6),
+      contribLine('Discard', currentAgg.discardCards),
+      contribLine('MLD', currentAgg.mldCards),
     ],
     powerLevel: [
       currentAgg.gameChangers.length ? { raw: true, text: `Game Changers: ${gameChangerChips(currentAgg.gameChangers)}` } : null,
       currentAgg.detectedCombos.length ? `Combos: ${currentAgg.detectedCombos.join('; ')}` : null,
-      currentAgg.fastManaCards.length ? `Fast mana: ${[...new Set(currentAgg.fastManaCards)].join(', ')}` : null,
-      currentAgg.tutorCards.length ? `Tutors: ${[...new Set(currentAgg.tutorCards)].join(', ')}` : null,
+      contribLine('Fast mana', currentAgg.fastManaCards),
+      contribLine('Tutors', currentAgg.tutorCards),
     ],
     versatility: [
       currentWinCons && currentWinCons.length ? `Detected win condition(s): ${currentWinCons.map(w => w.label).join(', ')}` : null,
       `Distinct functional capabilities: ${currentAgg.versatilityFeatures || 0} · Modal/flexible cards: ${currentAgg.versatilityModes || 0}`,
-      currentAgg.drawCards && currentAgg.drawCards.length ? `Card draw: ${[...new Set(currentAgg.drawCards)].slice(0, 8).join(', ')}${currentAgg.drawCards.length > 8 ? '…' : ''}` : null,
-      currentAgg.rampCards && currentAgg.rampCards.length ? `Ramp: ${[...new Set(currentAgg.rampCards)].slice(0, 8).join(', ')}${currentAgg.rampCards.length > 8 ? '…' : ''}` : null,
+      currentAgg.drawCards ? contribLine('Card draw', currentAgg.drawCards, 8) : null,
+      currentAgg.rampCards ? contribLine('Ramp', currentAgg.rampCards, 8) : null,
     ],
   };
   const parts = (lists[key] || []).filter(Boolean);
@@ -19572,11 +20280,57 @@ function requireAccountToSave(what) {
 // (not login) as a welcome step, and any time afterward via "My Profile"
 // in the auth bar. Always skippable -- never blocks using the app.
 
+// Pulls decks from BOTH storage locations a person's decks can live in --
+// the plain "Save Deck" flow on the main Chart Deck page (users/{uid}/decks,
+// keyed by "Commander (Player)") and Archidekt/Moxfield link imports
+// (users/{uid}/linkedDecks) -- and normalizes them into one common shape
+// so My Profile can show a single unified list instead of only ever
+// reflecting whichever source happened to be fetched.
+async function loadAndMergeMyDecks() {
+  const [savedDecksMap, linkedDecksArr] = await Promise.all([
+    window.PodmatesCloud.loadAllDecks().catch(() => ({})),
+    window.PodmatesCloud.loadLinkedDecks().catch(() => ([])),
+  ]);
+
+  const merged = [];
+  for (const [key, entry] of Object.entries(savedDecksMap)) {
+    const list = entry.list || '';
+    merged.push({
+      id: 'saved:' + key,
+      source: 'saved',
+      rawKey: key,
+      name: key, // "Commander (Player)" -- already a meaningful label on its own
+      commander: entry.commander || '',
+      player: entry.player || '',
+      decklistText: list,
+      cardCount: list.split('\n').map(l => l.trim()).filter(Boolean).length,
+      url: null,
+      addedAt: entry.savedAt || 0,
+    });
+  }
+  for (const d of linkedDecksArr) {
+    merged.push({
+      id: 'linked:' + d.id,
+      source: d.platform, // 'archidekt' | 'moxfield'
+      rawId: d.id,
+      name: d.name,
+      commander: d.commander || '',
+      player: '',
+      decklistText: d.decklistText,
+      cardCount: d.cardCount,
+      url: d.url,
+      addedAt: d.addedAt || d.syncedAt || 0,
+    });
+  }
+  merged.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+  return merged;
+}
+
 async function showProfileModal(opts) {
   if (!window.PodmatesCloud) return;
   injectTryADeckStyles();
   closeTryADeckModal();
-  expandedLinkedDeckIds = new Set(); // fresh collapsed state each time the modal opens
+  expandedMyDeckIds = new Set(); // fresh collapsed state each time the modal opens
   const overlay = document.createElement('div');
   overlay.className = 'tad-overlay';
   overlay.id = 'tadOverlay';
@@ -19588,13 +20342,13 @@ async function showProfileModal(opts) {
 
   modal.innerHTML = `<p style="text-align:center; color:var(--text-soft); font-size:13px;">Loading your profile…</p>`;
 
-  let linkedDecks = [];
-  try { linkedDecks = await window.PodmatesCloud.loadLinkedDecks(); } catch (e) { /* fine -- just start empty */ }
+  let myDecks = [];
+  try { myDecks = await loadAndMergeMyDecks(); } catch (e) { /* fine -- just start empty */ }
 
-  renderProfileModal(modal, linkedDecks, opts);
+  renderProfileModal(modal, myDecks, opts);
 }
 
-function renderProfileModal(modal, linkedDecks, opts) {
+function renderProfileModal(modal, myDecks, opts) {
   const isWelcome = !!(opts && opts.welcome);
   modal.innerHTML = `
     <button class="tad-close" id="tadCloseBtn">Close ×</button>
@@ -19602,7 +20356,7 @@ function renderProfileModal(modal, linkedDecks, opts) {
     <p style="font-size:12.5px; color:var(--text-soft); margin:0 0 16px;">
       ${isWelcome
         ? 'Optional — paste links to your Archidekt or Moxfield decks to add them here, ready to load anytime. Skip this and come back anytime from "My Profile."'
-        : 'Paste a link to an Archidekt or Moxfield deck to add it below.'}
+        : 'All your decks live here — anything saved from Chart Deck, plus anything linked from Archidekt or Moxfield below.'}
     </p>
     <div class="row" style="margin-bottom:14px; gap:8px; align-items:center;">
       <input id="profileDeckLinkInput" type="text" placeholder="archidekt.com/decks/... or moxfield.com/decks/..." style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
@@ -19610,14 +20364,47 @@ function renderProfileModal(modal, linkedDecks, opts) {
     </div>
     <div id="profileSyncStatus" style="font-size:12.5px; margin-bottom:12px;"></div>
     <div id="profileLinkedDecks" style="margin-bottom:10px;"></div>
-    ${isWelcome ? `<p style="text-align:center; margin-top:10px;"><a href="#" id="profileSkipLink" style="font-size:12.5px; color:var(--text-soft); text-decoration:underline;">Skip for now</a></p>` : ''}
+    ${isWelcome ? `<p style="text-align:center; margin-top:10px;"><a href="#" id="profileSkipLink" style="font-size:12.5px; color:var(--text-soft); text-decoration:underline;">Skip for now</a></p>` : `
+    <details style="margin-top:16px; padding-top:14px; border-top:1px solid var(--line);">
+      <summary style="cursor:pointer; color:var(--gold); font-weight:600; font-size:13px;">Backup &amp; Restore</summary>
+      <div style="margin-top:12px;">
+        <p style="font-size:12px; color:var(--text-soft); margin:0 0 10px;">A personal safety-net copy of your saved decks — not needed for normal use, since everything here is already saved to your account.</p>
+        <button id="profileDownloadBackupBtn" class="ghost" style="width:100%; margin-bottom:12px; font-size:12.5px;">Download My Data</button>
+        <label style="font-size:12px; color:var(--text-soft); display:block; margin-bottom:6px;">Restore from a downloaded backup file:</label>
+        <input type="file" id="profileRestoreFile" accept=".json,application/json" style="width:100%; margin-bottom:8px; font-size:12.5px; color:var(--text-primary);">
+        <div id="profileDataStatus" style="font-size:12px; min-height:16px;"></div>
+      </div>
+    </details>`}
   `;
 
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
   const skipLink = document.getElementById('profileSkipLink');
   if (skipLink) skipLink.addEventListener('click', (e) => { e.preventDefault(); closeTryADeckModal(); });
 
-  renderLinkedDecksList(modal, linkedDecks, isWelcome);
+  const downloadBackupBtn = document.getElementById('profileDownloadBackupBtn');
+  if (downloadBackupBtn) downloadBackupBtn.addEventListener('click', downloadMyDataBackup);
+
+  const restoreFile = document.getElementById('profileRestoreFile');
+  if (restoreFile) {
+    restoreFile.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async () => {
+        await restoreMyDataBackup(reader.result);
+        const refreshed = await loadAndMergeMyDecks();
+        renderMyDecksList(modal, refreshed, isWelcome);
+      };
+      reader.onerror = () => {
+        const statusEl = document.getElementById('profileDataStatus');
+        if (statusEl) { statusEl.textContent = 'Could not read that file.'; statusEl.className = 'status err'; }
+      };
+      reader.readAsText(file);
+      restoreFile.value = ''; // allow re-selecting the same file later
+    });
+  }
+
+  renderMyDecksList(modal, myDecks, isWelcome);
 
   document.getElementById('profileAddDeckBtn').addEventListener('click', async () => {
     const input = document.getElementById('profileDeckLinkInput');
@@ -19640,8 +20427,8 @@ function renderProfileModal(modal, linkedDecks, opts) {
       input.value = '';
       statusEl.textContent = `Added “${result.deck.name}.”`;
       statusEl.className = 'status';
-      const refreshed = await window.PodmatesCloud.loadLinkedDecks();
-      renderLinkedDecksList(modal, refreshed, isWelcome);
+      const refreshed = await loadAndMergeMyDecks();
+      renderMyDecksList(modal, refreshed, isWelcome);
     } catch (e) {
       // Most likely cause: a Firestore permission error (missing/incorrect
       // security rule for this data), surfaced honestly instead of leaving
@@ -19655,11 +20442,11 @@ function renderProfileModal(modal, linkedDecks, opts) {
   });
 }
 
-let expandedLinkedDeckIds = new Set();
-const linkedDeckSummaryCache = new Map();
+let expandedMyDeckIds = new Set();
+const myDecksSummaryCache = new Map();
 
 function computeQuickSummary(deck) {
-  if (linkedDeckSummaryCache.has(deck.id)) return linkedDeckSummaryCache.get(deck.id);
+  if (myDecksSummaryCache.has(deck.id)) return myDecksSummaryCache.get(deck.id);
   if (!dbReady) return { error: 'Card database still loading — try again in a moment.' };
 
   try {
@@ -19684,19 +20471,20 @@ function computeQuickSummary(deck) {
       commandSpark, speed, consistency, versatility, disruption, powerLevel,
       bracket: bracket.bracket,
     };
-    linkedDeckSummaryCache.set(deck.id, summary);
+    myDecksSummaryCache.set(deck.id, summary);
     return summary;
   } catch (e) {
     return { error: 'Could not analyze this deck: ' + e.message };
   }
 }
 
-function renderLinkedDeckSummary(deck) {
+function renderMyDeckSummary(deck) {
   const s = computeQuickSummary(deck);
   if (s.error) {
     return `<div style="padding:12px 0; font-size:12.5px; color:var(--text-soft);">${escapeHtml(s.error)}</div>`;
   }
   const chip = (label, val) => `<div style="text-align:center;"><div style="font-size:16px; font-weight:700; color:var(--gold-bright);">${val.toFixed(1)}</div><div style="font-size:9.5px; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-soft);">${label}</div></div>`;
+  const sourceLabel = deck.source === 'archidekt' ? 'Archidekt' : deck.source === 'moxfield' ? 'Moxfield' : null;
   return `
     <div style="padding:12px 0 6px;">
       <div style="font-size:13px; color:var(--text-primary); margin-bottom:2px;"><strong>Commander:</strong> ${escapeHtml(s.commander)}</div>
@@ -19711,23 +20499,28 @@ function renderLinkedDeckSummary(deck) {
         </div>
       </div>
       <button class="ghost" data-action="open-chart" data-id="${escapeHtml(deck.id)}" style="width:100%; font-size:12.5px;">Open in Deck Chart →</button>
-      <div style="text-align:center; margin-top:8px;"><a href="${escapeHtml(deck.url)}" target="_blank" rel="noopener" style="font-size:11.5px; color:var(--text-soft); text-decoration:underline;">View original on ${escapeHtml(deck.platform === 'archidekt' ? 'Archidekt' : 'Moxfield')} ↗</a></div>
+      ${deck.url ? `<div style="text-align:center; margin-top:8px;"><a href="${escapeHtml(deck.url)}" target="_blank" rel="noopener" style="font-size:11.5px; color:var(--text-soft); text-decoration:underline;">View original on ${escapeHtml(sourceLabel)} ↗</a></div>` : ''}
     </div>
   `;
 }
 
-function renderLinkedDecksList(modal, linkedDecks, isWelcome) {
+function renderMyDecksList(modal, myDecks, isWelcome) {
   const el = modal.querySelector ? modal.querySelector('#profileLinkedDecks') : document.getElementById('profileLinkedDecks');
   const container = el || document.getElementById('profileLinkedDecks');
   if (!container) return;
 
-  if (!linkedDecks.length) {
-    container.innerHTML = `<div style="font-size:13px; color:var(--text-soft);">No decks added yet.</div>`;
+  if (!myDecks.length) {
+    container.innerHTML = `<div style="font-size:13px; color:var(--text-soft);">No decks saved yet — use "Save Deck" on the Chart Deck page, or add a link above.</div>`;
     return;
   }
 
-  container.innerHTML = linkedDecks.map(d => {
-    const isOpen = expandedLinkedDeckIds.has(d.id);
+  container.innerHTML = myDecks.map(d => {
+    const isOpen = expandedMyDeckIds.has(d.id);
+    const sourceLabel = d.source === 'archidekt' ? 'Archidekt' : d.source === 'moxfield' ? 'Moxfield' : 'Saved';
+    const subtitleBits = [sourceLabel];
+    if (d.source === 'saved') { if (d.commander) subtitleBits.push(d.commander); if (d.player) subtitleBits.push(d.player); }
+    else if (d.commander) subtitleBits.push(d.commander);
+    subtitleBits.push(`${d.cardCount} cards`);
     return `
     <div style="border-bottom:1px solid var(--line);">
       <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 0; cursor:pointer;" data-action="toggle" data-id="${escapeHtml(d.id)}">
@@ -19735,16 +20528,16 @@ function renderLinkedDecksList(modal, linkedDecks, isWelcome) {
           <span style="color:var(--gold); font-size:11px; transition:transform 0.15s ease; display:inline-block; transform:rotate(${isOpen ? '90' : '0'}deg);">▶</span>
           <div>
             <div style="font-size:13.5px; color:var(--text-primary);">${escapeHtml(d.name)}</div>
-            <div style="font-size:11.5px; color:var(--text-soft); margin-top:2px;">${escapeHtml(d.platform === 'archidekt' ? 'Archidekt' : 'Moxfield')}${d.commander ? ` · ${escapeHtml(d.commander)}` : ''} · ${d.cardCount} cards</div>
+            <div style="font-size:11.5px; color:var(--text-soft); margin-top:2px;">${subtitleBits.map(escapeHtml).join(' · ')}</div>
           </div>
         </div>
         <div style="display:flex; gap:6px; flex-shrink:0;">
-          <button class="ghost" data-action="refresh" data-id="${escapeHtml(d.id)}" style="padding:5px 10px; font-size:12px;">Refresh</button>
+          ${d.url ? `<button class="ghost" data-action="refresh" data-id="${escapeHtml(d.id)}" style="padding:5px 10px; font-size:12px;">Refresh</button>` : ''}
           <button class="ghost" data-action="remove" data-id="${escapeHtml(d.id)}" style="padding:5px 10px; font-size:12px; border-color:var(--danger); color:var(--danger);">Remove</button>
         </div>
       </div>
       <div style="display:${isOpen ? 'block' : 'none'};" data-summary-for="${escapeHtml(d.id)}">
-        ${isOpen ? renderLinkedDeckSummary(d) : ''}
+        ${isOpen ? renderMyDeckSummary(d) : ''}
       </div>
     </div>
   `;
@@ -19752,13 +20545,13 @@ function renderLinkedDecksList(modal, linkedDecks, isWelcome) {
 
   container.querySelectorAll('[data-action]').forEach(el => {
     const id = el.getAttribute('data-id');
-    const deck = linkedDecks.find(d => d.id === id);
+    const deck = myDecks.find(d => d.id === id);
     el.addEventListener('click', async (e) => {
       const action = el.getAttribute('data-action');
       if (action === 'toggle') {
-        if (expandedLinkedDeckIds.has(id)) expandedLinkedDeckIds.delete(id);
-        else expandedLinkedDeckIds.add(id);
-        renderLinkedDecksList(modal, linkedDecks, isWelcome);
+        if (expandedMyDeckIds.has(id)) expandedMyDeckIds.delete(id);
+        else expandedMyDeckIds.add(id);
+        renderMyDecksList(modal, myDecks, isWelcome);
       } else if (action === 'open-chart') {
         e.stopPropagation();
         if (!dbReady) { showToast('Card database still loading — try again in a moment.'); return; }
@@ -19773,11 +20566,11 @@ function renderLinkedDecksList(modal, linkedDecks, isWelcome) {
         el.disabled = true;
         el.textContent = '…';
         try {
-          const result = await window.PodmatesCloud.refreshLinkedDeck(id, deck.url);
+          const result = await window.PodmatesCloud.refreshLinkedDeck(deck.rawId, deck.url);
           if (result.ok) {
-            linkedDeckSummaryCache.delete(id); // stale after a refresh -- recompute next expand
-            const refreshed = await window.PodmatesCloud.loadLinkedDecks();
-            renderLinkedDecksList(modal, refreshed, isWelcome);
+            myDecksSummaryCache.delete(id); // stale after a refresh -- recompute next expand
+            const refreshed = await loadAndMergeMyDecks();
+            renderMyDecksList(modal, refreshed, isWelcome);
             showToast(`“${deck.name}” refreshed.`);
           } else {
             el.disabled = false;
@@ -19793,10 +20586,11 @@ function renderLinkedDecksList(modal, linkedDecks, isWelcome) {
         e.stopPropagation();
         showConfirmModal(`Remove "${deck.name}" from your profile?`, async () => {
           try {
-            await window.PodmatesCloud.removeLinkedDeck(id);
-            expandedLinkedDeckIds.delete(id);
-            linkedDeckSummaryCache.delete(id);
-            const refreshed = await window.PodmatesCloud.loadLinkedDecks();
+            if (deck.source === 'saved') await window.PodmatesCloud.deleteDeck(deck.rawKey);
+            else await window.PodmatesCloud.removeLinkedDeck(deck.rawId);
+            expandedMyDeckIds.delete(id);
+            myDecksSummaryCache.delete(id);
+            const refreshed = await loadAndMergeMyDecks();
             renderProfileModal(modal, refreshed, { welcome: isWelcome });
           } catch (err) {
             showToast(`Could not remove this deck: ${err.message}`);
@@ -19815,27 +20609,58 @@ function renderLinkedDecksList(modal, linkedDecks, isWelcome) {
 // to a persistent group. A player can belong to more than one pod; a
 // switcher appears once they're in more than one.
 
-let currentPodViewId = null; // which pod is showing in the modal right now
+let currentPodViewId = null; // which OurPod is showing in the Game Night tab right now
 let pendingJoinCode = null;  // set from a ?join=CODE link before sign-in completes
+
+// Internal role values stay 'leader'/'co-leader'/'member' throughout this
+// file and in Firestore -- only the DISPLAYED word changes to Steward /
+// Co-Steward / Member, per house preference. Keeping the stored schema as
+// it is avoids needing a data migration for it.
+function roleDisplayLabel(role) {
+  if (role === 'leader') return 'Steward';
+  if (role === 'co-leader') return 'Co-Steward';
+  return 'Member';
+}
 
 function getInviteLink(code) {
   return `${window.location.origin}${window.location.pathname}?join=${code}`;
 }
 
-async function showPodModal(opts) {
-  if (!window.PodmatesCloud) return;
-  injectTryADeckStyles();
-  closeTryADeckModal();
-  const overlay = document.createElement('div');
-  overlay.className = 'tad-overlay';
-  overlay.id = 'tadOverlay';
-  const modal = document.createElement('div');
-  modal.className = 'tad-modal';
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
+// Table Formations and Chronicles are scoped to whichever OurPod is
+// currently active (see currentPodViewId), not to the signed-in account --
+// so unlike the auth-driven caches elsewhere in this file, these need to
+// refresh every time the ACTIVE POD changes too, not just on sign-in/out.
+// Called from both renderPodDetailView (an OurPod is now showing) and
+// renderNoPodsView (no OurPod is active, e.g. after leaving the last one)
+// so every path that changes which pod is active -- or whether one is
+// active at all -- ends up covered without needing a refresh call at each
+// of the many individual places currentPodViewId gets reassigned.
+function refreshPodScopedData() {
+  refreshCloudTableFormationsCache();
+  refreshCloudChroniclesCache();
+}
 
-  modal.innerHTML = `<p style="text-align:center; color:var(--text-soft); font-size:13px;">Loading your pods…</p>`;
+// Renders directly into the Game Night tab's own OurPod panel -- this used
+// to create a separate modal overlay (hence still called "renderPodModal"
+// below internally), but per the Game-Night redesign, OurPod management
+// now lives inline in the tab itself as the one, single place for it,
+// rather than competing with a second entry point.
+async function renderOurPodPanel(opts) {
+  const container = $('ourPodPanelArea');
+  if (!container || !window.PodmatesCloud) return;
+
+  const user = window.PodmatesCloud.user;
+  if (!user) {
+    container.innerHTML = `
+      <p style="font-size:13px; color:var(--text-soft); margin:0 0 12px;">Sign up or log in to create or join an OurPod -- your regular group, shared across everyone in it.</p>
+      <button id="ourPodSignUpBtn">Sign Up / Log In</button>
+    `;
+    const btn = document.getElementById('ourPodSignUpBtn');
+    if (btn) btn.addEventListener('click', showAuthModal);
+    return;
+  }
+
+  container.innerHTML = `<p style="text-align:center; color:var(--text-soft); font-size:13px;">Loading your OurPods…</p>`;
 
   let pods = [];
   try { pods = await window.PodmatesCloud.loadMyPods(); } catch (e) { /* fine -- just start empty */ }
@@ -19845,24 +20670,23 @@ async function showPodModal(opts) {
     currentPodViewId = pods.length ? pods[0].id : null;
   }
 
-  await renderPodModal(modal, pods);
+  await renderPodModal(container, pods);
 }
 
-async function renderPodModal(modal, pods) {
+async function renderPodModal(container, pods) {
   if (!pods.length) {
-    renderNoPodsView(modal);
+    renderNoPodsView(container);
     return;
   }
-  await renderPodDetailView(modal, pods);
+  await renderPodDetailView(container, pods);
 }
 
-function renderNoPodsView(modal) {
-  modal.innerHTML = `
-    <button class="tad-close" id="tadCloseBtn">Close ×</button>
-    <h2 style="margin-bottom:4px;">My Pod</h2>
-    <p style="font-size:12.5px; color:var(--text-soft); margin:0 0 18px;">You're not in a pod yet. Start one, or join one with an invite link.</p>
+function renderNoPodsView(container) {
+  refreshPodScopedData(); // no active OurPod -- makes sure Table Formations/Chronicles caches clear too
+  container.innerHTML = `
+    <p style="font-size:12.5px; color:var(--text-soft); margin:0 0 18px;">You're not in an OurPod yet. Start one, or join one with an invite link.</p>
     <div style="margin-bottom:20px;">
-      <div style="font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold); margin-bottom:8px;">Create a Pod</div>
+      <div style="font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold); margin-bottom:8px;">Create an OurPod</div>
       <div class="row" style="gap:8px;">
         <input id="podCreateNameInput" type="text" placeholder="Pod name (e.g. Thursday Night Crew)" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
         <button id="podCreateBtn" style="white-space:nowrap;">Create</button>
@@ -19874,7 +20698,7 @@ function renderNoPodsView(modal) {
       <div style="flex:1; height:1px; background:var(--line);"></div>
     </div>
     <div>
-      <div style="font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold); margin-bottom:8px;">Join a Pod</div>
+      <div style="font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold); margin-bottom:8px;">Join an OurPod</div>
       <div class="row" style="gap:8px;">
         <input id="podJoinCodeInput" type="text" placeholder="Paste an invite link or code" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
         <button id="podJoinBtn" class="ghost" style="white-space:nowrap;">Join</button>
@@ -19882,8 +20706,6 @@ function renderNoPodsView(modal) {
     </div>
     <div id="podModalStatus" style="font-size:12.5px; margin-top:14px;"></div>
   `;
-
-  document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
 
   document.getElementById('podCreateBtn').addEventListener('click', async () => {
     const nameInput = document.getElementById('podCreateNameInput');
@@ -19895,8 +20717,8 @@ function renderNoPodsView(modal) {
       const result = await window.PodmatesCloud.createPod(nameInput.value);
       currentPodViewId = result.podId;
       const pods = await window.PodmatesCloud.loadMyPods();
-      await renderPodModal(modal, pods);
-      showToast(`"${(nameInput.value || 'My Pod').trim() || 'My Pod'}" created.`);
+      await renderPodModal(container, pods);
+      showToast(`"${(nameInput.value || 'Our Pod').trim() || 'Our Pod'}" created.`);
     } catch (e) {
       statusEl.textContent = 'Could not create the pod: ' + e.message;
       statusEl.className = 'status err';
@@ -19933,7 +20755,7 @@ function renderNoPodsView(modal) {
       }
       currentPodViewId = result.podId;
       const pods = await window.PodmatesCloud.loadMyPods();
-      await renderPodModal(modal, pods);
+      await renderPodModal(container, pods);
       showToast(`Joined "${result.podName}."`);
     } catch (e) {
       statusEl.textContent = 'Could not join: ' + e.message;
@@ -19944,13 +20766,15 @@ function renderNoPodsView(modal) {
   });
 }
 
-async function renderPodDetailView(modal, pods) {
+async function renderPodDetailView(container, pods) {
   const pod = pods.find(p => p.id === currentPodViewId) || pods[0];
   currentPodViewId = pod.id;
+  refreshPodScopedData(); // Table Formations / Chronicles belong to THIS pod now
 
-  modal.innerHTML = `<p style="text-align:center; color:var(--text-soft); font-size:13px;">Loading members…</p>`;
+  container.innerHTML = `<p style="text-align:center; color:var(--text-soft); font-size:13px;">Loading members…</p>`;
   let members = [];
   try { members = await window.PodmatesCloud.loadPodMembers(pod.id); } catch (e) { /* fine -- render with an empty list */ }
+  populateSeatsFromOurPodMembers(members);
 
   const myUid = window.PodmatesCloud.uid;
   const myRole = (members.find(m => m.uid === myUid) || {}).role || 'member';
@@ -19964,11 +20788,10 @@ async function renderPodDetailView(modal, pods) {
     </select>
   ` : '';
 
-  modal.innerHTML = `
-    <button class="tad-close" id="tadCloseBtn">Close ×</button>
+  container.innerHTML = `
     ${switcherHtml}
     <h2 style="margin-bottom:4px;">${escapeHtml(pod.name)}</h2>
-    <p style="font-size:11.5px; color:var(--text-soft); margin:0 0 16px;">${members.length} member${members.length === 1 ? '' : 's'} · you're ${isLeader ? 'the leader' : isCoLeader ? 'a co-leader' : 'a member'}</p>
+    <p style="font-size:11.5px; color:var(--text-soft); margin:0 0 16px;">${members.length} member${members.length === 1 ? '' : 's'} · you're ${isLeader ? 'the Steward' : isCoLeader ? 'a Co-Steward' : 'a member'}</p>
 
     <div style="margin-bottom:18px;">
       <div style="font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold); margin-bottom:8px;">Invite Link</div>
@@ -19985,7 +20808,7 @@ async function renderPodDetailView(modal, pods) {
 
     ${canManage ? `
     <details style="margin-top:16px; padding-top:14px; border-top:1px solid var(--line);">
-      <summary style="cursor:pointer; color:var(--gold); font-weight:600; font-size:13px;">Pod Settings</summary>
+      <summary style="cursor:pointer; color:var(--gold); font-weight:600; font-size:13px;">OurPod Settings</summary>
       <div style="margin-top:12px;">
         <div class="row" style="gap:8px; margin-bottom:10px;">
           <input id="podRenameInput" type="text" placeholder="Rename pod" value="${escapeHtml(pod.name)}" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:7px 9px; color:var(--text-primary); font-family:inherit; font-size:13px;">
@@ -20000,12 +20823,10 @@ async function renderPodDetailView(modal, pods) {
     <p style="text-align:center; margin-top:6px;"><a href="#" id="podAnotherLink" style="font-size:12px; color:var(--text-soft); text-decoration:underline;">Create or join another pod</a></p>
   `;
 
-  document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
-
   const switcher = document.getElementById('podSwitcher');
   if (switcher) switcher.addEventListener('change', async () => {
     currentPodViewId = switcher.value;
-    await renderPodDetailView(modal, pods);
+    await renderPodDetailView(container, pods);
   });
 
   document.getElementById('podCopyInviteBtn').addEventListener('click', () => {
@@ -20017,13 +20838,13 @@ async function renderPodDetailView(modal, pods) {
 
   document.getElementById('podAnotherLink').addEventListener('click', (e) => {
     e.preventDefault();
-    renderNoPodsView(modal);
+    renderNoPodsView(container);
   });
 
   document.getElementById('podLeaveLink').addEventListener('click', (e) => {
     e.preventDefault();
     if (isLeader && members.length > 1) {
-      showToast('As the leader, hand off leadership to someone else before leaving -- see Pod Settings.');
+      showToast('As Steward, hand off Stewardship to someone else before leaving -- see OurPod Settings.');
       return;
     }
     showConfirmModal(`Leave "${pod.name}"?`, async () => {
@@ -20031,7 +20852,7 @@ async function renderPodDetailView(modal, pods) {
         await window.PodmatesCloud.leavePod(pod.id);
         currentPodViewId = null;
         const refreshed = await window.PodmatesCloud.loadMyPods();
-        await renderPodModal(modal, refreshed);
+        await renderPodModal(container, refreshed);
         showToast(`Left "${pod.name}."`);
       } catch (err) {
         showToast('Could not leave the pod: ' + err.message);
@@ -20045,7 +20866,7 @@ async function renderPodDetailView(modal, pods) {
       try {
         await window.PodmatesCloud.renamePod(pod.id, input.value);
         const refreshed = await window.PodmatesCloud.loadMyPods();
-        await renderPodModal(modal, refreshed);
+        await renderPodModal(container, refreshed);
         showToast('Pod renamed.');
       } catch (err) {
         showToast('Could not rename: ' + err.message);
@@ -20057,7 +20878,7 @@ async function renderPodDetailView(modal, pods) {
         try {
           await window.PodmatesCloud.regenerateInviteCode(pod.id);
           const refreshed = await window.PodmatesCloud.loadMyPods();
-          await renderPodModal(modal, refreshed);
+          await renderPodModal(container, refreshed);
           showToast('New invite link generated.');
         } catch (err) {
           showToast('Could not regenerate: ' + err.message);
@@ -20072,7 +20893,7 @@ async function renderPodDetailView(modal, pods) {
           await window.PodmatesCloud.deletePod(pod.id);
           currentPodViewId = null;
           const refreshed = await window.PodmatesCloud.loadMyPods();
-          await renderPodModal(modal, refreshed);
+          await renderPodModal(container, refreshed);
           showToast(`"${pod.name}" deleted.`);
         } catch (err) {
           showToast('Could not delete the pod: ' + err.message);
@@ -20081,10 +20902,10 @@ async function renderPodDetailView(modal, pods) {
     });
   }
 
-  renderPodMembersList(modal, pod, members, myUid, canManage, isLeader);
+  renderPodMembersList(container, pod, members, myUid, canManage, isLeader);
 }
 
-function renderPodMembersList(modal, pod, members, myUid, canManage, isLeader) {
+function renderPodMembersList(outerContainer, pod, members, myUid, canManage, isLeader) {
   const container = document.getElementById('podMembersList');
   if (!container) return;
 
@@ -20093,12 +20914,12 @@ function renderPodMembersList(modal, pod, members, myUid, canManage, isLeader) {
       <div style="min-width:0;">
         <span style="font-size:13.5px; color:var(--text-primary);">${escapeHtml(m.displayName || 'Player')}</span>
         ${m.uid === myUid ? '<span style="font-size:11px; color:var(--text-soft);"> (you)</span>' : ''}
-        <div style="font-size:11px; color:var(--gold); text-transform:uppercase; letter-spacing:0.04em; margin-top:1px;">${escapeHtml(m.role || 'member')}</div>
+        <div style="font-size:11px; color:var(--gold); text-transform:uppercase; letter-spacing:0.04em; margin-top:1px;">${escapeHtml(roleDisplayLabel(m.role))}</div>
       </div>
       ${(canManage && m.uid !== myUid && m.role !== 'leader') ? `
         <div style="display:flex; gap:6px; flex-shrink:0;">
-          ${m.role !== 'co-leader' ? `<button class="ghost" data-action="promote" data-uid="${escapeHtml(m.uid)}" style="padding:4px 8px; font-size:11px;">Promote</button>` : ''}
-          ${isLeader ? `<button class="ghost" data-action="transfer" data-uid="${escapeHtml(m.uid)}" style="padding:4px 8px; font-size:11px;">Make Leader</button>` : ''}
+          ${m.role !== 'co-leader' ? `<button class="ghost" data-action="promote" data-uid="${escapeHtml(m.uid)}" style="padding:4px 8px; font-size:11px;">Make Co-Steward</button>` : ''}
+          ${isLeader ? `<button class="ghost" data-action="transfer" data-uid="${escapeHtml(m.uid)}" style="padding:4px 8px; font-size:11px;">Make Steward</button>` : ''}
           <button class="ghost" data-action="remove" data-uid="${escapeHtml(m.uid)}" style="padding:4px 8px; font-size:11px; border-color:var(--danger); color:var(--danger);">Remove</button>
         </div>
       ` : ''}
@@ -20114,20 +20935,20 @@ function renderPodMembersList(modal, pod, members, myUid, canManage, isLeader) {
         try {
           await window.PodmatesCloud.promoteToCoLeader(pod.id, uid);
           const refreshedMembers = await window.PodmatesCloud.loadPodMembers(pod.id);
-          renderPodMembersList(modal, pod, refreshedMembers, myUid, canManage, isLeader);
-          showToast(`${member.displayName} is now a co-leader.`);
+          renderPodMembersList(outerContainer, pod, refreshedMembers, myUid, canManage, isLeader);
+          showToast(`${member.displayName} is now a Co-Steward.`);
         } catch (err) {
           showToast('Could not promote: ' + err.message);
         }
       } else if (action === 'transfer') {
-        showConfirmModal(`Make ${member.displayName} the pod leader? You'll become a co-leader.`, async () => {
+        showConfirmModal(`Make ${member.displayName} the OurPod Steward? You'll become a Co-Steward.`, async () => {
           try {
             await window.PodmatesCloud.transferLeadership(pod.id, uid);
             const pods = await window.PodmatesCloud.loadMyPods();
-            await renderPodModal(modal, pods);
-            showToast(`${member.displayName} is now the leader.`);
+            await renderPodModal(outerContainer, pods);
+            showToast(`${member.displayName} is now the Steward.`);
           } catch (err) {
-            showToast('Could not transfer leadership: ' + err.message);
+            showToast('Could not hand off Stewardship: ' + err.message);
           }
         });
       } else if (action === 'remove') {
@@ -20135,7 +20956,7 @@ function renderPodMembersList(modal, pod, members, myUid, canManage, isLeader) {
           try {
             await window.PodmatesCloud.removePodMember(pod.id, uid);
             const refreshedMembers = await window.PodmatesCloud.loadPodMembers(pod.id);
-            renderPodMembersList(modal, pod, refreshedMembers, myUid, canManage, isLeader);
+            renderPodMembersList(outerContainer, pod, refreshedMembers, myUid, canManage, isLeader);
             showToast(`${member.displayName} removed.`);
           } catch (err) {
             showToast('Could not remove this member: ' + err.message);
@@ -20188,6 +21009,45 @@ function showCardReason(cardName) {
   );
 }
 
+// Wraps a card name so it can be clicked to see the card's art -- for use
+// anywhere a card is named as plain text without a thumbnail already
+// shown alongside it (Fast Mana, Tutors, Stax, Counter Magic, MLD lists,
+// and the axis-explainer popups' contributor lists). Deliberately not
+// applied to card names embedded inside prose sentences elsewhere (win
+// condition detail text, combo outcome text) -- reliably picking a card
+// name out of a free-form sentence without false positives is a much
+// harder, riskier problem than wrapping names that are already cleanly
+// comma-separated list items.
+function cardNameLink(name) {
+  return `<span class="card-name-link" data-card-name="${escapeHtml(name)}">${escapeHtml(name)}</span>`;
+}
+
+async function showSingleCardArtModal(name) {
+  injectTryADeckStyles();
+  closeTryADeckModal();
+  const overlay = document.createElement('div');
+  overlay.className = 'tad-overlay';
+  overlay.id = 'tadOverlay';
+  const modal = document.createElement('div');
+  modal.className = 'tad-modal';
+  modal.style.maxWidth = '340px';
+  modal.innerHTML = `
+    <button class="tad-close" id="tadCloseBtn">Close ×</button>
+    <h2 style="margin-bottom:12px; font-size:16px;">${escapeHtml(name)}</h2>
+    <div id="singleCardArtArea" style="text-align:center; color:var(--text-soft); font-size:13px;">Loading art…</div>
+  `;
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
+
+  const url = await fetchCardImageUrl(name, 'normal');
+  const artArea = document.getElementById('singleCardArtArea');
+  if (!artArea) return; // modal was already closed before the fetch resolved
+  if (!url) { artArea.textContent = 'Could not find art for this card.'; return; }
+  artArea.innerHTML = `<img src="${escapeHtml(url)}" alt="${escapeHtml(name)}" style="max-width:100%; border:2px solid var(--line-strong); border-radius:0;">`;
+}
+
 function showExplainer(key) {
   const text = EXPLAINERS[key];
   if (!text) return;
@@ -20222,12 +21082,20 @@ document.addEventListener('click', (e) => {
   const gcTarget = e.target && e.target.closest ? e.target.closest('[data-gc-card]') : null;
   if (gcTarget) {
     showCardReason(gcTarget.getAttribute('data-gc-card'));
+    return;
+  }
+  const cardNameTarget = e.target && e.target.closest ? e.target.closest('[data-card-name]') : null;
+  if (cardNameTarget) {
+    showSingleCardArtModal(cardNameTarget.getAttribute('data-card-name'));
   }
 });
 
 $('chartBtn').addEventListener('click', () => {
   $('chartBtn').classList.remove('tad-pulsing');
   runAnalysis();
+});
+$('viewDeckBtn').addEventListener('click', () => {
+  showDeckViewerModal($('decklistInput').value, ($('commanderInput') || {}).value);
 });
 $('sampleBtn').addEventListener('click', showTryADeckModal);
 
@@ -20572,10 +21440,51 @@ function buildPodInputs() {
       <div style="margin-bottom:8px;">
         <button type="button" class="ghost" data-pod-load-seat="${i}" style="width:100%; font-size:13px;">Load a Saved Deck…</button>
       </div>
+      <div class="row" style="margin-bottom:8px; gap:6px;">
+        <input type="text" id="podLinkInput${i}" placeholder="Or paste an Archidekt/Moxfield link — no account needed for a guest's deck"
+          style="flex:1; min-width:140px; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:6px 9px; color:var(--text-primary); font-family:inherit; font-size:12.5px;">
+        <button type="button" class="ghost" data-pod-link-seat="${i}" style="white-space:nowrap; font-size:12px;">Load Link</button>
+      </div>
+      <div id="podLinkStatus${i}" style="font-size:11.5px; margin-bottom:6px; min-height:14px;"></div>
       <textarea id="podList${i}" placeholder="Paste decklist here (leave empty to skip)…"
         style="width:100%; min-height:90px; resize:vertical; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:10px; font-family:inherit; font-size:13.5px; color:var(--text-primary); line-height:1.45;"></textarea>
     `;
     container.appendChild(div);
+  }
+}
+
+async function loadDeckLinkIntoSeat(seat, btn) {
+  const input = $('podLinkInput' + seat);
+  const statusEl = $('podLinkStatus' + seat);
+  const url = (input ? input.value : '').trim();
+  if (!url) { if (statusEl) { statusEl.textContent = 'Paste a deck link first.'; statusEl.className = 'status err'; } return; }
+  if (!window.PodmatesCloud) { if (statusEl) statusEl.textContent = 'Still connecting -- try again in a moment.'; return; }
+
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Loading…';
+  if (statusEl) { statusEl.textContent = ''; statusEl.className = 'status'; }
+
+  // Deliberately does NOT require an account -- this is the guest path.
+  // Whoever's actually using PodMates at the table may or may not be
+  // signed in themselves; fetching a deck by its own public link never
+  // needed an account on either end.
+  const result = await window.PodmatesCloud.fetchDeckByLink(url);
+
+  btn.disabled = false;
+  btn.textContent = originalText;
+
+  if (!result.ok) {
+    if (statusEl) { statusEl.textContent = result.error; statusEl.className = 'status err'; }
+    return;
+  }
+
+  const d = result.deck;
+  if ($('podCommander' + seat)) $('podCommander' + seat).value = d.commander || '';
+  if ($('podList' + seat)) $('podList' + seat).value = d.decklistText;
+  if (statusEl) {
+    statusEl.textContent = `Loaded "${d.name}" — ${d.cardCount} cards${d.commander ? '' : ' (commander not auto-detected — enter it above if needed)'}.`;
+    statusEl.className = 'status';
   }
 }
 
@@ -20839,41 +21748,16 @@ function renderEpicMatchupPanel() {
   const area = $('epicMatchupArea');
   if (!area) return;
 
-  if (activePodRoster) {
-    if (!podRosterPresentDraft.length) podRosterPresentDraft = [...activePodRoster.players];
-    const checks = activePodRoster.players.map(p => `
-      <label style="display:flex; align-items:center; gap:8px; padding:4px 0; font-size:13.5px; color:var(--text-primary);">
-        <input type="checkbox" data-epic-presence-player="${escapeHtml(p)}" ${podRosterPresentDraft.includes(p) ? 'checked' : ''}>
-        ${escapeHtml(p)}
-      </label>`).join('');
-    const presentCount = podRosterPresentDraft.length;
-    const maxSize = Math.min(6, presentCount);
-    let sizeOpts = '';
-    for (let n = 2; n <= maxSize; n++) sizeOpts += `<option value="${n}" ${n === maxSize ? 'selected' : ''}>${n}</option>`;
-    area.innerHTML = `
-      <p style="font-size:13px; color:var(--text-soft); margin:0 0 8px;">Who's here tonight? (searches only within ${escapeHtml(activePodRoster.name)})</p>
-      <div style="margin-bottom:10px;">${checks}</div>
-      <div class="row" style="margin-bottom:4px; align-items:center;">
-        <label for="epicMatchupSize" style="font-size:13px; color:var(--text-soft);">Playing this round:</label>
-        <select id="epicMatchupSize" style="background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:6px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
-          ${sizeOpts || '<option value="0">not enough present</option>'}
-        </select>
-        <button data-epic-action="suggest" class="ghost">Suggest Epic Matchup</button>
-        <button data-epic-action="reroll" class="ghost" style="display:${epicMatchupShown.size ? 'inline-block' : 'none'};">Try Another</button>
-      </div>
-    `;
-  } else {
-    area.innerHTML = `
-      <div class="row" style="margin-bottom:10px; align-items:center;">
-        <label for="epicMatchupSize" style="font-size:13px; color:var(--text-soft);">Players:</label>
-        <select id="epicMatchupSize" style="background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:6px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
-          <option value="2">2</option><option value="3">3</option><option value="4" selected>4</option><option value="5">5</option><option value="6">6</option>
-        </select>
-        <button data-epic-action="suggest" class="ghost">Suggest Epic Matchup</button>
-        <button data-epic-action="reroll" class="ghost" style="display:${epicMatchupShown.size ? 'inline-block' : 'none'};">Try Another</button>
-      </div>
-    `;
-  }
+  area.innerHTML = `
+    <div class="row" style="margin-bottom:10px; align-items:center;">
+      <label for="epicMatchupSize" style="font-size:13px; color:var(--text-soft);">Players:</label>
+      <select id="epicMatchupSize" style="background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:6px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
+        <option value="2">2</option><option value="3">3</option><option value="4" selected>4</option><option value="5">5</option><option value="6">6</option>
+      </select>
+      <button data-epic-action="suggest" class="ghost">Suggest Epic Matchup</button>
+      <button data-epic-action="reroll" class="ghost" style="display:${epicMatchupShown.size ? 'inline-block' : 'none'};">Try Another</button>
+    </div>
+  `;
 }
 
 function suggestEpicMatchup() {
@@ -20893,18 +21777,9 @@ function suggestEpicMatchup() {
   // stale-cache bug is worth more than the small saved cost of a cache.
   epicMatchupPool = analyzeAllSavedDecksForMatchup();
 
-  // Scope to the active Pod's PRESENT roster if one is loaded, rather than
-  // the whole saved-deck library -- an Epic Match Up should only ever
-  // suggest people who are actually at the table tonight.
-  if (activePodRoster) {
-    const presentSet = new Set(podRosterPresentDraft.map(p => p.trim().toLowerCase()));
-    epicMatchupPool = epicMatchupPool.filter(e => presentSet.has((e.player || '').trim().toLowerCase()));
-  }
-
   const distinctPlayers = new Set(epicMatchupPool.map(e => e.playerKey)).size;
   if (distinctPlayers < groupSize) {
-    const scopeNote = activePodRoster ? ` present from ${activePodRoster.name}` : '';
-    setPodStatus(`Not enough saved decks for a ${groupSize}-player suggestion (found ${distinctPlayers} distinct player${distinctPlayers === 1 ? '' : 's'}${scopeNote}). Save more decks first.`, true);
+    setPodStatus(`Not enough saved decks for a ${groupSize}-player suggestion (found ${distinctPlayers} distinct player${distinctPlayers === 1 ? '' : 's'}). Save more decks first.`, true);
     return;
   }
 
@@ -20941,321 +21816,11 @@ function suggestEpicMatchup() {
   runPodAnalysis();
 }
 
-let podRosterUIState = 'idle'; // 'idle' | 'creating' | 'loading' | 'active'
-let podRosterDraftPlayers = [];
-let podRosterDraftEditing = null; // name of a roster being edited, or null if creating fresh
-let podRosterPresentDraft = []; // players checked "present" during a Chart a New Game flow
-
-function renderPodRosterPanel() {
-  const area = $('podRosterArea');
-  if (!area) return;
-
-  renderEpicMatchupPanel(); // kept in sync with every roster-panel render, since it depends on the same activePodRoster state
-
-  if (activePodRoster && podRosterUIState === 'idle') podRosterUIState = 'active';
-  if (!activePodRoster && podRosterUIState === 'active') podRosterUIState = 'idle';
-
-  if (podRosterUIState === 'active' && activePodRoster) {
-    area.innerHTML = `
-      <div style="font-size:15px; color:var(--gold-bright); font-weight:600; margin-bottom:4px;">${escapeHtml(activePodRoster.name)}</div>
-      <div style="font-size:13px; color:var(--text-soft); margin-bottom:12px;">${activePodRoster.players.map(escapeHtml).join(', ')}</div>
-      <div class="row">
-        <button data-pod-roster-action="chart-new-game" class="ghost" style="border-color:var(--gold); color:var(--gold);">Chart a New Game</button>
-        <button data-pod-roster-action="change" class="ghost">Change Pod</button>
-        <button data-pod-roster-action="delete" class="ghost">Delete This Pod</button>
-      </div>
-    `;
-    return;
-  }
-
-  if (podRosterUIState === 'charting-presence' && activePodRoster) {
-    const checks = activePodRoster.players.map(p => `
-      <label style="display:flex; align-items:center; gap:8px; padding:6px 0; font-size:14px; color:var(--text-primary);">
-        <input type="checkbox" data-pod-presence-player="${escapeHtml(p)}" ${podRosterPresentDraft.includes(p) ? 'checked' : ''}>
-        ${escapeHtml(p)}
-      </label>`).join('');
-    area.innerHTML = `
-      <p style="font-size:13.5px; color:var(--text-soft); margin:0 0 10px;">Who's playing tonight?</p>
-      <div style="margin-bottom:14px;">${checks}</div>
-      <div class="status" id="podRosterChartStatus"></div>
-      <div class="row">
-        <button data-pod-roster-action="continue-to-decks" class="ghost">Continue</button>
-        <button data-pod-roster-action="cancel" class="ghost">Cancel</button>
-      </div>
-    `;
-    return;
-  }
-
-  if (podRosterUIState === 'charting-decks' && activePodRoster) {
-    const savedDecks = loadSavedDecks();
-    const rows = podRosterPresentDraft.map(p => {
-      const theirDecks = Object.entries(savedDecks).filter(([, entry]) =>
-        typeof entry === 'object' && (entry.player || '').trim().toLowerCase() === p.trim().toLowerCase());
-      if (!theirDecks.length) {
-        return `<div style="padding:8px 0; font-size:13.5px;"><strong>${escapeHtml(p)}:</strong> <span style="color:var(--danger);">no saved decks — will be skipped unless you save one first.</span></div>`;
-      }
-      const opts = theirDecks.map(([key, entry]) =>
-        `<option value="${escapeHtml(key)}">${escapeHtml(entry.commander || key)}</option>`).join('');
-      return `<div style="padding:8px 0;"><strong style="font-size:13.5px;">${escapeHtml(p)}:</strong>
-        <select data-pod-deck-choice-player="${escapeHtml(p)}" style="margin-left:8px; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:5px 8px; color:var(--text-primary); font-family:inherit; font-size:13px;">${opts}</select>
-      </div>`;
-    }).join('');
-    area.innerHTML = `
-      <p style="font-size:13.5px; color:var(--text-soft); margin:0 0 10px;">Pick which deck each present player is bringing.</p>
-      <div style="margin-bottom:10px;">${rows}</div>
-      <div class="status" id="podRosterChartStatus"></div>
-      <div class="row">
-        <button data-pod-roster-action="finalize-chart" class="ghost" style="border-color:var(--gold); color:var(--gold);">Chart This Game</button>
-        <button data-pod-roster-action="cancel" class="ghost">Cancel</button>
-      </div>
-    `;
-    return;
-  }
-
-  if (podRosterUIState === 'creating') {
-    const known = getKnownPlayerNames().filter(p => !podRosterDraftPlayers.includes(p));
-    const knownOpts = known.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
-    const chips = podRosterDraftPlayers.map(p => `
-      <span style="display:inline-block; margin:0 6px 6px 0; padding:4px 10px; border-radius:10px; font-size:12.5px; border:1px solid var(--line); background:var(--bg-main);">
-        ${escapeHtml(p)} <span data-pod-roster-remove-player="${escapeHtml(p)}" style="cursor:pointer; color:var(--danger); margin-left:4px;">×</span>
-      </span>`).join('');
-    area.innerHTML = `
-      <input type="text" id="podRosterNameInput" placeholder="Pod name (e.g. Friday Night Crew)" value="${escapeHtml((podRosterDraftEditing || ''))}"
-        style="width:100%; box-sizing:border-box; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px; margin-bottom:10px;">
-      <div class="row" style="margin-bottom:10px;">
-        <select id="podRosterPlayerSelect" style="background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:6px 10px; color:var(--text-primary); font-family:inherit; font-size:13px;">
-          <option value="">— pick an existing player —</option>${knownOpts}
-        </select>
-        <input type="text" id="podRosterNewPlayerInput" placeholder="or type a new name"
-          style="flex:1; min-width:120px; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:6px 10px; color:var(--text-primary); font-family:inherit; font-size:13px;">
-        <button data-pod-roster-action="add-player" class="ghost">Add</button>
-      </div>
-      <div style="margin-bottom:14px;">${chips || '<span style="font-size:12.5px; color:var(--text-soft);">No players added yet.</span>'}</div>
-      <div class="row">
-        <button data-pod-roster-action="save" class="ghost">Save Pod</button>
-        <button data-pod-roster-action="cancel" class="ghost">Cancel</button>
-      </div>
-    `;
-    return;
-  }
-
-  if (podRosterUIState === 'loading') {
-    const rosters = loadPodRosters();
-    const names = Object.keys(rosters).sort();
-    const opts = names.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)} (${rosters[n].players.length})</option>`).join('');
-    area.innerHTML = names.length ? `
-      <div class="row" style="margin-bottom:10px;">
-        <select id="podRosterLoadSelect" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">${opts}</select>
-      </div>
-      <div class="row">
-        <button data-pod-roster-action="confirm-load" class="ghost">Load</button>
-        <button data-pod-roster-action="cancel" class="ghost">Cancel</button>
-      </div>
-    ` : `
-      <p style="font-size:13px; color:var(--text-soft); margin:0 0 10px;">No saved Pods yet — create one first.</p>
-      <button data-pod-roster-action="cancel" class="ghost">Back</button>
-    `;
-    return;
-  }
-
-  // idle, no active pod
-  area.innerHTML = `
-    <div class="row">
-      <button data-pod-roster-action="create" class="ghost">Create a Pod</button>
-      <button data-pod-roster-action="load" class="ghost">Load a Pod</button>
-      <button data-pod-roster-action="example" class="ghost">Load Example Pod</button>
-    </div>
-  `;
-}
-
-function podRosterAddPlayer() {
-  const select = $('podRosterPlayerSelect');
-  const input = $('podRosterNewPlayerInput');
-  const fromSelect = select ? select.value.trim() : '';
-  const fromInput = input ? input.value.trim() : '';
-  const name = fromInput || fromSelect;
-  if (!name) return;
-  if (!podRosterDraftPlayers.includes(name)) podRosterDraftPlayers.push(name);
-  if (input) input.value = '';
-  renderPodRosterPanel();
-}
-
-function podRosterFinalizeChart() {
-  const savedDecks = loadSavedDecks();
-  const selects = $('podRosterArea').querySelectorAll('[data-pod-deck-choice-player]');
-  const choiceByPlayer = new Map();
-  selects.forEach(sel => choiceByPlayer.set(sel.getAttribute('data-pod-deck-choice-player'), sel.value));
-
-  const choices = [];
-  const skipped = [];
-  for (const p of podRosterPresentDraft) {
-    const key = choiceByPlayer.get(p);
-    const entry = key ? savedDecks[key] : null;
-    if (!entry) { skipped.push(p); continue; }
-    choices.push({ player: p, key, entry });
-  }
-  if (choices.length < 2) {
-    setPodStatus('Need at least 2 present players with a saved deck to chart a game.', true);
-    return;
-  }
-  if (choices.length > 6) {
-    setPodStatus('A pod can only seat up to 6 -- narrow down who\'s playing.', true);
-    return;
-  }
-
-  buildPodInputs();
-  podInputsBuilt = true;
-  choices.forEach((c, i) => {
-    const raw = (typeof c.entry === 'string') ? c.entry : (c.entry.list || '');
-    const commander = (typeof c.entry === 'object') ? (c.entry.commander || '') : '';
-    if ($('podCommander' + i)) $('podCommander' + i).value = commander;
-    if ($('podName' + i)) $('podName' + i).value = c.player;
-    if ($('podList' + i)) $('podList' + i).value = raw;
-  });
-
-  podRosterUIState = 'active';
-  podRosterPresentDraft = [];
-  renderPodRosterPanel();
-  const skipNote = skipped.length ? ` (${skipped.join(', ')} skipped -- no saved deck)` : '';
-  setPodStatus(`Charting ${activePodRoster.name}: ${choices.map(c => c.player).join(', ')}${skipNote}.`);
-  runPodAnalysis();
-}
-
-async function podRosterSave() {
-  const nameInput = $('podRosterNameInput');
-  const name = nameInput ? nameInput.value.trim() : '';
-  if (!name) { setPodStatus('Give the Pod a name first.', true); return; }
-  if (podRosterDraftPlayers.length < 2) { setPodStatus('Add at least 2 players before saving.', true); return; }
-  if (!requireAccountToSave('pod rosters')) return;
-
-  const entry = { name, players: [...podRosterDraftPlayers], savedAt: Date.now() };
-  try {
-    // Editing an existing roster under a new name shouldn't leave the old
-    // entry behind -- delete it on Firebase too, not just from the cache.
-    if (podRosterDraftEditing && podRosterDraftEditing !== name) {
-      await window.PodmatesCloud.deleteRoster(podRosterDraftEditing);
-    }
-    await window.PodmatesCloud.saveRoster(name, entry);
-    await refreshCloudRostersCache();
-    activePodRoster = entry;
-    podRosterPresentDraft = []; epicMatchupShown = new Set(); // reset both so presence AND reroll-exclusion start fresh for THIS pod, not a stale one
-    podRosterUIState = 'active';
-    podRosterDraftPlayers = [];
-    podRosterDraftEditing = null;
-    setPodStatus(`Saved Pod "${name}" with ${entry.players.length} players.`);
-    renderPodRosterPanel();
-  } catch (e) {
-    setPodStatus('Could not save: ' + e.message, true);
-  }
-}
-
-document.addEventListener('change', (e) => {
-  const presenceCheckbox = e.target && e.target.matches ? (e.target.matches('[data-pod-presence-player]') ? e.target : null) : null;
-  if (presenceCheckbox) {
-    const p = presenceCheckbox.getAttribute('data-pod-presence-player');
-    if (presenceCheckbox.checked && !podRosterPresentDraft.includes(p)) podRosterPresentDraft.push(p);
-    else if (!presenceCheckbox.checked) podRosterPresentDraft = podRosterPresentDraft.filter(x => x !== p);
-    return;
-  }
-  const epicPresenceCheckbox = e.target && e.target.matches ? (e.target.matches('[data-epic-presence-player]') ? e.target : null) : null;
-  if (epicPresenceCheckbox) {
-    const p = epicPresenceCheckbox.getAttribute('data-epic-presence-player');
-    if (epicPresenceCheckbox.checked && !podRosterPresentDraft.includes(p)) podRosterPresentDraft.push(p);
-    else if (!epicPresenceCheckbox.checked) podRosterPresentDraft = podRosterPresentDraft.filter(x => x !== p);
-    renderEpicMatchupPanel(); // party-size options depend on present count, refresh them
-  }
-});
-
 document.addEventListener('click', (e) => {
   const epicAction = e.target && e.target.closest ? e.target.closest('[data-epic-action]') : null;
   if (epicAction) {
     suggestEpicMatchup();
     return;
-  }
-  const removeChip = e.target && e.target.closest ? e.target.closest('[data-pod-roster-remove-player]') : null;
-  if (removeChip) {
-    const p = removeChip.getAttribute('data-pod-roster-remove-player');
-    podRosterDraftPlayers = podRosterDraftPlayers.filter(x => x !== p);
-    renderPodRosterPanel();
-    return;
-  }
-  const action = e.target && e.target.closest ? e.target.closest('[data-pod-roster-action]') : null;
-  if (!action) return;
-  const kind = action.getAttribute('data-pod-roster-action');
-  if (kind === 'create') {
-    podRosterUIState = 'creating';
-    podRosterDraftPlayers = [];
-    podRosterDraftEditing = null;
-    renderPodRosterPanel();
-  } else if (kind === 'load') {
-    podRosterUIState = 'loading';
-    renderPodRosterPanel();
-  } else if (kind === 'example') {
-    activePodRoster = null;
-    podRosterPresentDraft = [];
-    epicMatchupShown = new Set();
-    podRosterUIState = 'idle';
-    loadExamplePod();
-    renderPodRosterPanel();
-  } else if (kind === 'add-player') {
-    podRosterAddPlayer();
-  } else if (kind === 'save') {
-    podRosterSave();
-  } else if (kind === 'cancel') {
-    podRosterUIState = activePodRoster ? 'active' : 'idle';
-    renderPodRosterPanel();
-  } else if (kind === 'confirm-load') {
-    const select = $('podRosterLoadSelect');
-    const name = select ? select.value : '';
-    const rosters = loadPodRosters();
-    if (name && rosters[name]) {
-      activePodRoster = rosters[name];
-      podRosterPresentDraft = []; epicMatchupShown = new Set(); // reset both so presence AND reroll-exclusion start fresh for THIS pod, not a stale one
-      podRosterUIState = 'active';
-      setPodStatus(`Loaded Pod "${name}".`);
-    }
-    renderPodRosterPanel();
-  } else if (kind === 'change') {
-    activePodRoster = null;
-    podRosterPresentDraft = [];
-    epicMatchupShown = new Set();
-    podRosterUIState = 'idle';
-    renderPodRosterPanel();
-  } else if (kind === 'chart-new-game') {
-    podRosterPresentDraft = [...activePodRoster.players]; // default: assume everyone's here, uncheck who's missing
-    podRosterUIState = 'charting-presence';
-    renderPodRosterPanel();
-  } else if (kind === 'continue-to-decks') {
-    if (podRosterPresentDraft.length < 2) {
-      setPodStatus('Check at least 2 players to chart a game.', true);
-      return;
-    }
-    if (podRosterPresentDraft.length > 6) {
-      setPodStatus('A pod can only seat up to 6 -- uncheck a few players.', true);
-      return;
-    }
-    podRosterUIState = 'charting-decks';
-    renderPodRosterPanel();
-  } else if (kind === 'finalize-chart') {
-    podRosterFinalizeChart();
-  } else if (kind === 'delete') {
-    if (!activePodRoster) return;
-    const name = activePodRoster.name;
-    if (!requireAccountToSave('pod rosters')) return;
-    showConfirmModal(`Delete Pod "${name}"? This only removes the roster, not any saved decks or Chronicles.`, async () => {
-      try {
-        await window.PodmatesCloud.deleteRoster(name);
-        await refreshCloudRostersCache();
-        activePodRoster = null;
-        podRosterPresentDraft = [];
-        epicMatchupShown = new Set();
-        podRosterUIState = 'idle';
-        setPodStatus(`Deleted Pod "${name}".`);
-        renderPodRosterPanel();
-      } catch (e) {
-        setPodStatus('Could not delete: ' + e.message, true);
-      }
-    });
   }
 });
 
@@ -21885,13 +22450,30 @@ function renderPodMiniCharts(decks) {
 
 // Mode switching
 let podInputsBuilt = false;
+// Guards against re-filling seats the person has already started editing --
+// player names get auto-filled from the active OurPod's real membership
+// exactly once per page load, not on every OurPod panel refresh (which
+// happens often -- e.g. after any Steward action), so mid-edit typing
+// never gets silently overwritten. Switching to a different OurPod via
+// the switcher doesn't re-trigger this; re-filling from a different
+// pod's roster on top of whatever's already typed would be more
+// surprising than helpful.
+let seatsPopulatedFromPod = false;
+
+function populateSeatsFromOurPodMembers(members) {
+  if (seatsPopulatedFromPod || !members || !members.length) return;
+  seatsPopulatedFromPod = true;
+  members.slice(0, 6).forEach((m, i) => {
+    const field = $('podName' + i);
+    if (field && !field.value.trim()) field.value = m.displayName || '';
+  });
+}
 let hasSingleResult = false;
 
 function setMode(mode) {
   const MODES = {
     single: { container: 'singleMode', btn: 'modeSingleBtn' },
     pod: { container: 'podMode', btn: 'modePodBtn' },
-    sync: { container: 'syncMode', btn: 'modeSyncBtn' },
   };
   for (const [m, ids] of Object.entries(MODES)) {
     const container = $(ids.container);
@@ -21923,13 +22505,17 @@ function setMode(mode) {
   if (mode === 'pod' && !podInputsBuilt) {
     buildPodInputs();
     podInputsBuilt = true;
-    renderPodRosterPanel();
+    renderEpicMatchupPanel();
   }
+  // Unlike the seats above, the OurPod panel itself should refresh every
+  // time the tab is opened, not just the first time -- membership, invite
+  // codes, and Steward status can all change from outside this tab (e.g.
+  // someone else removes you, or you join via a link elsewhere).
+  if (mode === 'pod') renderOurPodPanel();
 }
 
 $('modeSingleBtn').addEventListener('click', () => setMode('single'));
 $('modePodBtn').addEventListener('click', () => setMode('pod'));
-$('modeSyncBtn').addEventListener('click', () => setMode('sync'));
 $('podChartBtn').addEventListener('click', runPodAnalysis);
 $('podClearBtn').addEventListener('click', () => {
   for (let i = 0; i < 6; i++) {
@@ -22133,6 +22719,12 @@ document.addEventListener('click', (e) => {
     showLoadDeckModal(seat);
     return;
   }
+  const podLinkBtn = e.target && e.target.closest ? e.target.closest('[data-pod-link-seat]') : null;
+  if (podLinkBtn) {
+    const seat = parseInt(podLinkBtn.getAttribute('data-pod-link-seat'), 10);
+    loadDeckLinkIntoSeat(seat, podLinkBtn);
+    return;
+  }
   const playerChip = e.target && e.target.closest ? e.target.closest('[data-load-player]') : null;
   if (playerChip) {
     const p = playerChip.getAttribute('data-load-player');
@@ -22166,129 +22758,11 @@ document.addEventListener('click', (e) => {
   }
 });
 
-function setSyncStatus(msg, isErr) {
-  const el = $('syncStatus');
-  if (!el) return;
-  el.textContent = msg;
-  el.className = 'status' + (isErr ? ' err' : '');
-}
-
-function buildExportPayload() {
-  const decks = loadSavedDecks();
-  const chronicles = loadMatches();
-  const podRosters = loadPodRosters();
-  const deckCount = Object.keys(decks).length;
-  const chronicleCount = chronicles.length;
-  const rosterCount = Object.keys(podRosters).length;
-  if (deckCount === 0 && chronicleCount === 0 && rosterCount === 0) return null;
-  const exportedBy = (($('syncExportName') || {}).value || '').trim();
-  const payload = {
-    type: 'podmates_deck_export',
-    version: 3, // v3 adds podRosters alongside decks and chronicles
-    exportedBy,
-    exportedAt: Date.now(),
-    decks,
-    chronicles,
-    podRosters,
-  };
-  return { json: JSON.stringify(payload, null, 2), deckCount, chronicleCount, rosterCount, exportedBy };
-}
-
-function exportAllDecks() {
-  const built = buildExportPayload();
-  if (!built) {
-    setSyncStatus('Nothing to export yet — save a deck, create a Pod, or add a Chronicle entry first.', true);
-    return;
-  }
-  const output = $('syncExportOutput');
-  if (output) output.value = built.json;
-  const copyBtn = $('syncCopyBtn');
-  const downloadBtn = $('syncDownloadBtn');
-  if (copyBtn) copyBtn.style.display = 'inline-block';
-  if (downloadBtn) downloadBtn.style.display = 'inline-block';
-  setSyncStatus(`Prepared ${built.deckCount} deck(s), ${built.rosterCount} Pod${built.rosterCount === 1 ? '' : 's'}, and ${built.chronicleCount} Chronicle entr${built.chronicleCount === 1 ? 'y' : 'ies'} below — copy the text and send it to your pod.`);
-}
-
-async function copyExportToClipboard() {
-  const output = $('syncExportOutput');
-  const text = output ? output.value : '';
-  if (!text) { setSyncStatus('Prepare an export first.', true); return; }
-  try {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      await navigator.clipboard.writeText(text);
-      setSyncStatus('Copied to clipboard — paste it into your LINE chat.');
-      return;
-    }
-    throw new Error('Clipboard API unavailable');
-  } catch (e) {
-    // Fallback for viewers without clipboard API support: select the text
-    // so a manual copy (long-press -> Copy) still works.
-    if (output) {
-      output.focus();
-      output.select();
-      output.setSelectionRange(0, text.length);
-    }
-    setSyncStatus('Could not copy automatically — the text is selected, so long-press and choose Copy.', true);
-  }
-}
-
-function downloadExportFile() {
-  const built = buildExportPayload();
-  if (!built) { setSyncStatus('Prepare an export first.', true); return; }
-  try {
-    const blob = new Blob([built.json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const dateStr = new Date().toISOString().slice(0, 10);
-    const namePart = built.exportedBy ? '-' + built.exportedBy.replace(/[^a-z0-9]/gi, '_') : '';
-    const filename = `podmates-decks${namePart}-${dateStr}.json`;
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    setSyncStatus(`Downloaded ${filename} — if nothing happened, use the copy/paste text instead.`);
-  } catch (e) {
-    setSyncStatus("Download didn't work in this viewer — use the copy/paste text above instead.", true);
-  }
-}
-
 // Last-write-wins merge, keyed by savedAt. Whole-record merge is safe here
 // because a saved deck is a self-contained unit -- there's no scenario
 // where two people independently edit different parts of the SAME deck
-// entry that would need finer-grained reconciliation.
-// Last-write-wins by savedAt, same reasoning as mergeSavedDecks -- a Pod
-// roster has one current membership list per name, not an append-only
-// journal like Chronicles, so "newest edit wins" is the right model here.
-async function mergePodRosters(importedRosters) {
-  if (!requireAccountToSave('pod rosters')) {
-    return { added: 0, updated: 0, skipped: 0, total: Object.keys(importedRosters).length, blocked: true };
-  }
-  const existing = loadPodRosters();
-  let added = 0, updated = 0, skipped = 0;
-  const writes = [];
-  for (const [name, incoming] of Object.entries(importedRosters)) {
-    const current = existing[name];
-    if (!current) {
-      writes.push(window.PodmatesCloud.saveRoster(name, incoming));
-      added++;
-    } else {
-      const currentTime = current.savedAt || 0;
-      const incomingTime = incoming.savedAt || 0;
-      if (incomingTime > currentTime) {
-        writes.push(window.PodmatesCloud.saveRoster(name, incoming));
-        updated++;
-      } else {
-        skipped++;
-      }
-    }
-  }
-  await Promise.all(writes);
-  await refreshCloudRostersCache();
-  return { added, updated, skipped, total: Object.keys(importedRosters).length };
-}
-
+// entry that would need finer-grained reconciliation. Used by the
+// "Restore from Backup" feature in My Profile.
 async function mergeSavedDecks(importedDecks) {
   if (!requireAccountToSave('decks')) {
     return { added: 0, updated: 0, skipped: 0, total: Object.keys(importedDecks).length, blocked: true };
@@ -22320,90 +22794,96 @@ async function mergeSavedDecks(importedDecks) {
   return { added, updated, skipped, total: Object.keys(importedDecks).length };
 }
 
-async function importAndMergeDecks(jsonText) {
+// ============================================================
+// MY DATA — download/restore backup for personally-saved decks
+// ============================================================
+// Scoped to Saved Decks only, deliberately. Linked (Archidekt/Moxfield)
+// decks always have a live source of truth on those platforms -- if lost,
+// just paste the same link again -- so they don't need backing up the
+// same way a manually-typed decklist (which exists nowhere else) does.
+// Lives inside My Profile, not as its own tab, since it's now just two
+// buttons rather than the old multi-person export/merge workflow this
+// replaced (retired once Firebase made real sync automatic).
+
+function buildMyDataBackup() {
+  const decks = loadSavedDecks();
+  const deckCount = Object.keys(decks).length;
+  if (deckCount === 0) return null;
+  const payload = {
+    type: 'podmates_backup',
+    version: 1,
+    exportedAt: Date.now(),
+    decks,
+  };
+  return { json: JSON.stringify(payload, null, 2), deckCount };
+}
+
+function downloadMyDataBackup() {
+  const statusEl = $('profileDataStatus');
+  const built = buildMyDataBackup();
+  if (!built) {
+    if (statusEl) { statusEl.textContent = 'Nothing to back up yet -- save a deck first.'; statusEl.className = 'status err'; }
+    return;
+  }
+  try {
+    const blob = new Blob([built.json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const filename = `podmates-backup-${dateStr}.json`;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    if (statusEl) { statusEl.textContent = `Downloaded ${filename} (${built.deckCount} deck${built.deckCount === 1 ? '' : 's'}).`; statusEl.className = 'status'; }
+  } catch (e) {
+    if (statusEl) { statusEl.textContent = "Download didn't work in this browser: " + e.message; statusEl.className = 'status err'; }
+  }
+}
+
+async function restoreMyDataBackup(jsonText) {
+  const statusEl = $('profileDataStatus');
   let payload;
   try {
     payload = JSON.parse(jsonText);
   } catch (e) {
-    setSyncStatus('Could not read that file/text — it may not be a valid PodMates export.', true);
+    if (statusEl) { statusEl.textContent = 'Could not read that file -- it may not be a valid PodMates backup.'; statusEl.className = 'status err'; }
     return;
   }
   // Accept the proper envelope, or fall back to a raw {key: entry, ...} map
-  // in case someone pastes just the decks portion rather than the whole file.
-  // Either way, validate that entries actually look like deck records before
-  // accepting them -- otherwise any arbitrary JSON object would silently
-  // "merge" as garbage deck entries instead of being rejected.
+  // in case someone points this at an older-format export file instead.
   const looksLikeDeckMap = (obj) => obj && typeof obj === 'object' && Object.values(obj).some(v =>
     v && typeof v === 'object' && typeof v.list === 'string' && v.list.length > 0);
-  const decksToMerge = looksLikeDeckMap(payload && payload.decks) ? payload.decks
+  const decksToRestore = looksLikeDeckMap(payload && payload.decks) ? payload.decks
     : (looksLikeDeckMap(payload) ? payload : null);
 
-  const looksLikeChronicleList = (arr) => Array.isArray(arr) && arr.some(v =>
-    v && typeof v === 'object' && (typeof v.notes === 'string' || Array.isArray(v.decks)));
-  const chroniclesToMerge = looksLikeChronicleList(payload && payload.chronicles) ? payload.chronicles : [];
-
-  const looksLikeRosterMap = (obj) => obj && typeof obj === 'object' && Object.values(obj).some(v =>
-    v && typeof v === 'object' && Array.isArray(v.players) && v.players.length > 0);
-  const podRostersToMerge = looksLikeRosterMap(payload && payload.podRosters) ? payload.podRosters : null;
-
-  if (!decksToMerge && chroniclesToMerge.length === 0 && !podRostersToMerge) {
-    setSyncStatus("That file doesn't look like a PodMates export.", true);
+  if (!decksToRestore) {
+    if (statusEl) { statusEl.textContent = "That file doesn't look like a PodMates backup."; statusEl.className = 'status err'; }
     return;
   }
 
-  const fromWho = (payload && payload.exportedBy) ? ` from ${escapeHtml(payload.exportedBy)}` : '';
   try {
-    const deckResult = decksToMerge ? await mergeSavedDecks(decksToMerge) : null;
-    const chronicleResult = chroniclesToMerge.length ? await mergeChronicles(chroniclesToMerge) : null;
-    const rosterResult = podRostersToMerge ? await mergePodRosters(podRostersToMerge) : null;
-    renderMatchLog();
-    renderPodRosterPanel();
-
-    const parts = [];
-    if (deckResult && deckResult.blocked) parts.push('decks — sign up or log in first to import these');
-    else if (deckResult) parts.push(`decks — ${deckResult.added} new, ${deckResult.updated} updated, ${deckResult.skipped} already up to date`);
-    if (rosterResult && rosterResult.blocked) parts.push('Pods — sign up or log in first to import these');
-    else if (rosterResult) parts.push(`Pods — ${rosterResult.added} new, ${rosterResult.updated} updated, ${rosterResult.skipped} already up to date`);
-    if (chronicleResult && chronicleResult.blocked) parts.push('chronicles — sign up or log in first to import these');
-    else if (chronicleResult) parts.push(`chronicles — ${chronicleResult.added} new, ${chronicleResult.skipped} duplicate`);
-    setSyncStatus(`Merged export${fromWho}: ${parts.join('; ')}.`);
+    const result = await mergeSavedDecks(decksToRestore);
+    if (result.blocked) {
+      if (statusEl) { statusEl.textContent = 'Sign up or log in first to restore a backup.'; statusEl.className = 'status err'; }
+      return;
+    }
+    if (statusEl) {
+      statusEl.textContent = `Restored: ${result.added} new, ${result.updated} updated, ${result.skipped} already up to date.`;
+      statusEl.className = 'status';
+    }
+    // Refresh whichever deck list is currently visible so the restore is
+    // immediately reflected, not just saved silently in the background.
+    refreshSavedDeckSelect();
   } catch (e) {
-    // The three merge functions call Firebase writes that don't guarantee
-    // they never throw (unlike the auth functions elsewhere in this file)
-    // -- a permission or network error partway through an import would
-    // otherwise fail completely silently, with no status message at all
-    // and no way to tell how much of the import actually went through.
-    setSyncStatus('Import did not fully complete: ' + e.message + ' — some entries may have been saved before the error.', true);
+    // mergeSavedDecks's own Firebase writes don't guarantee they never
+    // throw -- a permission or network error partway through a restore
+    // would otherwise fail completely silently, with no way to tell how
+    // much of it actually went through.
+    if (statusEl) { statusEl.textContent = 'Restore did not fully complete: ' + e.message + ' -- some decks may have been saved before the error.'; statusEl.className = 'status err'; }
   }
-}
-
-const syncExportBtn = $('syncExportBtn');
-if (syncExportBtn) syncExportBtn.addEventListener('click', exportAllDecks);
-const syncCopyBtn = $('syncCopyBtn');
-if (syncCopyBtn) syncCopyBtn.addEventListener('click', copyExportToClipboard);
-const syncDownloadBtn = $('syncDownloadBtn');
-if (syncDownloadBtn) syncDownloadBtn.addEventListener('click', downloadExportFile);
-
-const syncImportFile = $('syncImportFile');
-if (syncImportFile) {
-  syncImportFile.addEventListener('change', (e) => {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => importAndMergeDecks(reader.result);
-    reader.onerror = () => setSyncStatus('Could not read that file.', true);
-    reader.readAsText(file);
-    syncImportFile.value = ''; // allow re-selecting the same file later
-  });
-}
-
-const syncImportPasteBtn = $('syncImportPasteBtn');
-if (syncImportPasteBtn) {
-  syncImportPasteBtn.addEventListener('click', () => {
-    const text = (($('syncImportTextarea') || {}).value || '').trim();
-    if (!text) { setSyncStatus('Paste the exported text first.', true); return; }
-    importAndMergeDecks(text);
-  });
 }
 
 function deleteSelectedDeck() {
@@ -22423,47 +22903,11 @@ function deleteSelectedDeck() {
 }
 
 // ============================================================
-// POD ROSTERS -- a Pod is a recurring group of PEOPLE, distinct from a
-// saved deck (one person's list) and from the older "Saved Pod Formation"
-// below (a specific session's exact seat contents). A roster just tracks
-// who regularly plays together; which deck each of them brings is chosen
-// fresh each time a game gets charted, not baked into the roster itself.
+// POD ROSTERS -- retired. Real OurPod membership (see the Pods section
+// above) now serves this exact purpose -- a recurring group of people --
+// with the added benefit of being an actual shared account, not a locally
+// typed-in list only one browser knew about.
 // ============================================================
-
-// Pod Rosters now live entirely on Firebase, same "in-memory cache, no
-// local persistence" pattern as saved decks -- see refreshCloudDecksCache
-// for the full reasoning. A page reload always re-fetches fresh.
-let cloudRostersCache = {};
-
-function loadPodRosters() {
-  return cloudRostersCache;
-}
-
-async function refreshCloudRostersCache() {
-  const user = window.PodmatesCloud && window.PodmatesCloud.user;
-  if (!user) {
-    cloudRostersCache = {};
-    renderPodRosterPanel();
-    return;
-  }
-  try {
-    cloudRostersCache = await window.PodmatesCloud.loadAllRosters();
-  } catch (e) {
-    cloudRostersCache = {};
-  }
-  renderPodRosterPanel();
-}
-
-// Every player name that's ever been attached to a saved deck -- no
-// separate "players" storage needed, this is just derived on demand.
-function getKnownPlayerNames() {
-  const decks = loadSavedDecks();
-  return [...new Set(Object.values(decks)
-    .map(e => (typeof e === 'object' && e.player) ? e.player.trim() : '')
-    .filter(Boolean))].sort();
-}
-
-let activePodRoster = null; // { name, players: [...], savedAt } once created or loaded
 
 // "Table Formations" (the old "saved pod group" feature -- a snapshot of
 // all 6 comparison-table seats, distinct from both the Pod Roster tool
@@ -22477,13 +22921,15 @@ function loadSavedPods() {
 
 async function refreshCloudTableFormationsCache() {
   const user = window.PodmatesCloud && window.PodmatesCloud.user;
-  if (!user) {
+  if (!user || !currentPodViewId) {
+    // No account, or no active OurPod -- either way, nothing to load, since
+    // formations now belong to a pod rather than to an individual account.
     cloudTableFormationsCache = {};
     refreshSavedPodSelect();
     return;
   }
   try {
-    cloudTableFormationsCache = await window.PodmatesCloud.loadAllTableFormations();
+    cloudTableFormationsCache = await window.PodmatesCloud.loadAllTableFormations(currentPodViewId);
   } catch (e) {
     cloudTableFormationsCache = {};
   }
@@ -22520,12 +22966,16 @@ function saveCurrentPodFormation() {
     return;
   }
   if (!requireAccountToSave('pod groups')) return;
+  if (!currentPodViewId) {
+    setPodStatus('Join or create an OurPod first -- pod groups are shared with your OurPod, not saved personally.', true);
+    return;
+  }
 
   const entry = { seats, savedAt: Date.now() };
-  window.PodmatesCloud.saveTableFormation(name, entry)
+  window.PodmatesCloud.saveTableFormation(currentPodViewId, name, entry)
     .then(async () => {
       await refreshCloudTableFormationsCache();
-      setPodStatus(`Saved pod group “${name}” with ${seats.length} seat(s) to your account.`);
+      setPodStatus(`Saved pod group “${name}” with ${seats.length} seat(s) -- visible to your whole OurPod.`);
     })
     .catch((e) => setPodStatus('Could not save: ' + e.message, true));
 }
@@ -22559,9 +23009,10 @@ function deleteSelectedPodFormation() {
   if (!sel || !sel.value) return;
   const key = sel.value;
   if (!requireAccountToSave('pod groups')) return;
-  showConfirmModal(`Delete saved pod group "${key}"?`, async () => {
+  if (!currentPodViewId) return; // nothing to delete against without an active OurPod
+  showConfirmModal(`Delete saved pod group "${key}"? This removes it for your whole OurPod.`, async () => {
     try {
-      await window.PodmatesCloud.deleteTableFormation(key);
+      await window.PodmatesCloud.deleteTableFormation(currentPodViewId, key);
       await refreshCloudTableFormationsCache();
       setPodStatus('Pod group deleted.');
     } catch (e) {
@@ -22680,12 +23131,9 @@ const buildSavedDecksTableBtn = $('buildSavedDecksTableBtn');
 if (buildSavedDecksTableBtn) buildSavedDecksTableBtn.addEventListener('click', buildSavedDecksTable);
 
 // Chronicles now live entirely on Firebase, same in-memory-cache pattern
-// as everything else above. Unlike the key-value collections, Chronicles
-// is an append-only list with a real Firestore-generated ID from the
-// moment an entry is created -- so unlike before, there's no local
-// ID-backfilling step needed for anything written going forward (see
-// chronicleContentKey below, kept only for deduplicating older imports
-// that may still lack one).
+// as everything else above. Entries get a real Firestore-generated ID
+// from the moment they're created; makeChronicleId below is only a
+// fallback for the rare case an entry is missing one.
 let cloudChroniclesCache = [];
 
 function loadMatches() {
@@ -22694,13 +23142,15 @@ function loadMatches() {
 
 async function refreshCloudChroniclesCache() {
   const user = window.PodmatesCloud && window.PodmatesCloud.user;
-  if (!user) {
+  if (!user || !currentPodViewId) {
+    // No account, or no active OurPod -- Chronicles now belongs to a pod,
+    // not an individual account, so there's nothing to load either way.
     cloudChroniclesCache = [];
     renderMatchLog();
     return;
   }
   try {
-    cloudChroniclesCache = await window.PodmatesCloud.loadAllChronicles();
+    cloudChroniclesCache = await window.PodmatesCloud.loadAllChronicles(currentPodViewId);
   } catch (e) {
     cloudChroniclesCache = [];
   }
@@ -22709,44 +23159,6 @@ async function refreshCloudChroniclesCache() {
 
 function makeChronicleId() {
   return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
-}
-
-// A stable content fingerprint for dedup when an imported entry has no id
-// of its own -- e.g. a JSON export from before this Firebase migration, or
-// before the sync feature existed at all.
-function chronicleContentKey(m) {
-  return JSON.stringify([m.date, m.notes, m.decks]);
-}
-
-// Chronicles aren't single-record state like a saved deck -- there's no one
-// "current" version to reconcile toward. This adds anything genuinely new
-// to Firebase and skips exact duplicates (by id, or by content for
-// entries that predate real IDs), but deliberately does NOT let one
-// write-up overwrite another: different accounts of the same night are a
-// feature here, not a conflict.
-async function mergeChronicles(importedEntries) {
-  if (!requireAccountToSave('chronicles')) {
-    return { added: 0, skipped: 0, total: importedEntries.length, blocked: true };
-  }
-  const existing = loadMatches(); // current Firebase-backed cache
-  const existingIds = new Set(existing.map(m => m.id));
-  const existingContentKeys = new Set(existing.map(chronicleContentKey));
-  let added = 0, skipped = 0;
-  const writes = [];
-  for (const entry of importedEntries) {
-    const withId = entry.id ? entry : { ...entry, id: makeChronicleId(), createdAt: entry.createdAt || 0 };
-    if (existingIds.has(withId.id) || existingContentKeys.has(chronicleContentKey(withId))) {
-      skipped++;
-      continue;
-    }
-    writes.push(window.PodmatesCloud.addChronicleEntry(withId));
-    existingIds.add(withId.id);
-    existingContentKeys.add(chronicleContentKey(withId));
-    added++;
-  }
-  await Promise.all(writes);
-  await refreshCloudChroniclesCache();
-  return { added, skipped, total: importedEntries.length };
 }
 
 function renderMatchLog() {
@@ -22777,6 +23189,10 @@ function logCurrentMatch() {
     return;
   }
   if (!requireAccountToSave('chronicles')) return;
+  if (!currentPodViewId) {
+    setPodStatus('Join or create an OurPod first -- Chronicles are shared with your OurPod, not saved personally.', true);
+    return;
+  }
 
   const notes = ($('matchNotes') || {}).value || '';
   const entry = {
@@ -22790,11 +23206,11 @@ function logCurrentMatch() {
       style: d.style
     }))
   };
-  window.PodmatesCloud.addChronicleEntry(entry)
+  window.PodmatesCloud.addChronicleEntry(currentPodViewId, entry)
     .then(async () => {
       await refreshCloudChroniclesCache();
       if ($('matchNotes')) $('matchNotes').value = '';
-      setPodStatus('Chapter added to your Chronicles.');
+      setPodStatus('Chapter added to your OurPod\u2019s Chronicles.');
     })
     .catch((e) => setPodStatus('Could not save: ' + e.message, true));
 }
@@ -22822,9 +23238,10 @@ if (deletePodBtn) deletePodBtn.addEventListener('click', deleteSelectedPodFormat
 const clearHistBtn = $('clearMatchHistoryBtn');
 if (clearHistBtn) clearHistBtn.addEventListener('click', () => {
   if (!requireAccountToSave('chronicles')) return;
-  showConfirmModal('Clear all Chronicles entries? This cannot be undone.', async () => {
+  if (!currentPodViewId) return; // nothing to clear without an active OurPod
+  showConfirmModal('Clear all Chronicles entries for this OurPod? This cannot be undone, and affects everyone in the pod.', async () => {
     try {
-      await window.PodmatesCloud.clearAllChronicles();
+      await window.PodmatesCloud.clearAllChronicles(currentPodViewId);
       await refreshCloudChroniclesCache();
     } catch (e) {
       setPodStatus('Could not clear: ' + e.message, true);
@@ -22862,11 +23279,10 @@ function wireCloudAuth() {
     updateAuthBar(user);
     // Each of these already handles both cases correctly -- fetches fresh
     // from Firebase for a real user, clears back to empty otherwise (e.g.
-    // right after signing out) -- so it's always safe to call all four
+    // right after signing out) -- so it's always safe to call all three
     // unconditionally here rather than branching on `user` first.
     await Promise.all([
       refreshCloudDecksCache(),
-      refreshCloudRostersCache(),
       refreshCloudTableFormationsCache(),
       refreshCloudChroniclesCache(),
     ]);
@@ -22887,7 +23303,8 @@ function wireCloudAuth() {
         if (result.ok) {
           currentPodViewId = result.podId;
           showToast(`Joined "${result.podName}."`);
-          showPodModal();
+          setMode('pod');
+          $('podMode').scrollIntoView({ behavior: 'smooth' });
         } else {
           showToast(result.error);
         }
@@ -22921,7 +23338,7 @@ const authProfileBtn = $('authProfileBtn');
 if (authProfileBtn) authProfileBtn.addEventListener('click', () => showProfileModal());
 
 const authPodBtn = $('authPodBtn');
-if (authPodBtn) authPodBtn.addEventListener('click', () => showPodModal());
+if (authPodBtn) authPodBtn.addEventListener('click', () => { setMode('pod'); $('podMode').scrollIntoView({ behavior: 'smooth' }); });
 
 const authSignOutBtn = $('authSignOutBtn');
 if (authSignOutBtn) authSignOutBtn.addEventListener('click', () => {
@@ -23162,92 +23579,78 @@ if (deckLinkLoadBtn) deckLinkLoadBtn.addEventListener('click', async () => {
     return out;
   }
 
-  // --- Pod Rosters (the "Our Table" comparison tool's saved player
-  // lists) and Table Formations (that same tool's saved 6-seat deck
-  // snapshots) -- both personal, per-account data, same key-value-map
-  // shape and pattern as saved decks above. Named "tableFormations" in
-  // Firestore specifically to avoid any collision with the unrelated
-  // `pods` collection (the real, invite-link Firebase Pods feature) --
-  // these predate that feature and are a different concept entirely,
-  // despite the overlapping "pod" name in the UI text.
+  // --- Table Formations (the Game Night comparison tool's saved 6-seat
+  // deck snapshots) -- pod-scoped as of this rewrite: shared with every
+  // member of whichever OurPod is active when a formation is saved, not
+  // personal to just the person who saved it. Requires an active OurPod;
+  // there's no "your own formations" bucket anymore now that this data
+  // means "our formations." Named "tableFormations" specifically to avoid
+  // any collision with the unrelated `pods` collection itself.
+  // (Pod Rosters, which used to live in this same section, were retired
+  // in favor of real OurPod membership and no longer have a Firebase
+  // collection of their own.)
 
-  async function cloudSaveRoster(name, entry) {
+  async function cloudSaveTableFormation(podId, name, entry) {
     if (!currentUser) throw new Error('Not signed in yet');
-    await setDoc(doc(db, 'users', currentUser.uid, 'rosters', safeDocId(name)), {
-      name, players: entry.players || [], savedAt: entry.savedAt || Date.now(),
-      updatedAt: serverTimestamp(),
-    });
-  }
-
-  async function cloudDeleteRoster(name) {
-    if (!currentUser) throw new Error('Not signed in yet');
-    await deleteDoc(doc(db, 'users', currentUser.uid, 'rosters', safeDocId(name)));
-  }
-
-  async function cloudLoadAllRosters() {
-    if (!currentUser) throw new Error('Not signed in yet');
-    const snap = await getDocs(collection(db, 'users', currentUser.uid, 'rosters'));
-    const out = {};
-    snap.forEach(docSnap => {
-      const d = docSnap.data();
-      out[d.name] = { name: d.name, players: d.players, savedAt: d.savedAt };
-    });
-    return out;
-  }
-
-  async function cloudSaveTableFormation(name, entry) {
-    if (!currentUser) throw new Error('Not signed in yet');
-    await setDoc(doc(db, 'users', currentUser.uid, 'tableFormations', safeDocId(name)), {
+    if (!podId) throw new Error('No OurPod selected');
+    await setDoc(doc(db, 'pods', podId, 'tableFormations', safeDocId(name)), {
       name, seats: entry.seats || [], savedAt: entry.savedAt || Date.now(),
+      savedBy: currentUser.displayName || currentUser.email || 'Someone',
       updatedAt: serverTimestamp(),
     });
   }
 
-  async function cloudDeleteTableFormation(name) {
+  async function cloudDeleteTableFormation(podId, name) {
     if (!currentUser) throw new Error('Not signed in yet');
-    await deleteDoc(doc(db, 'users', currentUser.uid, 'tableFormations', safeDocId(name)));
+    if (!podId) throw new Error('No OurPod selected');
+    await deleteDoc(doc(db, 'pods', podId, 'tableFormations', safeDocId(name)));
   }
 
-  async function cloudLoadAllTableFormations() {
+  async function cloudLoadAllTableFormations(podId) {
     if (!currentUser) throw new Error('Not signed in yet');
-    const snap = await getDocs(collection(db, 'users', currentUser.uid, 'tableFormations'));
+    if (!podId) return {};
+    const snap = await getDocs(collection(db, 'pods', podId, 'tableFormations'));
     const out = {};
     snap.forEach(docSnap => {
       const d = docSnap.data();
-      out[d.name] = { seats: d.seats, savedAt: d.savedAt };
+      out[d.name] = { seats: d.seats, savedAt: d.savedAt, savedBy: d.savedBy };
     });
     return out;
   }
 
-  // --- Chronicles (the match-history journal) -- structurally different
-  // from the two collections above: entries are an append-only LIST with
-  // auto-generated IDs, not a name-keyed map a person edits in place.
-  // Personal to the signed-in account for now (not yet shared across a
-  // Pod's members) -- see build notes on why that's a deliberate, separate
-  // next step rather than bundled into this migration.
+  // --- Chronicles (the match-history journal) -- also pod-scoped as of
+  // this rewrite, for the same reason as Table Formations above: a match
+  // genuinely involves the whole pod, not just whoever happened to click
+  // "log this match." Structurally different from the map above: entries
+  // are an append-only LIST with auto-generated IDs, not a name-keyed map
+  // a person edits in place.
 
-  async function cloudAddChronicleEntry(entry) {
+  async function cloudAddChronicleEntry(podId, entry) {
     if (!currentUser) throw new Error('Not signed in yet');
-    const ref = doc(collection(db, 'users', currentUser.uid, 'chronicles'));
+    if (!podId) throw new Error('No OurPod selected');
+    const ref = doc(collection(db, 'pods', podId, 'chronicles'));
     await setDoc(ref, {
       date: entry.date || '', notes: entry.notes || '', decks: entry.decks || [],
       createdAt: entry.createdAt || Date.now(),
+      loggedBy: currentUser.displayName || currentUser.email || 'Someone',
     });
     return ref.id;
   }
 
-  async function cloudLoadAllChronicles() {
+  async function cloudLoadAllChronicles(podId) {
     if (!currentUser) throw new Error('Not signed in yet');
-    const snap = await getDocs(collection(db, 'users', currentUser.uid, 'chronicles'));
+    if (!podId) return [];
+    const snap = await getDocs(collection(db, 'pods', podId, 'chronicles'));
     const out = [];
     snap.forEach(docSnap => out.push({ id: docSnap.id, ...docSnap.data() }));
     out.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     return out;
   }
 
-  async function cloudClearAllChronicles() {
+  async function cloudClearAllChronicles(podId) {
     if (!currentUser) throw new Error('Not signed in yet');
-    const snap = await getDocs(collection(db, 'users', currentUser.uid, 'chronicles'));
+    if (!podId) return;
+    const snap = await getDocs(collection(db, 'pods', podId, 'chronicles'));
     const deletions = [];
     snap.forEach(docSnap => deletions.push(deleteDoc(docSnap.ref)));
     await Promise.all(deletions);
@@ -23346,7 +23749,7 @@ if (deckLinkLoadBtn) deckLinkLoadBtn.addEventListener('click', async () => {
     const podRef = doc(collection(db, 'pods'));
     const inviteCode = generateInviteCode();
     await setDoc(podRef, {
-      name: (name || '').trim() || 'My Pod',
+      name: (name || '').trim() || 'Our Pod',
       leaderId: currentUser.uid,
       coLeaderIds: [],
       memberIds: [currentUser.uid],
@@ -23419,7 +23822,7 @@ if (deckLinkLoadBtn) deckLinkLoadBtn.addEventListener('click', async () => {
 
   async function renamePod(podId, newName) {
     if (!currentUser) throw new Error('Not signed in yet');
-    await setDoc(doc(db, 'pods', podId), { name: (newName || '').trim() || 'My Pod' }, { merge: true });
+    await setDoc(doc(db, 'pods', podId), { name: (newName || '').trim() || 'Our Pod' }, { merge: true });
   }
 
   async function regenerateInviteCode(podId) {
@@ -23471,7 +23874,6 @@ if (deckLinkLoadBtn) deckLinkLoadBtn.addEventListener('click', async () => {
     fetchDeckByLink, addLinkedDeck, refreshLinkedDeck, removeLinkedDeck, loadLinkedDecks,
     createPod, joinPodByInviteCode, loadMyPods, loadPodMembers, leavePod, removePodMember,
     renamePod, regenerateInviteCode, promoteToCoLeader, transferLeadership, deletePod,
-    saveRoster: cloudSaveRoster, deleteRoster: cloudDeleteRoster, loadAllRosters: cloudLoadAllRosters,
     saveTableFormation: cloudSaveTableFormation, deleteTableFormation: cloudDeleteTableFormation,
     loadAllTableFormations: cloudLoadAllTableFormations,
     addChronicleEntry: cloudAddChronicleEntry, loadAllChronicles: cloudLoadAllChronicles,
