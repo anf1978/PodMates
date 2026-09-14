@@ -362,6 +362,7 @@
 
   /* Type frequency table */
   table.type-table{width:100%; border-collapse:collapse; margin-top:10px;}
+  .type-row-clickable:hover td{background:var(--bg-panel-raised); color:var(--gold-bright);}
   table.type-table th, table.type-table td{
     text-align:left; padding:9px 10px; border-bottom:1px solid var(--line); font-size:14px;
   }
@@ -1164,7 +1165,7 @@ One card per line. Formats like &quot;1x Sol Ring&quot;, plain names, or Moxfiel
   <div class="panel" id="savedDecksTablePanel">
     <details class="panel-collapsible">
       <summary class="panel-toggle">The Full Ledger</summary>
-      <p style="font-size:13px; color:var(--text-soft); margin:0 0 10px;">Every deck saved in this browser, side by side. Tap a column header to sort by it — tap again to reverse.</p>
+      <p style="font-size:13px; color:var(--text-soft); margin:0 0 10px;">Every deck saved to your account, side by side. Tap a column header to sort by it — tap again to reverse.</p>
       <div class="row" style="margin-bottom:10px;">
         <button id="buildSavedDecksTableBtn" class="ghost">Build Table</button>
       </div>
@@ -1177,7 +1178,7 @@ One card per line. Formats like &quot;1x Sol Ring&quot;, plain names, or Moxfiel
     <details class="panel-collapsible">
       <summary class="panel-toggle">Chronicles &amp; Stories</summary>
       <div id="matchHistoryBody">
-        <p style="font-size:12.5px; color:var(--text-soft); margin:0 0 10px;">Our pod’s shared nights (this browser only). Capture lessons and fun — not just who won.</p>
+        <p style="font-size:12.5px; color:var(--text-soft); margin:0 0 10px;">Your active OurPod’s shared nights, visible to every member. Capture lessons and fun — not just who won.</p>
         <div id="matchLogArea" style="font-size:13px; color:var(--text-soft); max-height:420px; overflow-y:auto;"></div>
         <div class="row" style="margin-top:12px;">
           <button id="clearMatchHistoryBtn" class="ghost">Clear Chronicles</button>
@@ -2063,6 +2064,7 @@ function analyzeDeck(matchedCards, commanders = []) {
     altWinCards: [], millOpponentCount: 0, millSelfCount: 0, burnFaceCount: 0, infectCount: 0,
     gameChangers: [], bannedCards: [],
     typeFrequency: {},
+    cardsByType: {},
     detectedCombos: [], detectedComboDetails: [],
     auraCount: 0, equipmentCount: 0,
     rampCards: [], fastManaCards: [], drawCards: [], tutorCards: [],
@@ -2253,14 +2255,21 @@ function analyzeDeck(matchedCards, commanders = []) {
     // Creature" counts toward BOTH Artifact and Creature), not just the last
     // word in its type line — the previous "last word wins" approach silently
     // dropped a card's other types whenever it had more than one.
+    // cardsByType is built in this SAME loop, crediting the same way, so its
+    // per-type card lists are always exactly consistent with the counts
+    // shown in typeFrequency -- lets the UI offer "show me the cards behind
+    // this number" without a second, separately-derived pass that could
+    // drift out of sync with what's actually displayed.
     const typeLinePrefix = (card.t || '').split('—')[0].trim();
     const wordsInType = typeLinePrefix.split(/\s+/).filter(Boolean);
     const realTypesFound = wordsInType.filter(w => REAL_CARD_TYPES.has(w));
     if (realTypesFound.length === 0) {
       agg.typeFrequency['Unknown'] = (agg.typeFrequency['Unknown'] || 0) + qty;
+      (agg.cardsByType['Unknown'] = agg.cardsByType['Unknown'] || []).push({ name: card.n, qty });
     } else {
       for (const t of realTypesFound) {
         agg.typeFrequency[t] = (agg.typeFrequency[t] || 0) + qty;
+        (agg.cardsByType[t] = agg.cardsByType[t] || []).push({ name: card.n, qty });
       }
     }
   }
@@ -2338,9 +2347,15 @@ function analyzeDeck(matchedCards, commanders = []) {
   agg.detectedLocks = [];
 
   agg.detectedSynergies = [];
+  agg.detectedSynergyDetails = [];
   for (const syn of SOFT_SYNERGIES) {
     if (comboSlotsMatch(namesInDeck, syn)) {
       agg.detectedSynergies.push(describeCombo(syn));
+      // Flattened across all slots (including alternatives not actually in
+      // this deck) so it lines up with what describeCombo's text itself
+      // already shows via " / " -- linkifying exactly what's displayed,
+      // not a filtered subset of it.
+      agg.detectedSynergyDetails.push({ cards: syn.s.flat() });
       if (syn.t === 'lock') agg.detectedLocks.push({ cards: syn.s.map(slot => slot.join(' / ')), outcome: syn.o || null });
     }
   }
@@ -2405,6 +2420,7 @@ function detectWinCondition(agg) {
       label: 'Alternate win condition',
       detail: `Explicit win-the-game text found on: ${agg.altWinCards.join(', ')}`,
       confidence: 'high',
+      cards: agg.altWinCards,
     });
   }
 
@@ -2429,6 +2445,7 @@ function detectWinCondition(agg) {
         ? `${combo.cards.join(' + ')} → ${combo.outcome}.`
         : `${combo.cards.join(' + ')}.`) + reliabilityNote + timingNote,
       confidence: 'high',
+      cards: combo.cards,
     });
   }
 
@@ -18790,7 +18807,7 @@ function escapeHtml(s) {
 // against their docs), so this calls it straight from the browser --
 // no server-side proxy needed, unlike Archidekt/Moxfield earlier.
 // This is the shared foundation stage 2+ (the full visual deck viewer,
-// thumbnails inside the analysis callouts) will build on.
+// thumbnails inside the analysis callouts) builds on.
 // ============================================================
 
 // In-memory only, per page load -- nothing here is worth persisting.
@@ -18798,22 +18815,53 @@ function escapeHtml(s) {
 // stale cached URL would be a worse outcome than just asking again.
 const cardImageCache = new Map();
 
+function normalizeCardNameForLookup(name) {
+  return (name || '').trim().toLowerCase();
+}
+
+// Given a Scryfall card object and the name that was ACTUALLY requested,
+// picks the right image -- preferring whichever face's own name matches
+// what was asked for (covers looking a double-faced card up by its BACK
+// face specifically, e.g. a transform commander's flipped name), falling
+// back to the card's own top-level art, then the front face. Shared by
+// both the single-card and batch fetchers below so double-faced/split
+// card handling stays consistent between them.
+function extractImageUrlForRequestedName(card, requestedName, size) {
+  size = size || 'normal';
+  const reqLower = normalizeCardNameForLookup(requestedName);
+  if (Array.isArray(card.card_faces)) {
+    const faceMatch = card.card_faces.find(f => normalizeCardNameForLookup(f.name) === reqLower);
+    if (faceMatch && faceMatch.image_uris) return faceMatch.image_uris[size] || faceMatch.image_uris.normal || null;
+  }
+  if (card.image_uris) return card.image_uris[size] || card.image_uris.normal || null;
+  if (Array.isArray(card.card_faces) && card.card_faces[0] && card.card_faces[0].image_uris) {
+    return card.card_faces[0].image_uris[size] || card.card_faces[0].image_uris.normal || null;
+  }
+  return null;
+}
+
 async function fetchCardImageUrl(cardName, size) {
-  size = size || 'art_crop'; // small | normal | large | art_crop | png
+  size = size || 'normal'; // small | normal | large | art_crop | png
   const cacheKey = cardName + '|' + size;
   if (cardImageCache.has(cacheKey)) return cardImageCache.get(cacheKey);
+
+  async function lookup(name) {
+    const res = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`);
+    if (!res.ok) return null;
+    return res.json();
+  }
+
   try {
-    const res = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cardName)}`);
-    if (!res.ok) { cardImageCache.set(cacheKey, null); return null; }
-    const data = await res.json();
-    let url = null;
-    if (data.image_uris) {
-      url = data.image_uris[size] || null;
-    } else if (Array.isArray(data.card_faces) && data.card_faces[0] && data.card_faces[0].image_uris) {
-      // Double-faced cards (and some split cards) keep images per face
-      // rather than at the top level of the card object.
-      url = data.card_faces[0].image_uris[size] || null;
+    let card = await lookup(cardName);
+    // Double-faced/split/adventure cards: Scryfall's combined "A // B" name
+    // doesn't reliably resolve via exact lookup (spacing/formatting can
+    // differ from what's stored here) -- the front face alone almost
+    // always does, so retry with just that if the full name came back empty.
+    if (!card && cardName.includes('//')) {
+      card = await lookup(cardName.split('//')[0].trim());
     }
+    if (!card) { cardImageCache.set(cacheKey, null); return null; }
+    const url = extractImageUrlForRequestedName(card, cardName, size);
     cardImageCache.set(cacheKey, url);
     return url;
   } catch (e) {
@@ -18826,7 +18874,9 @@ async function fetchCardImageUrl(cardName, size) {
 // the radar chart -- an instant visual "which deck is this" before
 // reading a single stat. A rare 3rd+ commander (some Background +
 // partner combinations) isn't specially laid out for now; simplicity
-// over handling an uncommon edge case.
+// over handling an uncommon edge case. Shows the FULL card (frame, text,
+// everything) rather than just a cropped illustration -- a portrait is
+// only really recognizable as "the card" with its frame intact.
 async function renderCommanderHero(commanders) {
   const area = $('commanderHeroArea');
   if (!area) return;
@@ -18834,14 +18884,14 @@ async function renderCommanderHero(commanders) {
 
   const toShow = commanders.slice(0, 2);
   area.innerHTML = `
-    <div style="display:flex; gap:10px; justify-content:center; margin-bottom:16px;">
+    <div style="display:flex; gap:14px; justify-content:center; margin-bottom:16px; flex-wrap:wrap;">
       ${toShow.map((name, i) => `
-        <div id="commanderHeroSlot${i}" style="display:none; flex:1; max-width:280px; aspect-ratio:1.37; overflow:hidden; border:2px solid var(--line-strong); border-radius:0; background:var(--bg-slot, var(--bg-main));"></div>
+        <div id="commanderHeroSlot${i}" style="display:none; width:200px; max-width:42vw; aspect-ratio:0.717; overflow:hidden; border:2px solid var(--line-strong); border-radius:0; background:var(--bg-slot, var(--bg-main));"></div>
       `).join('')}
     </div>
   `;
 
-  const results = await Promise.all(toShow.map(name => fetchCardImageUrl(name, 'art_crop')));
+  const results = await Promise.all(toShow.map(name => fetchCardImageUrl(name, 'normal')));
   results.forEach((url, i) => {
     const slot = $('commanderHeroSlot' + i);
     if (!slot) return;
@@ -18879,42 +18929,90 @@ function getCardViewerCategory(typeLine) {
 
 // Batches into groups of <=75 (Scryfall's hard limit on /cards/collection)
 // and fires those requests in parallel -- a 100-card Commander deck is at
-// most 2 batches, nowhere near enough to be a rate-limit concern. Returns
-// a Map of card name -> normal-size image URL (or no entry at all for a
-// name Scryfall couldn't find, surfaced via the returned notFound array
-// rather than silently guessed at).
-async function fetchCardImagesBatch(cardNames) {
-  const unique = [...new Set(cardNames)];
-  const chunks = [];
-  for (let i = 0; i < unique.length; i += 75) chunks.push(unique.slice(i, i + 75));
+// most 2 batches, nowhere near enough to be a rate-limit concern.
+//
+// Correlates each requested name against whichever result actually
+// matches it (by the card's own name OR by an individual face's name),
+// rather than trusting the response's own `.name` field to exactly echo
+// what was asked for -- Scryfall can return a card's canonical name in a
+// slightly different form (capitalization, or the spacing around "//" for
+// double-faced cards) than what was requested, which would otherwise
+// leave a fetched image filed under a key nothing ever looks up again --
+// this was the root cause of thumbnails silently failing to show even
+// when the request itself succeeded. Anything still unmatched that looks
+// like a double-faced/split/adventure card (a "//" in the name) gets one
+// retry under just its front face, which resolves far more reliably.
+//
+// Returns { urlMap, notFound } where urlMap exposes only .get(name) (not
+// a real Map) so lookups can normalize case/whitespace transparently.
+async function fetchCardImagesBatch(cardNames, size) {
+  size = size || 'normal';
+  const uniqueOriginal = [...new Set(cardNames)];
+  const rawMap = new Map(); // normalized name -> url
 
-  const urlMap = new Map();
-  const notFound = [];
+  async function attempt(names) {
+    const chunks = [];
+    for (let i = 0; i < names.length; i += 75) chunks.push(names.slice(i, i + 75));
+    const failed = [];
+    await Promise.all(chunks.map(async (chunk) => {
+      try {
+        const res = await fetch('https://api.scryfall.com/cards/collection', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ identifiers: chunk.map(name => ({ name })) }),
+        });
+        if (!res.ok) { failed.push(...chunk); return; }
+        const data = await res.json();
+        const results = data.data || [];
+        chunk.forEach(reqName => {
+          const reqLower = normalizeCardNameForLookup(reqName);
+          const match = results.find(c =>
+            normalizeCardNameForLookup(c.name) === reqLower ||
+            (Array.isArray(c.card_faces) && c.card_faces.some(f => normalizeCardNameForLookup(f.name) === reqLower))
+          );
+          const url = match ? extractImageUrlForRequestedName(match, reqName, size) : null;
+          if (url) rawMap.set(reqLower, url);
+          else failed.push(reqName);
+        });
+      } catch (e) {
+        failed.push(...chunk);
+      }
+    }));
+    return failed;
+  }
 
-  await Promise.all(chunks.map(async (chunk) => {
-    try {
-      const res = await fetch('https://api.scryfall.com/cards/collection', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifiers: chunk.map(name => ({ name })) }),
-      });
-      if (!res.ok) { notFound.push(...chunk); return; }
-      const data = await res.json();
-      (data.data || []).forEach(card => {
-        let url = null;
-        if (card.image_uris) url = card.image_uris.normal || null;
-        else if (Array.isArray(card.card_faces) && card.card_faces[0] && card.card_faces[0].image_uris) {
-          url = card.card_faces[0].image_uris.normal || null;
-        }
-        if (url) urlMap.set(card.name, url);
-      });
-      (data.not_found || []).forEach(id => { if (id && id.name) notFound.push(id.name); });
-    } catch (e) {
-      notFound.push(...chunk);
-    }
-  }));
+  const missing = await attempt(uniqueOriginal);
 
-  return { urlMap, notFound };
+  const frontFaceCandidates = missing.filter(n => n.includes('//'));
+  const genuinelyMissing = missing.filter(n => !n.includes('//'));
+
+  if (frontFaceCandidates.length) {
+    const fronts = frontFaceCandidates.map(n => n.split('//')[0].trim());
+    await attempt(fronts);
+    frontFaceCandidates.forEach((full, i) => {
+      const frontKey = normalizeCardNameForLookup(fronts[i]);
+      if (rawMap.has(frontKey)) rawMap.set(normalizeCardNameForLookup(full), rawMap.get(frontKey));
+      else genuinelyMissing.push(full);
+    });
+  }
+
+  const urlMap = { get(name) { return rawMap.get(normalizeCardNameForLookup(name)); } };
+  return { urlMap, notFound: genuinelyMissing };
+}
+
+// Shared by showDeckViewerModal and showTypeCardsModal -- one consistent
+// card-tile appearance (art, quantity badge, or a named placeholder when
+// art couldn't be found) wherever a grid of cards gets shown.
+function cardGridTileHtml(name, qty, url) {
+  if (!url) {
+    return `<div style="aspect-ratio:0.717; background:var(--bg-slot, var(--bg-main)); border:1.5px solid var(--line); display:flex; align-items:center; justify-content:center; padding:6px; text-align:center;">
+      <span style="font-size:11px; color:var(--text-soft);">${escapeHtml(name)}</span>
+    </div>`;
+  }
+  return `<div style="position:relative;">
+    <img src="${escapeHtml(url)}" alt="${escapeHtml(name)}" loading="lazy" title="${escapeHtml(name)}" style="width:100%; display:block; border:1.5px solid var(--line); border-radius:0;">
+    ${qty > 1 ? `<span style="position:absolute; top:4px; right:4px; background:rgba(15,12,10,0.85); color:var(--gold-bright); font-size:11px; font-weight:700; padding:2px 6px; border:1px solid var(--gold);">×${qty}</span>` : ''}
+  </div>`;
 }
 
 async function showDeckViewerModal(decklistText, commanderStr) {
@@ -18968,17 +19066,7 @@ async function showDeckViewerModal(decklistText, commanderStr) {
       const cardsHtml = cards.map(card => {
         const qty = totalsByKey.get(card.n);
         const url = urlMap.get(card.n);
-        if (!url) {
-          // Missing art shouldn't silently vanish from the count -- show a
-          // plain named placeholder rather than skipping the card entirely.
-          return `<div style="aspect-ratio:0.717; background:var(--bg-slot, var(--bg-main)); border:1.5px solid var(--line); display:flex; align-items:center; justify-content:center; padding:6px; text-align:center;">
-            <span style="font-size:11px; color:var(--text-soft);">${escapeHtml(card.n)}</span>
-          </div>`;
-        }
-        return `<div style="position:relative;">
-          <img src="${escapeHtml(url)}" alt="${escapeHtml(card.n)}" loading="lazy" title="${escapeHtml(card.n)}" style="width:100%; display:block; border:1.5px solid var(--line); border-radius:0;">
-          ${qty > 1 ? `<span style="position:absolute; top:4px; right:4px; background:rgba(15,12,10,0.85); color:var(--gold-bright); font-size:11px; font-weight:700; padding:2px 6px; border:1px solid var(--gold);">×${qty}</span>` : ''}
-        </div>`;
+        return cardGridTileHtml(card.n, qty, url);
       }).join('');
       return `
         <div style="margin-bottom:20px;">
@@ -18995,6 +19083,46 @@ async function showDeckViewerModal(decklistText, commanderStr) {
       ${matched.length} card line${matched.length === 1 ? '' : 's'}${notFound.length ? ` · ${notFound.length} card${notFound.length === 1 ? '' : 's'} shown without art` : ''}
     </p>
     ${sections}
+  `;
+  document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
+}
+
+// Cards behind one row of the "Card Type Frequency" table -- pulls from
+// currentAgg.cardsByType, which is built in the SAME engine pass (and by
+// the same multi-type-credit rule) that produces the counts shown in that
+// table, so what's shown here always matches the number that was clicked.
+async function showTypeCardsModal(typeName) {
+  if (!currentAgg || !currentAgg.cardsByType || !currentAgg.cardsByType[typeName]) return;
+  const entries = currentAgg.cardsByType[typeName];
+
+  injectTryADeckStyles();
+  closeTryADeckModal();
+  const overlay = document.createElement('div');
+  overlay.className = 'tad-overlay';
+  overlay.id = 'tadOverlay';
+  const modal = document.createElement('div');
+  modal.className = 'tad-modal tad-modal-wide';
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
+
+  modal.innerHTML = `<p style="text-align:center; color:var(--text-soft); font-size:13px;">Loading card art…</p>`;
+
+  const totalsByKey = new Map();
+  entries.forEach(e => totalsByKey.set(e.name, (totalsByKey.get(e.name) || 0) + e.qty));
+  const names = [...totalsByKey.keys()].sort((a, b) => a.localeCompare(b));
+
+  const { urlMap, notFound } = await fetchCardImagesBatch(names);
+  const totalCount = [...totalsByKey.values()].reduce((sum, n) => sum + n, 0);
+  const cardsHtml = names.map(name => cardGridTileHtml(name, totalsByKey.get(name), urlMap.get(name))).join('');
+
+  modal.innerHTML = `
+    <button class="tad-close" id="tadCloseBtn">Close ×</button>
+    <h2 style="margin-bottom:4px;">${escapeHtml(typeName)}</h2>
+    <p style="font-size:12px; color:var(--text-soft); margin:0 0 16px;">
+      ${totalCount} card${totalCount === 1 ? '' : 's'}${notFound.length ? ` · ${notFound.length} shown without art` : ''}
+    </p>
+    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(110px, 1fr)); gap:10px;">${cardsHtml}</div>
   `;
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
 }
@@ -19202,7 +19330,7 @@ function renderWinCondition(winCons) {
 
   let html = `<div class="label">Win Condition${explainerBtn('winCondition')}</div>` +
     `<div class="value">${escapeHtml(primary.label)}<span class="confidence-tag ${confClass}">${confLabel}</span></div>` +
-    `<div class="detail">${escapeHtml(primary.detail)}</div>`;
+    `<div class="detail">${linkifyKnownCardNames(escapeHtml(primary.detail), primary.cards)}</div>`;
 
   if (others.length > 0) {
     html += `<div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--line);">` +
@@ -19213,7 +19341,7 @@ function renderWinCondition(winCons) {
         return `<div style="margin-bottom:7px; font-size:13px;">` +
           `<strong style="color:var(--gold-bright);">${escapeHtml(w.label)}</strong>` +
           `<span class="confidence-tag ${oClass}" style="margin-left:6px;">${oLabel}</span>` +
-          `<div class="detail" style="margin-top:2px;">${escapeHtml(w.detail)}</div>` +
+          `<div class="detail" style="margin-top:2px;">${linkifyKnownCardNames(escapeHtml(w.detail), w.cards)}</div>` +
           `</div>`;
       }).join('') +
       `</div>`;
@@ -19706,7 +19834,7 @@ function renderTypeTable(typeFrequency, totalCards, avgCmc, manaCurve) {
   const entries = Object.entries(typeFrequency).sort((a, b) => b[1] - a[1]);
   let rows = entries.map(([type, count]) => {
     const pct = ((count / totalCards) * 100).toFixed(1);
-    return `<tr><td>${escapeHtml(type)}</td><td class="num-col">${count}</td><td class="num-col">${pct}%</td></tr>`;
+    return `<tr class="type-row-clickable" data-type-name="${escapeHtml(type)}" style="cursor:pointer;"><td>${escapeHtml(type)}</td><td class="num-col">${count}</td><td class="num-col">${pct}%</td></tr>`;
   }).join('');
 
   // Mana curve bars
@@ -19772,7 +19900,7 @@ function renderSynergyProfile(agg, archetypeMatch) {
   const edgesHtml = topEdges.length
     ? topEdges.map(e => `
         <div style="margin-bottom:8px; padding-bottom:8px; border-bottom:1px dashed var(--line);">
-          <div style="font-size:13.5px;"><strong style="color:var(--text-primary);">${escapeHtml(e.a)}</strong> <span style="color:var(--gold);">↔</span> <strong style="color:var(--text-primary);">${escapeHtml(e.b)}</strong></div>
+          <div style="font-size:13.5px;"><strong style="color:var(--text-primary);">${cardNameLink(e.a)}</strong> <span style="color:var(--gold);">↔</span> <strong style="color:var(--text-primary);">${cardNameLink(e.b)}</strong></div>
           <div style="font-size:12px; color:var(--text-soft);">${escapeHtml(e.reasons.join('; '))}</div>
         </div>`).join('')
     : '<span style="color:var(--text-soft); font-size:13px;">No strong card-to-card interactions detected — this deck reads more as a collection of good individual cards than a tightly interlocking engine.</span>';
@@ -19817,7 +19945,7 @@ function renderSynergyProfile(agg, archetypeMatch) {
       const catDef = REASON_CATEGORIES.find(c => c.key === cat);
       if (catDef) usedCategories.add(catDef.key);
       const borderColor = catDef ? catDef.color : 'var(--line)';
-      return `<span class="gc-chip" style="border-left:3px solid ${borderColor};">${escapeHtml(n)}</span>`;
+      return `<span class="gc-chip" style="border-left:3px solid ${borderColor};">${cardNameLink(n)}</span>`;
     }).join(' ');
   const engineLegend = usedCategories.size
     ? `<div style="margin-top:8px; font-size:11.5px; color:var(--text-soft);">` +
@@ -19829,7 +19957,7 @@ function renderSynergyProfile(agg, archetypeMatch) {
   const knownSynergyHtml = (agg.detectedSynergies && agg.detectedSynergies.length)
     ? `<div style="margin-bottom:14px;">
         <div style="font-family:'Cinzel',Georgia,serif; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold); margin-bottom:8px;">Known Synergy Pairs <span style="font-weight:400; text-transform:none; letter-spacing:normal; color:var(--text-soft);">(documented, not auto-detected)</span></div>
-        ${agg.detectedSynergies.map(s => `<div style="font-size:13px; color:var(--text-soft); margin-bottom:4px;">${escapeHtml(s)}</div>`).join('')}
+        ${agg.detectedSynergies.map((s, i) => `<div style="font-size:13px; color:var(--text-soft); margin-bottom:4px;">${linkifyKnownCardNames(escapeHtml(s), (agg.detectedSynergyDetails[i] || {}).cards)}</div>`).join('')}
       </div>`
     : '';
 
@@ -19985,10 +20113,17 @@ async function enhanceKeyPiecesWithThumbnails(agg) {
 
   const { urlMap } = await fetchCardImagesBatch(allNames);
 
+  // Sized to actually be legible (a Magic card reads clearly around this
+  // size), and wrapped as a clickable card-name-link so tapping it opens
+  // the same full-size art modal used everywhere else in this panel --
+  // one consistent way to get a bigger look at any card, rather than a
+  // second, different enlarge mechanism just for these two sections.
   const thumbHtml = (names) => names.map(name => {
     const url = urlMap.get(name);
     if (!url) return ''; // no placeholder here -- the text chips/labels right below already name every card either way
-    return `<img src="${escapeHtml(url)}" alt="${escapeHtml(name)}" title="${escapeHtml(name)}" loading="lazy" style="width:52px; height:72.6px; object-fit:cover; border:1.5px solid var(--line); border-radius:0; margin:0 4px 4px 0;">`;
+    return `<span class="card-name-link" data-card-name="${escapeHtml(name)}" style="display:inline-block; border-bottom:none;">
+      <img src="${escapeHtml(url)}" alt="${escapeHtml(name)}" title="${escapeHtml(name)}" loading="lazy" style="width:130px; height:181.4px; object-fit:cover; border:1.5px solid var(--line); border-radius:0; margin:0 6px 6px 0; cursor:pointer;">
+    </span>`;
   }).join('');
 
   const gcArea = $('gameChangerThumbs');
@@ -21012,14 +21147,51 @@ function showCardReason(cardName) {
 // Wraps a card name so it can be clicked to see the card's art -- for use
 // anywhere a card is named as plain text without a thumbnail already
 // shown alongside it (Fast Mana, Tutors, Stax, Counter Magic, MLD lists,
-// and the axis-explainer popups' contributor lists). Deliberately not
-// applied to card names embedded inside prose sentences elsewhere (win
-// condition detail text, combo outcome text) -- reliably picking a card
-// name out of a free-form sentence without false positives is a much
-// harder, riskier problem than wrapping names that are already cleanly
-// comma-separated list items.
+// the axis-explainer popups' contributor lists, and -- via
+// linkifyKnownCardNames below -- the specific cards named inside Win
+// Condition detail text).
 function cardNameLink(name) {
   return `<span class="card-name-link" data-card-name="${escapeHtml(name)}">${escapeHtml(name)}</span>`;
+}
+
+// Wraps KNOWN card names inside an already-escaped block of text, turning
+// each into a clickable card-name-link -- WITHOUT trying to detect card
+// names in free-form prose (a genuinely risky, false-positive-prone
+// problem). This only ever touches names we already have as clean data
+// (e.g. agg.altWinCards, combo.cards) and does an exact substring
+// replacement of that name's own escaped form, which is safe because
+// escapeHtml() is applied consistently everywhere -- the escaped name is
+// guaranteed to appear verbatim in the escaped full text at whatever
+// position it was originally embedded. Longest names are replaced first
+// so a short name that happens to be a substring of a longer one (e.g.
+// "Ashling" inside "Ashling, the Extinguisher") can't partially clobber it.
+function linkifyKnownCardNames(escapedText, cardNames) {
+  if (!cardNames || !cardNames.length) return escapedText;
+  // Two-phase (tokenize, then substitute) specifically to avoid a subtler
+  // problem than it looks: sorting longest-name-first protects the
+  // ORIGINAL text from a short name clobbering part of a longer one, but
+  // does NOT protect a span already INSERTED for a longer name from being
+  // corrupted by a later, shorter replacement matching text inside that
+  // span's own markup (e.g. "Ashling" inside the data-card-name attribute
+  // of the span just built for "Ashling, the Extinguisher"). Replacing
+  // every name with a unique, HTML-incapable placeholder first, and only
+  // swapping in real markup once every name has been located, means no
+  // inserted HTML is ever present during the matching phase to accidentally
+  // re-match against.
+  const sorted = [...new Set(cardNames)].sort((a, b) => b.length - a.length);
+  let result = escapedText;
+  const placeholders = [];
+  sorted.forEach((name, i) => {
+    const escapedName = escapeHtml(name);
+    if (!escapedName || !result.includes(escapedName)) return;
+    const token = `\u0000CARDLINK${i}\u0000`;
+    result = result.split(escapedName).join(token);
+    placeholders.push({ token, name });
+  });
+  placeholders.forEach(({ token, name }) => {
+    result = result.split(token).join(cardNameLink(name));
+  });
+  return result;
 }
 
 async function showSingleCardArtModal(name) {
@@ -21087,6 +21259,11 @@ document.addEventListener('click', (e) => {
   const cardNameTarget = e.target && e.target.closest ? e.target.closest('[data-card-name]') : null;
   if (cardNameTarget) {
     showSingleCardArtModal(cardNameTarget.getAttribute('data-card-name'));
+    return;
+  }
+  const typeRowTarget = e.target && e.target.closest ? e.target.closest('[data-type-name]') : null;
+  if (typeRowTarget) {
+    showTypeCardsModal(typeRowTarget.getAttribute('data-type-name'));
   }
 });
 
