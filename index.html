@@ -1064,6 +1064,13 @@ One card per line. Formats like &quot;1x Sol Ring&quot;, plain names, or Moxfiel
       </details>
     </div>
 
+    <div class="panel">
+      <details class="panel-collapsible">
+        <summary class="panel-toggle">Additional Combos — Commander Spellbook</summary>
+        <div id="spellbookComboArea"></div>
+      </details>
+    </div>
+
     <div class="two-col">
       <div class="panel">
         <details class="panel-collapsible">
@@ -3075,6 +3082,102 @@ function detectBracket(agg, commandSpark) {
         : 'No Game Changers, mass land denial, or known combo lines detected.',
     ],
     note: 'Official brackets alone cannot show the real range inside B1–2 — see Deck Craft in the Table Vibe box for a finer read.',
+  };
+}
+
+// ---- Recalibrate: fold externally-found combos (e.g. Commander
+// Spellbook's find-my-combos results) into scoring on demand ----------
+// Deliberately NOT wired into analyzeDeck's automatic pass -- the default
+// report stays instant, offline, and keyed only to this app's own curated
+// HARD_COMBOS list. This is called only when the person explicitly clicks
+// Recalibrate, after a separate network fetch (which lives in app-script,
+// not here -- this file makes no network calls and stays pure, matching
+// every other function in it).
+//
+// externalCombos: array of { cards: [cardName, ...], outcome: string|null }
+// -- already normalized by whatever called this (e.g. flattened out of a
+// Commander Spellbook API response) into plain card names, one combo per
+// entry. Every entry is treated as a single-alternative combo (no OR-slots)
+// since that's what an external source gives us -- HARD_COMBOS' OR-slot
+// curation is this app's own refinement, not something an external combo
+// list provides.
+//
+// Recomputes every score that actually depends on combo data: Win
+// Condition, Versatility, and Power Level (Power Level's own comboPts term
+// makes it combo-dependent too, even though it wasn't the first place
+// anyone would look) -- then Command Spark from those plus the untouched
+// speed/consistency/disruption, then Bracket from the recalibrated Spark.
+// Speed, Consistency, and Disruption are passed in already-computed and
+// left alone, since none of their formulas reference detectedComboDetails.
+//
+// Returns a result object rather than mutating anything -- the caller
+// decides how to label and display a recalibrated result alongside (never
+// in place of) the original instant one.
+function recalibrateWithExternalCombos(agg, matchedCards, commanders, externalCombos, speed, consistency, disruption) {
+  const namesInDeck = new Set(matchedCards.map(m => m.card.n));
+  const nameToCard = new Map(matchedCards.map(m => [m.card.n, m.card]));
+
+  // Must stay in sync with the identical calculation inside analyzeDeck's
+  // own HARD_COMBOS loop -- duplicated rather than shared because that
+  // loop's version is scoped to local consts inside analyzeDeck, not
+  // stored on agg itself.
+  const tutorSupport = Math.min((agg.tutor || 0) / 8, 1) * 0.4;
+  const drawSupport = Math.min((agg.draw || 0) / 15, 1) * 0.3;
+  const protectionSupport = Math.min(((agg.protection || 0) + (agg.counterMagic || 0)) / 6, 1) * 0.3;
+
+  const existingComboKeys = new Set(
+    (agg.detectedComboDetails || []).map(c => c.cards.slice().sort().join('|'))
+  );
+
+  const newCombos = [];
+  const newComboDetails = [];
+  for (const ext of (externalCombos || [])) {
+    const cards = (ext.cards || []).filter(Boolean);
+    if (!cards.length) continue;
+    const key = cards.slice().sort().join('|');
+    if (existingComboKeys.has(key)) continue; // already in HARD_COMBOS -- don't double-count
+    if (!cards.every(name => namesInDeck.has(name))) continue; // defensive -- should always be true from CSB
+
+    const combo = { s: cards.map(name => [name]), o: ext.outcome || null, t: 'infinite_combo' };
+    const commanderPiece = cards.some(name => commanders.includes(name));
+    // No OR-slot alternatives possible with single-card slots, so
+    // redundancy is always 0 for an externally-sourced combo.
+    const redundancy = 0;
+    const reliability = 1.0
+      + (commanderPiece ? 0.5 : 0)
+      + Math.min(redundancy * 0.15, 0.3)
+      + tutorSupport + drawSupport + protectionSupport;
+    const totalCastCost = cards.reduce((sum, name) => {
+      const card = nameToCard.get(name);
+      return sum + (card ? (card.c || 0) : 0);
+    }, 0);
+
+    existingComboKeys.add(key); // guard against duplicate entries within externalCombos itself
+    newCombos.push(describeCombo(combo));
+    newComboDetails.push({
+      cards: combo.s.map(slot => slot.join(' / ')),
+      outcome: combo.o,
+      infinite: true,
+      commanderPiece, redundancy, reliability, totalCastCost,
+      pieceCount: combo.s.length,
+      source: 'spellbook',
+    });
+  }
+
+  const extendedAgg = Object.assign({}, agg, {
+    detectedCombos: (agg.detectedCombos || []).concat(newCombos),
+    detectedComboDetails: (agg.detectedComboDetails || []).concat(newComboDetails),
+  });
+
+  const winCons = detectWinCondition(extendedAgg);
+  const versatility = scoreVersatility(extendedAgg, winCons.length);
+  const powerLevel = scorePowerLevel(extendedAgg);
+  const commandSpark = computeSpark(speed, consistency, versatility, disruption, powerLevel);
+  const bracket = detectBracket(extendedAgg, commandSpark);
+
+  return {
+    winCons, versatility, powerLevel, commandSpark, bracket,
+    addedComboCount: newComboDetails.length,
   };
 }
 
@@ -19219,6 +19322,8 @@ function runAnalysis() {
   }
   const agg = analyzeDeck(matched, commanders);
   agg.commanders = commanders;
+  currentMatchedCards = matched;
+  currentCommanders = commanders;
   renderCommanderHero(commanders);
   const winCons = detectWinCondition(agg);
   currentWinCons = winCons;
@@ -19251,6 +19356,7 @@ function runAnalysis() {
   renderManaCurveChart(agg);
   renderSynergyProfile(agg, archetypeMatch);
   renderBracket(bracket, agg);
+  renderSpellbookComboPanel();
   renderTypeTable(agg.typeFrequency, agg.totalCards, agg.avgCmc, agg.manaCurve);
   renderManaBase(agg, manaBaseBenchmark);
   renderKeyPieces(agg);
@@ -19404,6 +19510,8 @@ function renderTableFeel(tableFeel, deckCraft) {
 }
 
 let currentAgg = null; // stored so axis explainers can list contributing cards
+let currentMatchedCards = null; // stored so Commander Spellbook lookup / Recalibrate can rebuild the deck payload without re-parsing
+let currentCommanders = null;
 let currentWinCons = null;
 let currentScores = null; // stored so axis explainers can show this deck's percentile
 let currentCommandSpark = null; // stored so the Spark explainer can show its percentile
@@ -19512,6 +19620,194 @@ function renderBracket(bracket, agg) {
     html += `<div class="note">${escapeHtml(bracket.note)}</div>`;
   }
   $('bracketArea').innerHTML = html;
+}
+
+// ---- Commander Spellbook: additional combos, on request ---------------
+// Deliberately separate from the instant, offline default report -- see
+// the design discussion this was built from. The default Win
+// Condition/Bracket/Spark numbers are keyed ONLY to this app's own curated
+// HARD_COMBOS and never wait on or silently change from this. This section
+// is opt-in (person clicks "Find More Combos"), clearly labeled as an
+// external source, and Recalibrate is a second, separate opt-in step that
+// visibly marks its output as recalibrated rather than overwriting the
+// original numbers.
+//
+// PENDING: fill in once the Worker (worker-find-my-combos.js) is deployed.
+// Same pattern as SYNC_WORKER_URL in the Firebase module script -- a bare
+// URL constant, empty string until deployed so this feature fails
+// gracefully (clear message, not a broken fetch to nowhere) rather than
+// silently pointing at a placeholder host.
+const SPELLBOOK_WORKER_URL = '';
+
+let currentSpellbookResult = null; // cached find-my-combos response for the currently-analyzed deck
+
+// Builds the {main, commanders} payload the Worker (and, behind it, CSB's
+// own DeckRequest schema) expects: array of {card, quantity}. Commanders
+// are sent separately and excluded from `main`, matching how CSB's own
+// Deck/DeckRequest model separates the two -- see the schema notes in the
+// Worker draft.
+function buildSpellbookDeckPayload(matched, commanders) {
+  const commanderSet = new Set(commanders || []);
+  const main = matched
+    .filter(m => !commanderSet.has(m.card.n))
+    .map(m => ({ card: m.card.n, quantity: m.qty || 1 }));
+  const cmdrs = (commanders || []).map(name => ({ card: name, quantity: 1 }));
+  return { main, commanders: cmdrs };
+}
+
+// Normalizes a Worker response into { ok, combos, nearMisses, error }.
+// combos: [{ cards: [name,...], outcome, permalink }] -- the shape
+// recalibrateWithExternalCombos (engine-script) expects.
+//
+// UNCONFIRMED, flagged deliberately: the exact field names CSB uses inside
+// each find-my-combos result entry (in particular how a near-miss --
+// missing exactly one piece -- is marked, versus a fully-present combo)
+// were not available from documentation alone; the Worker passes the raw
+// response through specifically so this could be verified against a real
+// deployed call. This parser is written defensively (tries several
+// plausible field names, falls back to treating an entry as a found combo
+// if it can't tell) so it degrades to "shows something, logs what it
+// didn't understand" rather than silently dropping results -- but it
+// should be tightened once a real response has actually been seen. Check
+// _rawSample in the browser console after a real fetch if combos seem to
+// be missing or miscategorized.
+function parseSpellbookResponse(data) {
+  const rawResults = Array.isArray(data.results) ? data.results
+    : Array.isArray(data) ? data : [];
+  const combos = [];
+  const nearMisses = [];
+  for (const r of rawResults) {
+    if (!r) continue;
+    const cardList = Array.isArray(r.cards)
+      ? r.cards.map(c => (typeof c === 'string' ? c : (c && (c.name || c.card)) || null)).filter(Boolean)
+      : [];
+    if (!cardList.length) continue;
+    const outcome = (r.results && (Array.isArray(r.results) ? r.results.join('; ') : String(r.results)))
+      || r.description || r.produces || null;
+    const entry = { cards: cardList, outcome, permalink: r.permalink || null, _raw: r };
+    // Plausible near-miss signals -- a field naming a single missing card,
+    // or an explicit "included"/"complete" boolean set to false. Adjust
+    // once the real shape is confirmed.
+    const missing = r.missingCards || r.missing || (r.includes === false ? [] : null);
+    if (missing && (Array.isArray(missing) ? missing.length : true)) {
+      nearMisses.push(Object.assign({}, entry, { missing: Array.isArray(missing) ? missing : [] }));
+    } else {
+      combos.push(entry);
+    }
+  }
+  return { ok: true, combos, nearMisses, _rawSample: rawResults.slice(0, 2) };
+}
+
+async function fetchSpellbookCombos(matched, commanders) {
+  if (!SPELLBOOK_WORKER_URL) {
+    return { ok: false, error: 'The Commander Spellbook lookup isn\u2019t configured yet (no Worker URL set).' };
+  }
+  const deckRequest = buildSpellbookDeckPayload(matched, commanders);
+  if (!deckRequest.main.length && !deckRequest.commanders.length) {
+    return { ok: false, error: 'No cards to search.' };
+  }
+  try {
+    const res = await fetch(SPELLBOOK_WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(deckRequest),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      return { ok: false, error: data.error || `Request failed (status ${res.status}).` };
+    }
+    return parseSpellbookResponse(data);
+  } catch (err) {
+    return { ok: false, error: 'Could not reach the Commander Spellbook lookup: ' + err.message };
+  }
+}
+
+// Initial panel state: just the explainer and the "Find More Combos"
+// button. Called from runAnalysis for every fresh deck, same as the other
+// render* calls -- resets any previous deck's found combos/Recalibrate
+// state rather than letting them linger.
+function renderSpellbookComboPanel() {
+  currentSpellbookResult = null;
+  const html = `<div class="detail" style="margin-bottom:10px;">` +
+    `This app's own combo detection (used everywhere else in this report) is instant and works offline, but it only knows the combos curated into it. ` +
+    `Commander Spellbook maintains a much larger, community-maintained combo database. Checking against it can't run automatically -- it needs a network call -- ` +
+    `but it's worth doing at least once per deck: it often turns up more than you'd expect, which is honestly a good reminder of how much damage a determined combo player can do at your table.` +
+    `</div>` +
+    `<button class="ghost" onclick="handleFindSpellbookCombos()">Find More Combos</button>` +
+    `<div id="spellbookComboResults" style="margin-top:12px;"></div>`;
+  $('spellbookComboArea').innerHTML = html;
+}
+
+async function handleFindSpellbookCombos() {
+  if (!currentMatchedCards) return;
+  const resultsEl = $('spellbookComboResults');
+  resultsEl.innerHTML = `<div class="detail">Checking Commander Spellbook…</div>`;
+  const result = await fetchSpellbookCombos(currentMatchedCards, currentCommanders || []);
+  if (!result.ok) {
+    resultsEl.innerHTML = `<div class="detail" style="color:var(--danger);">${escapeHtml(result.error)}</div>`;
+    return;
+  }
+  currentSpellbookResult = result;
+  renderSpellbookComboResults(result);
+}
+
+function renderSpellbookComboResults(result) {
+  const resultsEl = $('spellbookComboResults');
+  let html = '';
+
+  if (result.combos.length === 0 && result.nearMisses.length === 0) {
+    html += `<div class="detail">No additional combos found beyond what's already detected above.</div>`;
+  }
+
+  if (result.combos.length > 0) {
+    html += `<div style="font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-soft); margin:10px 0 6px;">Additional combos found via Commander Spellbook (${result.combos.length})</div>`;
+    html += result.combos.map(c => `<div style="margin-bottom:7px; font-size:13px;">` +
+      `<strong style="color:var(--gold-bright);">${escapeHtml(c.cards.join(' + '))}</strong>` +
+      (c.outcome ? `<div class="detail" style="margin-top:2px;">${escapeHtml(c.outcome)}</div>` : '') +
+      `</div>`).join('');
+  }
+
+  if (result.nearMisses.length > 0) {
+    html += `<div style="font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-soft); margin:14px 0 6px;">Near misses -- missing one piece (${result.nearMisses.length})</div>`;
+    html += result.nearMisses.map(c => `<div style="margin-bottom:7px; font-size:13px;">` +
+      `<strong style="color:var(--text-primary);">${escapeHtml(c.cards.join(' + '))}</strong>` +
+      (c.missing && c.missing.length ? `<div class="detail" style="margin-top:2px;">Missing: ${escapeHtml(c.missing.join(', '))}</div>` : '') +
+      `</div>`).join('');
+    // Pricing for near-misses is part of the original design (see the
+    // combo-integration discussion) but has NO implementation yet -- no
+    // pricing source has been picked or wired up. Deliberately not
+    // faked here; flagged plainly instead of a silent gap.
+    html += `<div class="note">Pricing for near-miss cards isn't wired up yet.</div>`;
+  }
+
+  if (result.combos.length > 0) {
+    html += `<div style="margin-top:14px; padding-top:12px; border-top:1px dashed var(--line);">` +
+      `<button class="ghost" onclick="handleRecalibrate()">Recalibrate scores with these combos</button>` +
+      `<div class="note" style="margin-top:6px;">This will show a second, clearly-labeled score alongside the original -- it never replaces it.</div>` +
+      `<div id="recalibrateResult" style="margin-top:10px;"></div>` +
+      `</div>`;
+  }
+
+  resultsEl.innerHTML = html;
+}
+
+function handleRecalibrate() {
+  if (!currentSpellbookResult || !currentAgg || !currentMatchedCards || !currentScores) return;
+  const result = recalibrateWithExternalCombos(
+    currentAgg, currentMatchedCards, currentCommanders || [], currentSpellbookResult.combos,
+    currentScores.speed, currentScores.consistency, currentScores.disruption
+  );
+
+  const sparkDelta = result.commandSpark - (currentCommandSpark || 0);
+  const deltaStr = sparkDelta > 0 ? `+${sparkDelta.toFixed(1)}` : sparkDelta.toFixed(1);
+
+  const html = `<div class="callout" style="border-color:var(--gold);">` +
+    `<div class="label">Recalibrated Command Spark <span style="font-weight:400; font-style:italic; text-transform:none; letter-spacing:normal;">(includes ${result.addedComboCount} Commander Spellbook combo${result.addedComboCount === 1 ? '' : 's'})</span></div>` +
+    `<div class="value">${result.commandSpark.toFixed(1)} <span style="font-size:13px; color:var(--text-soft);">(original: ${(currentCommandSpark || 0).toFixed(1)}, ${deltaStr})</span></div>` +
+    `<div class="detail" style="margin-top:6px;">Recalibrated Bracket: <strong>${escapeHtml(result.bracket.bracket)}</strong></div>` +
+    `<div class="note" style="margin-top:8px;">This is a separate, labeled recalibration -- the original Win Condition, Bracket, and Spark numbers above are unchanged and still reflect this app's own offline combo detection only.</div>` +
+    `</div>`;
+  $('recalibrateResult').innerHTML = html;
 }
 
 function checkLegality(matched, commanders, notFound) {
