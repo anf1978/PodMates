@@ -20627,12 +20627,13 @@ function renderAuthModal(modal, errorMsg) {
     const email = (document.getElementById('authEmail').value || '').trim();
     const password = document.getElementById('authPassword').value || '';
     if (!email || !password) { renderAuthModal(modal, 'Email and password are both required.'); return; }
+    const displayName = isSignup ? (document.getElementById('authDisplayName').value || '').trim() : '';
+    if (isSignup && !displayName) { renderAuthModal(modal, 'Pick a display name -- this is what your podmates will see instead of your email.'); return; }
     const submitBtn = document.getElementById('authSubmitBtn');
     submitBtn.disabled = true;
     submitBtn.textContent = 'One moment…';
     let result;
     if (isSignup) {
-      const displayName = (document.getElementById('authDisplayName').value || '').trim();
       result = await window.PodmatesCloud.signUpWithEmail(email, password, displayName);
     } else {
       result = await window.PodmatesCloud.logInWithEmail(email, password);
@@ -20774,6 +20775,7 @@ async function showProfileModal(opts) {
 
 function renderProfileModal(modal, myDecks, opts) {
   const isWelcome = !!(opts && opts.welcome);
+  const currentName = (window.PodmatesCloud && window.PodmatesCloud.user) ? (window.PodmatesCloud.user.displayName || '') : '';
   modal.innerHTML = `
     <button class="tad-close" id="tadCloseBtn">Close ×</button>
     <h2 style="margin-bottom:4px;">${isWelcome ? 'Welcome! Set up your profile' : 'My Profile'}</h2>
@@ -20782,6 +20784,14 @@ function renderProfileModal(modal, myDecks, opts) {
         ? 'Optional — paste links to your Archidekt or Moxfield decks to add them here, ready to load anytime. Skip this and come back anytime from "My Profile."'
         : 'All your decks live here — anything saved from Chart Deck, plus anything linked from Archidekt or Moxfield below.'}
     </p>
+    <div style="margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid var(--line);">
+      <label style="font-size:12px; color:var(--text-soft); display:block; margin-bottom:6px;">Display name — this is what your podmates see, instead of your email</label>
+      <div class="row" style="gap:8px; align-items:center;">
+        <input id="profileDisplayNameInput" type="text" value="${escapeHtml(currentName)}" placeholder="e.g. Alex" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
+        <button id="profileSaveNameBtn" class="ghost" style="white-space:nowrap;">Save Name</button>
+      </div>
+      <div id="profileNameStatus" style="font-size:12px; margin-top:6px; min-height:16px;"></div>
+    </div>
     <div class="row" style="margin-bottom:14px; gap:8px; align-items:center;">
       <input id="profileDeckLinkInput" type="text" placeholder="archidekt.com/decks/... or moxfield.com/decks/..." style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
       <button id="profileAddDeckBtn" class="ghost" style="white-space:nowrap;">Add Deck</button>
@@ -20829,6 +20839,28 @@ function renderProfileModal(modal, myDecks, opts) {
   }
 
   renderMyDecksList(modal, myDecks, isWelcome);
+
+  const saveNameBtn = document.getElementById('profileSaveNameBtn');
+  if (saveNameBtn) saveNameBtn.addEventListener('click', async () => {
+    const nameInput = document.getElementById('profileDisplayNameInput');
+    const nameStatus = document.getElementById('profileNameStatus');
+    const name = (nameInput.value || '').trim();
+    if (!name) { nameStatus.textContent = 'Enter a name first.'; nameStatus.className = 'status err'; return; }
+    saveNameBtn.disabled = true;
+    nameStatus.textContent = 'Saving…';
+    nameStatus.className = 'status';
+    try {
+      await window.PodmatesCloud.updateDisplayName(name);
+      nameStatus.textContent = 'Saved — this is now what your podmates see.';
+      nameStatus.className = 'status';
+      updateAuthBar(window.PodmatesCloud.user); // the name may also be shown in the auth bar itself
+    } catch (err) {
+      nameStatus.textContent = 'Could not save: ' + err.message;
+      nameStatus.className = 'status err';
+    } finally {
+      saveNameBtn.disabled = false;
+    }
+  });
 
   document.getElementById('profileAddDeckBtn').addEventListener('click', async () => {
     const input = document.getElementById('profileDeckLinkInput');
@@ -24161,19 +24193,27 @@ if (deckLinkLoadBtn) deckLinkLoadBtn.addEventListener('click', async () => {
   async function cloudLoadPodmateDecks(uid) {
     if (!currentUser) throw new Error('Not signed in yet');
     try {
-      const snap = await getDocs(collection(db, 'users', uid, 'decks'));
-      const out = {};
-      snap.forEach(docSnap => {
-        const d = docSnap.data();
-        if (d.secret === true) return;
-        out[d.key] = { list: d.list, commander: d.commander, player: d.player, savedAt: d.savedAt, secret: false };
-      });
-      return out;
+      return await cloudLoadPodmateDecksRaw(uid);
     } catch (e) {
       // Not sharing a pod, or the rule denied it -- treat as "nothing to show"
       // rather than surfacing a scary permission error for an expected case.
       return {};
     }
+  }
+
+  // Same query, but lets a real permission error through instead of
+  // swallowing it -- for checking from the console whether an empty
+  // result means "genuinely no decks" or "the security rule said no."
+  async function cloudLoadPodmateDecksRaw(uid) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    const snap = await getDocs(collection(db, 'users', uid, 'decks'));
+    const out = {};
+    snap.forEach(docSnap => {
+      const d = docSnap.data();
+      if (d.secret === true) return;
+      out[d.key] = { list: d.list, commander: d.commander, player: d.player, savedAt: d.savedAt, secret: false };
+    });
+    return out;
   }
 
 
@@ -24404,6 +24444,25 @@ if (deckLinkLoadBtn) deckLinkLoadBtn.addEventListener('click', async () => {
     return pods;
   }
 
+  // Changes this person's display name on their Firebase Auth profile AND
+  // in every pods/{podId}/members/{uid} doc they're already in -- that
+  // second copy is a separate, denormalized snapshot taken once at
+  // join/create time (see the Pods section below), so a profile-level
+  // rename alone wouldn't fix what a podmate actually sees for someone
+  // who signed up with the display-name field left blank and got the
+  // email-address fallback instead. Both are self-writes, always legal.
+  async function updateMyDisplayName(name) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    const trimmed = (name || '').trim();
+    if (!trimmed) throw new Error('Enter a display name first.');
+    await updateProfile(currentUser, { displayName: trimmed });
+    let pods = [];
+    try { pods = await loadMyPods(); } catch (e) { /* fine -- profile itself is already updated */ }
+    await Promise.all(pods.map(p =>
+      setDoc(doc(db, 'pods', p.id, 'members', currentUser.uid), { displayName: trimmed }, { merge: true }).catch(() => {})
+    ));
+  }
+
   async function loadPodMembers(podId) {
     if (!currentUser) throw new Error('Not signed in yet');
     const snap = await getDocs(collection(db, 'pods', podId, 'members'));
@@ -24482,9 +24541,11 @@ if (deckLinkLoadBtn) deckLinkLoadBtn.addEventListener('click', async () => {
     deleteDeck: cloudDeleteDeck,
     loadAllDecks: cloudLoadAllDecks,
     loadPodmateDecks: cloudLoadPodmateDecks,
+    loadPodmateDecksRaw: cloudLoadPodmateDecksRaw,
     fetchDeckByLink, addLinkedDeck, refreshLinkedDeck, removeLinkedDeck, loadLinkedDecks,
     createPod, joinPodByInviteCode, loadMyPods, loadPodMembers, leavePod, removePodMember,
     renamePod, regenerateInviteCode, promoteToCoLeader, transferLeadership, deletePod,
+    updateDisplayName: updateMyDisplayName,
     saveTableFormation: cloudSaveTableFormation, deleteTableFormation: cloudDeleteTableFormation,
     loadAllTableFormations: cloudLoadAllTableFormations,
     addChronicleEntry: cloudAddChronicleEntry, loadAllChronicles: cloudLoadAllChronicles,
