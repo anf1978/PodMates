@@ -19475,7 +19475,7 @@ function renderArchetypeMatch(match) {
   const pct = Math.round(top.sim * 100);
   let html = `<div class="label">Closest Match${explainerBtn('archetypeMatch')}</div>` +
     `<div class="value">${escapeHtml(top.deck.archetype)}<span class="confidence-tag confidence-medium">${pct}% overlap</span></div>` +
-    `<div class="detail">Closest to <strong style="color:var(--gold-bright);">${escapeHtml(top.deck.flavorName)}</strong> (${escapeHtml(top.deck.commander)})${top.deck.source === 'precon' ? ', ' + escapeHtml(top.deck.setName) : ''}.</div>`;
+    `<div class="detail">Closest to <strong style="color:var(--gold-bright);">${escapeHtml(top.deck.flavorName)}</strong> (${cardNameLink(top.deck.commander)})${top.deck.source === 'precon' ? ', ' + escapeHtml(top.deck.setName) : ''}.</div>`;
 
   if (runnersUp.length) {
     html += `<div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--line);">` +
@@ -19617,10 +19617,14 @@ function renderBracket(bracket, agg) {
     html += `<div class="detail" style="margin-top:10px; font-size:13px;"><strong>Game Changers found:</strong> ${gameChangerChips(agg.gameChangers)}</div>`;
   }
   if (agg && agg.detectedCombos.length > 0) {
-    html += `<div class="detail" style="margin-top:6px; font-size:13px;"><strong>Known combos:</strong> ${agg.detectedCombos.map(escapeHtml).join('; ')}</div>`;
+    const comboDetails = agg.detectedComboDetails || [];
+    const comboLines = agg.detectedCombos.map((text, i) =>
+      linkifyKnownCardNames(escapeHtml(text), (comboDetails[i] || {}).cards)
+    );
+    html += `<div class="detail" style="margin-top:6px; font-size:13px;"><strong>Known combos:</strong> ${comboLines.join('; ')}</div>`;
   }
   if (agg && agg.bannedCards.length > 0) {
-    html += `<div class="detail" style="margin-top:6px; font-size:13px; color:var(--danger);"><strong>Banned cards:</strong> ${agg.bannedCards.map(escapeHtml).join(', ')}</div>`;
+    html += `<div class="detail" style="margin-top:6px; font-size:13px; color:var(--danger);"><strong>Banned cards:</strong> ${agg.bannedCards.map(cardNameLink).join(', ')}</div>`;
   }
   if (bracket.note) {
     html += `<div class="note">${escapeHtml(bracket.note)}</div>`;
@@ -19755,7 +19759,7 @@ function renderSpellbookComboResults(result) {
   if (result.combos.length > 0) {
     html += `<div style="font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-soft); margin:10px 0 6px;">Additional combos found via Commander Spellbook (${result.combos.length})</div>`;
     html += result.combos.map(c => `<div style="margin-bottom:7px; font-size:13px;">` +
-      `<strong style="color:var(--gold-bright);">${escapeHtml(c.cards.join(' + '))}</strong>` +
+      `<strong style="color:var(--gold-bright);">${c.cards.map(cardNameLink).join(' + ')}</strong>` +
       (c.outcome ? `<div class="detail" style="margin-top:2px;">${escapeHtml(c.outcome)}</div>` : '') +
       `</div>`).join('');
   }
@@ -19763,8 +19767,8 @@ function renderSpellbookComboResults(result) {
   if (result.nearMisses.length > 0) {
     html += `<div style="font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-soft); margin:14px 0 6px;">Near misses -- missing one piece (${result.nearMisses.length})</div>`;
     html += result.nearMisses.map(c => `<div style="margin-bottom:7px; font-size:13px;">` +
-      `<strong style="color:var(--text-primary);">${escapeHtml(c.cards.join(' + '))}</strong>` +
-      (c.missing && c.missing.length ? `<div class="detail" style="margin-top:2px;">Missing: ${escapeHtml(c.missing.join(', '))}</div>` : '') +
+      `<strong style="color:var(--text-primary);">${c.cards.map(cardNameLink).join(' + ')}</strong>` +
+      (c.missing && c.missing.length ? `<div class="detail" style="margin-top:2px;">Missing: ${c.missing.map(cardNameLink).join(', ')}</div>` : '') +
       `</div>`).join('');
     // Pricing for near-misses is part of the original design (see the
     // combo-integration discussion) but has NO implementation yet -- no
@@ -20086,7 +20090,7 @@ function renderManaBase(agg, benchmark) {
   }).join('');
 
   const ritualNote = (agg.ritualCards && agg.ritualCards.length)
-    ? `<div style="font-size:12px; color:var(--text-soft); margin-top:6px;">Not counted toward Production (one-time, not a sustained source): ${[...new Set(agg.ritualCards)].map(escapeHtml).join(', ')}</div>`
+    ? `<div style="font-size:12px; color:var(--text-soft); margin-top:6px;">Not counted toward Production (one-time, not a sustained source): ${[...new Set(agg.ritualCards)].map(cardNameLink).join(', ')}</div>`
     : '';
 
   let benchmarkHtml = '';
@@ -20297,7 +20301,7 @@ function renderSynergyProfile(agg, archetypeMatch) {
     </div>` : ''}
     <div style="font-size:13px; color:var(--text-soft); margin-top:8px;">
       <strong style="color:var(--gold); cursor:help; border-bottom:1px dotted var(--text-soft);" title="Free = no mana cost to use. Cheap = 1-2 mana. Expensive = 3+ mana. Counts nonland interaction spells (removal, protection, counterspells, and similar) by their activation cost.">Interaction mix:</strong> ${escapeHtml(ix)}
-      ${agg.freeInteractionCards && agg.freeInteractionCards.length ? `<br><span style="font-size:12px;">Free: ${[...new Set(agg.freeInteractionCards)].map(escapeHtml).join(', ')}</span>` : ''}
+      ${agg.freeInteractionCards && agg.freeInteractionCards.length ? `<br><span style="font-size:12px;">Free: ${[...new Set(agg.freeInteractionCards)].map(cardNameLink).join(', ')}</span>` : ''}
     </div>
     <details style="font-size:12px; color:var(--text-soft); margin-top:10px; padding-top:10px; border-top:1px dashed var(--line);">
       <summary style="cursor:pointer; color:var(--gold); font-weight:600;">How was this built?</summary>
@@ -20359,7 +20363,7 @@ function renderKeyPieces(agg) {
 
   const sections = [];
   if (agg.commanders && agg.commanders.length) {
-    sections.push(`<div style="margin-bottom:10px;"><strong style="color:var(--gold);">Commander</strong><br>${agg.commanders.map(escapeHtml).join(' / ')}</div>`);
+    sections.push(`<div style="margin-bottom:10px;"><strong style="color:var(--gold);">Commander</strong><br>${agg.commanders.map(cardNameLink).join(' / ')}</div>`);
   }
   if (agg.gameChangers.length) sections.push(`<div style="margin-bottom:10px;"><strong style="color:var(--gold);">Game Changers</strong><div id="gameChangerThumbs" style="margin:6px 0;"></div>${gameChangerChips(agg.gameChangers)}</div>`);
   if (agg.detectedCombos.length) sections.push(`<div style="margin-bottom:10px;"><strong style="color:var(--gold);">Detected Combos</strong><div id="comboThumbs"></div></div>`);
@@ -20943,7 +20947,7 @@ function renderMyDeckSummary(deck) {
   const sourceLabel = deck.source === 'archidekt' ? 'Archidekt' : deck.source === 'moxfield' ? 'Moxfield' : null;
   return `
     <div style="padding:12px 0 6px;">
-      <div style="font-size:13px; color:var(--text-primary); margin-bottom:2px;"><strong>Commander:</strong> ${escapeHtml(s.commander)}</div>
+      <div style="font-size:13px; color:var(--text-primary); margin-bottom:2px;"><strong>Commander:</strong> ${cardNameLink(s.commander)}</div>
       <div style="font-size:12.5px; color:var(--text-soft); margin-bottom:10px;"><strong>Win Condition:</strong> ${escapeHtml(s.winConditionLabel)} · <strong>Bracket:</strong> ${escapeHtml(String(s.bracket))}</div>
       <div style="display:flex; align-items:center; gap:16px; margin-bottom:12px;">
         <div style="text-align:center;">
@@ -22393,8 +22397,8 @@ function runPodAnalysis() {
   const outliers = [];
   decks.forEach(d => {
     const delta = d.commandSpark - avgSpark;
-    if (delta >= 0.9) outliers.push(`${d.name} is notably stronger (+${delta.toFixed(1)} vs avg)`);
-    if (delta <= -0.9) outliers.push(`${d.name} is notably weaker (${delta.toFixed(1)} vs avg)`);
+    if (delta >= 0.9) outliers.push({ text: `${d.name} is notably stronger (+${delta.toFixed(1)} vs avg)`, name: d.commanderLabel });
+    if (delta <= -0.9) outliers.push({ text: `${d.name} is notably weaker (${delta.toFixed(1)} vs avg)`, name: d.commanderLabel });
   });
 
   renderPodSummary(decks, avgSpark, std, spread);
@@ -22416,21 +22420,21 @@ function buildPodMismatchNotes(decks) {
   const styles = decks.map(d => d.style);
   const uniqueStyles = [...new Set(styles)];
   if (uniqueStyles.length >= 3) {
-    notes.push(`Very mixed playstyles (${uniqueStyles.join(', ')}) — expect uneven game texture even if Spark is close.`);
+    notes.push({ text: `Very mixed playstyles (${uniqueStyles.join(', ')}) — expect uneven game texture even if Spark is close.`, names: [] });
   }
   const maxFree = Math.max(...decks.map(d => (d.agg && d.agg.freeInteraction) || 0));
   const minFree = Math.min(...decks.map(d => (d.agg && d.agg.freeInteraction) || 0));
   if (maxFree - minFree >= 3) {
     const heavy = decks.filter(d => (d.agg.freeInteraction || 0) === maxFree).map(d => d.commanderLabel || d.name);
-    notes.push(`${heavy.join(' / ')} has much more free interaction — stack fights will favor them.`);
+    notes.push({ text: `${heavy.join(' / ')} has much more free interaction — stack fights will favor them.`, names: heavy });
   }
   const eng = decks.map(d => (d.agg && d.agg.engineRatio) || 0);
   if (Math.max(...eng) - Math.min(...eng) >= 0.15) {
-    notes.push('Large gap in engine density: grindy decks may outlast glass-cannon plans.');
+    notes.push({ text: 'Large gap in engine density: grindy decks may outlast glass-cannon plans.', names: [] });
   }
   const ver = decks.map(d => d.scores.versatility);
   if (Math.max(...ver) - Math.min(...ver) >= 2.0) {
-    notes.push('Versatility scores diverge sharply — decks with more win paths may adapt better if their first plan gets disrupted.');
+    notes.push({ text: 'Versatility scores diverge sharply — decks with more win paths may adapt better if their first plan gets disrupted.', names: [] });
   }
 
   // Commander tier spread — the one check here that's grounded in real game
@@ -22446,7 +22450,7 @@ function buildPodMismatchNotes(decks) {
     if (tierSpan >= 2) {
       const strongest = withTiers.reduce((a, b) => order[a.best.t] < order[b.best.t] ? a : b);
       const weakest = withTiers.reduce((a, b) => order[a.best.t] > order[b.best.t] ? a : b);
-      notes.push(`Commander track records diverge — ${escapeHtml(strongest.best.n)} is ${strongest.best.t}-tier (${strongest.best.w.toFixed(1)}% empirical win rate) while ${escapeHtml(weakest.best.n)} is ${weakest.best.t}-tier (${weakest.best.w.toFixed(1)}%). Even with similar Spark, real-world results have historically favored the stronger commander.`);
+      notes.push({ text: `Commander track records diverge — ${strongest.best.n} is ${strongest.best.t}-tier (${strongest.best.w.toFixed(1)}% empirical win rate) while ${weakest.best.n} is ${weakest.best.t}-tier (${weakest.best.w.toFixed(1)}%). Even with similar Spark, real-world results have historically favored the stronger commander.`, names: [strongest.best.n, weakest.best.n] });
     }
   }
 
@@ -22627,14 +22631,14 @@ function renderPodBalance(label, detail, avg, std, spread, outliers, n, decks) {
   </div>`;
   if (outliers.length) {
     html += `<div style="margin-top:14px; padding-top:12px; border-top:1px dashed var(--line); font-size:13.5px; color:var(--text-soft);">
-      <strong style="color:var(--gold);">Outliers:</strong> ${outliers.map(escapeHtml).join(' · ')}
+      <strong style="color:var(--gold);">Outliers:</strong> ${outliers.map(o => linkifyKnownCardNames(escapeHtml(o.text), [o.name])).join(' · ')}
     </div>`;
   }
   const mismatches = buildPodMismatchNotes(decks);
   if (mismatches.length) {
     html += `<div style="margin-top:12px; padding-top:12px; border-top:1px dashed var(--line); font-size:13.5px; color:var(--text-soft);">
       <strong style="color:var(--gold);">Feel mismatches:</strong>
-      <ul style="margin:6px 0 0 18px; padding:0;">${mismatches.map(m => `<li style="margin-bottom:4px;">${escapeHtml(m)}</li>`).join('')}</ul>
+      <ul style="margin:6px 0 0 18px; padding:0;">${mismatches.map(m => `<li style="margin-bottom:4px;">${linkifyKnownCardNames(escapeHtml(m.text), m.names)}</li>`).join('')}</ul>
     </div>`;
   }
 
@@ -23273,7 +23277,7 @@ function renderLoadDeckList() {
       : '';
     return `<div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 0; border-bottom:1px solid var(--line);">
       <div data-load-deck-key="${escapeHtml(e.key)}" style="cursor:pointer; flex:1;">
-        <div style="font-size:14px; color:var(--gold-bright); font-weight:600;">${escapeHtml(e.commander || e.key)}</div>
+        <div style="font-size:14px; color:var(--gold-bright); font-weight:600;">${e.commander ? cardNameLink(e.commander) : escapeHtml(e.key)}</div>
         <div style="font-size:12px; color:var(--text-soft);">${escapeHtml(e.player || '')}${dateLabel ? ' · ' + dateLabel : ''}</div>
       </div>
       <div style="display:flex; gap:6px;">${secretToggle}${deleteBtn}</div>
