@@ -987,6 +987,12 @@ One card per line. Formats like &quot;1x Sol Ring&quot;, plain names, or Moxfiel
       <button id="saveDeckBtn" class="ghost">Save Deck</button>
       <span style="font-size:12.5px; color:var(--text-soft);">Saves under commander (player name) — both required, to keep decks from overwriting each other</span>
     </div>
+    <div class="row" style="margin-top:6px; align-items:center;">
+      <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-soft); cursor:pointer;">
+        <input type="checkbox" id="deckSecretCheckbox" style="cursor:pointer;">
+        Keep this deck secret from my pod (only you can load it)
+      </label>
+    </div>
     <div class="row" style="margin-top:8px;">
       <button id="loadDeckBtn" class="ghost">Load a Deck</button>
       <button id="deleteDeckBtn" class="ghost" style="display:none;">Delete</button>
@@ -19659,43 +19665,30 @@ function buildSpellbookDeckPayload(matched, commanders) {
 // combos: [{ cards: [name,...], outcome, permalink }] -- the shape
 // recalibrateWithExternalCombos (engine-script) expects.
 //
-// UNCONFIRMED, flagged deliberately: the exact field names CSB uses inside
-// each find-my-combos result entry (in particular how a near-miss --
-// missing exactly one piece -- is marked, versus a fully-present combo)
-// were not available from documentation alone; the Worker passes the raw
-// response through specifically so this could be verified against a real
-// deployed call. This parser is written defensively (tries several
-// plausible field names, falls back to treating an entry as a found combo
-// if it can't tell) so it degrades to "shows something, logs what it
-// didn't understand" rather than silently dropping results -- but it
-// should be tightened once a real response has actually been seen. Check
-// _rawSample in the browser console after a real fetch if combos seem to
-// be missing or miscategorized.
+// CONFIRMED against a real deployed response (Sept 2026), replacing an
+// earlier guessed shape that silently found nothing: with
+// groupByCombo=true, `data.results` is NOT a flat paginated array of
+// combos -- it's a single object keyed by color identity, and the combos
+// the deck can actually assemble live under `results.included`. Each
+// entry's cards live at entry.uses[].card.name (one object per card
+// used), not a flat `cards: [name,...]` array.
+//
+// STILL UNCONFIRMED: the field name CSB uses for near-misses (combos
+// missing exactly one piece) wasn't visible in the sample checked against
+// a live deploy -- `included` was confirmed the hard way (by checking a
+// real response), and nearMisses should get the same treatment before
+// this guesses at a field name. Left empty here rather than guess wrong
+// and mislabel real data again.
 function parseSpellbookResponse(data) {
-  const rawResults = Array.isArray(data.results) ? data.results
-    : Array.isArray(data) ? data : [];
+  const included = (data.results && Array.isArray(data.results.included)) ? data.results.included : [];
   const combos = [];
-  const nearMisses = [];
-  for (const r of rawResults) {
-    if (!r) continue;
-    const cardList = Array.isArray(r.cards)
-      ? r.cards.map(c => (typeof c === 'string' ? c : (c && (c.name || c.card)) || null)).filter(Boolean)
-      : [];
+  for (const r of included) {
+    if (!r || !Array.isArray(r.uses)) continue;
+    const cardList = r.uses.map(u => u && u.card && u.card.name).filter(Boolean);
     if (!cardList.length) continue;
-    const outcome = (r.results && (Array.isArray(r.results) ? r.results.join('; ') : String(r.results)))
-      || r.description || r.produces || null;
-    const entry = { cards: cardList, outcome, permalink: r.permalink || null, _raw: r };
-    // Plausible near-miss signals -- a field naming a single missing card,
-    // or an explicit "included"/"complete" boolean set to false. Adjust
-    // once the real shape is confirmed.
-    const missing = r.missingCards || r.missing || (r.includes === false ? [] : null);
-    if (missing && (Array.isArray(missing) ? missing.length : true)) {
-      nearMisses.push(Object.assign({}, entry, { missing: Array.isArray(missing) ? missing : [] }));
-    } else {
-      combos.push(entry);
-    }
+    combos.push({ cards: cardList, outcome: r.description || r.produces || null, permalink: r.permalink || null, _raw: r });
   }
-  return { ok: true, combos, nearMisses, _rawSample: rawResults.slice(0, 2) };
+  return { ok: true, combos, nearMisses: [], _rawSample: included.slice(0, 2) };
 }
 
 async function fetchSpellbookCombos(matched, commanders) {
@@ -21882,7 +21875,7 @@ const POD_COLORS = ['#E0B24D', '#8AB1E0', '#8FBF78', '#E0977A', '#C9A0DC', '#7EC
 function loadSavedIntoPodSlot(slotIndex, key) {
   if (!key) return;
   const decks = loadSavedDecks();
-  const entry = decks[key];
+  const entry = decks[key] || podmateDecksCache[key];
   if (!entry) return;
   const list = typeof entry === 'string' ? entry : (entry.list || '');
   const commander = typeof entry === 'object' ? (entry.commander || '') : '';
@@ -23068,7 +23061,8 @@ function saveCurrentDeck() {
   if (!requireAccountToSave('decks')) return;
 
   const key = `${cmd} (${player})`;
-  const entry = { list: raw, commander: cmd, player: player, savedAt: Date.now() };
+  const secretBox = $('deckSecretCheckbox');
+  const entry = { list: raw, commander: cmd, player: player, savedAt: Date.now(), secret: !!(secretBox && secretBox.checked) };
   setDeckMgmtStatus('Saving…');
   window.PodmatesCloud.saveDeck(key, entry)
     .then(async () => {
@@ -23080,7 +23074,7 @@ function saveCurrentDeck() {
 
 function loadDeckByKey(key, target) {
   const decks = loadSavedDecks();
-  const entry = decks[key];
+  const entry = decks[key] || podmateDecksCache[key];
   if (!entry) return;
   if (typeof target === 'number') {
     loadSavedIntoPodSlot(target, key);
@@ -23105,15 +23099,45 @@ function loadDeckByKey(key, target) {
 let loadDeckActivePlayer = null;
 let loadDeckTarget = 'main';
 
-function showLoadDeckModal(target) {
+// Podmates' shared decks, fetched fresh each time the Load a Deck modal
+// opens (pod membership and secret-toggles can change between opens, and
+// this list is only needed while the modal is up -- no reason to keep it
+// resident otherwise). Keyed distinctly from own decks (`pm:{uid}:{key}`)
+// so a podmate's deck can never collide with or overwrite one of yours in
+// the merged view. Scoped to whichever OurPod is currently active in the
+// Game Night tab (currentPodViewId) -- if no pod is active yet, this is
+// simply empty and the modal shows only your own decks, unchanged from
+// before this feature existed.
+let podmateDecksCache = {};
+
+async function refreshPodmateDecksCache() {
+  podmateDecksCache = {};
+  if (!currentPodViewId || !window.PodmatesCloud || !window.PodmatesCloud.uid) return;
+  let members;
+  try {
+    members = await window.PodmatesCloud.loadPodMembers(currentPodViewId);
+  } catch (e) {
+    return; // no active pod, or a transient error -- fall back to "no podmate decks" rather than blocking the modal
+  }
+  const myUid = window.PodmatesCloud.uid;
+  const others = members.filter(m => m.uid !== myUid);
+  const results = await Promise.all(others.map(async (m) => {
+    const decks = await window.PodmatesCloud.loadPodmateDecks(m.uid);
+    return { member: m, decks };
+  }));
+  for (const { member, decks } of results) {
+    for (const [key, entry] of Object.entries(decks)) {
+      podmateDecksCache[`pm:${member.uid}:${key}`] = Object.assign({}, entry, {
+        mine: false, ownerUid: member.uid, ownerName: member.displayName || 'Podmate',
+      });
+    }
+  }
+}
+
+
+async function showLoadDeckModal(target) {
   injectTryADeckStyles();
   closeTryADeckModal();
-  const decks = loadSavedDecks();
-  if (Object.keys(decks).length === 0) {
-    if (typeof target === 'number') setPodStatus('No saved decks yet — save one from the main tab first.', true);
-    else setDeckMgmtStatus('No saved decks yet — save one first.', true);
-    return;
-  }
   loadDeckActivePlayer = null;
   loadDeckTarget = (typeof target === 'number') ? target : 'main';
   const overlay = document.createElement('div');
@@ -23126,12 +23150,24 @@ function showLoadDeckModal(target) {
     `<h2 style="margin-bottom:10px;">Load a Deck${titleSuffix}</h2>` +
     `<input type="text" id="loadDeckSearch" placeholder="Search by commander or player…" style="width:100%; box-sizing:border-box; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px; margin-bottom:10px;">` +
     `<div id="loadDeckPlayerChips" style="margin-bottom:8px;"></div>` +
-    `<div id="loadDeckListArea" style="max-height:50vh; overflow-y:auto;"></div>`;
+    `<div id="loadDeckListArea" style="max-height:50vh; overflow-y:auto;"><div style="color:var(--text-soft); font-size:13px; padding:10px 0;">Loading…</div></div>`;
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
   document.getElementById('loadDeckSearch').addEventListener('input', renderLoadDeckList);
+
+  await refreshPodmateDecksCache();
+
+  // Bail out only now, once BOTH sources are known -- a person with zero
+  // decks of their own but a pod full of shared ones should still see
+  // this modal populate, not get turned away at the door.
+  if (Object.keys(loadSavedDecks()).length === 0 && Object.keys(podmateDecksCache).length === 0) {
+    closeTryADeckModal();
+    if (typeof target === 'number') setPodStatus('No saved decks yet — save one from the main tab first.', true);
+    else setDeckMgmtStatus('No saved decks yet — save one first.', true);
+    return;
+  }
   renderLoadDeckPlayerChips();
   renderLoadDeckList();
 }
@@ -23140,9 +23176,10 @@ function renderLoadDeckPlayerChips() {
   const area = document.getElementById('loadDeckPlayerChips');
   if (!area) return;
   const decks = loadSavedDecks();
-  const players = [...new Set(Object.values(decks)
-    .map(e => (typeof e === 'object' && e.player) ? e.player : '')
-    .filter(Boolean))].sort();
+  const players = [...new Set([
+    ...Object.values(decks).map(e => (typeof e === 'object' && e.player) ? e.player : ''),
+    ...Object.values(podmateDecksCache).map(e => e.ownerName || ''),
+  ].filter(Boolean))].sort();
   if (!players.length) { area.innerHTML = ''; return; }
   area.innerHTML = players.map(p => {
     const active = p === loadDeckActivePlayer;
@@ -23158,8 +23195,12 @@ function renderLoadDeckList() {
   const decks = loadSavedDecks();
   let entries = Object.entries(decks).map(([key, entry]) => {
     const obj = (typeof entry === 'string') ? { list: entry, commander: key, player: '', savedAt: 0 } : entry;
-    return { key, ...obj };
+    return { key, mine: true, ...obj };
   });
+  // Podmates' shared decks, tagged with their real account name (not the
+  // free-text "player" label the own-deck system uses) so it's always
+  // clear whose deck is whose in the merged list.
+  entries.push(...Object.entries(podmateDecksCache).map(([key, entry]) => ({ key, ...entry, player: entry.ownerName })));
   if (loadDeckActivePlayer) entries = entries.filter(e => e.player === loadDeckActivePlayer);
   if (search) {
     entries = entries.filter(e =>
@@ -23175,12 +23216,18 @@ function renderLoadDeckList() {
   }
   listArea.innerHTML = entries.map(e => {
     const dateLabel = e.savedAt ? new Date(e.savedAt).toLocaleDateString() : '';
+    const secretToggle = e.mine
+      ? `<button type="button" data-toggle-secret-key="${escapeHtml(e.key)}" style="background:none; border:1px solid var(--line); color:${e.secret ? 'var(--gold)' : 'var(--text-soft)'}; border-radius:3px; padding:4px 9px; cursor:pointer; font-size:13px; font-family:inherit;" title="${e.secret ? 'Secret — only you can load this. Click to share with your pod.' : 'Click to keep this deck secret from your pod'}">${e.secret ? '🔒' : '🔓'}</button>`
+      : '';
+    const deleteBtn = e.mine
+      ? `<button type="button" data-delete-deck-key="${escapeHtml(e.key)}" style="background:none; border:1px solid var(--line); color:var(--text-soft); border-radius:3px; padding:4px 9px; cursor:pointer; font-size:13px; font-family:inherit;" title="Delete">×</button>`
+      : '';
     return `<div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 0; border-bottom:1px solid var(--line);">
       <div data-load-deck-key="${escapeHtml(e.key)}" style="cursor:pointer; flex:1;">
         <div style="font-size:14px; color:var(--gold-bright); font-weight:600;">${escapeHtml(e.commander || e.key)}</div>
         <div style="font-size:12px; color:var(--text-soft);">${escapeHtml(e.player || '')}${dateLabel ? ' · ' + dateLabel : ''}</div>
       </div>
-      <button type="button" data-delete-deck-key="${escapeHtml(e.key)}" style="background:none; border:1px solid var(--line); color:var(--text-soft); border-radius:3px; padding:4px 9px; cursor:pointer; font-size:13px; font-family:inherit;" title="Delete">×</button>
+      <div style="display:flex; gap:6px;">${secretToggle}${deleteBtn}</div>
     </div>`;
   }).join('');
 }
@@ -23204,6 +23251,28 @@ document.addEventListener('click', (e) => {
     loadDeckActivePlayer = (loadDeckActivePlayer === p) ? null : p;
     renderLoadDeckPlayerChips();
     renderLoadDeckList();
+    return;
+  }
+  const secretToggleBtn = e.target && e.target.closest ? e.target.closest('[data-toggle-secret-key]') : null;
+  if (secretToggleBtn) {
+    const key = secretToggleBtn.getAttribute('data-toggle-secret-key');
+    if (!requireAccountToSave('decks')) return;
+    const decks = loadSavedDecks();
+    const entry = decks[key];
+    if (!entry) return;
+    const newSecret = !entry.secret;
+    secretToggleBtn.disabled = true;
+    window.PodmatesCloud.setDeckSecret(key, newSecret)
+      .then(async () => {
+        await refreshCloudDecksCache();
+        renderLoadDeckPlayerChips();
+        renderLoadDeckList();
+        setDeckMgmtStatus(newSecret ? `"${key}" is now secret -- only you can load it.` : `"${key}" is now visible to your pod.`);
+      })
+      .catch((err) => {
+        secretToggleBtn.disabled = false;
+        setDeckMgmtStatus('Could not change that: ' + err.message, true);
+      });
     return;
   }
   const deleteBtn = e.target && e.target.closest ? e.target.closest('[data-delete-deck-key]') : null;
@@ -23497,13 +23566,18 @@ function deleteSelectedPodFormation() {
 let savedDecksTableData = null;
 let savedDecksTableSort = { key: 'commandSpark', dir: 'desc' };
 
-function buildSavedDecksTable() {
+async function buildSavedDecksTable() {
   const statusEl = $('savedDecksTableStatus');
   if (!dbReady) {
     if (statusEl) { statusEl.textContent = 'Card database still loading — try again in a moment.'; statusEl.className = 'status err'; }
     return;
   }
-  const decks = loadSavedDecks();
+  if (statusEl) { statusEl.textContent = 'Gathering decks…'; statusEl.className = 'status'; }
+  await refreshPodmateDecksCache();
+  const decks = Object.assign({}, loadSavedDecks());
+  for (const [key, entry] of Object.entries(podmateDecksCache)) {
+    decks[key] = Object.assign({}, entry, { player: entry.ownerName });
+  }
   const keys = Object.keys(decks);
   if (keys.length === 0) {
     if (statusEl) { statusEl.textContent = 'No saved decks yet — save one from the main tab first.'; statusEl.className = 'status err'; }
@@ -24032,8 +24106,15 @@ if (deckLinkLoadBtn) deckLinkLoadBtn.addEventListener('click', async () => {
     await setDoc(ref, {
       key, commander: entry.commander || '', player: entry.player || '',
       list: entry.list || '', savedAt: entry.savedAt || Date.now(),
+      secret: entry.secret === true,
       updatedAt: serverTimestamp(),
     });
+  }
+
+  async function cloudSetDeckSecret(key, secret) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    const ref = doc(db, 'users', currentUser.uid, 'decks', safeDocId(key));
+    await setDoc(ref, { secret: secret === true, updatedAt: serverTimestamp() }, { merge: true });
   }
 
   async function cloudDeleteDeck(key) {
@@ -24047,10 +24128,37 @@ if (deckLinkLoadBtn) deckLinkLoadBtn.addEventListener('click', async () => {
     const out = {};
     snap.forEach(docSnap => {
       const d = docSnap.data();
-      out[d.key] = { list: d.list, commander: d.commander, player: d.player, savedAt: d.savedAt };
+      out[d.key] = { list: d.list, commander: d.commander, player: d.player, savedAt: d.savedAt, secret: d.secret === true };
     });
     return out;
   }
+
+  // Reads ANOTHER user's saved decks -- only succeeds if the Firestore
+  // security rule allows it (see the podIds-based sharing rule; a plain
+  // owner-only rule would reject this with a permission error, caught
+  // below and treated the same as "nothing shared"). The secret !== true
+  // filter here is defense-in-depth, not the actual security boundary --
+  // the rule itself is what should be relied on to keep secret decks
+  // private; this just avoids trusting the rule alone in case it's ever
+  // misconfigured.
+  async function cloudLoadPodmateDecks(uid) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    try {
+      const snap = await getDocs(collection(db, 'users', uid, 'decks'));
+      const out = {};
+      snap.forEach(docSnap => {
+        const d = docSnap.data();
+        if (d.secret === true) return;
+        out[d.key] = { list: d.list, commander: d.commander, player: d.player, savedAt: d.savedAt, secret: false };
+      });
+      return out;
+    } catch (e) {
+      // Not sharing a pod, or the rule denied it -- treat as "nothing to show"
+      // rather than surfacing a scary permission error for an expected case.
+      return {};
+    }
+  }
+
 
   // --- Table Formations (the Game Night comparison tool's saved 6-seat
   // deck snapshots) -- pod-scoped as of this rewrite: shared with every
@@ -24265,6 +24373,17 @@ if (deckLinkLoadBtn) deckLinkLoadBtn.addEventListener('click', async () => {
     const snap = await getDocs(q);
     const pods = [];
     snap.forEach(d => pods.push({ id: d.id, ...d.data() }));
+    // Mirrors this user's OWN current pod membership onto their own user
+    // doc, purely so the deck-sharing security rule can check "do these
+    // two users share a pod" via a direct get() (rules can't run the
+    // array-contains query above). Always a self-write, so it's legal
+    // even for the "removed by a leader" case the pod system otherwise
+    // avoids denormalizing for -- this resyncs to the truth (the query
+    // above) every time it runs, so a stale entry from being kicked heals
+    // itself the next time this user's own client loads their pods,
+    // rather than needing anyone else to write to their doc. Fire-and-
+    // forget: a failure here shouldn't break loading the pod list itself.
+    setDoc(doc(db, 'users', currentUser.uid), { podIds: pods.map(p => p.id) }, { merge: true }).catch(() => {});
     return pods;
   }
 
@@ -24342,8 +24461,10 @@ if (deckLinkLoadBtn) deckLinkLoadBtn.addEventListener('click', async () => {
     onAuthChange(cb) { authChangeCallbacks.push(cb); if (currentUser !== null || isReady) cb(describeUser(currentUser)); },
     signUpWithEmail, logInWithEmail, signInWithGoogle, resetPassword, signOutUser,
     saveDeck: cloudSaveDeck,
+    setDeckSecret: cloudSetDeckSecret,
     deleteDeck: cloudDeleteDeck,
     loadAllDecks: cloudLoadAllDecks,
+    loadPodmateDecks: cloudLoadPodmateDecks,
     fetchDeckByLink, addLinkedDeck, refreshLinkedDeck, removeLinkedDeck, loadLinkedDecks,
     createPod, joinPodByInviteCode, loadMyPods, loadPodMembers, leavePod, removePodMember,
     renamePod, regenerateInviteCode, promoteToCoLeader, transferLeadership, deletePod,
