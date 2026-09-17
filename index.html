@@ -23112,16 +23112,33 @@ let podmateDecksCache = {};
 
 async function refreshPodmateDecksCache() {
   podmateDecksCache = {};
-  if (!currentPodViewId || !window.PodmatesCloud || !window.PodmatesCloud.uid) return;
-  let members;
+  if (!window.PodmatesCloud || !window.PodmatesCloud.uid) return;
+  let pods;
   try {
-    members = await window.PodmatesCloud.loadPodMembers(currentPodViewId);
+    pods = await window.PodmatesCloud.loadMyPods();
   } catch (e) {
-    return; // no active pod, or a transient error -- fall back to "no podmate decks" rather than blocking the modal
+    return; // not signed in, or a transient error -- fine, just nothing to show
   }
+  if (!pods.length) return;
   const myUid = window.PodmatesCloud.uid;
-  const others = members.filter(m => m.uid !== myUid);
-  const results = await Promise.all(others.map(async (m) => {
+  // Gather every podmate across EVERY pod this person is in, not just
+  // whichever pod happens to be "active" in the Game Night tab (that was
+  // the earlier bug here: currentPodViewId is only ever set by actually
+  // opening Game Night, so this modal came up completely empty for
+  // anyone who hadn't visited that tab yet this session -- even with a
+  // real shared pod and correctly deployed sharing rules). This also
+  // means someone in more than one pod now sees decks from all of them,
+  // not just one.
+  const memberListsByPod = await Promise.all(pods.map(p =>
+    window.PodmatesCloud.loadPodMembers(p.id).catch(() => [])
+  ));
+  const podmateMap = new Map(); // uid -> member info, deduped across pods
+  for (const members of memberListsByPod) {
+    for (const m of members) {
+      if (m.uid !== myUid && !podmateMap.has(m.uid)) podmateMap.set(m.uid, m);
+    }
+  }
+  const results = await Promise.all([...podmateMap.values()].map(async (m) => {
     const decks = await window.PodmatesCloud.loadPodmateDecks(m.uid);
     return { member: m, decks };
   }));
