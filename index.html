@@ -24009,7 +24009,7 @@ if (deckLinkLoadBtn) deckLinkLoadBtn.addEventListener('click', async () => {
     sendPasswordResetEmail, updateProfile,
   } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
   import {
-    getFirestore, doc, setDoc, getDocs, deleteDoc, collection, serverTimestamp,
+    getFirestore, doc, setDoc, getDoc, getDocs, deleteDoc, collection, serverTimestamp,
     query, where, arrayUnion, arrayRemove,
   } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
@@ -24463,6 +24463,30 @@ if (deckLinkLoadBtn) deckLinkLoadBtn.addEventListener('click', async () => {
     ));
   }
 
+  // Reads this person's OWN user doc as it actually exists in Firestore
+  // right now -- always allowed by the base users/{uid} rule, so this
+  // itself can never be denied. Exists purely to check from the console
+  // whether the podIds self-heal write (in loadMyPods, which fails
+  // silently on purpose) has actually landed, instead of assuming it did.
+  async function cloudGetMyRawUserDoc() {
+    if (!currentUser) throw new Error('Not signed in yet');
+    const snap = await getDoc(doc(db, 'users', currentUser.uid));
+    return snap.exists() ? snap.data() : null;
+  }
+
+  // Same podIds write loadMyPods does quietly on your behalf, but this
+  // version does NOT swallow a failure -- if the write itself is what's
+  // actually broken, this is what will finally say so.
+  async function cloudForceSyncMyPodIds() {
+    if (!currentUser) throw new Error('Not signed in yet');
+    const q = query(collection(db, 'pods'), where('memberIds', 'array-contains', currentUser.uid));
+    const snap = await getDocs(q);
+    const podIds = [];
+    snap.forEach(d => podIds.push(d.id));
+    await setDoc(doc(db, 'users', currentUser.uid), { podIds }, { merge: true });
+    return podIds;
+  }
+
   async function loadPodMembers(podId) {
     if (!currentUser) throw new Error('Not signed in yet');
     const snap = await getDocs(collection(db, 'pods', podId, 'members'));
@@ -24546,6 +24570,8 @@ if (deckLinkLoadBtn) deckLinkLoadBtn.addEventListener('click', async () => {
     createPod, joinPodByInviteCode, loadMyPods, loadPodMembers, leavePod, removePodMember,
     renamePod, regenerateInviteCode, promoteToCoLeader, transferLeadership, deletePod,
     updateDisplayName: updateMyDisplayName,
+    getMyRawUserDoc: cloudGetMyRawUserDoc,
+    forceSyncMyPodIds: cloudForceSyncMyPodIds,
     saveTableFormation: cloudSaveTableFormation, deleteTableFormation: cloudDeleteTableFormation,
     loadAllTableFormations: cloudLoadAllTableFormations,
     addChronicleEntry: cloudAddChronicleEntry, loadAllChronicles: cloudLoadAllChronicles,
