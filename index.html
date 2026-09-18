@@ -1000,7 +1000,7 @@ One card per line. Formats like &quot;1x Sol Ring&quot;, plain names, or Moxfiel
       <button id="deleteDeckBtn" class="ghost" style="display:none;">Delete</button>
       <select id="savedDeckSelect" style="display:none;"></select>
     </div>
-    <input type="file" id="scanCardsFileInput" accept="image/*" multiple capture="environment" style="display:none;">
+    <input type="file" id="scanCardsFileInput" accept="image/*" multiple style="display:none;">
     <div class="status" id="deckMgmtStatus"></div>
     <div class="status" id="status"></div>
     <div id="notFoundBox"></div>
@@ -21909,18 +21909,25 @@ function closeTryADeckModal() {
   if (overlay) overlay.remove();
 }
 
-// ---- Scan Cards from Photo: client-side OCR, fed through the app's own
-// fuzzy-matching engine to clean up imperfect reads -----------------------
+// ---- Scan Cards from Photo: client-side OCR, matched by scanning the
+// whole photo's text for real card names ---------------------------------
 // Deliberately client-side only (Tesseract.js, WebAssembly) rather than a
 // cloud OCR API -- no billing account, no API key to protect, matches how
 // this project has repeatedly chosen to avoid any billing commitment
-// (Netlify -> Cloudflare, Firebase staying on the free plan). Accuracy is
-// meaningfully worse than a paid cloud OCR service, but that's the actual
-// point of routing every result through fuzzyFindCard: this app already
-// has a 31,912-card database and a matching engine built to clean up
-// imperfect decklist text (typos, abbreviations). A slightly-garbled OCR
-// read of "Sol Rng" fuzzy-matching to "Sol Ring" is the same problem this
-// engine already solves, just fed a noisier source than a typo.
+// (Netlify -> Cloudflare, Firebase staying on the free plan).
+//
+// A photo of several physical cards packs a name in among a lot of other
+// printed text -- mana symbols, rules text, power/toughness -- all on the
+// same OCR line. An earlier version of this matched whole OCR lines
+// against the database, which failed even when the real name was sitting
+// right there, buried in that noise (confirmed from a real result: names
+// like "Yeva, Nature's Herald" were read correctly but the surrounding
+// junk on the same line made the whole line too different from the real
+// name to match). processOcrText instead searches the ENTIRE photo's text
+// for any real card name appearing as a literal substring, which is
+// robust to exactly that kind of clutter -- see its own comment for the
+// longest-name-first, consume-on-match logic that keeps a short real
+// card name from also firing as a phantom match inside a longer one.
 //
 // OCR can only ever read card NAMES from a photo, never quantities -- the
 // UI says this plainly rather than silently defaulting to some guess.
@@ -21939,7 +21946,7 @@ function loadTesseractScript() {
   return tesseractLoadPromise;
 }
 
-let scanCardsResults = []; // { text, match: {card, matchType, distance} | null, checked }
+let scanCardsResults = []; // { card, checked } -- confirmed matches only; see processOcrText for why "no match" rows were removed entirely
 
 function showScanCardsModal() {
   injectTryADeckStyles();
@@ -21962,7 +21969,7 @@ function showScanCardsModal() {
         <li>About 10–15 cards per photo works better than cramming in more</li>
         <li>Add several photos one at a time — results build up as you go</li>
       </ul>
-      <p style="margin:0;">Every match below uses <strong>the same card database and fuzzy-matching this app already uses for typos</strong> — but OCR misreads happen, so check the list (click a name to see its art) before adding it to your deck.</p>
+      <p style="margin:0;">Every match below is a <strong>real card name found somewhere in your photo's text</strong> — a photo with a lot of small text (rules text, symbols) can still miss cards or occasionally catch a stray name, so check the list (click a name to see its art) before adding it to your deck.</p>
     </div>
     <div class="row" style="margin-bottom:12px;">
       <button id="scanCardsAddPhotoBtn" class="ghost">Add a Photo…</button>
@@ -22009,25 +22016,50 @@ async function handleScanCardsFileSelected(fileList) {
     processOcrText(text);
   }
   if (statusEl) {
-    const found = scanCardsResults.filter(r => r.match).length;
-    statusEl.textContent = `Done — matched ${found} card(s) from ${files.length} photo(s). Review below.`;
+    statusEl.textContent = `Done — found ${scanCardsResults.length} known card(s) across ${files.length} photo(s). Review below.`;
   }
   renderScanCardsResults();
 }
 
+// Card names sorted longest-first, real names only (under 6 characters
+// skipped -- short enough to turn up in unrelated OCR noise by sheer
+// coincidence). Built once and reused across every photo in a session.
+let scanCardsSortedNames = null;
+function getScanCardsSortedNames() {
+  if (!scanCardsSortedNames) {
+    scanCardsSortedNames = CARD_DB
+      .map(c => c.n)
+      .filter(n => n.length >= 6)
+      .sort((a, b) => b.length - a.length)
+      .map(n => ({ name: n, lower: n.toLowerCase() }));
+  }
+  return scanCardsSortedNames;
+}
+
 function processOcrText(rawText) {
-  const lines = rawText.split(/\r?\n/)
-    .map(l => l.trim())
-    .filter(l => l.length >= 3 && /[a-zA-Z]/.test(l)); // drop blank/near-blank/pure-symbol noise
-  for (const line of lines) {
-    // Light-touch cleanup only -- fuzzyFindCard already tolerates a few
-    // wrong characters, and aggressive cleanup risks mangling a real short
-    // name worse than leaving it alone.
-    const cleaned = line.replace(/[|_~]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
-    if (!cleaned) continue;
-    const match = fuzzyFindCard(cleaned, CARD_DB, indexes);
-    const highConfidence = !!match && (match.matchType !== 'fuzzy' || match.distance <= 1);
-    scanCardsResults.push({ text: cleaned, match, checked: highConfidence });
+  // A photographed stack of cards prints the name alongside a lot of
+  // other text on the same line -- mana symbols, rules text, power and
+  // toughness -- which is why matching whole OCR lines against the
+  // database failed even when the real name was sitting right there in
+  // the text (confirmed from a real result: "Yeva, Nature's Herald",
+  // "Wildborn Preserver", "Allosaurus Shepherd" and "Elvish Champion"
+  // were all read correctly, just buried in noise on their line). This
+  // asks a different, far more robust question instead: does any real
+  // card name appear literally, anywhere, in the whole photo's text.
+  let blob = ' ' + rawText.replace(/\s+/g, ' ').toLowerCase() + ' ';
+  const alreadyFound = new Set(scanCardsResults.map(r => r.card.n));
+  for (const { name, lower } of getScanCardsSortedNames()) {
+    if (alreadyFound.has(name)) continue;
+    if (blob.includes(lower)) {
+      const card = indexes.byExactName.get(lower);
+      if (!card) continue;
+      scanCardsResults.push({ card, checked: true });
+      alreadyFound.add(name);
+      // Blank out every occurrence so a shorter real card name that
+      // happens to sit inside this longer one's text doesn't also fire
+      // as a separate, phantom extra match.
+      blob = blob.split(lower).join(' '.repeat(lower.length));
+    }
   }
 }
 
@@ -22035,23 +22067,16 @@ function renderScanCardsResults() {
   const area = document.getElementById('scanCardsResultsArea');
   const actionRow = document.getElementById('scanCardsActionRow');
   if (!area) return;
-  if (!scanCardsResults.length) { area.innerHTML = ''; if (actionRow) actionRow.style.display = 'none'; return; }
-  area.innerHTML = scanCardsResults.map((r, i) => {
-    if (!r.match) {
-      return `<div style="display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--line); opacity:0.6;">
-        <span style="width:16px; text-align:center;">—</span>
-        <span style="flex:1; font-size:13px;">${escapeHtml(r.text)} <span style="color:var(--text-soft);">(no match found)</span></span>
-      </div>`;
-    }
-    const confidenceLabel = r.match.matchType === 'exact' ? '' :
-      r.match.matchType === 'fuzzy' ? ` <span style="color:var(--text-soft); font-size:11.5px;">(read as "${escapeHtml(r.text)}")</span>` :
-      ` <span style="color:var(--text-soft); font-size:11.5px;">(front/back match)</span>`;
-    return `<div style="display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--line);">
+  if (!scanCardsResults.length) {
+    area.innerHTML = `<div style="font-size:13px; color:var(--text-soft); padding:6px 0;">No known card names found in that photo — try a closer, better-lit shot with fewer cards at once.</div>`;
+    if (actionRow) actionRow.style.display = 'none';
+    return;
+  }
+  area.innerHTML = scanCardsResults.map((r, i) => `<div style="display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--line);">
       <input type="checkbox" data-scan-result-index="${i}" ${r.checked ? 'checked' : ''} style="cursor:pointer;">
-      <span style="flex:1; font-size:13px;">${cardNameLink(r.match.card.n)}${confidenceLabel}</span>
-    </div>`;
-  }).join('');
-  if (actionRow) actionRow.style.display = scanCardsResults.some(r => r.match) ? 'block' : 'none';
+      <span style="flex:1; font-size:13px;">${cardNameLink(r.card.n)}</span>
+    </div>`).join('');
+  if (actionRow) actionRow.style.display = 'block';
   area.querySelectorAll('[data-scan-result-index]').forEach(cb => {
     cb.addEventListener('change', () => {
       const idx = parseInt(cb.getAttribute('data-scan-result-index'), 10);
@@ -22061,7 +22086,7 @@ function renderScanCardsResults() {
 }
 
 function addCheckedScannedCardsToDecklist() {
-  const chosen = scanCardsResults.filter(r => r.checked && r.match).map(r => r.match.card.n);
+  const chosen = scanCardsResults.filter(r => r.checked).map(r => r.card.n);
   if (!chosen.length) return;
   const unique = [...new Set(chosen)];
   const ta = $('decklistInput');
