@@ -22140,6 +22140,11 @@ function showExportDeckModal() {
 }
 
 $('exportDeckBtn').addEventListener('click', showExportDeckModal);
+$('scanCardsBtn').addEventListener('click', showScanCardsModal);
+$('scanCardsFileInput').addEventListener('change', (e) => {
+  handleScanCardsFileSelected(e.target.files);
+  e.target.value = ''; // allow re-selecting the same file(s) again later
+});
 
 $('clearBtn').addEventListener('click', () => {
   $('decklistInput').value = '';
