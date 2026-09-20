@@ -24461,6 +24461,17 @@ if (deckLinkLoadBtn) deckLinkLoadBtn.addEventListener('click', async () => {
     snap.forEach(docSnap => {
       const d = docSnap.data();
       out[d.key] = { list: d.list, commander: d.commander, player: d.player, savedAt: d.savedAt, secret: d.secret === true };
+      // A deck saved before the secret toggle existed has no `secret`
+      // field at all, which a podmate's `where('secret', '==', false)`
+      // query can never match no matter how long it sits there -- Firestore
+      // treats a missing field as neither true nor false for that kind of
+      // filter. Backfilling it explicitly here, the next time its OWNER
+      // views their own decks (always a legal self-write), closes that
+      // gap the first time this runs rather than needing a one-time
+      // migration script.
+      if (d.secret === undefined) {
+        setDoc(docSnap.ref, { secret: false }, { merge: true }).catch(() => {});
+      }
     });
     return out;
   }
@@ -24489,11 +24500,21 @@ if (deckLinkLoadBtn) deckLinkLoadBtn.addEventListener('click', async () => {
   // result means "genuinely no decks" or "the security rule said no."
   async function cloudLoadPodmateDecksRaw(uid) {
     if (!currentUser) throw new Error('Not signed in yet');
-    const snap = await getDocs(collection(db, 'users', uid, 'decks'));
+    // Must query explicitly on `secret`, matching the rule's own
+    // condition -- an unconstrained "everything in this collection" fetch
+    // gets rejected outright once the rule depends on a field the query
+    // doesn't also filter on. Deliberately `== false`, not `!= true`:
+    // Firestore's != and not-in operators exclude any document where the
+    // field is missing entirely (confirmed from Firestore's own docs),
+    // which would silently hide every deck saved before the secret field
+    // existed. cloudLoadAllDecks backfills that field onto a person's own
+    // decks the next time they view them, so this gap closes itself
+    // through ordinary use rather than needing a one-time migration.
+    const q = query(collection(db, 'users', uid, 'decks'), where('secret', '==', false));
+    const snap = await getDocs(q);
     const out = {};
     snap.forEach(docSnap => {
       const d = docSnap.data();
-      if (d.secret === true) return;
       out[d.key] = { list: d.list, commander: d.commander, player: d.player, savedAt: d.savedAt, secret: false };
     });
     return out;
