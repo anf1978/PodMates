@@ -22057,10 +22057,12 @@ function showScanCardsModal() {
         <li>About 10–15 cards per photo works better than cramming in more</li>
         <li>Add several photos one at a time — results build up as you go</li>
       </ul>
-      <p style="margin:0;">Every match below is a <strong>real card name found somewhere in your photo's text</strong> — a photo with a lot of small text (rules text, symbols) can still miss cards or occasionally catch a stray name, so check the list (click a name to see its art) before adding it to your deck.</p>
+      <p style="margin:0 0 8px;">Every match below is a <strong>real card name found somewhere in your photo's text</strong> — a photo with a lot of small text (rules text, symbols) can still miss cards or occasionally catch a stray name, so check the list (click a name to see its art) before adding it to your deck.</p>
+      <p style="margin:0;">OCR doesn't read the same photo the same way twice — <strong>Rescan Same Photo(s)</strong> re-reads whatever you last scanned without needing to pick the file again, and anything already found (or already in your decklist) is automatically skipped, so a few rescans of one photo often catches cards a single pass missed.</p>
     </div>
     <div class="row" style="margin-bottom:12px;">
       <button id="scanCardsAddPhotoBtn" class="ghost">Add a Photo…</button>
+      <button id="scanCardsRescanBtn" class="ghost" ${lastScannedFiles.length ? '' : 'disabled'}>Rescan Same Photo(s)</button>
     </div>
     <div id="scanCardsStatus" style="font-size:12.5px; color:var(--text-soft); margin-bottom:10px;"></div>
     <div id="scanCardsResultsArea"></div>
@@ -22075,12 +22077,24 @@ function showScanCardsModal() {
   document.getElementById('scanCardsAddPhotoBtn').addEventListener('click', () => {
     $('scanCardsFileInput').click();
   });
+  document.getElementById('scanCardsRescanBtn').addEventListener('click', () => {
+    runOcrOnFiles(lastScannedFiles);
+  });
   document.getElementById('scanCardsAddToDeckBtn').addEventListener('click', addCheckedScannedCardsToDecklist);
 }
 
-async function handleScanCardsFileSelected(fileList) {
-  const files = Array.from(fileList || []);
-  if (!files.length) return;
+// Kept across modal sessions on purpose (NOT reset when the modal reopens,
+// unlike scanCardsResults) -- the whole point of "Rescan Same Photo(s)" is
+// letting someone close the modal after adding some cards, come back
+// later, and rescan the exact same photo without hunting for the file in
+// their gallery again.
+let lastScannedFiles = [];
+
+async function runOcrOnFiles(files) {
+  if (!files || !files.length) return;
+  lastScannedFiles = files;
+  const rescanBtn = document.getElementById('scanCardsRescanBtn');
+  if (rescanBtn) rescanBtn.disabled = false;
   const statusEl = document.getElementById('scanCardsStatus');
   if (statusEl) statusEl.textContent = 'Loading the OCR engine (first time only, may take a moment)…';
   let Tesseract;
@@ -22104,9 +22118,15 @@ async function handleScanCardsFileSelected(fileList) {
     processOcrText(text);
   }
   if (statusEl) {
-    statusEl.textContent = `Done — found ${scanCardsResults.length} new card(s) across ${files.length} photo(s) (anything already in your decklist is skipped automatically). Review below.`;
+    statusEl.textContent = `Done — found ${scanCardsResults.length} new card(s) across ${files.length} photo(s) (anything already found or already in your decklist is skipped automatically). Review below.`;
   }
   renderScanCardsResults();
+}
+
+async function handleScanCardsFileSelected(fileList) {
+  const files = Array.from(fileList || []);
+  if (!files.length) return;
+  await runOcrOnFiles(files);
 }
 
 // Card names sorted longest-first, real names only (under 6 characters
