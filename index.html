@@ -22104,7 +22104,7 @@ async function handleScanCardsFileSelected(fileList) {
     processOcrText(text);
   }
   if (statusEl) {
-    statusEl.textContent = `Done — found ${scanCardsResults.length} known card(s) across ${files.length} photo(s). Review below.`;
+    statusEl.textContent = `Done — found ${scanCardsResults.length} new card(s) across ${files.length} photo(s) (anything already in your decklist is skipped automatically). Review below.`;
   }
   renderScanCardsResults();
 }
@@ -22124,6 +22124,25 @@ function getScanCardsSortedNames() {
   return scanCardsSortedNames;
 }
 
+// Card names already in the decklist textarea, parsed the same way the
+// real "Chart This Deck" flow would -- reused here so a card added from
+// an earlier scan (or typed/pasted in directly) doesn't get suggested
+// again if the same photo is rescanned later. Recomputed fresh each time
+// a photo finishes processing rather than cached, since the textarea can
+// change between scans (cards added, deck cleared, etc.) and a decklist
+// is small enough that re-parsing it is effectively free.
+function getNamesAlreadyInDecklist() {
+  const ta = $('decklistInput');
+  const names = new Set();
+  if (!ta || !ta.value.trim()) return names;
+  const { entries } = parseDecklist(ta.value);
+  for (const entry of entries) {
+    const match = fuzzyFindCard(entry.name, CARD_DB, indexes);
+    if (match) names.add(match.card.n);
+  }
+  return names;
+}
+
 function processOcrText(rawText) {
   // A photographed stack of cards prints the name alongside a lot of
   // other text on the same line -- mana symbols, rules text, power and
@@ -22135,7 +22154,7 @@ function processOcrText(rawText) {
   // asks a different, far more robust question instead: does any real
   // card name appear literally, anywhere, in the whole photo's text.
   let blob = ' ' + rawText.replace(/\s+/g, ' ').toLowerCase() + ' ';
-  const alreadyFound = new Set(scanCardsResults.map(r => r.card.n));
+  const alreadyFound = new Set([...scanCardsResults.map(r => r.card.n), ...getNamesAlreadyInDecklist()]);
   for (const { name, lower } of getScanCardsSortedNames()) {
     if (alreadyFound.has(name)) continue;
     if (blob.includes(lower)) {
