@@ -24614,9 +24614,9 @@ document.querySelectorAll('.icon-btn[data-tooltip], .icon-checkbox-label[data-to
   // --- Firestore deck storage (unchanged from before, keyed off whoever
   // is currently signed in -- anonymous or real) ----------------------
 
-  async function cloudSaveDeck(key, entry) {
+  async function cloudSaveDeck(key, entry, docIdOverride) {
     if (!currentUser) throw new Error('Not signed in yet');
-    const ref = doc(db, 'users', currentUser.uid, 'decks', safeDocId(key));
+    const ref = doc(db, 'users', currentUser.uid, 'decks', safeDocId(docIdOverride || key));
     await setDoc(ref, {
       key, commander: entry.commander || '', player: entry.player || '',
       list: entry.list || '', savedAt: entry.savedAt || Date.now(),
@@ -24810,6 +24810,22 @@ document.querySelectorAll('.icon-btn[data-tooltip], .icon-checkbox-label[data-to
   // --- Linked decks (profile-level list of decks added by pasted link,
   // separate from the "My Saved Decks" browser-local list) ------------
 
+  // Closes a real gap: pod-sharing only ever reads the decks collection
+  // (below), never linkedDecks -- a deck someone imported from Archidekt
+  // or Moxfield but never separately hit "Save Deck" for was invisible to
+  // their whole pod, with no error and no indication anything was wrong.
+  // The fix is to mirror every link (and every re-sync) into the same
+  // collection manual saves use, so the existing sharing mechanism just
+  // works without needing its own separate linked-deck-aware code path.
+  // The mirror's Firestore document ID is pinned to platform+deckId
+  // (stable) rather than the deck's display name (which can change if
+  // they rename it on Archidekt/Moxfield) -- otherwise a rename would
+  // silently create a second, stale mirrored copy instead of updating the
+  // one that already exists.
+  function linkedDeckMirrorId(platform, deckId) {
+    return `linked-${platform}-${deckId}`;
+  }
+
   async function addLinkedDeck(deckUrl) {
     if (!currentUser) throw new Error('Not signed in yet');
     const result = await fetchDeckByLink(deckUrl);
@@ -24821,6 +24837,11 @@ document.querySelectorAll('.icon-btn[data-tooltip], .icon-checkbox-label[data-to
       commander: d.commander, decklistText: d.decklistText, cardCount: d.cardCount,
       addedAt: Date.now(), syncedAt: Date.now(),
     });
+    await cloudSaveDeck(
+      d.name,
+      { commander: d.commander, list: d.decklistText, player: currentUser.displayName || '', secret: false },
+      linkedDeckMirrorId(d.platform, d.deckId)
+    ).catch(() => {}); // linking itself already succeeded above -- don't fail the whole action over the mirror
     return { ok: true, deck: d, id };
   }
 
@@ -24834,12 +24855,33 @@ document.querySelectorAll('.icon-btn[data-tooltip], .icon-checkbox-label[data-to
       commander: d.commander, decklistText: d.decklistText, cardCount: d.cardCount,
       syncedAt: Date.now(),
     }, { merge: true });
+    // Re-sync updates the SAME mirrored document (same stable ID) rather
+    // than creating a new one, and picks up any deck rename or decklist
+    // change from the source platform -- but deliberately does NOT reset
+    // secret back to false, so a person who marked their mirrored copy
+    // secret after linking doesn't have that choice silently undone by
+    // their next routine re-sync.
+    let existingSecret = false;
+    try {
+      const existing = await getDoc(doc(db, 'users', currentUser.uid, 'decks', safeDocId(linkedDeckMirrorId(d.platform, d.deckId))));
+      if (existing.exists()) existingSecret = existing.data().secret === true;
+    } catch (e) { /* fine -- fall back to not-secret */ }
+    await cloudSaveDeck(
+      d.name,
+      { commander: d.commander, list: d.decklistText, player: currentUser.displayName || '', secret: existingSecret },
+      linkedDeckMirrorId(d.platform, d.deckId)
+    ).catch(() => {});
     return { ok: true, deck: d };
   }
 
   async function removeLinkedDeck(id) {
     if (!currentUser) throw new Error('Not signed in yet');
     await deleteDoc(doc(db, 'users', currentUser.uid, 'linkedDecks', id));
+    // id is already `${platform}-${deckId}` (see addLinkedDeck above), and
+    // the mirror's own ID is derived from exactly that pair, so it can be
+    // reconstructed here without needing to have kept the deck data around.
+    const mirrorId = safeDocId(`linked-${id}`);
+    await deleteDoc(doc(db, 'users', currentUser.uid, 'decks', mirrorId)).catch(() => {});
   }
 
   async function loadLinkedDecks() {
