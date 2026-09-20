@@ -703,10 +703,7 @@ button:disabled {
 }
 .icon-btn svg { width: 21px; height: 21px; flex-shrink: 0; }
 .icon-tooltip {
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%) translateY(-7px);
+  position: fixed;
   background: var(--bg-main);
   color: var(--text-primary);
   border: 1px solid var(--slot-border-hi);
@@ -721,12 +718,10 @@ button:disabled {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.12s ease;
-  z-index: 60;
+  z-index: 9999;
   box-shadow: 0 3px 8px rgba(0,0,0,0.4);
 }
-.icon-btn:hover .icon-tooltip,
-.icon-btn:focus-visible .icon-tooltip,
-.icon-btn.show-tooltip .icon-tooltip {
+.icon-tooltip.show {
   opacity: 1;
 }
 /* The "keep secret" toggle: a real checkbox (fully functional, just
@@ -24354,17 +24349,13 @@ if (deckLinkLoadBtn) deckLinkLoadBtn.addEventListener('click', async () => {
   statusEl.className = 'status';
 });
 
-// ---- Icon button tooltips: hover shows them on desktop via CSS alone
-// (:hover/:focus-visible in the stylesheet); this only needs to handle the
-// long-press case for touch devices, where there's no hover state at all.
-// The document-level listener below runs during the CAPTURE phase, which
-// reaches this ancestor before the event reaches the button itself --
-// that's what makes it able to reliably swallow the click that would
-// otherwise fire right after a long-press is released, regardless of
-// which order each button's own click handler happened to be registered
-// in above (a listener attached directly to the button itself can't
-// guarantee it'll run before another listener already on that same
-// button, but a capturing ancestor listener always runs first).
+// ---- Icon button tooltips: appended to document.body (not to the button
+// itself) and positioned with getBoundingClientRect, specifically so
+// nothing about the button's own containers -- including .panel's
+// overflow:hidden, which was clipping an earlier absolute-positioned
+// version into invisibility -- can cut the tooltip off. Handles mouse
+// hover, keyboard focus, and touch long-press through one shared show/hide
+// pair rather than splitting the logic between CSS and JS.
 document.addEventListener('click', (e) => {
   const btn = e.target.closest('.icon-btn.suppress-next-click, .icon-checkbox-label.suppress-next-click');
   if (btn) {
@@ -24375,21 +24366,38 @@ document.addEventListener('click', (e) => {
 }, true);
 
 document.querySelectorAll('.icon-btn[data-tooltip], .icon-checkbox-label[data-tooltip]').forEach(btn => {
-  const label = btn.getAttribute('data-tooltip');
   const tip = document.createElement('span');
   tip.className = 'icon-tooltip';
-  tip.textContent = label;
-  btn.appendChild(tip);
+  tip.textContent = btn.getAttribute('data-tooltip');
+  document.body.appendChild(tip);
+
+  function showTip() {
+    const rect = btn.getBoundingClientRect();
+    tip.style.left = (rect.left + rect.width / 2) + 'px';
+    tip.style.top = (rect.top - 8) + 'px';
+    tip.style.transform = 'translate(-50%, -100%)';
+    tip.classList.add('show');
+  }
+  function hideTip() {
+    tip.classList.remove('show');
+  }
+
+  btn.addEventListener('mouseenter', showTip);
+  btn.addEventListener('mouseleave', hideTip);
+  btn.addEventListener('focus', showTip);
+  btn.addEventListener('blur', hideTip);
+
   let pressTimer = null;
   btn.addEventListener('touchstart', () => {
     pressTimer = setTimeout(() => {
-      btn.classList.add('show-tooltip', 'suppress-next-click');
+      showTip();
+      btn.classList.add('suppress-next-click');
     }, 450);
   }, { passive: true });
   const endPress = () => {
     clearTimeout(pressTimer);
-    if (btn.classList.contains('show-tooltip')) {
-      setTimeout(() => btn.classList.remove('show-tooltip'), 1400);
+    if (tip.classList.contains('show')) {
+      setTimeout(hideTip, 1400);
     }
   };
   btn.addEventListener('touchend', endPress);
