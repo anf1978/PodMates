@@ -21250,9 +21250,10 @@ async function renderOurPodPanel(opts) {
 // used to live buried inside a specific pod's own view -- Create a Pod
 // and Join a Pod belong at this level, not nested one pod deep, since
 // they're about pods in general rather than any one pod in particular.
-function renderMyPodsLanding(container, pods) {
+async function renderMyPodsLanding(container, pods) {
   container.innerHTML = `
     <p style="font-size:13px; color:var(--text-soft); margin:0 0 16px; line-height:1.5;">Your OurPods live here -- your regular groups, each with their own members, saved Table Formations, and Chronicles. Open a pod to host a Gathering, invite people, or manage membership.</p>
+    <div id="myPodsLiveGatheringArea"></div>
     <div id="myPodsList" style="margin-bottom:18px;"></div>
     <button id="myPodsCreateBtn" style="width:100%; margin-bottom:10px;">Create a Pod</button>
     <button id="myPodsJoinBtn" class="ghost" style="width:100%; margin-bottom:10px;">Join a Pod</button>
@@ -21281,6 +21282,30 @@ function renderMyPodsLanding(container, pods) {
     // no pod or account required to explore) is separate follow-up work.
     showToast('Sample Gatherings are coming soon.');
   });
+
+  // Checked once whenever this landing page renders (tab opened, overlay
+  // closed) rather than via a persistent connection -- see the earlier
+  // discussion on why polling/check-on-open fits this app better than a
+  // permanent live listener. A few seconds' delay before this appears is
+  // an acceptable trade for not holding an open connection the whole time
+  // someone has the app open but isn't actually at a live table.
+  const liveArea = document.getElementById('myPodsLiveGatheringArea');
+  const myUid = window.PodmatesCloud.uid;
+  Promise.all(pods.map(p => window.PodmatesCloud.loadLiveGatherings(p.id).then(gs => gs.map(g => ({ ...g, podId: p.id, podName: p.name }))).catch(() => [])))
+    .then(results => {
+      if (!liveArea) return; // landing page may have been navigated away from already
+      const live = results.flat().filter(g => Object.values(g.seats || {}).some(s => s && s.uid === myUid));
+      if (!live.length) { liveArea.innerHTML = ''; return; }
+      liveArea.innerHTML = live.map(g => `
+        <button type="button" data-join-gathering="${escapeHtml(g.podId)}|${escapeHtml(g.id)}" style="width:100%; margin-bottom:10px; background:var(--leaf); border-color:var(--leaf);">Join Gathering — ${escapeHtml(g.title)} (${escapeHtml(g.podName)})</button>
+      `).join('');
+      liveArea.querySelectorAll('[data-join-gathering]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const [podId, gatheringId] = btn.getAttribute('data-join-gathering').split('|');
+          openLiveGatheringOverlay(podId, gatheringId);
+        });
+      });
+    });
 }
 
 // Opens the existing create/join form (unchanged internally) inside its
@@ -21335,6 +21360,175 @@ function openPodDetailOverlay(pod, pods) {
   });
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) { closeTryADeckModal(); renderOurPodPanel(); }
+  });
+}
+
+// --- Host a Gathering: name it, seat real pod members (host auto-seated
+// in Seat 1, seats 2-6 pick from the rest of the pod), then Go Live. -----
+function openHostGatheringOverlay(pod, members) {
+  injectTryADeckStyles();
+  closeTryADeckModal();
+  const myUid = window.PodmatesCloud.uid;
+  const me = members.find(m => m.uid === myUid);
+  const myName = (me && me.displayName) || window.PodmatesCloud.user.displayName || 'Host';
+  const seatAssignments = [myUid, null, null, null, null, null]; // index 0 is always the host
+
+  const overlay = document.createElement('div');
+  overlay.className = 'tad-overlay';
+  overlay.id = 'tadOverlay';
+  const modal = document.createElement('div');
+  modal.className = 'tad-modal';
+  modal.innerHTML = `
+    <button class="tad-close" id="tadCloseBtn">Close ×</button>
+    <h2 style="margin-bottom:10px;">Host a Gathering</h2>
+    <div style="margin-bottom:16px;">
+      <label style="font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold); display:block; margin-bottom:6px;">Name the Gathering</label>
+      <input id="gatheringTitleInput" type="text" placeholder="e.g. Friday Night Bash" style="width:100%; box-sizing:border-box; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
+    </div>
+    <div id="hostSeatsArea" style="margin-bottom:16px;"></div>
+    <button id="goLiveBtn">Go Live</button>
+    <div id="hostGatheringStatus" style="font-size:12.5px; margin-top:8px;"></div>
+  `;
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
+
+  function renderSeats() {
+    const area = document.getElementById('hostSeatsArea');
+    area.innerHTML = seatAssignments.map((uid, i) => {
+      if (i === 0) {
+        return `<div style="padding:9px 10px; border:1px solid var(--line); border-radius:3px; margin-bottom:6px; font-size:13px;">Seat 1 — <strong>${escapeHtml(myName)}</strong> (you)</div>`;
+      }
+      const takenElsewhere = seatAssignments.filter((u, idx) => idx !== i && u);
+      const options = members.filter(m => m.uid !== myUid && !takenElsewhere.includes(m.uid));
+      return `<div style="margin-bottom:6px;">
+        <select data-seat-index="${i}" style="width:100%; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13px;">
+          <option value="">Seat ${i + 1} — empty</option>
+          ${options.map(m => `<option value="${escapeHtml(m.uid)}" ${m.uid === uid ? 'selected' : ''}>Seat ${i + 1} — ${escapeHtml(m.displayName || 'Podmate')}</option>`).join('')}
+        </select>
+      </div>`;
+    }).join('');
+    // Rebuild on every change so a member picked into one seat immediately
+    // drops out of every other seat's own dropdown -- otherwise the same
+    // person could end up double-booked into two seats at once.
+    area.querySelectorAll('[data-seat-index]').forEach(sel => {
+      sel.addEventListener('change', () => {
+        const idx = parseInt(sel.getAttribute('data-seat-index'), 10);
+        seatAssignments[idx] = sel.value || null;
+        renderSeats();
+      });
+    });
+  }
+  renderSeats();
+
+  document.getElementById('goLiveBtn').addEventListener('click', async () => {
+    const statusEl = document.getElementById('hostGatheringStatus');
+    const title = document.getElementById('gatheringTitleInput').value;
+    const btn = document.getElementById('goLiveBtn');
+    btn.disabled = true;
+    btn.textContent = 'Starting…';
+    try {
+      const gatheringId = await window.PodmatesCloud.createGathering(pod.id, title);
+      const seatWrites = [];
+      for (let i = 1; i < 6; i++) {
+        if (!seatAssignments[i]) continue;
+        const m = members.find(mm => mm.uid === seatAssignments[i]);
+        seatWrites.push(window.PodmatesCloud.setGatheringSeat(pod.id, gatheringId, i, {
+          uid: seatAssignments[i], displayName: (m && m.displayName) || 'Podmate', deck: null,
+        }));
+      }
+      await Promise.all(seatWrites);
+      await window.PodmatesCloud.goLiveGathering(pod.id, gatheringId);
+      closeTryADeckModal();
+      openLiveGatheringOverlay(pod.id, gatheringId);
+    } catch (err) {
+      statusEl.textContent = 'Could not start the Gathering: ' + err.message;
+      statusEl.className = 'status err';
+      btn.disabled = false;
+      btn.textContent = 'Go Live';
+    }
+  });
+}
+
+// --- The live Gathering tray: seats with names, and a way to load a deck
+// into any seat -- any signed-in pod member can fill any seat, not just
+// their own, since not everyone at a real table will have their own
+// device. Chart the Battle, Rule Zero Overview, Log Battle, feedback, and
+// Chronicles grouping are further follow-up work, not yet built. -------
+async function openLiveGatheringOverlay(podId, gatheringId) {
+  injectTryADeckStyles();
+  closeTryADeckModal();
+  const overlay = document.createElement('div');
+  overlay.className = 'tad-overlay';
+  overlay.id = 'tadOverlay';
+  const modal = document.createElement('div');
+  modal.className = 'tad-modal';
+  modal.innerHTML = `<button class="tad-close" id="tadCloseBtn">Close ×</button><div id="gatheringTrayContent"><p style="text-align:center; color:var(--text-soft); font-size:13px;">Loading…</p></div>`;
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
+  await renderLiveGatheringTray(podId, gatheringId);
+}
+
+async function renderLiveGatheringTray(podId, gatheringId) {
+  const content = document.getElementById('gatheringTrayContent');
+  if (!content) return; // overlay was closed before this finished loading
+  let gathering;
+  try {
+    gathering = await window.PodmatesCloud.loadGathering(podId, gatheringId);
+  } catch (err) {
+    content.innerHTML = `<p style="color:var(--danger); font-size:13px;">Could not load this Gathering: ${escapeHtml(err.message)}</p>`;
+    return;
+  }
+  if (!gathering) {
+    content.innerHTML = `<p style="color:var(--danger); font-size:13px;">This Gathering couldn't be found — it may have ended.</p>`;
+    return;
+  }
+  const seatKeys = ['0', '1', '2', '3', '4', '5'];
+  content.innerHTML = `
+    <h2 style="margin-bottom:4px;">${escapeHtml(gathering.title)}</h2>
+    <p style="font-size:11.5px; color:var(--text-soft); margin:0 0 16px;">Live Gathering</p>
+    <div id="gatheringSeatsArea"></div>
+    <button id="gatheringRefreshBtn" class="ghost" style="width:100%; margin-top:6px; font-size:12.5px;">Refresh</button>
+  `;
+  const seatsArea = document.getElementById('gatheringSeatsArea');
+  seatsArea.innerHTML = seatKeys.map(k => {
+    const seat = gathering.seats && gathering.seats[k];
+    if (!seat || !seat.uid) {
+      return `<div style="padding:12px; border:1px dashed var(--line); border-radius:4px; margin-bottom:10px; color:var(--text-soft); font-size:13px;">Seat ${parseInt(k) + 1} — empty</div>`;
+    }
+    const deckLabel = seat.deck ? escapeHtml(seat.deck.commander || 'Deck loaded') : 'No deck selected yet';
+    return `<div style="padding:12px; border:1px solid var(--line); border-radius:4px; margin-bottom:10px;">
+      <div style="font-weight:600; margin-bottom:4px;">Seat ${parseInt(k) + 1} — ${escapeHtml(seat.displayName || 'Podmate')}</div>
+      <div style="font-size:12.5px; color:var(--text-soft); margin-bottom:8px;">${deckLabel}</div>
+      <button type="button" class="ghost" data-gathering-seat="${k}" style="font-size:12px;">Load a Deck</button>
+    </div>`;
+  }).join('');
+  seatsArea.querySelectorAll('[data-gathering-seat]').forEach(btn => {
+    btn.addEventListener('click', () => openGatheringSeatDeckPicker(podId, gatheringId, btn.getAttribute('data-gathering-seat'), gathering));
+  });
+  const refreshBtn = document.getElementById('gatheringRefreshBtn');
+  if (refreshBtn) refreshBtn.addEventListener('click', () => renderLiveGatheringTray(podId, gatheringId));
+}
+
+// Opens the same Load a Deck picker used everywhere else in the app --
+// your own saved decks plus your pod's shared ones -- rather than a
+// separate paste box. Deliberate: a seat should represent a real,
+// accountable deck someone already has saved, not an anonymous pasted
+// blob with no owner attached. Anyone wanting to use a brand-new deck
+// adds and saves it from the Deck Chart tab first, then it shows up here
+// like any other saved deck.
+function openGatheringSeatDeckPicker(podId, gatheringId, seatIndex, gathering) {
+  const seat = gathering.seats[seatIndex];
+  showLoadDeckModal({
+    gatheringSeat: {
+      podId, gatheringId,
+      seatIndex: parseInt(seatIndex, 10),
+      seatUid: seat.uid,
+      seatDisplayName: seat.displayName || 'Podmate',
+    },
   });
 }
 
@@ -21489,17 +21683,8 @@ async function renderPodDetailView(container, pods) {
     <p style="text-align:center; margin-top:18px;"><a href="#" id="podLeaveLink" style="font-size:12.5px; color:var(--danger); text-decoration:underline;">Leave this pod</a></p>
   `;
 
-  // Stub for now -- Gatherings (real seats, Go Live, live-ish sync, Chart
-  // the Battle, Rule Zero Overview, Log Battle, feedback, Chronicles
-  // regrouping) are a separate, larger build. This scrolls to the
-  // existing 6-seat comparison tool, which stays fully functional in the
-  // meantime, so there's no dead end while that work is in progress.
   const hostBtn = document.getElementById('hostGatheringBtn');
-  if (hostBtn) hostBtn.addEventListener('click', () => {
-    closeTryADeckModal();
-    document.getElementById('podMode').scrollIntoView({ behavior: 'smooth' });
-    showToast('Hosting real Gatherings is coming soon -- for now, set up your table below.');
-  });
+  if (hostBtn) hostBtn.addEventListener('click', () => openHostGatheringOverlay(pod, members));
 
   const switcher = document.getElementById('podSwitcher');
   if (switcher) switcher.addEventListener('change', async () => {
@@ -23630,6 +23815,26 @@ function loadDeckByKey(key, target) {
     setPodStatus(`Loaded “${key}” into seat ${target + 1}.`);
     return;
   }
+  if (target && typeof target === 'object' && target.gatheringSeat) {
+    const g = target.gatheringSeat;
+    const commander = (typeof entry === 'object' && entry.commander) || key;
+    const list = (typeof entry === 'string') ? entry : (entry.list || '');
+    // Fire-and-forget rather than making this whole function async -- its
+    // one other caller (the click delegate below) doesn't await it either,
+    // and keeping this function's signature unchanged avoids touching
+    // every other thing that already relies on it being synchronous.
+    window.PodmatesCloud.setGatheringSeat(g.podId, g.gatheringId, g.seatIndex, {
+      uid: g.seatUid, displayName: g.seatDisplayName,
+      deck: { commander, list, cardCount: null },
+    }).then(() => {
+      closeTryADeckModal();
+      openLiveGatheringOverlay(g.podId, g.gatheringId);
+      showToast(`Loaded "${key}" into Seat ${g.seatIndex + 1}.`);
+    }).catch((err) => {
+      showToast('Could not save that deck to the seat: ' + err.message);
+    });
+    return;
+  }
   if (typeof entry === 'string') {
     $('decklistInput').value = entry;
   } else {
@@ -23704,14 +23909,25 @@ async function refreshPodmateDecksCache() {
 async function showLoadDeckModal(target) {
   injectTryADeckStyles();
   closeTryADeckModal();
-  loadDeckActivePlayer = null;
-  loadDeckTarget = (typeof target === 'number') ? target : 'main';
+  const isGatheringSeat = !!(target && typeof target === 'object' && target.gatheringSeat);
+  // Only pre-filter to the seat's player when it's someone ELSE's seat --
+  // a podmate's shared decks are always tagged with their real display
+  // name (fully consistent, controlled by the sharing system itself), but
+  // the current person's OWN saved decks use a free-typed "player" label
+  // from whenever they saved it, which may not match their display name.
+  // Pre-filtering to "my own name" there risks hiding someone's own decks
+  // right when they're trying to find one.
+  const gatheringSeatIsMine = isGatheringSeat && target.gatheringSeat.seatUid === window.PodmatesCloud.uid;
+  loadDeckActivePlayer = (isGatheringSeat && !gatheringSeatIsMine) ? target.gatheringSeat.seatDisplayName : null;
+  loadDeckTarget = (typeof target === 'number' || isGatheringSeat) ? target : 'main';
   const overlay = document.createElement('div');
   overlay.className = 'tad-overlay';
   overlay.id = 'tadOverlay';
   const modal = document.createElement('div');
   modal.className = 'tad-modal';
-  const titleSuffix = (typeof target === 'number') ? ` — Seat ${target + 1}` : '';
+  const titleSuffix = typeof target === 'number' ? ` — Seat ${target + 1}`
+    : isGatheringSeat ? ` — Seat ${target.gatheringSeat.seatIndex + 1} (${target.gatheringSeat.seatDisplayName})`
+    : '';
   modal.innerHTML = `<button class="tad-close" id="tadCloseBtn">Close ×</button>` +
     `<h2 style="margin-bottom:10px;">Load a Deck${titleSuffix}</h2>` +
     `<input type="text" id="loadDeckSearch" placeholder="Search by commander or player…" style="width:100%; box-sizing:border-box; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px; margin-bottom:10px;">` +
@@ -23730,7 +23946,8 @@ async function showLoadDeckModal(target) {
   // this modal populate, not get turned away at the door.
   if (Object.keys(loadSavedDecks()).length === 0 && Object.keys(podmateDecksCache).length === 0) {
     closeTryADeckModal();
-    if (typeof target === 'number') setPodStatus('No saved decks yet — save one from the main tab first.', true);
+    if (isGatheringSeat) showToast('No saved decks in this pod yet -- save one from the Deck Chart tab first.');
+    else if (typeof target === 'number') setPodStatus('No saved decks yet — save one from the main tab first.', true);
     else setDeckMgmtStatus('No saved decks yet — save one first.', true);
     return;
   }
@@ -24885,6 +25102,81 @@ document.querySelectorAll('.icon-btn[data-tooltip], .icon-checkbox-label[data-to
     await Promise.all(deletions);
   }
 
+  // --- Gatherings (real-time-ish multiplayer table setup) -- pod-scoped,
+  // same pattern as Table Formations and Chronicles above. Seats are
+  // stored as a MAP keyed by seat index ("0" through "5"), not an array,
+  // and every seat write below targets it with a DOT-NOTATION field path
+  // ("seats.0") rather than writing the whole `seats` object -- that's
+  // deliberate: Firestore documentation is genuinely ambiguous/conflicting
+  // on whether a plain nested object under set(..., {merge:true}) deep-
+  // merges or replaces wholesale, but dot-notation field paths are
+  // unambiguously documented everywhere to touch only that one field,
+  // leaving sibling seats untouched. That matters here specifically
+  // because two different players can edit two different seats within
+  // moments of each other, and an accidental wholesale-replace would
+  // silently wipe out whichever seat wasn't part of that write.
+
+  function emptyGatheringSeats() {
+    const seats = {};
+    for (let i = 0; i < 6; i++) seats[i] = { uid: null, displayName: null, deck: null };
+    return seats;
+  }
+
+  async function cloudCreateGathering(podId, title) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    if (!podId) throw new Error('No OurPod selected');
+    const seats = emptyGatheringSeats();
+    seats[0] = { uid: currentUser.uid, displayName: currentUser.displayName || currentUser.email || 'Host', deck: null };
+    const ref = doc(collection(db, 'pods', podId, 'gatherings'));
+    await setDoc(ref, {
+      title: (title || '').trim() || 'Untitled Gathering',
+      hostUid: currentUser.uid,
+      status: 'setup',
+      seats,
+      createdAt: Date.now(),
+      updatedAt: serverTimestamp(),
+    });
+    return ref.id;
+  }
+
+  async function cloudLoadGathering(podId, gatheringId) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    const snap = await getDoc(doc(db, 'pods', podId, 'gatherings', gatheringId));
+    return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+  }
+
+  async function cloudLoadLiveGatherings(podId) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    if (!podId) return [];
+    const q = query(collection(db, 'pods', podId, 'gatherings'), where('status', '==', 'live'));
+    const snap = await getDocs(q);
+    const out = [];
+    snap.forEach(d => out.push({ id: d.id, ...d.data() }));
+    return out;
+  }
+
+  async function cloudSetGatheringSeat(podId, gatheringId, seatIndex, seatData) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    await setDoc(doc(db, 'pods', podId, 'gatherings', gatheringId), {
+      [`seats.${seatIndex}`]: seatData,
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+  }
+
+  async function cloudGoLiveGathering(podId, gatheringId) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    await setDoc(doc(db, 'pods', podId, 'gatherings', gatheringId), {
+      status: 'live', goLiveAt: Date.now(), updatedAt: serverTimestamp(),
+    }, { merge: true });
+  }
+
+  async function cloudEndGathering(podId, gatheringId) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    await setDoc(doc(db, 'pods', podId, 'gatherings', gatheringId), {
+      status: 'ended', endedAt: Date.now(), updatedAt: serverTimestamp(),
+    }, { merge: true });
+  }
+
   // Note: an earlier version of the Profile Builder used real usernames
   // (saveProfile/loadProfile, storing archidektUsername/moxfieldUsername)
   // before that approach was replaced with per-deck links below, since
@@ -25209,6 +25501,9 @@ document.querySelectorAll('.icon-btn[data-tooltip], .icon-checkbox-label[data-to
     loadAllTableFormations: cloudLoadAllTableFormations,
     addChronicleEntry: cloudAddChronicleEntry, loadAllChronicles: cloudLoadAllChronicles,
     clearAllChronicles: cloudClearAllChronicles,
+    createGathering: cloudCreateGathering, loadGathering: cloudLoadGathering,
+    loadLiveGatherings: cloudLoadLiveGatherings, setGatheringSeat: cloudSetGatheringSeat,
+    goLiveGathering: cloudGoLiveGathering, endGathering: cloudEndGathering,
   };
 
   // Scripts loaded with type="module" (required for Firebase's import
