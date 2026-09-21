@@ -24796,7 +24796,7 @@ document.querySelectorAll('.icon-btn[data-tooltip], .icon-checkbox-label[data-to
     sendPasswordResetEmail, updateProfile,
   } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
   import {
-    getFirestore, doc, setDoc, getDoc, getDocs, deleteDoc, collection, serverTimestamp,
+    getFirestore, doc, setDoc, updateDoc, getDoc, getDocs, deleteDoc, collection, serverTimestamp,
     query, where, arrayUnion, arrayRemove,
   } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
@@ -25157,10 +25157,20 @@ document.querySelectorAll('.icon-btn[data-tooltip], .icon-checkbox-label[data-to
 
   async function cloudSetGatheringSeat(podId, gatheringId, seatIndex, seatData) {
     if (!currentUser) throw new Error('Not signed in yet');
-    await setDoc(doc(db, 'pods', podId, 'gatherings', gatheringId), {
+    // setDoc(..., {merge:true}) only merges at the TOP level -- a
+    // dot-notation key like "seats.1" passed to it does NOT get
+    // interpreted as a nested field path the way it does with updateDoc.
+    // The earlier version of this function used setDoc that way, which
+    // almost certainly created a stray top-level field literally named
+    // "seats.1" sitting outside the real seats map, rather than actually
+    // updating seat 1 inside it -- explaining exactly why seats stayed
+    // empty and invited players' IDs never landed anywhere the rest of
+    // the app looks for them. updateDoc is the function Firestore
+    // actually documents for this, consistently, everywhere.
+    await updateDoc(doc(db, 'pods', podId, 'gatherings', gatheringId), {
       [`seats.${seatIndex}`]: seatData,
       updatedAt: serverTimestamp(),
-    }, { merge: true });
+    });
   }
 
   async function cloudGoLiveGathering(podId, gatheringId) {
