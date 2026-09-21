@@ -960,7 +960,6 @@ footer::after { content: ' ◆'; color: var(--cyan); font-style: normal; }
     <span id="authStatusText"></span>
     <button id="authOpenBtn" class="ghost" style="padding:4px 10px; font-size:12px; display:none;">Sign In</button>
     <button id="authProfileBtn" class="ghost" style="padding:4px 10px; font-size:12px; display:none;">My Profile</button>
-    <button id="authPodBtn" class="ghost" style="padding:4px 10px; font-size:12px; display:none;">OurPod</button>
     <button id="authSignOutBtn" class="ghost" style="padding:4px 10px; font-size:12px; display:none;">Sign Out</button>
   </div>
   <header>
@@ -1019,7 +1018,7 @@ footer::after { content: ' ◆'; color: var(--cyan); font-style: normal; }
   <div style="border:1px solid var(--line-strong); border-radius:6px; padding:10px; margin-bottom:20px; background:var(--bg-panel, rgba(255,255,255,0.02));">
     <div class="mode-tabs" style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
       <button id="modeSingleBtn" class="mode-btn active" style="font-family:'Cinzel',Georgia,serif; font-size:14.5px; letter-spacing:0.08em; text-transform:uppercase; padding:14px 24px; border-radius:5px; border:1.5px solid var(--gold); background:var(--gold); color:var(--bg-main); cursor:pointer; font-weight:700; box-shadow:0 0 14px rgba(224,178,77,0.45); transition:all 0.15s ease;">Deck Chart</button>
-      <button id="modePodBtn" class="mode-btn ghost" style="font-family:'Cinzel',Georgia,serif; font-size:14.5px; letter-spacing:0.08em; text-transform:uppercase; padding:14px 24px; border-radius:5px; border:1.5px solid var(--line-strong); background:rgba(224,178,77,0.06); color:var(--text-primary); cursor:pointer; font-weight:700; transition:all 0.15s ease;">Game Night (up to 6)</button>
+      <button id="modePodBtn" class="mode-btn ghost" style="font-family:'Cinzel',Georgia,serif; font-size:14.5px; letter-spacing:0.08em; text-transform:uppercase; padding:14px 24px; border-radius:5px; border:1.5px solid var(--line-strong); background:rgba(224,178,77,0.06); color:var(--text-primary); cursor:pointer; font-weight:700; transition:all 0.15s ease;">MyPods</button>
     </div>
   </div>
 
@@ -21229,12 +21228,114 @@ async function renderOurPodPanel(opts) {
   let pods = [];
   try { pods = await window.PodmatesCloud.loadMyPods(); } catch (e) { /* fine -- just start empty */ }
 
-  if (opts && opts.focusPodId) currentPodViewId = opts.focusPodId;
+  const arrivingAtSpecificPod = !!(opts && opts.focusPodId);
+  if (arrivingAtSpecificPod) currentPodViewId = opts.focusPodId;
   if (!currentPodViewId || !pods.some(p => p.id === currentPodViewId)) {
     currentPodViewId = pods.length ? pods[0].id : null;
   }
 
-  await renderPodModal(container, pods);
+  renderMyPodsLanding(container, pods);
+  // Arriving with a specific pod in mind (just created or joined one
+  // elsewhere) opens straight into that pod's detail overlay, on top of
+  // the landing list, rather than making the person find and click it
+  // themselves right after they just took the action that led here.
+  if (arrivingAtSpecificPod && currentPodViewId) {
+    const pod = pods.find(p => p.id === currentPodViewId);
+    if (pod) openPodDetailOverlay(pod, pods);
+  }
+}
+
+// The MyPods landing page: an explainer, the list of pods this person
+// belongs to (each opening its own detail overlay), and the actions that
+// used to live buried inside a specific pod's own view -- Create a Pod
+// and Join a Pod belong at this level, not nested one pod deep, since
+// they're about pods in general rather than any one pod in particular.
+function renderMyPodsLanding(container, pods) {
+  container.innerHTML = `
+    <p style="font-size:13px; color:var(--text-soft); margin:0 0 16px; line-height:1.5;">Your OurPods live here -- your regular groups, each with their own members, saved Table Formations, and Chronicles. Open a pod to host a Gathering, invite people, or manage membership.</p>
+    <div id="myPodsList" style="margin-bottom:18px;"></div>
+    <button id="myPodsCreateBtn" style="width:100%; margin-bottom:10px;">Create a Pod</button>
+    <button id="myPodsJoinBtn" class="ghost" style="width:100%; margin-bottom:10px;">Join a Pod</button>
+    <button id="myPodsSampleBtn" class="ghost" style="width:100%;">Sample a Gathering</button>
+  `;
+
+  const listEl = document.getElementById('myPodsList');
+  if (pods.length) {
+    listEl.innerHTML = pods.map(p => `
+      <button type="button" data-pod-id="${escapeHtml(p.id)}" class="ghost" style="width:100%; text-align:left; margin-bottom:8px; padding:12px 14px;">${escapeHtml(p.name)}</button>
+    `).join('');
+    listEl.querySelectorAll('[data-pod-id]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const pod = pods.find(p => p.id === btn.getAttribute('data-pod-id'));
+        if (pod) openPodDetailOverlay(pod, pods);
+      });
+    });
+  } else {
+    listEl.innerHTML = `<p style="font-size:12.5px; color:var(--text-soft); text-align:center; padding:10px 0;">You're not in an OurPod yet -- create one, or join with an invite link.</p>`;
+  }
+
+  document.getElementById('myPodsCreateBtn').addEventListener('click', () => openCreateOrJoinPodOverlay('create'));
+  document.getElementById('myPodsJoinBtn').addEventListener('click', () => openCreateOrJoinPodOverlay('join'));
+  document.getElementById('myPodsSampleBtn').addEventListener('click', () => {
+    // Stub -- a real "sample gathering" (a demo table using precon decks,
+    // no pod or account required to explore) is separate follow-up work.
+    showToast('Sample Gatherings are coming soon.');
+  });
+}
+
+// Opens the existing create/join form (unchanged internally) inside its
+// own overlay rather than the pod detail view -- reuses renderNoPodsView
+// as-is, just targets a fresh overlay div instead of the main tab area.
+function openCreateOrJoinPodOverlay(focus) {
+  injectTryADeckStyles();
+  closeTryADeckModal();
+  const overlay = document.createElement('div');
+  overlay.className = 'tad-overlay';
+  overlay.id = 'tadOverlay';
+  const modal = document.createElement('div');
+  modal.className = 'tad-modal';
+  modal.innerHTML = `<button class="tad-close" id="tadCloseBtn">Close ×</button><div id="podOverlayContent"></div>`;
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  const content = document.getElementById('podOverlayContent');
+  renderNoPodsView(content);
+  if (focus === 'join') {
+    const joinInput = document.getElementById('podJoinCodeInput');
+    if (joinInput) joinInput.focus();
+  }
+  document.getElementById('tadCloseBtn').addEventListener('click', () => {
+    closeTryADeckModal();
+    renderOurPodPanel(); // refresh the landing list -- a pod may have just been created or joined
+  });
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) { closeTryADeckModal(); renderOurPodPanel(); }
+  });
+}
+
+// Opens a specific pod's existing detail view (members, invite link, Host
+// a Gathering, settings) inside an overlay instead of the main tab area --
+// renderPodModal/renderPodDetailView are otherwise completely unchanged
+// and self-refresh correctly within whatever container they're given.
+function openPodDetailOverlay(pod, pods) {
+  injectTryADeckStyles();
+  closeTryADeckModal();
+  currentPodViewId = pod.id;
+  const overlay = document.createElement('div');
+  overlay.className = 'tad-overlay';
+  overlay.id = 'tadOverlay';
+  const modal = document.createElement('div');
+  modal.className = 'tad-modal';
+  modal.innerHTML = `<button class="tad-close" id="tadCloseBtn">Close ×</button><div id="podOverlayContent"></div>`;
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  renderPodModal(document.getElementById('podOverlayContent'), pods);
+  document.getElementById('tadCloseBtn').addEventListener('click', () => {
+    closeTryADeckModal();
+    renderOurPodPanel(); // refresh the landing list -- a rename, leave, etc. may have happened inside
+  });
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) { closeTryADeckModal(); renderOurPodPanel(); }
+  });
 }
 
 async function renderPodModal(container, pods) {
@@ -21357,6 +21458,8 @@ async function renderPodDetailView(container, pods) {
     <h2 style="margin-bottom:4px;">${escapeHtml(pod.name)}</h2>
     <p style="font-size:11.5px; color:var(--text-soft); margin:0 0 16px;">${members.length} member${members.length === 1 ? '' : 's'} · you're ${isLeader ? 'the Steward' : isCoLeader ? 'a Co-Steward' : 'a member'}</p>
 
+    <button id="hostGatheringBtn" style="width:100%; margin-bottom:18px;">Host a Gathering</button>
+
     <div style="margin-bottom:18px;">
       <div style="font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold); margin-bottom:8px;">Invite Link</div>
       <div class="row" style="gap:8px;">
@@ -21384,8 +21487,19 @@ async function renderPodDetailView(container, pods) {
     </details>` : ''}
 
     <p style="text-align:center; margin-top:18px;"><a href="#" id="podLeaveLink" style="font-size:12.5px; color:var(--danger); text-decoration:underline;">Leave this pod</a></p>
-    <p style="text-align:center; margin-top:6px;"><a href="#" id="podAnotherLink" style="font-size:12px; color:var(--text-soft); text-decoration:underline;">Create or join another pod</a></p>
   `;
+
+  // Stub for now -- Gatherings (real seats, Go Live, live-ish sync, Chart
+  // the Battle, Rule Zero Overview, Log Battle, feedback, Chronicles
+  // regrouping) are a separate, larger build. This scrolls to the
+  // existing 6-seat comparison tool, which stays fully functional in the
+  // meantime, so there's no dead end while that work is in progress.
+  const hostBtn = document.getElementById('hostGatheringBtn');
+  if (hostBtn) hostBtn.addEventListener('click', () => {
+    closeTryADeckModal();
+    document.getElementById('podMode').scrollIntoView({ behavior: 'smooth' });
+    showToast('Hosting real Gatherings is coming soon -- for now, set up your table below.');
+  });
 
   const switcher = document.getElementById('podSwitcher');
   if (switcher) switcher.addEventListener('change', async () => {
@@ -21398,11 +21512,6 @@ async function renderPodDetailView(container, pods) {
     field.select();
     try { document.execCommand('copy'); showToast('Invite link copied.'); }
     catch (e) { showToast('Could not copy automatically -- select and copy the link manually.'); }
-  });
-
-  document.getElementById('podAnotherLink').addEventListener('click', (e) => {
-    e.preventDefault();
-    renderNoPodsView(container);
   });
 
   document.getElementById('podLeaveLink').addEventListener('click', (e) => {
@@ -21535,16 +21644,14 @@ function updateAuthBar(user) {
   const statusText = $('authStatusText');
   const openBtn = $('authOpenBtn');
   const profileBtn = $('authProfileBtn');
-  const podBtn = $('authPodBtn');
   const signOutBtn = $('authSignOutBtn');
-  if (!statusText || !openBtn || !profileBtn || !podBtn || !signOutBtn) return;
+  if (!statusText || !openBtn || !profileBtn || !signOutBtn) return;
   const signedInForReal = user && !user.isAnonymous;
   statusText.textContent = signedInForReal
     ? `Signed in as ${user.displayName || user.email}`
     : 'Playing as guest';
   openBtn.style.display = signedInForReal ? 'none' : 'inline-block';
   profileBtn.style.display = signedInForReal ? 'inline-block' : 'none';
-  podBtn.style.display = signedInForReal ? 'inline-block' : 'none';
   signOutBtn.style.display = signedInForReal ? 'inline-block' : 'none';
 }
 
@@ -24343,8 +24450,6 @@ if (authOpenBtn) authOpenBtn.addEventListener('click', showAuthModal);
 const authProfileBtn = $('authProfileBtn');
 if (authProfileBtn) authProfileBtn.addEventListener('click', () => showProfileModal());
 
-const authPodBtn = $('authPodBtn');
-if (authPodBtn) authPodBtn.addEventListener('click', () => { setMode('pod'); $('podMode').scrollIntoView({ behavior: 'smooth' }); });
 
 const authSignOutBtn = $('authSignOutBtn');
 if (authSignOutBtn) authSignOutBtn.addEventListener('click', () => {
