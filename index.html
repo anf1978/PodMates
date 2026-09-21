@@ -21486,10 +21486,16 @@ async function renderLiveGatheringTray(podId, gatheringId) {
     content.innerHTML = `<p style="color:var(--danger); font-size:13px;">This Gathering couldn't be found — it may have ended.</p>`;
     return;
   }
+  if (gathering.status === 'ended') {
+    content.innerHTML = `<p style="color:var(--text-soft); font-size:13px;">This Gathering has ended. Thanks for joining!</p>`;
+    return;
+  }
+  const isHost = gathering.hostUid === window.PodmatesCloud.uid;
   const seatKeys = ['0', '1', '2', '3', '4', '5'];
   content.innerHTML = `
     <h2 style="margin-bottom:4px;">${escapeHtml(gathering.title)}</h2>
     <p style="font-size:11.5px; color:var(--text-soft); margin:0 0 16px;">Live Gathering</p>
+    ${isHost ? `<button id="endGatheringBtn" class="ghost" style="width:100%; margin-bottom:16px; border-color:var(--danger); color:var(--danger); font-size:12.5px;">End Gathering</button>` : ''}
     <div id="gatheringSeatsArea"></div>
     <button id="gatheringRefreshBtn" class="ghost" style="width:100%; margin-top:6px; font-size:12.5px;">Refresh</button>
   `;
@@ -21511,6 +21517,36 @@ async function renderLiveGatheringTray(podId, gatheringId) {
   });
   const refreshBtn = document.getElementById('gatheringRefreshBtn');
   if (refreshBtn) refreshBtn.addEventListener('click', () => renderLiveGatheringTray(podId, gatheringId));
+
+  // Host-only for now, matching the original design (End Gathering is
+  // described as a host action) -- but available immediately rather than
+  // only after logging a battle, since a host needs a way to close out a
+  // Gathering that was only ever a test, or that never got played, not
+  // just one that finished a battle. Ends the record rather than deleting
+  // it -- Chronicles is meant to keep a history of past Gatherings, so
+  // this just takes it out of "live" status rather than erasing it.
+  const endBtn = document.getElementById('endGatheringBtn');
+  if (endBtn) endBtn.addEventListener('click', () => {
+    content.innerHTML = `
+      <p style="font-size:14px; color:var(--text-primary); line-height:1.6; margin:6px 0 20px;">End this Gathering? Everyone still seated will see it's over next time they check, and it'll move out of "live" -- this doesn't delete anything, it just closes it out.</p>
+      <div class="row" style="justify-content:flex-end; gap:10px;">
+        <button id="endGatheringCancelBtn" class="ghost">Cancel</button>
+        <button id="endGatheringConfirmBtn" class="ghost" style="border-color:var(--danger); color:var(--danger);">End Gathering</button>
+      </div>
+    `;
+    document.getElementById('endGatheringCancelBtn').addEventListener('click', () => renderLiveGatheringTray(podId, gatheringId));
+    document.getElementById('endGatheringConfirmBtn').addEventListener('click', async () => {
+      try {
+        await window.PodmatesCloud.endGathering(podId, gatheringId);
+        closeTryADeckModal();
+        renderOurPodPanel(); // refresh MyPods so this no longer shows as live
+        showToast('Gathering ended.');
+      } catch (err) {
+        showToast('Could not end the Gathering: ' + err.message);
+        renderLiveGatheringTray(podId, gatheringId);
+      }
+    });
+  });
 }
 
 // Opens the same Load a Deck picker used everywhere else in the app --
