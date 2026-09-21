@@ -21456,7 +21456,24 @@ function openHostGatheringOverlay(pod, members) {
 // their own, since not everyone at a real table will have their own
 // device. Chart the Battle, Rule Zero Overview, Log Battle, feedback, and
 // Chronicles grouping are further follow-up work, not yet built. -------
+// One interval at a time, tracked here specifically so it can be cleared
+// no matter which path closes the tray -- the X button, clicking outside,
+// ending the Gathering, or looping back through here after picking a
+// seat's deck (which closes and reopens this same overlay). Clearing any
+// prior timer before starting a new one, rather than only on explicit
+// close, means none of those paths can ever leave a stray timer running
+// in the background even if a close path is missed somewhere.
+let gatheringPollTimer = null;
+function stopGatheringPolling() {
+  if (gatheringPollTimer) { clearInterval(gatheringPollTimer); gatheringPollTimer = null; }
+}
+// gatheringId -> the chartedAt value this client has already reacted to,
+// so a non-host player's poll triggers the auto-render/scroll exactly
+// once per battle charted, not on every single poll after the first.
+let seenGatheringChartedAt = {};
+
 async function openLiveGatheringOverlay(podId, gatheringId) {
+  stopGatheringPolling();
   injectTryADeckStyles();
   closeTryADeckModal();
   const overlay = document.createElement('div');
@@ -21467,9 +21484,14 @@ async function openLiveGatheringOverlay(podId, gatheringId) {
   modal.innerHTML = `<button class="tad-close" id="tadCloseBtn">Close ×</button><div id="gatheringTrayContent"><p style="text-align:center; color:var(--text-soft); font-size:13px;">Loading…</p></div>`;
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
-  document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
+  document.getElementById('tadCloseBtn').addEventListener('click', () => { stopGatheringPolling(); closeTryADeckModal(); });
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) { stopGatheringPolling(); closeTryADeckModal(); } });
   await renderLiveGatheringTray(podId, gatheringId);
+  // Polling, not a live connection -- checks every 8 seconds for seat/deck
+  // changes from other players, a newly-charted battle, or the host having
+  // ended the Gathering, without holding a persistent connection open the
+  // whole time someone has the tray up.
+  gatheringPollTimer = setInterval(() => renderLiveGatheringTray(podId, gatheringId), 8000);
 }
 
 async function renderLiveGatheringTray(podId, gatheringId) {
@@ -21487,8 +21509,35 @@ async function renderLiveGatheringTray(podId, gatheringId) {
     return;
   }
   if (gathering.status === 'ended') {
+    stopGatheringPolling();
     content.innerHTML = `<p style="color:var(--text-soft); font-size:13px;">This Gathering has ended. Thanks for joining!</p>`;
     return;
+  }
+  // A poll (not the person who just clicked Chart the Battle themselves --
+  // their own click already renders results directly and stops polling)
+  // discovering a newly-charted battle reacts the same way: build the
+  // same decks locally from the shared seat data and jump to results.
+  // Nothing about the computed results is stored in Firestore itself --
+  // every client just re-derives them from the same seats, since the
+  // analysis is fully deterministic.
+  if (gathering.chartedAt && gathering.chartedAt !== seenGatheringChartedAt[gatheringId]) {
+    seenGatheringChartedAt[gatheringId] = gathering.chartedAt;
+    if (dbReady) {
+      const seatKeysForChart = ['0', '1', '2', '3', '4', '5'];
+      const decks = [];
+      for (const k of seatKeysForChart) {
+        const seat = gathering.seats && gathering.seats[k];
+        if (!seat || !seat.uid || !seat.deck || !seat.deck.list) continue;
+        const result = analyzeOneList(seat.deck.list, seat.displayName || '', seat.deck.commander || '');
+        if (result) { result.color = POD_COLORS[decks.length % POD_COLORS.length]; decks.push(result); }
+      }
+      if (decks.length >= 2) {
+        stopGatheringPolling();
+        closeTryADeckModal();
+        renderPodAnalysisResults(decks);
+        return;
+      }
+    }
   }
   const isHost = gathering.hostUid === window.PodmatesCloud.uid;
   const seatKeys = ['0', '1', '2', '3', '4', '5'];
@@ -21497,6 +21546,7 @@ async function renderLiveGatheringTray(podId, gatheringId) {
     <p style="font-size:11.5px; color:var(--text-soft); margin:0 0 16px;">Live Gathering</p>
     ${isHost ? `<button id="endGatheringBtn" class="ghost" style="width:100%; margin-bottom:16px; border-color:var(--danger); color:var(--danger); font-size:12.5px;">End Gathering</button>` : ''}
     <div id="gatheringSeatsArea"></div>
+    ${isHost ? `<button id="chartBattleBtn" style="width:100%; margin-top:8px;">Chart the Battle</button>` : ''}
     <button id="gatheringRefreshBtn" class="ghost" style="width:100%; margin-top:6px; font-size:12.5px;">Refresh</button>
   `;
   const seatsArea = document.getElementById('gatheringSeatsArea');
@@ -21518,6 +21568,42 @@ async function renderLiveGatheringTray(podId, gatheringId) {
   const refreshBtn = document.getElementById('gatheringRefreshBtn');
   if (refreshBtn) refreshBtn.addEventListener('click', () => renderLiveGatheringTray(podId, gatheringId));
 
+  // Builds the same `decks` array shape analyzeOneList/renderPodAnalysisResults
+  // already expect, just sourced from Firestore seats instead of the old
+  // local textareas -- reuses the entire existing comparison engine and
+  // its rendering rather than maintaining a second copy of either.
+  const chartBtn = document.getElementById('chartBattleBtn');
+  if (chartBtn) chartBtn.addEventListener('click', async () => {
+    if (!dbReady) { showToast('Card database still loading — try again in a moment.'); return; }
+    const decks = [];
+    for (const k of seatKeys) {
+      const seat = gathering.seats && gathering.seats[k];
+      if (!seat || !seat.uid || !seat.deck || !seat.deck.list) continue;
+      const result = analyzeOneList(seat.deck.list, seat.displayName || '', seat.deck.commander || '');
+      if (result) {
+        result.color = POD_COLORS[decks.length % POD_COLORS.length];
+        decks.push(result);
+      }
+    }
+    if (decks.length < 2) {
+      showToast('At least 2 seats need a deck loaded before charting the battle.');
+      return;
+    }
+    chartBtn.disabled = true;
+    chartBtn.textContent = 'Charting…';
+    try {
+      await window.PodmatesCloud.markGatheringCharted(podId, gatheringId);
+    } catch (err) {
+      // Non-fatal -- charting still works locally for this device even if
+      // the "let other players know" flag failed to save; they'll just
+      // need to hit Refresh themselves rather than have it show up on its
+      // own next poll.
+    }
+    stopGatheringPolling();
+    closeTryADeckModal();
+    renderPodAnalysisResults(decks);
+  });
+
   // Host-only for now, matching the original design (End Gathering is
   // described as a host action) -- but available immediately rather than
   // only after logging a battle, since a host needs a way to close out a
@@ -21538,6 +21624,7 @@ async function renderLiveGatheringTray(podId, gatheringId) {
     document.getElementById('endGatheringConfirmBtn').addEventListener('click', async () => {
       try {
         await window.PodmatesCloud.endGathering(podId, gatheringId);
+        stopGatheringPolling();
         closeTryADeckModal();
         renderOurPodPanel(); // refresh MyPods so this no longer shows as live
         showToast('Gathering ended.');
@@ -23104,7 +23191,16 @@ function runPodAnalysis() {
     $('podResultsSection').style.display = 'none';
     return;
   }
+  const { avgSpark, spread } = renderPodAnalysisResults(decks);
+  setPodStatus(`Aligned ${decks.length} decks · avg Spark ${avgSpark.toFixed(1)} · spread ${spread.toFixed(1)}`);
+}
 
+// Shared by the old local-seat comparison AND Chart the Battle for a live
+// Gathering -- both just need to build a `decks` array (via
+// analyzeOneList) from whatever their own seat source is, then hand it
+// here. Keeps the actual analysis/rendering in exactly one place rather
+// than maintaining two copies that could quietly drift apart.
+function renderPodAnalysisResults(decks) {
   // Rank by Command Spark
   decks.sort((a, b) => b.commandSpark - a.commandSpark);
   lastPodDecks = decks;
@@ -23144,8 +23240,8 @@ function runPodAnalysis() {
   if (typeof renderMatchLog === 'function') renderMatchLog();
 
   $('podResultsSection').style.display = 'block';
-  setPodStatus(`Aligned ${decks.length} decks · avg Spark ${avgSpark.toFixed(1)} · spread ${spread.toFixed(1)}`);
   $('podResultsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  return { avgSpark, spread };
 }
 
 function buildPodMismatchNotes(decks) {
@@ -23322,11 +23418,34 @@ function generatePodSummary(decks, avgSpark, std, spread) {
   return `${pace.charAt(0).toUpperCase() + pace.slice(1)} table with ${interaction}${styleNote}${calloutStr}.`;
 }
 
+function generateRuleZeroBlurb(deck) {
+  const bracketNum = deck.bracket && deck.bracket.bracket;
+  const gc = deck.agg.gameChangers || [];
+  const combos = deck.agg.detectedCombos || [];
+  const bits = [];
+  if (combos.length) {
+    bits.push(`a known combo (${escapeHtml(combos[0])})${combos.length > 1 ? ` and ${combos.length - 1} more` : ''}`);
+  }
+  if (gc.length) {
+    bits.push(`${gc.length} Game Changer${gc.length === 1 ? '' : 's'}${gc.length <= 2 ? ` (${gc.map(escapeHtml).join(', ')})` : ''}`);
+  }
+  const styleNote = deck.style ? deck.style.toLowerCase() : '';
+  let text = `<strong>${escapeHtml(deck.playerName || deck.commanderLabel)}</strong> — Bracket ${bracketNum != null ? bracketNum : '?'}, ${escapeHtml(styleNote)} built around ${escapeHtml(deck.commanderLabel)}`;
+  if (bits.length) text += ` — runs ${bits.join(' and ')}`;
+  text += '.';
+  return text;
+}
+
 function renderPodSummary(decks, avgSpark, std, spread) {
   const el = document.getElementById('podSummaryBanner');
   if (!el) return;
   const summary = generatePodSummary(decks, avgSpark, std, spread);
-  el.innerHTML = `<div class="pod-summary-label">Pod Overview</div><div class="pod-summary-text">${summary}</div>`;
+  // Per-deck blurbs exist specifically to prompt an actual Rule Zero
+  // conversation before the game -- naming a real combo or Game Changer
+  // by name is what makes a blurb worth reading aloud at the table,
+  // rather than a generic "this deck is strong" that nobody reacts to.
+  const perDeckHtml = decks.map(d => `<div style="margin-bottom:6px; font-size:13px; line-height:1.5;">${generateRuleZeroBlurb(d)}</div>`).join('');
+  el.innerHTML = `<div class="pod-summary-label">Rule Zero Overview</div><div class="pod-summary-text" style="margin-bottom:10px;">${summary}</div>${perDeckHtml}`;
   el.style.display = 'block';
 }
 
@@ -25209,6 +25328,13 @@ document.querySelectorAll('.icon-btn[data-tooltip], .icon-checkbox-label[data-to
     });
   }
 
+  async function cloudMarkGatheringCharted(podId, gatheringId) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    await setDoc(doc(db, 'pods', podId, 'gatherings', gatheringId), {
+      chartedAt: Date.now(), updatedAt: serverTimestamp(),
+    }, { merge: true });
+  }
+
   async function cloudGoLiveGathering(podId, gatheringId) {
     if (!currentUser) throw new Error('Not signed in yet');
     await setDoc(doc(db, 'pods', podId, 'gatherings', gatheringId), {
@@ -25550,6 +25676,7 @@ document.querySelectorAll('.icon-btn[data-tooltip], .icon-checkbox-label[data-to
     createGathering: cloudCreateGathering, loadGathering: cloudLoadGathering,
     loadLiveGatherings: cloudLoadLiveGatherings, setGatheringSeat: cloudSetGatheringSeat,
     goLiveGathering: cloudGoLiveGathering, endGathering: cloudEndGathering,
+    markGatheringCharted: cloudMarkGatheringCharted,
   };
 
   // Scripts loaded with type="module" (required for Firebase's import
