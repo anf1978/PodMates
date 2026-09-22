@@ -1190,6 +1190,7 @@ One card per line. Formats like &quot;1x Sol Ring&quot;, plain names, or Moxfiel
   </div>
 
   <div id="podResultsSection" style="display:none;">
+    <div id="battleControlsArea"></div>
     <div id="podSummaryBanner" class="pod-summary-banner" style="display:none;"></div>
     <div class="panel">
       <details class="panel-collapsible">
@@ -18851,6 +18852,11 @@ const TRY_A_DECK_OPTIONS = [
 let indexes = null;
 let dbReady = false;
 var lastPodDecks = null;
+// Set right before renderPodAnalysisResults runs, by both the host's own
+// Chart the Battle click and a non-host's poll-triggered auto-redirect to
+// the same results -- null whenever results came from something with no
+// Gathering behind it at all (nothing to log against).
+let currentBattleContext = null;
 
 const $ = (id) => document.getElementById(id);
 
@@ -21557,7 +21563,14 @@ async function renderLiveGatheringTray(podId, gatheringId) {
       if (decks.length >= 2) {
         stopGatheringPolling();
         closeTryADeckModal();
+        currentBattleContext = {
+          podId, gatheringId, gatheringTitle: gathering.title || '',
+          isHost: gathering.hostUid === window.PodmatesCloud.uid,
+          participants: seatKeysForChart.map(k => gathering.seats && gathering.seats[k]).filter(s => s && s.uid).map(s => ({ uid: s.uid, displayName: s.displayName || 'Podmate' })),
+        };
         renderPodAnalysisResults(decks);
+        renderBattleControls();
+        startResultsPolling();
         return;
       }
     }
@@ -21624,7 +21637,13 @@ async function renderLiveGatheringTray(podId, gatheringId) {
     }
     stopGatheringPolling();
     closeTryADeckModal();
+    currentBattleContext = {
+      podId, gatheringId, gatheringTitle: gathering.title || '', isHost: true,
+      participants: seatKeys.map(k => gathering.seats && gathering.seats[k]).filter(s => s && s.uid).map(s => ({ uid: s.uid, displayName: s.displayName || 'Podmate' })),
+    };
     renderPodAnalysisResults(decks);
+    renderBattleControls();
+    startResultsPolling();
   });
 
   // Host-only for now, matching the original design (End Gathering is
@@ -22862,6 +22881,143 @@ function renderPodAnalysisResults(decks) {
   return { avgSpark, spread };
 }
 
+// ---- Log Battle, feedback, and the light polling that lets a non-host
+// player's results page pick up "the host logged this" without needing
+// its own tray-style live connection --------------------------------
+
+let resultsPollTimer = null;
+function stopResultsPolling() {
+  if (resultsPollTimer) { clearInterval(resultsPollTimer); resultsPollTimer = null; }
+}
+function startResultsPolling() {
+  stopResultsPolling();
+  resultsPollTimer = setInterval(async () => {
+    if (!currentBattleContext || currentBattleContext.loggedChronicleId) { stopResultsPolling(); return; }
+    let gathering;
+    try {
+      gathering = await window.PodmatesCloud.loadGathering(currentBattleContext.podId, currentBattleContext.gatheringId);
+    } catch (e) { return; } // transient -- try again next tick
+    if (!gathering || gathering.status === 'ended') { stopResultsPolling(); return; }
+    if (gathering.lastLoggedChronicleId && gathering.lastLoggedChronicleId !== currentBattleContext.loggedChronicleId) {
+      currentBattleContext.loggedChronicleId = gathering.lastLoggedChronicleId;
+      stopResultsPolling();
+      renderBattleControls();
+      // Only the host actually clicked Log Battle -- everyone else gets
+      // the survey popped up here, the moment their own poll notices it,
+      // rather than needing to do anything themselves first.
+      if (!currentBattleContext.isHost) showFeedbackSurvey(currentBattleContext.podId, gathering.lastLoggedChronicleId);
+    }
+  }, 8000);
+}
+
+function renderBattleControls() {
+  const area = document.getElementById('battleControlsArea');
+  if (!area) return;
+  if (!currentBattleContext) { area.innerHTML = ''; return; }
+  if (currentBattleContext.loggedChronicleId) {
+    area.innerHTML = `<div class="panel" style="text-align:center; padding:14px;"><p style="font-size:13.5px; color:var(--text-soft); margin:0;">Battle logged — thanks for playing!</p></div>`;
+    return;
+  }
+  if (!currentBattleContext.isHost) { area.innerHTML = ''; return; }
+  area.innerHTML = `<button id="logBattleBtn" class="ghost" style="width:100%; margin-bottom:14px; border-color:var(--gold); color:var(--gold);">Log Battle</button>`;
+  const btn = document.getElementById('logBattleBtn');
+  if (btn) btn.addEventListener('click', () => {
+    showConfirmModal('End the current battle and log it to your OurPod\u2019s Chronicles? This can\u2019t be undone.', runLogBattle);
+  });
+}
+
+async function runLogBattle() {
+  if (!currentBattleContext || !lastPodDecks) return;
+  const entry = {
+    createdAt: Date.now(),
+    date: new Date().toLocaleString(),
+    notes: '',
+    decks: lastPodDecks.map(d => ({
+      commander: d.commanderLabel || (d.commanders || []).join(' / ') || d.name,
+      player: d.playerName || '',
+      spark: d.commandSpark.toFixed(1),
+      style: d.style
+    })),
+    gatheringId: currentBattleContext.gatheringId,
+    gatheringTitle: currentBattleContext.gatheringTitle,
+    participants: currentBattleContext.participants.map(p => p.uid),
+  };
+  try {
+    const chronicleId = await window.PodmatesCloud.logBattle(currentBattleContext.podId, currentBattleContext.gatheringId, entry);
+    currentBattleContext.loggedChronicleId = chronicleId;
+    renderBattleControls();
+    showFeedbackSurvey(currentBattleContext.podId, chronicleId);
+  } catch (err) {
+    showToast('Could not log the battle: ' + err.message);
+  }
+}
+
+// Fun and accuracy are both optional 1-5 ratings, best moment is optional
+// free text, and the whole thing can be skipped outright -- skipping
+// still counts as participating (the `participants` list on the Chronicle
+// entry already has everyone seated, written at Log Battle time, whether
+// or not they ever open this survey at all).
+function showFeedbackSurvey(podId, chronicleId) {
+  injectTryADeckStyles();
+  closeTryADeckModal();
+  let fun = 0, accuracy = 0;
+  const overlay = document.createElement('div');
+  overlay.className = 'tad-overlay';
+  overlay.id = 'tadOverlay';
+  const modal = document.createElement('div');
+  modal.className = 'tad-modal';
+  modal.innerHTML = `
+    <button class="tad-close" id="tadCloseBtn">Close ×</button>
+    <h2 style="margin-bottom:4px;">How was the battle?</h2>
+    <p style="font-size:12.5px; color:var(--text-soft); margin:0 0 16px;">Totally optional — skip if you'd rather not.</p>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:12px; color:var(--gold); display:block; margin-bottom:6px;">Fun</label>
+      <div id="funRatingRow" class="row" style="gap:6px;"></div>
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:12px; color:var(--gold); display:block; margin-bottom:6px;">Alignment accuracy</label>
+      <div id="accuracyRatingRow" class="row" style="gap:6px;"></div>
+    </div>
+    <div style="margin-bottom:16px;">
+      <label style="font-size:12px; color:var(--gold); display:block; margin-bottom:6px;">Best moment</label>
+      <textarea id="bestMomentInput" placeholder="Anything worth remembering?" style="width:100%; box-sizing:border-box; height:70px; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13px; resize:vertical;"></textarea>
+    </div>
+    <div class="row" style="gap:8px;">
+      <button id="skipFeedbackBtn" class="ghost" style="flex:1;">Skip</button>
+      <button id="submitFeedbackBtn" style="flex:1;">Submit</button>
+    </div>
+    <div id="feedbackStatus" style="font-size:12.5px; margin-top:8px;"></div>
+  `;
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
+  document.getElementById('skipFeedbackBtn').addEventListener('click', closeTryADeckModal);
+
+  function renderRating(rowId, current, onPick) {
+    const row = document.getElementById(rowId);
+    row.innerHTML = [1, 2, 3, 4, 5].map(n => `<button type="button" data-rate="${n}" class="ghost" style="flex:1; padding:8px 0; ${n === current ? 'border-color:var(--gold); color:var(--gold);' : ''}">${n}</button>`).join('');
+    row.querySelectorAll('[data-rate]').forEach(b => b.addEventListener('click', () => onPick(parseInt(b.getAttribute('data-rate'), 10))));
+  }
+  function setFun(n) { fun = n; renderRating('funRatingRow', fun, setFun); }
+  function setAccuracy(n) { accuracy = n; renderRating('accuracyRatingRow', accuracy, setAccuracy); }
+  renderRating('funRatingRow', fun, setFun);
+  renderRating('accuracyRatingRow', accuracy, setAccuracy);
+
+  document.getElementById('submitFeedbackBtn').addEventListener('click', async () => {
+    const statusEl = document.getElementById('feedbackStatus');
+    const bestMoment = (document.getElementById('bestMomentInput').value || '').trim();
+    try {
+      await window.PodmatesCloud.addChronicleFeedback(podId, chronicleId, { fun: fun || null, accuracy: accuracy || null, bestMoment });
+      closeTryADeckModal();
+      showToast('Thanks for the feedback!');
+    } catch (err) {
+      statusEl.textContent = 'Could not save: ' + err.message;
+      statusEl.className = 'status err';
+    }
+  });
+}
+
 function buildPodMismatchNotes(decks) {
   if (!decks || decks.length < 2) return [];
   const notes = [];
@@ -23453,6 +23609,14 @@ function setMode(mode) {
   // hide on the way out and simply never reappear on the way back in.
   $('resultsSection').style.display = (mode === 'single' && hasSingleResult) ? 'block' : 'none';
   $('podResultsSection').style.display = (mode === 'pod' && lastPodDecks) ? 'block' : 'none';
+  // Same "don't poll when nobody's looking" principle as the Gathering
+  // tray -- stop while this tab isn't visible, resume if it still matters
+  // when coming back to it.
+  if (mode === 'pod' && currentBattleContext && !currentBattleContext.loggedChronicleId) {
+    startResultsPolling();
+  } else {
+    stopResultsPolling();
+  }
   // The OurPod panel (now MyPods) refreshes every time this tab is opened,
   // not just the first time -- membership, invite codes, and live
   // Gatherings can all change from outside this tab.
@@ -24667,8 +24831,33 @@ document.querySelectorAll('.icon-btn[data-tooltip], .icon-checkbox-label[data-to
       date: entry.date || '', notes: entry.notes || '', decks: entry.decks || [],
       createdAt: entry.createdAt || Date.now(),
       loggedBy: currentUser.displayName || currentUser.email || 'Someone',
+      // Optional -- only set when this entry came from Log Battle inside a
+      // Gathering, not the older standalone "Add to Chronicles" action.
+      // gatheringTitle is denormalized specifically so the Chronicles view
+      // can group entries by it without a lookup per entry.
+      gatheringId: entry.gatheringId || null,
+      gatheringTitle: entry.gatheringTitle || null,
+      participants: entry.participants || [],
+      feedbackResponses: [],
     });
     return ref.id;
+  }
+
+  // Each submission is appended via arrayUnion rather than read-modify-
+  // write -- multiple players can submit feedback for the same battle
+  // within moments of each other, and arrayUnion is atomic on Firestore's
+  // side, so two near-simultaneous submissions can't silently overwrite
+  // one another the way a plain read-then-set easily could.
+  async function cloudAddChronicleFeedback(podId, chronicleId, feedback) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    await setDoc(doc(db, 'pods', podId, 'chronicles', chronicleId), {
+      feedbackResponses: arrayUnion({
+        uid: currentUser.uid,
+        displayName: currentUser.displayName || currentUser.email || 'Someone',
+        fun: feedback.fun, accuracy: feedback.accuracy, bestMoment: feedback.bestMoment || '',
+        submittedAt: Date.now(),
+      }),
+    }, { merge: true });
   }
 
   async function cloudLoadAllChronicles(podId) {
@@ -24766,6 +24955,20 @@ document.querySelectorAll('.icon-btn[data-tooltip], .icon-checkbox-label[data-to
     await setDoc(doc(db, 'pods', podId, 'gatherings', gatheringId), {
       chartedAt: Date.now(), updatedAt: serverTimestamp(),
     }, { merge: true });
+  }
+
+  // Creates the Chronicle entry for this battle, then marks the Gathering
+  // with which chronicle it points to -- that's the piece other seated
+  // players' results-page polling checks for, since a chronicle entry ID
+  // on the gathering doubles as "the battle has been logged" and "here's
+  // where to submit your own feedback."
+  async function cloudLogBattle(podId, gatheringId, entry) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    const chronicleId = await cloudAddChronicleEntry(podId, entry);
+    await setDoc(doc(db, 'pods', podId, 'gatherings', gatheringId), {
+      lastLoggedChronicleId: chronicleId, lastLoggedAt: Date.now(), updatedAt: serverTimestamp(),
+    }, { merge: true });
+    return chronicleId;
   }
 
   async function cloudGoLiveGathering(podId, gatheringId) {
@@ -25105,6 +25308,7 @@ document.querySelectorAll('.icon-btn[data-tooltip], .icon-checkbox-label[data-to
     saveTableFormation: cloudSaveTableFormation, deleteTableFormation: cloudDeleteTableFormation,
     loadAllTableFormations: cloudLoadAllTableFormations,
     addChronicleEntry: cloudAddChronicleEntry, loadAllChronicles: cloudLoadAllChronicles,
+    addChronicleFeedback: cloudAddChronicleFeedback, logBattle: cloudLogBattle,
     clearAllChronicles: cloudClearAllChronicles,
     createGathering: cloudCreateGathering, loadGathering: cloudLoadGathering,
     loadLiveGatherings: cloudLoadLiveGatherings, setGatheringSeat: cloudSetGatheringSeat,
