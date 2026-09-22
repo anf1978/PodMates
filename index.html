@@ -1048,9 +1048,9 @@ footer::after { content: ' ◆'; color: var(--cyan); font-style: normal; }
 
 One card per line. Formats like &quot;1x Sol Ring&quot;, plain names, or Moxfield/Archidekt-style paste all work — including a Commander: section, if your export has one."></textarea>
     <div class="row">
-      <button id="chartBtn" class="icon-btn" data-tooltip="Chart This Deck" aria-label="Chart This Deck" disabled>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6" fill="currentColor" stroke="none"/><rect x="13" y="8" width="3" height="10" fill="currentColor" stroke="none"/><rect x="18" y="5" width="3" height="13" fill="currentColor" stroke="none"/></svg>
-      </button>
+      <button id="chartBtn" disabled>Chart Deck</button>
+    </div>
+    <div class="row" style="margin-top:10px; align-items:center; flex-wrap:wrap;">
       <button id="viewDeckBtn" class="icon-btn ghost" data-tooltip="View Deck" aria-label="View Deck">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
       </button>
@@ -1063,21 +1063,14 @@ One card per line. Formats like &quot;1x Sol Ring&quot;, plain names, or Moxfiel
       <button id="clearBtn" class="icon-btn ghost" data-tooltip="Clear" aria-label="Clear">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
       </button>
-    </div>
-    <div class="row" style="margin-top:10px; align-items:center;">
       <button id="saveDeckBtn" class="icon-btn ghost" data-tooltip="Save Deck" aria-label="Save Deck">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
       </button>
-      <span style="font-size:12.5px; color:var(--text-soft);">Saves under commander (player name) — both required, to keep decks from overwriting each other</span>
-    </div>
-    <div class="row" style="margin-top:6px; align-items:center;">
       <label class="icon-checkbox-label" data-tooltip="Keep this deck secret from my pod (only you can load it)" aria-label="Keep this deck secret from my pod">
         <input type="checkbox" id="deckSecretCheckbox">
         <svg class="icon-locked" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M7.5 11V7.5a4.5 4.5 0 0 1 9 0V11"/><circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none"/></svg>
         <svg class="icon-unlocked" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M7.5 11V7.5a4.5 4.5 0 0 1 8.6-1.8"/><circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none"/></svg>
       </label>
-    </div>
-    <div class="row" style="margin-top:8px;">
       <button id="loadDeckBtn" class="icon-btn ghost" data-tooltip="Load a Deck" aria-label="Load a Deck">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
       </button>
@@ -1087,6 +1080,7 @@ One card per line. Formats like &quot;1x Sol Ring&quot;, plain names, or Moxfiel
       <button id="deleteDeckBtn" class="ghost" style="display:none;">Delete</button>
       <select id="savedDeckSelect" style="display:none;"></select>
     </div>
+    <p style="font-size:12.5px; color:var(--text-soft); margin:8px 0 0;">Save Deck saves under commander (player name) — both required, to keep decks from overwriting each other</p>
     <input type="file" id="scanCardsFileInput" accept="image/*" multiple style="display:none;">
     <div class="status" id="deckMgmtStatus"></div>
     <div class="status" id="status"></div>
@@ -1099,6 +1093,31 @@ One card per line. Formats like &quot;1x Sol Ring&quot;, plain names, or Moxfiel
       <h2>OurPod</h2>
       <p style="font-size:13.5px; color:var(--text-soft); margin:0 0 14px;">An OurPod is your regular group of people, not a specific set of decks — who's bringing what gets chosen fresh each time you chart a game night.</p>
       <div id="ourPodPanelArea"></div>
+    </div>
+
+    <div class="panel" id="savedDecksTablePanel">
+      <details class="panel-collapsible">
+        <summary class="panel-toggle">The Full Ledger</summary>
+        <p style="font-size:13px; color:var(--text-soft); margin:0 0 10px;">Every deck saved to your account (and shared with you by your pod), side by side. Tap a column header to sort by it — tap again to reverse.</p>
+        <div class="row" style="margin-bottom:10px;">
+          <button id="buildSavedDecksTableBtn" class="ghost">Build Table</button>
+        </div>
+        <div class="status" id="savedDecksTableStatus"></div>
+        <div id="savedDecksTableArea" style="overflow-x:auto;"></div>
+      </details>
+    </div>
+
+    <div class="panel" id="matchHistoryPanel">
+      <details class="panel-collapsible">
+        <summary class="panel-toggle">Chronicles &amp; Stories</summary>
+        <div id="matchHistoryBody">
+          <p style="font-size:12.5px; color:var(--text-soft); margin:0 0 10px;">Your active OurPod’s shared nights, grouped by Gathering, visible to every member. Capture lessons and fun — not just who won.</p>
+          <div id="matchLogArea" style="font-size:13px; color:var(--text-soft); max-height:520px; overflow-y:auto;"></div>
+          <div class="row" style="margin-top:12px;">
+            <button id="clearMatchHistoryBtn" class="ghost">Clear Chronicles</button>
+          </div>
+        </div>
+      </details>
     </div>
   </div>
 
@@ -1223,39 +1242,6 @@ One card per line. Formats like &quot;1x Sol Ring&quot;, plain names, or Moxfiel
         <div id="podChartsArea" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px;"></div>
       </details>
     </div>
-    <div class="panel">
-      <h2>Save This Chapter</h2>
-      <p style="font-size:13px; color:var(--text-soft); margin:0 0 10px;">Add tonight’s game to your OurPod’s Chronicles — a shared story, not a scoreboard. Visible to every member of your active OurPod.</p>
-      <div class="row">
-        <input id="matchNotes" placeholder="What felt great, what we learned, a shoutout…" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
-        <button id="logMatchBtn" class="ghost">Add to Chronicles</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="panel" id="savedDecksTablePanel">
-    <details class="panel-collapsible">
-      <summary class="panel-toggle">The Full Ledger</summary>
-      <p style="font-size:13px; color:var(--text-soft); margin:0 0 10px;">Every deck saved to your account, side by side. Tap a column header to sort by it — tap again to reverse.</p>
-      <div class="row" style="margin-bottom:10px;">
-        <button id="buildSavedDecksTableBtn" class="ghost">Build Table</button>
-      </div>
-      <div class="status" id="savedDecksTableStatus"></div>
-      <div id="savedDecksTableArea" style="overflow-x:auto;"></div>
-    </details>
-  </div>
-
-  <div class="panel" id="matchHistoryPanel">
-    <details class="panel-collapsible">
-      <summary class="panel-toggle">Chronicles &amp; Stories</summary>
-      <div id="matchHistoryBody">
-        <p style="font-size:12.5px; color:var(--text-soft); margin:0 0 10px;">Your active OurPod’s shared nights, visible to every member. Capture lessons and fun — not just who won.</p>
-        <div id="matchLogArea" style="font-size:13px; color:var(--text-soft); max-height:420px; overflow-y:auto;"></div>
-        <div class="row" style="margin-top:12px;">
-          <button id="clearMatchHistoryBtn" class="ghost">Clear Chronicles</button>
-        </div>
-      </div>
-    </details>
   </div>
 
   <footer>Pod Mates · Card data from a Scryfall bulk export (heuristic classifications) · Game Changers follow official Commander guidelines · scores help us align, they don’t rank people · Aug 2026<br>Mana symbols courtesy of Scryfall, portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC. Deck Compass is unofficial Fan Content permitted under the Fan Content Policy; not approved/endorsed by Wizards.</footer>
@@ -23590,6 +23576,13 @@ function setMode(mode) {
     if (container) container.style.display = (m === mode) ? 'block' : 'none';
     const btn = $(ids.btn);
     if (!btn) continue;
+    // .mode-btn.active carries !important styling in the stylesheet, which
+    // overrides any inline style below regardless of what it says -- the
+    // class itself has to actually move for the inactive tab to ever stop
+    // looking active. modeSingleBtn started with this class hardcoded in
+    // its markup and nothing removed it before, which is exactly why it
+    // stayed gold no matter which tab was actually selected.
+    btn.classList.toggle('active', m === mode);
     if (m === mode) {
       btn.style.background = 'var(--gold)';
       btn.style.color = 'var(--bg-main)';
@@ -24260,53 +24253,53 @@ function renderMatchLog() {
   if (!area) return;
   const matches = loadMatches();
   if (!matches.length) {
-    area.innerHTML = '<em>No chapters yet. Align a table and use “Add to Chronicles” after a game.</em>';
+    area.innerHTML = '<em>No chapters yet -- host a Gathering, chart a battle, and Log Battle to start your Chronicles.</em>';
     return;
   }
-  area.innerHTML = matches.map(m => {
-    const decks = (m.decks || []).map(d => {
-      const cmd = d.commander || d.name || '?';
-      const player = d.player ? ` (${escapeHtml(d.player)})` : '';
-      return `<strong>${escapeHtml(cmd)}</strong>${player} · Spark ${escapeHtml(String(d.spark))}`;
-    }).join(' · ');
-    return `<div style="padding:8px 0; border-bottom:1px dashed var(--line);">
-      <div style="font-size:12px; color:var(--text-soft); margin-bottom:2px;">${escapeHtml(m.date || '')}</div>
-      <div>${decks}</div>
-      ${m.notes ? `<div style="color:var(--text-soft); margin-top:2px;">${escapeHtml(m.notes)}</div>` : ''}
+  // Grouped by gatheringTitle -- entries from before Log Battle existed
+  // (the old standalone "Add to Chronicles" flow) have no gathering
+  // attached, so they fall under a catch-all heading rather than being
+  // dropped or breaking the grouping. Groups come out newest-first
+  // automatically, since `matches` itself is already sorted that way and
+  // each group's heading is placed the first time one of its entries is
+  // encountered.
+  const groups = {};
+  const order = [];
+  matches.forEach(m => {
+    const title = m.gatheringTitle || 'Earlier Chronicles';
+    if (!groups[title]) { groups[title] = []; order.push(title); }
+    groups[title].push(m);
+  });
+
+  area.innerHTML = order.map(title => {
+    const entriesHtml = groups[title].map(m => {
+      const decks = (m.decks || []).map(d => {
+        const cmd = d.commander || d.name || '?';
+        const player = d.player ? ` (${escapeHtml(d.player)})` : '';
+        return `<strong>${escapeHtml(cmd)}</strong>${player} · Spark ${escapeHtml(String(d.spark))}`;
+      }).join(' · ');
+      // Only the numeric ratings get averaged -- averaging free text isn't
+      // meaningful, so best moments are shown as a collected list instead,
+      // which doubles as a little highlight reel for the Gathering.
+      const responses = m.feedbackResponses || [];
+      const funVals = responses.map(r => r.fun).filter(v => typeof v === 'number');
+      const accVals = responses.map(r => r.accuracy).filter(v => typeof v === 'number');
+      const avgFun = funVals.length ? (funVals.reduce((s, v) => s + v, 0) / funVals.length).toFixed(1) : null;
+      const avgAcc = accVals.length ? (accVals.reduce((s, v) => s + v, 0) / accVals.length).toFixed(1) : null;
+      const moments = responses.map(r => r.bestMoment).filter(Boolean);
+      return `<div style="padding:10px 0; border-bottom:1px dashed var(--line);">
+        <div style="font-size:12px; color:var(--text-soft); margin-bottom:2px;">${escapeHtml(m.date || '')}</div>
+        <div>${decks}</div>
+        ${(avgFun || avgAcc) ? `<div style="color:var(--gold); margin-top:4px; font-size:12.5px;">${avgFun ? `Fun: ${avgFun}/5` : ''}${avgFun && avgAcc ? ' · ' : ''}${avgAcc ? `Alignment: ${avgAcc}/5` : ''} (${responses.length} response${responses.length === 1 ? '' : 's'})</div>` : ''}
+        ${moments.length ? `<div style="color:var(--text-soft); margin-top:4px; font-style:italic;">${moments.map(escapeHtml).join(' · ')}</div>` : ''}
+        ${m.notes ? `<div style="color:var(--text-soft); margin-top:2px;">${escapeHtml(m.notes)}</div>` : ''}
+      </div>`;
+    }).join('');
+    return `<div style="margin-bottom:18px;">
+      <div style="font-family:'Cinzel',Georgia,serif; font-size:13px; letter-spacing:0.05em; text-transform:uppercase; color:var(--gold); margin-bottom:8px; padding-bottom:4px; border-bottom:1px solid var(--line-strong);">${escapeHtml(title)}</div>
+      ${entriesHtml}
     </div>`;
   }).join('');
-}
-
-function logCurrentMatch() {
-  if (!lastPodDecks || lastPodDecks.length < 2) {
-    showToast('Run a pod comparison first.');
-    return;
-  }
-  if (!requireAccountToSave('chronicles')) return;
-  if (!currentPodViewId) {
-    showToast('Join or create an OurPod first -- Chronicles are shared with your OurPod, not saved personally.');
-    return;
-  }
-
-  const notes = ($('matchNotes') || {}).value || '';
-  const entry = {
-    createdAt: Date.now(),
-    date: new Date().toLocaleString(),
-    notes: notes.trim(),
-    decks: lastPodDecks.map(d => ({
-      commander: d.commanderLabel || (d.commanders || []).join(' / ') || d.name,
-      player: d.playerName || '',
-      spark: d.commandSpark.toFixed(1),
-      style: d.style
-    }))
-  };
-  window.PodmatesCloud.addChronicleEntry(currentPodViewId, entry)
-    .then(async () => {
-      await refreshCloudChroniclesCache();
-      if ($('matchNotes')) $('matchNotes').value = '';
-      showToast('Chapter added to your OurPod\u2019s Chronicles.');
-    })
-    .catch((e) => showToast('Could not save: ' + e.message));
 }
 
 // Wire save/load
@@ -24316,8 +24309,6 @@ const loadBtn = $('loadDeckBtn');
 if (loadBtn) loadBtn.addEventListener('click', showLoadDeckModal);
 const delBtn = $('deleteDeckBtn');
 if (delBtn) delBtn.addEventListener('click', deleteSelectedDeck);
-const logBtn = $('logMatchBtn');
-if (logBtn) logBtn.addEventListener('click', logCurrentMatch);
 
 const clearHistBtn = $('clearMatchHistoryBtn');
 if (clearHistBtn) clearHistBtn.addEventListener('click', () => {
