@@ -1100,39 +1100,6 @@ One card per line. Formats like &quot;1x Sol Ring&quot;, plain names, or Moxfiel
       <p style="font-size:13.5px; color:var(--text-soft); margin:0 0 14px;">An OurPod is your regular group of people, not a specific set of decks — who's bringing what gets chosen fresh each time you chart a game night.</p>
       <div id="ourPodPanelArea"></div>
     </div>
-
-    <div class="panel" style="border-color:var(--gold); box-shadow:0 0 0 1px var(--gold) inset;">
-      <h2>Epic Match Ups</h2>
-      <p style="font-size:13.5px; color:var(--text-soft); margin:0 0 14px;">Let the app pick a pod from everyone's saved decks — balanced Spark, no pace mismatches, real playstyle variety, and it won't just suggest last week's table again.</p>
-      <div id="epicMatchupArea"></div>
-      <div id="epicMatchupExplainArea"></div>
-    </div>
-
-    <div class="panel">
-      <h2>Tonight's Lineup <span style="font-weight:400; font-size:12px; letter-spacing:normal; text-transform:none; color:var(--text-soft);">(up to 6 mates)</span></h2>
-      <p style="font-size:13.5px; color:var(--text-soft); margin:0 0 14px;">Each seat needs a <strong>commander</strong> (required). Player name is optional. Empty seats are skipped. This is our shared vibe check before we shuffle.</p>
-      <div class="row" style="margin-bottom:14px;">
-        <button id="loadExamplePodBtn" class="ghost">Load Example Pod (6 sample decks)</button>
-      </div>
-      <div id="podInputs" style="display:grid; gap:14px;"></div>
-      <div class="row" style="margin-top:16px;">
-        <button id="podChartBtn" disabled>Align Game Night</button>
-        <button id="podClearBtn" class="ghost">Clear Seats</button>
-      </div>
-      <div class="row" style="margin-top:10px; align-items:center;">
-        <input type="text" id="podFormationNameInput" placeholder="Formation name (e.g. Friday Night Pod)"
-          style="flex:2; min-width:180px; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
-        <button id="savePodBtn" class="ghost">Save Pod Group</button>
-      </div>
-      <div class="row" style="margin-top:8px;">
-        <select id="savedPodSelect" style="flex:1; min-width:160px; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
-          <option value="">— Saved pod groups —</option>
-        </select>
-        <button id="loadPodBtn" class="ghost">Load Group</button>
-        <button id="deletePodBtn" class="ghost">Delete Group</button>
-      </div>
-      <div class="status" id="podStatus"></div>
-    </div>
   </div>
 
   <div id="resultsSection">
@@ -18996,8 +18963,6 @@ async function initDatabase() {
     window.__dbWatchdogFired = false;
     setDbLoadUI('ok', `Ready — ${CARD_DB.length.toLocaleString()} cards loaded. You can chart decks now.`);
     $('chartBtn').disabled = false;
-    const podBtn = $('podChartBtn');
-    if (podBtn) podBtn.disabled = false;
   } catch (e) {
     window.__dbWatchdogFired = true;
     setDbLoadUI('err',
@@ -21199,7 +21164,6 @@ function getInviteLink(code) {
 // active at all -- ends up covered without needing a refresh call at each
 // of the many individual places currentPodViewId gets reassigned.
 function refreshPodScopedData() {
-  refreshCloudTableFormationsCache();
   refreshCloudChroniclesCache();
 }
 
@@ -21365,7 +21329,7 @@ function openPodDetailOverlay(pod, pods) {
 
 // --- Host a Gathering: name it, seat real pod members (host auto-seated
 // in Seat 1, seats 2-6 pick from the rest of the pod), then Go Live. -----
-function openHostGatheringOverlay(pod, members) {
+async function openHostGatheringOverlay(pod, members) {
   injectTryADeckStyles();
   closeTryADeckModal();
   const myUid = window.PodmatesCloud.uid;
@@ -21373,19 +21337,41 @@ function openHostGatheringOverlay(pod, members) {
   const myName = (me && me.displayName) || window.PodmatesCloud.user.displayName || 'Host';
   const seatAssignments = [myUid, null, null, null, null, null]; // index 0 is always the host
 
+  // Table Formations now store just WHO sits where, not decks -- decks
+  // are always chosen fresh when a Gathering goes live (per the OurPod
+  // panel's own explainer: "who's bringing what gets chosen fresh each
+  // time"). This replaces the old paste-6-decks-and-save flow, which
+  // saved full decklists that immediately went stale the moment anyone
+  // updated a deck.
+  let savedLineups = {};
+  try { savedLineups = await window.PodmatesCloud.loadAllTableFormations(pod.id); } catch (e) { /* fine -- just nothing to offer */ }
+
   const overlay = document.createElement('div');
   overlay.className = 'tad-overlay';
   overlay.id = 'tadOverlay';
   const modal = document.createElement('div');
   modal.className = 'tad-modal';
+  const lineupNames = Object.keys(savedLineups).sort();
   modal.innerHTML = `
     <button class="tad-close" id="tadCloseBtn">Close ×</button>
     <h2 style="margin-bottom:10px;">Host a Gathering</h2>
+    ${lineupNames.length ? `
+    <div class="row" style="margin-bottom:14px; gap:8px;">
+      <select id="loadLineupSelect" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13px;">
+        <option value="">— Load a saved lineup —</option>
+        ${lineupNames.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('')}
+      </select>
+      <button id="loadLineupBtn" class="ghost" style="white-space:nowrap;">Load</button>
+    </div>` : ''}
     <div style="margin-bottom:16px;">
       <label style="font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold); display:block; margin-bottom:6px;">Name the Gathering</label>
       <input id="gatheringTitleInput" type="text" placeholder="e.g. Friday Night Bash" style="width:100%; box-sizing:border-box; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
     </div>
-    <div id="hostSeatsArea" style="margin-bottom:16px;"></div>
+    <div id="hostSeatsArea" style="margin-bottom:12px;"></div>
+    <div class="row" style="margin-bottom:16px; gap:8px;">
+      <input id="saveLineupNameInput" type="text" placeholder="Save this lineup as…" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:7px 9px; color:var(--text-primary); font-family:inherit; font-size:12.5px;">
+      <button id="saveLineupBtn" class="ghost" style="white-space:nowrap; font-size:12px;">Save Lineup</button>
+    </div>
     <button id="goLiveBtn">Go Live</button>
     <div id="hostGatheringStatus" style="font-size:12.5px; margin-top:8px;"></div>
   `;
@@ -21421,6 +21407,43 @@ function openHostGatheringOverlay(pod, members) {
     });
   }
   renderSeats();
+
+  const loadLineupBtn = document.getElementById('loadLineupBtn');
+  if (loadLineupBtn) loadLineupBtn.addEventListener('click', () => {
+    const name = document.getElementById('loadLineupSelect').value;
+    if (!name || !savedLineups[name]) return;
+    const savedSeats = savedLineups[name].seats || [];
+    // Only reapplies a saved seat if that person is STILL actually a pod
+    // member -- someone may have left since this lineup was saved, and a
+    // stale uid pointing at nobody would just show as broken.
+    for (let i = 1; i < 6; i++) {
+      const saved = savedSeats[i];
+      const stillAMember = saved && saved.uid && members.some(m => m.uid === saved.uid);
+      seatAssignments[i] = stillAMember ? saved.uid : null;
+    }
+    renderSeats();
+    showToast(`Loaded "${name}".`);
+  });
+
+  document.getElementById('saveLineupBtn').addEventListener('click', async () => {
+    const statusEl = document.getElementById('hostGatheringStatus');
+    const nameInput = document.getElementById('saveLineupNameInput');
+    const name = (nameInput.value || '').trim();
+    if (!name) { statusEl.textContent = 'Enter a name for this lineup first.'; statusEl.className = 'status err'; return; }
+    const seats = seatAssignments.map(uid => {
+      if (!uid) return null;
+      const m = members.find(mm => mm.uid === uid);
+      return { uid, displayName: uid === myUid ? myName : ((m && m.displayName) || 'Podmate') };
+    });
+    try {
+      await window.PodmatesCloud.saveTableFormation(pod.id, name, { seats, savedAt: Date.now() });
+      showToast(`Saved lineup "${name}".`);
+      nameInput.value = '';
+    } catch (err) {
+      statusEl.textContent = 'Could not save that lineup: ' + err.message;
+      statusEl.className = 'status err';
+    }
+  });
 
   document.getElementById('goLiveBtn').addEventListener('click', async () => {
     const statusEl = document.getElementById('hostGatheringStatus');
@@ -21756,7 +21779,6 @@ async function renderPodDetailView(container, pods) {
   container.innerHTML = `<p style="text-align:center; color:var(--text-soft); font-size:13px;">Loading members…</p>`;
   let members = [];
   try { members = await window.PodmatesCloud.loadPodMembers(pod.id); } catch (e) { /* fine -- render with an empty list */ }
-  populateSeatsFromOurPodMembers(members);
 
   const myUid = window.PodmatesCloud.uid;
   const myRole = (members.find(m => m.uid === myUid) || {}).role || 'member';
@@ -22729,95 +22751,6 @@ $('clearBtn').addEventListener('click', () => {
 
 const POD_COLORS = ['#E0B24D', '#8AB1E0', '#8FBF78', '#E0977A', '#C9A0DC', '#7EC8C8'];
 
-function loadSavedIntoPodSlot(slotIndex, key) {
-  if (!key) return;
-  const decks = loadSavedDecks();
-  const entry = decks[key] || podmateDecksCache[key];
-  if (!entry) return;
-  const list = typeof entry === 'string' ? entry : (entry.list || '');
-  const commander = typeof entry === 'object' ? (entry.commander || '') : '';
-  const player = typeof entry === 'object' ? (entry.player || '') : '';
-  const ta = $('podList' + slotIndex);
-  const cm = $('podCommander' + slotIndex);
-  const nm = $('podName' + slotIndex);
-  if (ta) ta.value = list;
-  if (cm) cm.value = commander || key.replace(/\s*\([^)]*\)\s*$/, '').trim();
-  if (nm) nm.value = player;
-}
-
-function buildPodInputs() {
-  const container = $('podInputs');
-  if (!container) return;
-  container.innerHTML = '';
-  for (let i = 0; i < 6; i++) {
-    const div = document.createElement('div');
-    div.style.cssText = 'background:var(--bg-panel-raised); border:1px solid var(--line); border-radius:3px; padding:12px;';
-    div.innerHTML = `
-      <div style="display:flex; gap:8px; margin-bottom:8px; align-items:center; flex-wrap:wrap;">
-        <span style="width:12px; height:12px; border-radius:50%; background:${POD_COLORS[i]}; flex-shrink:0;"></span>
-        <input type="text" id="podCommander${i}" placeholder="Commander * (required)"
-          style="flex:2; min-width:140px; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:6px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
-        <input type="text" id="podName${i}" placeholder="Player (optional)"
-          style="flex:1; min-width:100px; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:6px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
-      </div>
-      <div style="margin-bottom:8px;">
-        <button type="button" class="ghost" data-pod-load-seat="${i}" style="width:100%; font-size:13px;">Load a Saved Deck…</button>
-      </div>
-      <div class="row" style="margin-bottom:8px; gap:6px;">
-        <input type="text" id="podLinkInput${i}" placeholder="Or paste an Archidekt/Moxfield link — no account needed for a guest's deck"
-          style="flex:1; min-width:140px; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:6px 9px; color:var(--text-primary); font-family:inherit; font-size:12.5px;">
-        <button type="button" class="ghost" data-pod-link-seat="${i}" style="white-space:nowrap; font-size:12px;">Load Link</button>
-      </div>
-      <div id="podLinkStatus${i}" style="font-size:11.5px; margin-bottom:6px; min-height:14px;"></div>
-      <textarea id="podList${i}" placeholder="Paste decklist here (leave empty to skip)…"
-        style="width:100%; min-height:90px; resize:vertical; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:10px; font-family:inherit; font-size:13.5px; color:var(--text-primary); line-height:1.45;"></textarea>
-    `;
-    container.appendChild(div);
-  }
-}
-
-async function loadDeckLinkIntoSeat(seat, btn) {
-  const input = $('podLinkInput' + seat);
-  const statusEl = $('podLinkStatus' + seat);
-  const url = (input ? input.value : '').trim();
-  if (!url) { if (statusEl) { statusEl.textContent = 'Paste a deck link first.'; statusEl.className = 'status err'; } return; }
-  if (!window.PodmatesCloud) { if (statusEl) statusEl.textContent = 'Still connecting -- try again in a moment.'; return; }
-
-  const originalText = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = 'Loading…';
-  if (statusEl) { statusEl.textContent = ''; statusEl.className = 'status'; }
-
-  // Deliberately does NOT require an account -- this is the guest path.
-  // Whoever's actually using PodMates at the table may or may not be
-  // signed in themselves; fetching a deck by its own public link never
-  // needed an account on either end.
-  const result = await window.PodmatesCloud.fetchDeckByLink(url);
-
-  btn.disabled = false;
-  btn.textContent = originalText;
-
-  if (!result.ok) {
-    if (statusEl) { statusEl.textContent = result.error; statusEl.className = 'status err'; }
-    return;
-  }
-
-  const d = result.deck;
-  if ($('podCommander' + seat)) $('podCommander' + seat).value = d.commander || '';
-  if ($('podList' + seat)) $('podList' + seat).value = d.decklistText;
-  if (statusEl) {
-    statusEl.textContent = `Loaded "${d.name}" — ${d.cardCount} cards${d.commander ? '' : ' (commander not auto-detected — enter it above if needed)'}.`;
-    statusEl.className = 'status';
-  }
-}
-
-function setPodStatus(msg, isErr) {
-  const el = $('podStatus');
-  if (!el) return;
-  el.textContent = msg;
-  el.className = 'status' + (isErr ? ' err' : '');
-}
-
 function analyzeOneList(raw, playerName, commanderOverride) {
   const parsed = parseDecklist(raw);
   const entries = parsed.entries;
@@ -22880,326 +22813,11 @@ function analyzeOneList(raw, playerName, commanderOverride) {
   };
 }
 
-// ============================================================
-// EPIC MATCH UPS -- suggest a strong pod from the saved-deck library
-// ============================================================
 
-let epicMatchupPool = null; // cached analyzed decks for this pod-tab session
-let epicMatchupShown = new Set(); // signatures already suggested, so reroll doesn't repeat
-
-function nChooseK(n, k) {
-  if (k < 0 || k > n) return 0;
-  k = Math.min(k, n - k);
-  let result = 1;
-  for (let i = 0; i < k; i++) result = (result * (n - i)) / (i + 1);
-  return Math.round(result);
-}
-
-function enumerateCombinations(arr, k) {
-  const results = [];
-  const combo = [];
-  (function backtrack(start) {
-    if (combo.length === k) { results.push([...combo]); return; }
-    for (let i = start; i < arr.length; i++) {
-      combo.push(arr[i]);
-      backtrack(i + 1);
-      combo.pop();
-    }
-  })(0);
-  return results;
-}
-
-// One entry per saved deck, carrying both the raw decklist text (needed to
-// actually populate a pod seat) and the full analysis (needed to score it).
-// Decks with no player name are each treated as their own standalone
-// "player" so unrelated blank-player decks don't get incorrectly grouped
-// as if they belonged to the same real person.
-function analyzeAllSavedDecksForMatchup() {
-  const decks = loadSavedDecks();
-  const pool = [];
-  for (const [key, entry] of Object.entries(decks)) {
-    const raw = (typeof entry === 'string') ? entry : (entry.list || '');
-    const player = (typeof entry === 'object') ? (entry.player || '') : '';
-    const commander = (typeof entry === 'object') ? (entry.commander || '') : '';
-    if (!raw.trim()) continue;
-    const result = analyzeOneList(raw, player, commander);
-    if (!result) continue;
-    const playerKey = player.trim() ? player.trim().toLowerCase() : ('__anon__' + key);
-    pool.push({ key, playerKey, raw, player, result });
-  }
-  return pool;
-}
-
-// Groups the pool by real player (or standalone-anonymous-deck), since a
-// pod suggestion shouldn't ever put two decks belonging to the same person
-// at the same table.
-function groupPoolByPlayer(pool) {
-  const byPlayer = new Map();
-  for (const entry of pool) {
-    if (!byPlayer.has(entry.playerKey)) byPlayer.set(entry.playerKey, []);
-    byPlayer.get(entry.playerKey).push(entry);
-  }
-  return [...byPlayer.values()];
-}
-
-function signatureOfGroup(group) {
-  return group.map(e => e.key).sort().join('||');
-}
-
-// Recent Chronicles lineups, reconstructed into the same key shape saved
-// decks use, so a candidate group's overlap with a recent night can be
-// measured directly.
-function getRecentChronicleKeySets(limit) {
-  const chronicles = loadMatches();
-  return [...chronicles]
-    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
-    .slice(0, limit || 10)
-    .map(entry => new Set((entry.decks || []).map(d => `${d.commander} (${d.player || ''})`)));
-}
-
-// Lower cost = better suggested pod. Combines four signals already used
-// elsewhere in the app rather than inventing new scoring from scratch:
-// Spark spread (tight = fair), Pace/Interaction risk count (reusing the
-// Archetype Matchup Radar's own risk detector), playstyle variety (more
-// distinct Table Vibe/Style = a more interesting night), and freshness
-// (mild penalty for closely repeating a recent Chronicles lineup).
-function scoreCandidateGroup(group, chroniclesRecentSets) {
-  const decks = group.map(e => e.result);
-  const sparks = decks.map(d => d.commandSpark);
-  const sparkSpread = Math.max(...sparks) - Math.min(...sparks);
-
-  const risks = analyzePaceInteractionRisks(decks);
-  const riskCount = risks.length;
-
-  const styles = new Set(decks.map(d => d.style));
-  const varietyBonus = styles.size;
-
-  let overlapPenalty = 0;
-  const thisKeySet = new Set(group.map(e => `${e.result.commanderLabel} (${e.player || ''})`));
-  for (const recentSet of chroniclesRecentSets) {
-    const overlap = [...thisKeySet].filter(k => recentSet.has(k)).length;
-    if (overlap >= 2) overlapPenalty += overlap;
-  }
-
-  return sparkSpread * 1.0 + riskCount * 2.0 - varietyBonus * 0.5 + overlapPenalty * 0.75;
-}
-
-// Brute-forces every player combination when the search space is small
-// enough to do so exactly; otherwise falls back to randomized local search
-// (random starting groups, then hill-climb by swapping one player at a
-// time for an improvement) so this stays fast regardless of library size.
-function findEpicMatchup(pool, groupSize, excludeSignatures) {
-  const playerGroups = groupPoolByPlayer(pool);
-  if (playerGroups.length < groupSize) return null;
-
-  const chroniclesRecentSets = getRecentChronicleKeySets(10);
-  const pickRandomDeck = (decksForPlayer) => decksForPlayer[Math.floor(Math.random() * decksForPlayer.length)];
-
-  let candidateGroups = [];
-  const totalCombos = nChooseK(playerGroups.length, groupSize);
-
-  if (totalCombos > 0 && totalCombos <= 3000) {
-    candidateGroups = enumerateCombinations(playerGroups, groupSize)
-      .map(playerSet => playerSet.map(pickRandomDeck));
-  } else {
-    const RESTARTS = 25, SWAP_ATTEMPTS = 15;
-    for (let r = 0; r < RESTARTS; r++) {
-      let current = [...playerGroups].sort(() => Math.random() - 0.5).slice(0, groupSize).map(pickRandomDeck);
-      let currentCost = scoreCandidateGroup(current, chroniclesRecentSets);
-      for (let s = 0; s < SWAP_ATTEMPTS; s++) {
-        const usedPlayerKeys = new Set(current.map(e => e.playerKey));
-        const otherPlayers = playerGroups.filter(g => !usedPlayerKeys.has(g[0].playerKey));
-        if (!otherPlayers.length) break;
-        const randomOtherPlayerGroup = otherPlayers[Math.floor(Math.random() * otherPlayers.length)];
-        const swapIn = pickRandomDeck(randomOtherPlayerGroup);
-        const idx = Math.floor(Math.random() * groupSize);
-        const trial = [...current];
-        trial[idx] = swapIn;
-        const trialCost = scoreCandidateGroup(trial, chroniclesRecentSets);
-        if (trialCost < currentCost) { current = trial; currentCost = trialCost; }
-      }
-      candidateGroups.push(current);
-    }
-  }
-
-  const scored = candidateGroups.map(g => ({
-    group: g, cost: scoreCandidateGroup(g, chroniclesRecentSets), sig: signatureOfGroup(g),
-  })).sort((a, b) => a.cost - b.cost);
-
-  const fresh = scored.find(c => !excludeSignatures.has(c.sig));
-  return fresh || scored[0] || null; // fall back to a repeat only if truly exhausted
-}
-
-// Reasons a specific candidate group scored well, surfaced to the user
-// rather than staying hidden inside the cost function. Reuses the exact
-// same computations scoreCandidateGroup uses, so the explanation can never
-// drift from what was actually scored.
-function explainCandidateGroup(group, chroniclesRecentSets) {
-  const decks = group.map(e => e.result);
-  const reasons = [];
-
-  const sparks = decks.map(d => d.commandSpark);
-  const spread = Math.max(...sparks) - Math.min(...sparks);
-  reasons.push(`Spark spread of only ${spread.toFixed(1)} \u2014 closely matched power level.`);
-
-  const risks = analyzePaceInteractionRisks(decks);
-  if (risks.length === 0) {
-    reasons.push("No pace or interaction mismatches detected \u2014 nobody should get blindsided or steamrolled.");
-  } else {
-    risks.forEach(r => reasons.push(r));
-  }
-
-  const styles = [...new Set(decks.map(d => d.style))];
-  reasons.push(`${styles.length} distinct playstyle${styles.length === 1 ? '' : 's'} at the table: ${styles.join(', ')}.`);
-
-  const thisKeySet = new Set(group.map(e => `${e.result.commanderLabel} (${e.player || ''})`));
-  let bestOverlap = 0;
-  for (const recentSet of chroniclesRecentSets) {
-    const overlap = [...thisKeySet].filter(k => recentSet.has(k)).length;
-    if (overlap > bestOverlap) bestOverlap = overlap;
-  }
-  if (bestOverlap >= 2) {
-    reasons.push(`Heads up: shares ${bestOverlap} decks with a recent Chronicles entry \u2014 still the best option available among these players.`);
-  } else {
-    reasons.push("Doesn't closely match any recent Chronicles write-up \u2014 a fresh table.");
-  }
-
-  return reasons;
-}
-
-function renderEpicMatchupPanel() {
-  const area = $('epicMatchupArea');
-  if (!area) return;
-
-  area.innerHTML = `
-    <div class="row" style="margin-bottom:10px; align-items:center;">
-      <label for="epicMatchupSize" style="font-size:13px; color:var(--text-soft);">Players:</label>
-      <select id="epicMatchupSize" style="background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:6px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
-        <option value="2">2</option><option value="3">3</option><option value="4" selected>4</option><option value="5">5</option><option value="6">6</option>
-      </select>
-      <button data-epic-action="suggest" class="ghost">Suggest Epic Matchup</button>
-      <button data-epic-action="reroll" class="ghost" style="display:${epicMatchupShown.size ? 'inline-block' : 'none'};">Try Another</button>
-    </div>
-  `;
-}
-
-function suggestEpicMatchup() {
-  const explainAreaEl = $('epicMatchupExplainArea');
-  if (explainAreaEl) explainAreaEl.innerHTML = ''; // clear any stale "why" text from a previous suggestion before this attempt runs
-
-  const sizeSelect = $('epicMatchupSize');
-  const groupSize = sizeSelect ? parseInt(sizeSelect.value, 10) : 4;
-  if (!groupSize || groupSize < 2) {
-    setPodStatus('Not enough players present for a suggestion.', true);
-    return;
-  }
-
-  // Re-analyze fresh on every click (both "Suggest" and "Try Another") --
-  // saved decks can change between clicks (new saves, a sync import), and
-  // re-analyzing a normal-sized library is cheap enough that avoiding a
-  // stale-cache bug is worth more than the small saved cost of a cache.
-  epicMatchupPool = analyzeAllSavedDecksForMatchup();
-
-  const distinctPlayers = new Set(epicMatchupPool.map(e => e.playerKey)).size;
-  if (distinctPlayers < groupSize) {
-    setPodStatus(`Not enough saved decks for a ${groupSize}-player suggestion (found ${distinctPlayers} distinct player${distinctPlayers === 1 ? '' : 's'}). Save more decks first.`, true);
-    return;
-  }
-
-  const best = findEpicMatchup(epicMatchupPool, groupSize, epicMatchupShown);
-  if (!best) {
-    setPodStatus('Could not find a matchup to suggest.', true);
-    return;
-  }
-  epicMatchupShown.add(best.sig);
-
-  buildPodInputs();
-  podInputsBuilt = true;
-  best.group.forEach((entry, i) => {
-    if ($('podCommander' + i)) $('podCommander' + i).value = entry.result.commanderLabel;
-    if ($('podName' + i)) $('podName' + i).value = entry.player;
-    if ($('podList' + i)) $('podList' + i).value = entry.raw;
-  });
-
-  const chroniclesRecentSets = getRecentChronicleKeySets(10);
-  const reasons = explainCandidateGroup(best.group, chroniclesRecentSets);
-  const names = best.group.map(e => e.result.commanderLabel).join(', ');
-  setPodStatus(`Suggested: ${names}.`);
-  const explainArea = $('epicMatchupExplainArea');
-  if (explainArea) {
-    explainArea.innerHTML = `
-      <div style="margin-top:12px; padding-top:12px; border-top:1px dashed var(--line);">
-        <div style="font-size:12px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold); margin-bottom:8px;">Why this matchup</div>
-        ${reasons.map(r => `<div style="font-size:13px; color:var(--text-soft); margin-bottom:6px; padding-left:10px; border-left:3px solid var(--gold);">${escapeHtml(r)}</div>`).join('')}
-      </div>
-    `;
-  }
-
-  renderEpicMatchupPanel();
-  runPodAnalysis();
-}
-
-document.addEventListener('click', (e) => {
-  const epicAction = e.target && e.target.closest ? e.target.closest('[data-epic-action]') : null;
-  if (epicAction) {
-    suggestEpicMatchup();
-    return;
-  }
-});
-
-function loadExamplePod() {
-  buildPodInputs(); // deliberately force a fresh rebuild -- loading examples should overwrite whatever was there
-  podInputsBuilt = true;
-  // Filters by source explicitly rather than array position -- positional
-  // slicing broke once precon decks were appended after the curated 6.
-  const curatedDecks = TRY_A_DECK_OPTIONS.filter(o => o.source === 'curated').slice(0, 6);
-  curatedDecks.forEach((opt, i) => {
-    if ($('podCommander' + i)) $('podCommander' + i).value = opt.commander;
-    if ($('podName' + i)) $('podName' + i).value = opt.style;
-    if ($('podList' + i)) $('podList' + i).value = opt.decklist;
-  });
-  setPodStatus(`Loaded all ${curatedDecks.length} curated sample decks (${curatedDecks.map(o => o.style).join(', ')}).`);
-  runPodAnalysis();
-}
-
-function runPodAnalysis() {
-  if (!dbReady) return;
-  const decks = [];
-  const missingCommander = [];
-  for (let i = 0; i < 6; i++) {
-    const raw = ($('podList' + i) || {}).value || '';
-    if (!raw.trim()) continue;
-    const player = ($('podName' + i) || {}).value || '';
-    const cmdField = ($('podCommander' + i) || {}).value || '';
-    if (!cmdField.trim()) {
-      missingCommander.push(i + 1);
-      continue;
-    }
-    const result = analyzeOneList(raw, player.trim(), cmdField.trim());
-    if (result) {
-      result.color = POD_COLORS[decks.length % POD_COLORS.length];
-      decks.push(result);
-    }
-  }
-  if (missingCommander.length) {
-    setPodStatus('Commander is required for every list you paste. Fill the Commander field for slot(s): ' + missingCommander.join(', '), true);
-    $('podResultsSection').style.display = 'none';
-    return;
-  }
-  if (decks.length < 2) {
-    setPodStatus('Paste at least 2 decklists (with commanders) to compare.', true);
-    $('podResultsSection').style.display = 'none';
-    return;
-  }
-  const { avgSpark, spread } = renderPodAnalysisResults(decks);
-  setPodStatus(`Aligned ${decks.length} decks · avg Spark ${avgSpark.toFixed(1)} · spread ${spread.toFixed(1)}`);
-}
-
-// Shared by the old local-seat comparison AND Chart the Battle for a live
-// Gathering -- both just need to build a `decks` array (via
-// analyzeOneList) from whatever their own seat source is, then hand it
-// here. Keeps the actual analysis/rendering in exactly one place rather
-// than maintaining two copies that could quietly drift apart.
+// The shared analysis/rendering step for any decks array, however it was
+// built -- currently only Chart the Battle (a live Gathering's seats)
+// calls this, but kept as its own function rather than inlined so a
+// future second caller doesn't mean duplicating this logic again.
 function renderPodAnalysisResults(decks) {
   // Rank by Command Spark
   decks.sort((a, b) => b.commandSpark - a.commandSpark);
@@ -23804,25 +23422,6 @@ function renderPodMiniCharts(decks) {
 }
 
 // Mode switching
-let podInputsBuilt = false;
-// Guards against re-filling seats the person has already started editing --
-// player names get auto-filled from the active OurPod's real membership
-// exactly once per page load, not on every OurPod panel refresh (which
-// happens often -- e.g. after any Steward action), so mid-edit typing
-// never gets silently overwritten. Switching to a different OurPod via
-// the switcher doesn't re-trigger this; re-filling from a different
-// pod's roster on top of whatever's already typed would be more
-// surprising than helpful.
-let seatsPopulatedFromPod = false;
-
-function populateSeatsFromOurPodMembers(members) {
-  if (seatsPopulatedFromPod || !members || !members.length) return;
-  seatsPopulatedFromPod = true;
-  members.slice(0, 6).forEach((m, i) => {
-    const field = $('podName' + i);
-    if (field && !field.value.trim()) field.value = m.displayName || '';
-  });
-}
 let hasSingleResult = false;
 
 function setMode(mode) {
@@ -23854,37 +23453,14 @@ function setMode(mode) {
   // hide on the way out and simply never reappear on the way back in.
   $('resultsSection').style.display = (mode === 'single' && hasSingleResult) ? 'block' : 'none';
   $('podResultsSection').style.display = (mode === 'pod' && lastPodDecks) ? 'block' : 'none';
-  // Build pod inputs once, not on every visit -- rebuilding wipes whatever
-  // the person already typed into the 6 seats, which is exactly the
-  // "I have to re-enter everything" problem this whole fix is for.
-  if (mode === 'pod' && !podInputsBuilt) {
-    buildPodInputs();
-    podInputsBuilt = true;
-    renderEpicMatchupPanel();
-  }
-  // Unlike the seats above, the OurPod panel itself should refresh every
-  // time the tab is opened, not just the first time -- membership, invite
-  // codes, and Steward status can all change from outside this tab (e.g.
-  // someone else removes you, or you join via a link elsewhere).
+  // The OurPod panel (now MyPods) refreshes every time this tab is opened,
+  // not just the first time -- membership, invite codes, and live
+  // Gatherings can all change from outside this tab.
   if (mode === 'pod') renderOurPodPanel();
 }
 
 $('modeSingleBtn').addEventListener('click', () => setMode('single'));
 $('modePodBtn').addEventListener('click', () => setMode('pod'));
-$('podChartBtn').addEventListener('click', runPodAnalysis);
-$('podClearBtn').addEventListener('click', () => {
-  for (let i = 0; i < 6; i++) {
-    const ta = $('podList' + i);
-    const nm = $('podName' + i);
-    const cm = $('podCommander' + i);
-    if (ta) ta.value = '';
-    if (nm) nm.value = '';
-    if (cm) cm.value = '';
-  }
-  setPodStatus('');
-  lastPodDecks = null; // otherwise stale results could reappear after switching tabs and back
-  $('podResultsSection').style.display = 'none';
-});
 
 // ============================================================
 // SAVED DATA — decks, pod rosters, table formations, chronicles
@@ -23965,11 +23541,6 @@ function loadDeckByKey(key, target) {
   const decks = loadSavedDecks();
   const entry = decks[key] || podmateDecksCache[key];
   if (!entry) return;
-  if (typeof target === 'number') {
-    loadSavedIntoPodSlot(target, key);
-    setPodStatus(`Loaded “${key}” into seat ${target + 1}.`);
-    return;
-  }
   if (target && typeof target === 'object' && target.gatheringSeat) {
     const g = target.gatheringSeat;
     const commander = (typeof entry === 'object' && entry.commander) || key;
@@ -24074,15 +23645,13 @@ async function showLoadDeckModal(target) {
   // right when they're trying to find one.
   const gatheringSeatIsMine = isGatheringSeat && target.gatheringSeat.seatUid === window.PodmatesCloud.uid;
   loadDeckActivePlayer = (isGatheringSeat && !gatheringSeatIsMine) ? target.gatheringSeat.seatDisplayName : null;
-  loadDeckTarget = (typeof target === 'number' || isGatheringSeat) ? target : 'main';
+  loadDeckTarget = isGatheringSeat ? target : 'main';
   const overlay = document.createElement('div');
   overlay.className = 'tad-overlay';
   overlay.id = 'tadOverlay';
   const modal = document.createElement('div');
   modal.className = 'tad-modal';
-  const titleSuffix = typeof target === 'number' ? ` — Seat ${target + 1}`
-    : isGatheringSeat ? ` — Seat ${target.gatheringSeat.seatIndex + 1} (${target.gatheringSeat.seatDisplayName})`
-    : '';
+  const titleSuffix = isGatheringSeat ? ` — Seat ${target.gatheringSeat.seatIndex + 1} (${target.gatheringSeat.seatDisplayName})` : '';
   modal.innerHTML = `<button class="tad-close" id="tadCloseBtn">Close ×</button>` +
     `<h2 style="margin-bottom:10px;">Load a Deck${titleSuffix}</h2>` +
     `<input type="text" id="loadDeckSearch" placeholder="Search by commander or player…" style="width:100%; box-sizing:border-box; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px; margin-bottom:10px;">` +
@@ -24102,7 +23671,6 @@ async function showLoadDeckModal(target) {
   if (Object.keys(loadSavedDecks()).length === 0 && Object.keys(podmateDecksCache).length === 0) {
     closeTryADeckModal();
     if (isGatheringSeat) showToast('No saved decks in this pod yet -- save one from the Deck Chart tab first.');
-    else if (typeof target === 'number') setPodStatus('No saved decks yet — save one from the main tab first.', true);
     else setDeckMgmtStatus('No saved decks yet — save one first.', true);
     return;
   }
@@ -24171,18 +23739,6 @@ function renderLoadDeckList() {
 }
 
 document.addEventListener('click', (e) => {
-  const podLoadBtn = e.target && e.target.closest ? e.target.closest('[data-pod-load-seat]') : null;
-  if (podLoadBtn) {
-    const seat = parseInt(podLoadBtn.getAttribute('data-pod-load-seat'), 10);
-    showLoadDeckModal(seat);
-    return;
-  }
-  const podLinkBtn = e.target && e.target.closest ? e.target.closest('[data-pod-link-seat]') : null;
-  if (podLinkBtn) {
-    const seat = parseInt(podLinkBtn.getAttribute('data-pod-link-seat'), 10);
-    loadDeckLinkIntoSeat(seat, podLinkBtn);
-    return;
-  }
   const playerChip = e.target && e.target.closest ? e.target.closest('[data-load-player]') : null;
   if (playerChip) {
     const p = playerChip.getAttribute('data-load-player');
@@ -24389,117 +23945,6 @@ function deleteSelectedDeck() {
 // typed-in list only one browser knew about.
 // ============================================================
 
-// "Table Formations" (the old "saved pod group" feature -- a snapshot of
-// all 6 comparison-table seats, distinct from both the Pod Roster tool
-// above and the real Firebase Pods feature) now live entirely on
-// Firebase, same in-memory-cache pattern as everything else in this file.
-let cloudTableFormationsCache = {};
-
-function loadSavedPods() {
-  return cloudTableFormationsCache;
-}
-
-async function refreshCloudTableFormationsCache() {
-  const user = window.PodmatesCloud && window.PodmatesCloud.user;
-  if (!user || !currentPodViewId) {
-    // No account, or no active OurPod -- either way, nothing to load, since
-    // formations now belong to a pod rather than to an individual account.
-    cloudTableFormationsCache = {};
-    refreshSavedPodSelect();
-    return;
-  }
-  try {
-    cloudTableFormationsCache = await window.PodmatesCloud.loadAllTableFormations(currentPodViewId);
-  } catch (e) {
-    cloudTableFormationsCache = {};
-  }
-  refreshSavedPodSelect();
-}
-
-function refreshSavedPodSelect() {
-  const pods = loadSavedPods();
-  const names = Object.keys(pods).sort();
-  const opts = '<option value="">— Saved pod groups —</option>' +
-    names.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
-  const sel = $('savedPodSelect');
-  if (sel) sel.innerHTML = opts;
-}
-
-function saveCurrentPodFormation() {
-  const nameInput = $('podFormationNameInput');
-  const name = (nameInput ? nameInput.value : '').trim();
-  if (!name) {
-    setPodStatus('Enter a name for this pod formation before saving.', true);
-    if (nameInput) nameInput.focus();
-    return;
-  }
-  const seats = [];
-  for (let i = 0; i < 6; i++) {
-    const cmd = (($('podCommander' + i) || {}).value || '').trim();
-    const player = (($('podName' + i) || {}).value || '').trim();
-    const list = (($('podList' + i) || {}).value || '').trim();
-    if (!cmd && !list) continue; // skip fully empty seats
-    seats.push({ commander: cmd, player, list });
-  }
-  if (seats.length === 0) {
-    setPodStatus('Fill in at least one seat before saving a pod group.', true);
-    return;
-  }
-  if (!requireAccountToSave('pod groups')) return;
-  if (!currentPodViewId) {
-    setPodStatus('Join or create an OurPod first -- pod groups are shared with your OurPod, not saved personally.', true);
-    return;
-  }
-
-  const entry = { seats, savedAt: Date.now() };
-  window.PodmatesCloud.saveTableFormation(currentPodViewId, name, entry)
-    .then(async () => {
-      await refreshCloudTableFormationsCache();
-      setPodStatus(`Saved pod group “${name}” with ${seats.length} seat(s) -- visible to your whole OurPod.`);
-    })
-    .catch((e) => setPodStatus('Could not save: ' + e.message, true));
-}
-
-function loadSelectedPodFormation() {
-  const sel = $('savedPodSelect');
-  if (!sel || !sel.value) return;
-  const pods = loadSavedPods();
-  const entry = pods[sel.value];
-  if (!entry || !entry.seats) return;
-
-  // Clear all seats first so a formation with fewer seats than currently
-  // filled doesn't leave stale data in the unused ones
-  for (let i = 0; i < 6; i++) {
-    if ($('podCommander' + i)) $('podCommander' + i).value = '';
-    if ($('podName' + i)) $('podName' + i).value = '';
-    if ($('podList' + i)) $('podList' + i).value = '';
-  }
-  entry.seats.forEach((seat, i) => {
-    if (i >= 6) return;
-    if ($('podCommander' + i)) $('podCommander' + i).value = seat.commander || '';
-    if ($('podName' + i)) $('podName' + i).value = seat.player || '';
-    if ($('podList' + i)) $('podList' + i).value = seat.list || '';
-  });
-  if ($('podFormationNameInput')) $('podFormationNameInput').value = sel.value;
-  setPodStatus(`Loaded pod group “${sel.value}” — ${entry.seats.length} seat(s).`);
-}
-
-function deleteSelectedPodFormation() {
-  const sel = $('savedPodSelect');
-  if (!sel || !sel.value) return;
-  const key = sel.value;
-  if (!requireAccountToSave('pod groups')) return;
-  if (!currentPodViewId) return; // nothing to delete against without an active OurPod
-  showConfirmModal(`Delete saved pod group "${key}"? This removes it for your whole OurPod.`, async () => {
-    try {
-      await window.PodmatesCloud.deleteTableFormation(currentPodViewId, key);
-      await refreshCloudTableFormationsCache();
-      setPodStatus('Pod group deleted.');
-    } catch (e) {
-      setPodStatus('Could not delete: ' + e.message, true);
-    }
-  });
-}
 
 let savedDecksTableData = null;
 let savedDecksTableSort = { key: 'commandSpark', dir: 'desc' };
@@ -24670,12 +24115,12 @@ function renderMatchLog() {
 
 function logCurrentMatch() {
   if (!lastPodDecks || lastPodDecks.length < 2) {
-    setPodStatus('Run a pod comparison first.', true);
+    showToast('Run a pod comparison first.');
     return;
   }
   if (!requireAccountToSave('chronicles')) return;
   if (!currentPodViewId) {
-    setPodStatus('Join or create an OurPod first -- Chronicles are shared with your OurPod, not saved personally.', true);
+    showToast('Join or create an OurPod first -- Chronicles are shared with your OurPod, not saved personally.');
     return;
   }
 
@@ -24695,9 +24140,9 @@ function logCurrentMatch() {
     .then(async () => {
       await refreshCloudChroniclesCache();
       if ($('matchNotes')) $('matchNotes').value = '';
-      setPodStatus('Chapter added to your OurPod\u2019s Chronicles.');
+      showToast('Chapter added to your OurPod\u2019s Chronicles.');
     })
-    .catch((e) => setPodStatus('Could not save: ' + e.message, true));
+    .catch((e) => showToast('Could not save: ' + e.message));
 }
 
 // Wire save/load
@@ -24710,16 +24155,6 @@ if (delBtn) delBtn.addEventListener('click', deleteSelectedDeck);
 const logBtn = $('logMatchBtn');
 if (logBtn) logBtn.addEventListener('click', logCurrentMatch);
 
-const loadExamplePodBtn = $('loadExamplePodBtn');
-if (loadExamplePodBtn) loadExamplePodBtn.addEventListener('click', loadExamplePod);
-
-const savePodBtn = $('savePodBtn');
-if (savePodBtn) savePodBtn.addEventListener('click', saveCurrentPodFormation);
-const loadPodBtn = $('loadPodBtn');
-if (loadPodBtn) loadPodBtn.addEventListener('click', loadSelectedPodFormation);
-const deletePodBtn = $('deletePodBtn');
-if (deletePodBtn) deletePodBtn.addEventListener('click', deleteSelectedPodFormation);
-
 const clearHistBtn = $('clearMatchHistoryBtn');
 if (clearHistBtn) clearHistBtn.addEventListener('click', () => {
   if (!requireAccountToSave('chronicles')) return;
@@ -24729,13 +24164,12 @@ if (clearHistBtn) clearHistBtn.addEventListener('click', () => {
       await window.PodmatesCloud.clearAllChronicles(currentPodViewId);
       await refreshCloudChroniclesCache();
     } catch (e) {
-      setPodStatus('Could not clear: ' + e.message, true);
+      showToast('Could not clear: ' + e.message);
     }
   });
 });
 
 refreshSavedDeckSelect();
-refreshSavedPodSelect();
 renderMatchLog();
 initDatabase();
 
@@ -24768,7 +24202,6 @@ function wireCloudAuth() {
     // unconditionally here rather than branching on `user` first.
     await Promise.all([
       refreshCloudDecksCache(),
-      refreshCloudTableFormationsCache(),
       refreshCloudChroniclesCache(),
     ]);
 
