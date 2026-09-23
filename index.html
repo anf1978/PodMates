@@ -20848,6 +20848,7 @@ function renderProfileModal(modal, myDecks, opts) {
         ? 'Optional — paste links to your Archidekt or Moxfield decks to add them here, ready to load anytime. Skip this and come back anytime from "My Profile."'
         : 'All your decks live here — anything saved from Chart Deck, plus anything linked from Archidekt or Moxfield below.'}
     </p>
+    ${!isWelcome ? `<div id="myProfileHeaderArea" style="margin-bottom:18px; padding-bottom:16px; border-bottom:1px solid var(--line);"></div>` : ''}
     <div style="margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid var(--line);">
       <label style="font-size:12px; color:var(--text-soft); display:block; margin-bottom:6px;">Display name — this is what your podmates see, instead of your email</label>
       <div class="row" style="gap:8px; align-items:center;">
@@ -20960,6 +20961,12 @@ function renderProfileModal(modal, myDecks, opts) {
       btn.textContent = 'Add Deck';
     }
   });
+
+  const profileHeaderArea = document.getElementById('myProfileHeaderArea');
+  if (profileHeaderArea && window.PodmatesCloud && window.PodmatesCloud.uid) {
+    const myName = (window.PodmatesCloud.user && window.PodmatesCloud.user.displayName) || 'You';
+    renderPlayerProfileContent(profileHeaderArea, window.PodmatesCloud.uid, myName, currentPodViewId);
+  }
 }
 
 let expandedMyDeckIds = new Set();
@@ -21924,15 +21931,25 @@ function renderPodMembersList(outerContainer, pod, members, myUid, canManage, is
         ${m.uid === myUid ? '<span style="font-size:11px; color:var(--text-soft);"> (you)</span>' : ''}
         <div style="font-size:11px; color:var(--gold); text-transform:uppercase; letter-spacing:0.04em; margin-top:1px;">${escapeHtml(roleDisplayLabel(m.role))}</div>
       </div>
-      ${(canManage && m.uid !== myUid && m.role !== 'leader') ? `
-        <div style="display:flex; gap:6px; flex-shrink:0;">
+      <div style="display:flex; gap:6px; flex-shrink:0; align-items:center;">
+        <button type="button" class="ghost icon-btn" data-view-profile="${escapeHtml(m.uid)}" data-tooltip="View Profile" aria-label="View ${escapeHtml(m.displayName || 'Player')}'s Profile" style="width:32px; height:32px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg>
+        </button>
+        ${(canManage && m.uid !== myUid && m.role !== 'leader') ? `
           ${m.role !== 'co-leader' ? `<button class="ghost" data-action="promote" data-uid="${escapeHtml(m.uid)}" style="padding:4px 8px; font-size:11px;">Make Co-Steward</button>` : ''}
           ${isLeader ? `<button class="ghost" data-action="transfer" data-uid="${escapeHtml(m.uid)}" style="padding:4px 8px; font-size:11px;">Make Steward</button>` : ''}
           <button class="ghost" data-action="remove" data-uid="${escapeHtml(m.uid)}" style="padding:4px 8px; font-size:11px; border-color:var(--danger); color:var(--danger);">Remove</button>
-        </div>
-      ` : ''}
+        ` : ''}
+      </div>
     </div>
   `).join('');
+
+  container.querySelectorAll('[data-view-profile]').forEach(btn => {
+    const uid = btn.getAttribute('data-view-profile');
+    const member = members.find(m => m.uid === uid);
+    btn.addEventListener('click', () => openPlayerProfileOverlay(uid, (member && member.displayName) || 'Player', pod.id));
+  });
+  setupIconTooltipsFor(container);
 
   container.querySelectorAll('button[data-action]').forEach(btn => {
     const uid = btn.getAttribute('data-uid');
@@ -22901,7 +22918,41 @@ function renderBattleControls() {
   if (!area) return;
   if (!currentBattleContext) { area.innerHTML = ''; return; }
   if (currentBattleContext.loggedChronicleId) {
-    area.innerHTML = `<div class="panel" style="text-align:center; padding:14px;"><p style="font-size:13.5px; color:var(--text-soft); margin:0;">Battle logged — thanks for playing!</p></div>`;
+    if (!currentBattleContext.isHost) {
+      area.innerHTML = `<div class="panel" style="text-align:center; padding:14px;"><p style="font-size:13.5px; color:var(--text-soft); margin:0;">Battle logged — thanks for playing!</p></div>`;
+      return;
+    }
+    // The three closing paths, host-only, matching the original design.
+    // Repeat Battle and Start New Battle both write to Firestore so the
+    // data is correct for everyone -- but per the same "check on demand"
+    // approach used throughout this build, other players pick up the
+    // change by reopening Join Gathering rather than being yanked back in
+    // automatically, since their own polling already stopped the moment
+    // this battle was logged.
+    area.innerHTML = `
+      <div class="panel" style="padding:14px;">
+        <p style="font-size:13.5px; color:var(--text-soft); margin:0 0 12px; text-align:center;">Battle logged. What's next?</p>
+        <div class="row" style="gap:8px;">
+          <button id="repeatBattleBtn" class="ghost" style="flex:1;">Repeat Battle</button>
+          <button id="startNewBattleBtn" class="ghost" style="flex:1;">Start New Battle</button>
+        </div>
+        <button id="endGatheringFromResultsBtn" class="ghost" style="width:100%; margin-top:8px; border-color:var(--danger); color:var(--danger); font-size:12.5px;">End Gathering</button>
+      </div>
+    `;
+    document.getElementById('repeatBattleBtn').addEventListener('click', runRepeatBattle);
+    document.getElementById('startNewBattleBtn').addEventListener('click', runStartNewBattle);
+    document.getElementById('endGatheringFromResultsBtn').addEventListener('click', () => {
+      showConfirmModal('End this Gathering? Everyone still seated will see it\u2019s over next time they check -- this doesn\u2019t delete anything, it just closes it out.', async () => {
+        try {
+          await window.PodmatesCloud.endGathering(currentBattleContext.podId, currentBattleContext.gatheringId);
+          currentBattleContext = null;
+          area.innerHTML = '';
+          showToast('Gathering ended.');
+        } catch (err) {
+          showToast('Could not end the Gathering: ' + err.message);
+        }
+      });
+    });
     return;
   }
   if (!currentBattleContext.isHost) { area.innerHTML = ''; return; }
@@ -22910,6 +22961,54 @@ function renderBattleControls() {
   if (btn) btn.addEventListener('click', () => {
     showConfirmModal('End the current battle and log it to your OurPod\u2019s Chronicles? This can\u2019t be undone.', runLogBattle);
   });
+}
+
+// Same decks, same seats -- re-charts using whatever's currently in the
+// Gathering's seats (unchanged since the last chart) and gives this new
+// pass its own fresh Log Battle opportunity, mainly useful for recording
+// "we played this matchup again" for the Chronicles record.
+async function runRepeatBattle() {
+  if (!currentBattleContext || !dbReady) return;
+  let gathering;
+  try {
+    gathering = await window.PodmatesCloud.loadGathering(currentBattleContext.podId, currentBattleContext.gatheringId);
+  } catch (err) { showToast('Could not repeat the battle: ' + err.message); return; }
+  if (!gathering) { showToast('This Gathering could not be found.'); return; }
+  const seatKeys = ['0', '1', '2', '3', '4', '5'];
+  const decks = [];
+  for (const k of seatKeys) {
+    const seat = gathering.seats && gathering.seats[k];
+    if (!seat || !seat.uid || !seat.deck || !seat.deck.list) continue;
+    const result = analyzeOneList(seat.deck.list, seat.displayName || '', seat.deck.commander || '');
+    if (result) { result.color = POD_COLORS[decks.length % POD_COLORS.length]; decks.push(result); }
+  }
+  if (decks.length < 2) { showToast('Not enough decks loaded to repeat this battle.'); return; }
+  try { await window.PodmatesCloud.markGatheringCharted(currentBattleContext.podId, currentBattleContext.gatheringId); }
+  catch (e) { /* non-fatal -- results still render locally either way */ }
+  currentBattleContext.loggedChronicleId = null;
+  renderPodAnalysisResults(decks);
+  renderBattleControls();
+  startResultsPolling();
+}
+
+// Clears every seat's deck selection (who's sitting where is untouched)
+// and takes the host straight back into the live tray to re-pick. Other
+// players see the cleared seats next time they reopen Join Gathering.
+async function runStartNewBattle() {
+  if (!currentBattleContext) return;
+  try {
+    await window.PodmatesCloud.resetGatheringDecks(currentBattleContext.podId, currentBattleContext.gatheringId);
+  } catch (err) {
+    showToast('Could not start a new battle: ' + err.message);
+    return;
+  }
+  const { podId, gatheringId } = currentBattleContext;
+  currentBattleContext = null;
+  lastPodDecks = null;
+  const area = document.getElementById('battleControlsArea');
+  if (area) area.innerHTML = '';
+  $('podResultsSection').style.display = 'none';
+  openLiveGatheringOverlay(podId, gatheringId);
 }
 
 async function runLogBattle() {
@@ -23176,6 +23275,298 @@ function generatePodSummary(decks, avgSpark, std, spread) {
   }
 
   return `${pace.charAt(0).toUpperCase() + pace.slice(1)} table with ${interaction}${styleNote}${calloutStr}.`;
+}
+
+// ---- Player Profile: data aggregation layer -----------------------------
+// Two deliberately different data sources feed one profile: the color/type/
+// archetype sections reflect what's in a player's saved-deck COLLECTION
+// (their library, as originally specced), while the headline commander
+// specifically reflects what they've actually PLAYED, pulled from logged
+// Chronicles battles rather than the deck list -- a much better answer to
+// "who do they actually play" than "how many decks happen to exist."
+
+// Fetches a player's own non-secret saved decks, working the same way
+// whether it's your own account or a podmate's -- the sharing rule already
+// enforces "no secret decks" server-side for a podmate's decks; this
+// mirrors that exact filter for your own, so a profile never shows a deck
+// its owner deliberately hid from the pod, even their own profile of
+// themselves.
+async function getPlayerRawDecksForProfile(uid) {
+  if (uid === (window.PodmatesCloud && window.PodmatesCloud.uid)) {
+    return Object.values(loadSavedDecks()).filter(d => (typeof d === 'object') && d.secret !== true);
+  }
+  try {
+    return Object.values(await window.PodmatesCloud.loadPodmateDecks(uid));
+  } catch (e) {
+    return [];
+  }
+}
+
+// Runs the same full analysis every other part of this app already runs on
+// a decklist -- nothing profile-specific about the analysis itself, just
+// which decks it's pointed at.
+function analyzeDecksForProfile(rawDecks) {
+  const out = [];
+  for (const d of rawDecks) {
+    if (!d || !d.list || !d.commander) continue;
+    const result = analyzeOneList(d.list, d.player || '', d.commander);
+    if (result) out.push(result);
+  }
+  return out;
+}
+
+// Single-assignment version of the app's own type-counting, specifically
+// for the pie chart -- the Deck Chart's own type table deliberately
+// double-credits a card like "Artifact Creature" toward both categories
+// (correct for a frequency table), but a pie chart's slices need to sum to
+// 100%, so this picks exactly one type per card instead, in a fixed
+// priority order, while still drawing from the exact same underlying
+// per-card type data (agg.cardsByType) so it never drifts from what the
+// rest of the app considers a card's real types.
+const PROFILE_TYPE_PRIORITY = ['Planeswalker', 'Battle', 'Creature', 'Kindred', 'Artifact', 'Enchantment', 'Instant', 'Sorcery', 'Land'];
+function primaryTypeTotalsForDeck(agg) {
+  const claimed = new Set();
+  const totals = {};
+  const order = [...PROFILE_TYPE_PRIORITY, 'Unknown'];
+  for (const t of order) {
+    for (const entry of (agg.cardsByType[t] || [])) {
+      if (claimed.has(entry.name)) continue;
+      claimed.add(entry.name);
+      totals[t] = (totals[t] || 0) + entry.qty;
+    }
+  }
+  return totals;
+}
+
+function computeProfileColorBreakdown(analyzedDecks) {
+  const totals = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
+  for (const d of analyzedDecks) {
+    for (const color of Object.keys(totals)) {
+      totals[color] += (d.agg.manaPipsRequired && d.agg.manaPipsRequired[color]) || 0;
+    }
+  }
+  const grandTotal = Object.values(totals).reduce((s, v) => s + v, 0);
+  if (grandTotal <= 0) return [];
+  return Object.entries(totals)
+    .filter(([, v]) => v > 0)
+    .map(([color, v]) => ({ color, pct: (v / grandTotal) * 100 }))
+    .sort((a, b) => b.pct - a.pct);
+}
+
+function computeProfileTypeBreakdown(analyzedDecks) {
+  const totals = {};
+  for (const d of analyzedDecks) {
+    const deckTotals = primaryTypeTotalsForDeck(d.agg);
+    for (const [type, v] of Object.entries(deckTotals)) {
+      totals[type] = (totals[type] || 0) + v;
+    }
+  }
+  const grandTotal = Object.values(totals).reduce((s, v) => s + v, 0);
+  if (grandTotal <= 0) return [];
+  return Object.entries(totals)
+    .map(([type, v]) => ({ type, pct: (v / grandTotal) * 100 }))
+    .sort((a, b) => b.pct - a.pct);
+}
+
+// The archetype label for one deck -- reuses detectWinCondition's own
+// "first result is the primary one" convention (the same rule the rest of
+// the app already follows, e.g. hasSpecificWinCon checks winCons[0] the
+// same way), falling back to the coarser style classification for a deck
+// with no specific win condition detected, exactly as detectWinCondition's
+// own callers already do.
+function getDeckArchetypeLabel(deck) {
+  const winCons = detectWinCondition(deck.agg);
+  if (winCons.length && winCons[0].confidence !== 'fallback' && TABLE_VIBE_ARCHETYPES[winCons[0].label]) {
+    return winCons[0].label;
+  }
+  return deck.style || 'Unclassified';
+}
+
+function computeProfileArchetypeTable(analyzedDecks) {
+  return analyzedDecks
+    .map(d => ({ archetype: getDeckArchetypeLabel(d), commander: d.commanderLabel || (d.commanders || []).join(' / ') || d.name }))
+    .sort((a, b) => a.archetype.localeCompare(b.archetype) || a.commander.localeCompare(b.commander));
+}
+
+// Decomposes each deck's hybrid Timmy/Johnny/Spike label ("Timmy/Spike",
+// "Johnny (the rogue)") into its individual traits and tallies them
+// separately rather than treating each hybrid string as its own bucket --
+// otherwise "Timmy" and "Timmy/Spike" would split votes that should count
+// toward the same underlying trait, and a real majority could lose to a
+// three-way near-tie of differently-worded labels that all actually mean
+// the same thing.
+function computeProfileVibeTrait(analyzedDecks) {
+  const tally = { Timmy: 0, Johnny: 0, Spike: 0 };
+  for (const d of analyzedDecks) {
+    const archetype = getDeckArchetypeLabel(d);
+    const vibe = TABLE_VIBE_ARCHETYPES[archetype];
+    if (!vibe) continue;
+    const traits = vibe.label.replace(/\([^)]*\)/g, '').split('/').map(s => s.trim()).filter(Boolean);
+    for (const t of traits) if (tally[t] !== undefined) tally[t] += 1;
+  }
+  const entries = Object.entries(tally).filter(([, v]) => v > 0);
+  if (!entries.length) return null;
+  entries.sort((a, b) => b[1] - a[1]);
+  return entries[0][0];
+}
+
+// Most-used commander comes from actual logged battles, not the deck
+// library -- a real, deliberate split from everything else on the
+// profile, since someone can own far more decks than they actually play.
+// A genuine tie is broken by how well each tied commander's own color
+// identity and archetype align with the player's overall aggregate stats
+// (already computed above), rather than an arbitrary pick.
+async function computeMostUsedCommander(podId, displayName, colorBreakdown, dominantVibeTrait) {
+  if (!podId || !displayName) return null;
+  let chronicles = [];
+  try { chronicles = await window.PodmatesCloud.loadAllChronicles(podId); } catch (e) { return null; }
+  const tally = {};
+  for (const entry of chronicles) {
+    for (const d of (entry.decks || [])) {
+      if (d.player !== displayName || !d.commander) continue;
+      tally[d.commander] = (tally[d.commander] || 0) + 1;
+    }
+  }
+  const names = Object.keys(tally);
+  if (!names.length) return null;
+  const maxCount = Math.max(...names.map(n => tally[n]));
+  const tied = names.filter(n => tally[n] === maxCount);
+  if (tied.length === 1) return tied[0];
+
+  // Tie-break: score each tied commander by how much of the player's own
+  // color breakdown falls within that commander's color identity, plus a
+  // small bonus if a saved deck built around them matches their dominant
+  // Timmy/Johnny/Spike trait.
+  const colorPct = {};
+  for (const c of colorBreakdown) colorPct[c.color] = c.pct;
+  function scoreCommander(name) {
+    const card = indexes && indexes.byExactName ? indexes.byExactName.get(name.toLowerCase()) : null;
+    const identity = (card && card.ci) ? card.ci.split('') : [];
+    let score = identity.reduce((s, c) => s + (colorPct[c] || 0), 0);
+    return score;
+  }
+  tied.sort((a, b) => scoreCommander(b) - scoreCommander(a));
+  return tied[0];
+}
+
+// ---- Player Profile: rendering -------------------------------------------
+// Same hand-rolled inline-SVG approach as every other chart in this app
+// (renderPaceRadar, the mana curve chart) rather than a new library --
+// standard pie-slice arc math, nothing app-specific about it.
+function polarPoint(cx, cy, r, angleDeg) {
+  const rad = (angleDeg - 90) * Math.PI / 180;
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+}
+function renderProfilePieChartSVG(slices, size) {
+  size = size || 150;
+  const cx = size / 2, cy = size / 2, r = size / 2 - 2;
+  let angle = 0;
+  let paths = '';
+  for (const s of slices) {
+    const sweep = (s.pct / 100) * 360;
+    if (sweep <= 0) continue;
+    const start = angle, end = Math.min(angle + sweep, angle + 359.99);
+    const large = (end - start) > 180 ? 1 : 0;
+    const p1 = polarPoint(cx, cy, r, start);
+    const p2 = polarPoint(cx, cy, r, end);
+    paths += `<path d="M ${cx} ${cy} L ${p1.x.toFixed(2)} ${p1.y.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${p2.x.toFixed(2)} ${p2.y.toFixed(2)} Z" fill="${s.color}" stroke="var(--bg-main)" stroke-width="1.5"/>`;
+    angle += sweep;
+  }
+  return `<svg viewBox="0 0 ${size} ${size}" style="width:${size}px; height:${size}px; display:block; margin:0 auto;">${paths}</svg>`;
+}
+
+const PROFILE_TYPE_COLORS = {
+  Creature: '#7BAE7F', Land: '#B08D57', Artifact: '#9AA5B1', Enchantment: '#B48EAD',
+  Instant: '#6FA8DC', Sorcery: '#C0625A', Planeswalker: '#D4AF37', Battle: '#E0977A',
+  Kindred: '#5FBFBF', Unclassified: '#888888', Unknown: '#888888',
+};
+
+async function renderPlayerProfileContent(container, uid, displayName, podId) {
+  if (!container) return;
+  if (!dbReady) {
+    container.innerHTML = `<p style="color:var(--danger); font-size:13px;">Card database still loading — try again in a moment.</p>`;
+    return;
+  }
+  container.innerHTML = `<p style="text-align:center; color:var(--text-soft); font-size:13px;">Loading profile…</p>`;
+  const rawDecks = await getPlayerRawDecksForProfile(uid);
+  const analyzed = analyzeDecksForProfile(rawDecks);
+  if (!analyzed.length) {
+    container.innerHTML = `<h2 style="margin-bottom:8px;">${escapeHtml(displayName)}</h2><p style="font-size:13px; color:var(--text-soft);">No saved decks yet to build a profile from.</p>`;
+    return;
+  }
+
+  const colorBreakdown = computeProfileColorBreakdown(analyzed);
+  const typeBreakdown = computeProfileTypeBreakdown(analyzed);
+  const vibeTrait = computeProfileVibeTrait(analyzed);
+  const archetypeTable = computeProfileArchetypeTable(analyzed);
+  const topCommander = await computeMostUsedCommander(podId, displayName, colorBreakdown, vibeTrait);
+  // Falls back to the alphabetically-first archetype entry's commander,
+  // then the first analyzed deck at all, if this player has no logged
+  // battles yet to draw a "most played" commander from.
+  const headerCommander = topCommander || (archetypeTable[0] && archetypeTable[0].commander) || analyzed[0].commanderLabel;
+  const artUrl = await fetchCardImageUrl(headerCommander, 'normal');
+
+  const colorRows = colorBreakdown.map(c => {
+    const bg = (MANA_COLOR_STYLE[c.color] || {}).bg || '#888';
+    return `<div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+      ${manaSymbol(c.color, 18)}
+      <span style="width:11px; height:11px; border-radius:50%; background:${bg}; flex-shrink:0;"></span>
+      <span style="font-size:13px;">${c.pct.toFixed(0)}%</span>
+    </div>`;
+  }).join('');
+
+  const typeRows = typeBreakdown.map(t => `<div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+    <span style="width:11px; height:11px; border-radius:50%; background:${PROFILE_TYPE_COLORS[t.type] || '#888'}; flex-shrink:0;"></span>
+    <span style="font-size:13px; flex:1;">${escapeHtml(t.type)}</span>
+    <span style="font-size:13px; color:var(--text-soft);">${t.pct.toFixed(0)}%</span>
+  </div>`).join('');
+
+  const archetypeRows = archetypeTable.map(a => `<tr>
+    <td style="padding:6px 8px; border-bottom:1px solid var(--line); font-size:13px;">${escapeHtml(a.archetype)}</td>
+    <td style="padding:6px 8px; border-bottom:1px solid var(--line); font-size:13px;">${cardNameLink(a.commander)}</td>
+  </tr>`).join('');
+
+  container.innerHTML = `
+    <div style="text-align:center; margin-bottom:14px;">
+      ${artUrl ? `<img src="${escapeHtml(artUrl)}" alt="${escapeHtml(headerCommander)}" style="max-width:100%; max-height:260px; border:2px solid var(--line-strong); margin-bottom:8px;">` : ''}
+      <div style="font-family:'Cinzel',Georgia,serif; font-size:16px;">${escapeHtml(displayName)}</div>
+      <div style="font-size:12.5px; margin-top:2px;">${cardNameLink(headerCommander)}</div>
+    </div>
+    ${vibeTrait ? `<div class="panel" style="text-align:center; padding:10px; margin-bottom:16px;">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold);">Player Type</div>
+      <div style="font-family:'Cinzel',Georgia,serif; font-size:17px; margin-top:2px;">${escapeHtml(vibeTrait)}</div>
+    </div>` : ''}
+    <div style="display:flex; gap:18px; flex-wrap:wrap; margin-bottom:18px;">
+      <div style="flex:1; min-width:140px;">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold); margin-bottom:8px; text-align:center;">Colors</div>
+        ${renderProfilePieChartSVG(colorBreakdown.map(c => ({ pct: c.pct, color: (MANA_COLOR_STYLE[c.color] || {}).bg || '#888' })), 140)}
+        <div style="margin-top:10px;">${colorRows}</div>
+      </div>
+      <div style="flex:1; min-width:140px;">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold); margin-bottom:8px; text-align:center;">Card Types</div>
+        ${renderProfilePieChartSVG(typeBreakdown.map(t => ({ pct: t.pct, color: PROFILE_TYPE_COLORS[t.type] || '#888' })), 140)}
+        <div style="margin-top:10px;">${typeRows}</div>
+      </div>
+    </div>
+    <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold); margin-bottom:8px;">Archetypes</div>
+    <table style="width:100%; border-collapse:collapse;"><tbody>${archetypeRows}</tbody></table>
+  `;
+}
+
+function openPlayerProfileOverlay(uid, displayName, podId) {
+  injectTryADeckStyles();
+  closeTryADeckModal();
+  const overlay = document.createElement('div');
+  overlay.className = 'tad-overlay';
+  overlay.id = 'tadOverlay';
+  const modal = document.createElement('div');
+  modal.className = 'tad-modal';
+  modal.innerHTML = `<button class="tad-close" id="tadCloseBtn">Close ×</button><div id="playerProfileContent"></div>`;
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
+  renderPlayerProfileContent(document.getElementById('playerProfileContent'), uid, displayName, podId);
 }
 
 function generateRuleZeroBlurb(deck) {
@@ -24469,44 +24860,60 @@ document.addEventListener('click', (e) => {
   }
 }, true);
 
-document.querySelectorAll('.icon-btn[data-tooltip], .icon-checkbox-label[data-tooltip]').forEach(btn => {
-  const tip = document.createElement('span');
-  tip.className = 'icon-tooltip';
-  tip.textContent = btn.getAttribute('data-tooltip');
-  document.body.appendChild(tip);
+// A named, reusable function rather than a one-time page-load loop --
+// content rendered dynamically after load (like the pod member list,
+// which re-renders every time membership changes) needs this run again
+// for whatever it just added. The data-tooltip-wired guard stops the same
+// button from ever getting a second tooltip span and a second set of
+// listeners if its container happens to re-render more than once.
+function setupIconTooltipsFor(scope) {
+  (scope || document).querySelectorAll('.icon-btn[data-tooltip]:not([data-tooltip-wired]), .icon-checkbox-label[data-tooltip]:not([data-tooltip-wired])').forEach(btn => {
+    btn.setAttribute('data-tooltip-wired', '1');
+    const tip = document.createElement('span');
+    tip.className = 'icon-tooltip';
+    tip.textContent = btn.getAttribute('data-tooltip');
+    document.body.appendChild(tip);
 
-  function showTip() {
-    const rect = btn.getBoundingClientRect();
-    tip.style.left = (rect.left + rect.width / 2) + 'px';
-    tip.style.top = (rect.top - 8) + 'px';
-    tip.style.transform = 'translate(-50%, -100%)';
-    tip.classList.add('show');
-  }
-  function hideTip() {
-    tip.classList.remove('show');
-  }
-
-  btn.addEventListener('mouseenter', showTip);
-  btn.addEventListener('mouseleave', hideTip);
-  btn.addEventListener('focus', showTip);
-  btn.addEventListener('blur', hideTip);
-
-  let pressTimer = null;
-  btn.addEventListener('touchstart', () => {
-    pressTimer = setTimeout(() => {
-      showTip();
-      btn.classList.add('suppress-next-click');
-    }, 450);
-  }, { passive: true });
-  const endPress = () => {
-    clearTimeout(pressTimer);
-    if (tip.classList.contains('show')) {
-      setTimeout(hideTip, 1400);
+    function showTip() {
+      const rect = btn.getBoundingClientRect();
+      tip.style.left = (rect.left + rect.width / 2) + 'px';
+      tip.style.top = (rect.top - 8) + 'px';
+      tip.style.transform = 'translate(-50%, -100%)';
+      tip.classList.add('show');
     }
-  };
-  btn.addEventListener('touchend', endPress);
-  btn.addEventListener('touchcancel', endPress);
-});
+    function hideTip() {
+      tip.classList.remove('show');
+    }
+
+    btn.addEventListener('mouseenter', showTip);
+    btn.addEventListener('mouseleave', hideTip);
+    btn.addEventListener('focus', showTip);
+    btn.addEventListener('blur', hideTip);
+    // A click doesn't necessarily move the mouse off the button -- if it
+    // opens a modal (most of these do), the tooltip was never told to hide
+    // and just sits on top of whatever opened, on top of everything, until
+    // the mouse eventually leaves. Hiding it the instant a click happens is
+    // the actual fix, not something mouseleave alone can cover.
+    btn.addEventListener('click', hideTip);
+
+    let pressTimer = null;
+    btn.addEventListener('touchstart', () => {
+      pressTimer = setTimeout(() => {
+        showTip();
+        btn.classList.add('suppress-next-click');
+      }, 450);
+    }, { passive: true });
+    const endPress = () => {
+      clearTimeout(pressTimer);
+      if (tip.classList.contains('show')) {
+        setTimeout(hideTip, 1400);
+      }
+    };
+    btn.addEventListener('touchend', endPress);
+    btn.addEventListener('touchcancel', endPress);
+  });
+}
+setupIconTooltipsFor(document);
 </script>
 
 <!-- ============================================================
@@ -24962,6 +25369,23 @@ document.querySelectorAll('.icon-btn[data-tooltip], .icon-checkbox-label[data-to
     return chronicleId;
   }
 
+  // Start New Battle -- clears just the `deck` sub-field on every occupied
+  // seat, leaving who's actually sitting there untouched. Dot-notation
+  // paths go as deep as needed ("seats.0.deck", not just "seats.0"), so
+  // this can update six nested fields in one call without disturbing the
+  // uid/displayName sitting alongside each one.
+  async function cloudResetGatheringDecks(podId, gatheringId) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    const snap = await getDoc(doc(db, 'pods', podId, 'gatherings', gatheringId));
+    if (!snap.exists()) return;
+    const seats = snap.data().seats || {};
+    const updates = { updatedAt: serverTimestamp() };
+    for (const k of Object.keys(seats)) {
+      if (seats[k] && seats[k].uid) updates[`seats.${k}.deck`] = null;
+    }
+    await updateDoc(doc(db, 'pods', podId, 'gatherings', gatheringId), updates);
+  }
+
   async function cloudGoLiveGathering(podId, gatheringId) {
     if (!currentUser) throw new Error('Not signed in yet');
     await setDoc(doc(db, 'pods', podId, 'gatherings', gatheringId), {
@@ -25300,6 +25724,7 @@ document.querySelectorAll('.icon-btn[data-tooltip], .icon-checkbox-label[data-to
     loadAllTableFormations: cloudLoadAllTableFormations,
     addChronicleEntry: cloudAddChronicleEntry, loadAllChronicles: cloudLoadAllChronicles,
     addChronicleFeedback: cloudAddChronicleFeedback, logBattle: cloudLogBattle,
+    resetGatheringDecks: cloudResetGatheringDecks,
     clearAllChronicles: cloudClearAllChronicles,
     createGathering: cloudCreateGathering, loadGathering: cloudLoadGathering,
     loadLiveGatherings: cloudLoadLiveGatherings, setGatheringSeat: cloudSetGatheringSeat,
