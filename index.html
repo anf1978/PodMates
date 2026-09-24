@@ -20952,26 +20952,60 @@ async function loadAndMergeMyDecks() {
     window.PodmatesCloud.loadLinkedDecks().catch(() => ([])),
   ]);
 
+  // Every linked deck is ALSO mirrored into this same `decks` collection --
+  // it's what everything else in the app actually reads from (Load-a-Deck,
+  // pod sharing, Gathering seats, the Profile pages). The mirror's
+  // document ID is always "linked-{platform}-{deckId}", a stable pairing
+  // that doesn't depend on the deck's own `key` field (a free-text label
+  // that can change if it's renamed on Archidekt/Moxfield). Matching on
+  // that ID, not the label, is what lets a linked deck and its mirror be
+  // recognized as the SAME deck instead of two separate rows -- which is
+  // exactly the duplicate this replaces.
+  const linkedById = {};
+  for (const d of linkedDecksArr) linkedById[d.id] = d;
+  const claimedLinkedIds = new Set();
+
   const merged = [];
   for (const [key, entry] of Object.entries(savedDecksMap)) {
     const list = entry.list || '';
+    const mirrorId = entry.docId || '';
+    const linkedId = mirrorId.startsWith('linked-') ? mirrorId.slice('linked-'.length) : null;
+    const linked = linkedId ? linkedById[linkedId] : null;
+    if (linked) claimedLinkedIds.add(linked.id);
     merged.push({
       id: 'saved:' + key,
-      source: 'saved',
+      source: linked ? linked.platform : 'saved',
       rawKey: key,
-      name: key, // "Commander (Player)" -- already a meaningful label on its own
+      rawId: linked ? linked.id : null,
+      name: key, // "Commander (Player)" for a manual save, or the deck's own name if linked -- already a meaningful label on its own
       commander: entry.commander || '',
       player: entry.player || '',
       decklistText: list,
       cardCount: list.split('\n').map(l => l.trim()).filter(Boolean).length,
-      url: null,
+      url: linked ? linked.url : null,
+      isLinked: !!linked,
       addedAt: entry.savedAt || 0,
     });
   }
-  for (const d of linkedDecksArr) {
+
+  // Any linked deck without a matching mirror yet -- linked before the
+  // sharing fix that introduced mirroring existed, or never manually
+  // re-synced since -- gets backfilled right here, on this perfectly
+  // ordinary load, instead of silently staying invisible to Load-a-Deck
+  // until someone happens to remember to click Refresh. Same "heals
+  // itself the next time it's naturally used" pattern the rest of this
+  // app already relies on for exactly this kind of gap.
+  const toBackfill = linkedDecksArr.filter(d => !claimedLinkedIds.has(d.id));
+  for (const d of toBackfill) {
+    try {
+      await window.PodmatesCloud.saveDeck(d.name,
+        { commander: d.commander || '', list: d.decklistText || '', player: '', secret: false },
+        `linked-${d.id}`);
+    } catch (e) { /* fine -- still show it below even if this particular backfill write failed */ }
     merged.push({
-      id: 'linked:' + d.id,
-      source: d.platform, // 'archidekt' | 'moxfield'
+      id: 'saved:' + d.name,
+      source: d.platform,
+      rawKey: d.name,
       rawId: d.id,
       name: d.name,
       commander: d.commander || '',
@@ -20979,9 +21013,11 @@ async function loadAndMergeMyDecks() {
       decklistText: d.decklistText,
       cardCount: d.cardCount,
       url: d.url,
+      isLinked: true,
       addedAt: d.addedAt || d.syncedAt || 0,
     });
   }
+
   merged.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
   return merged;
 }
@@ -21227,6 +21263,7 @@ function renderMyDecksList(modal, myDecks, isWelcome) {
           <div>
             <div style="font-size:13.5px; color:var(--text-primary);">${escapeHtml(d.name)}</div>
             <div style="font-size:11.5px; color:var(--text-soft); margin-top:2px;">${subtitleBits.map(escapeHtml).join(' · ')}</div>
+            ${d.isLinked ? `<div style="font-size:11px; color:var(--text-dim); margin-top:2px; font-style:italic;">Linked to ${escapeHtml(sourceLabel)} — Refresh pulls in whatever the deck looks like there right now.</div>` : ''}
           </div>
         </div>
         <div style="display:flex; gap:6px; flex-shrink:0;">
@@ -25525,7 +25562,7 @@ setupIconTooltipsFor(document);
     const out = {};
     snap.forEach(docSnap => {
       const d = docSnap.data();
-      out[d.key] = { list: d.list, commander: d.commander, player: d.player, savedAt: d.savedAt, secret: d.secret === true };
+      out[d.key] = { list: d.list, commander: d.commander, player: d.player, savedAt: d.savedAt, secret: d.secret === true, docId: docSnap.id };
       // A deck saved before the secret toggle existed has no `secret`
       // field at all, which a podmate's `where('secret', '==', false)`
       // query can never match no matter how long it sits there -- Firestore
