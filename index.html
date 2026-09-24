@@ -1064,6 +1064,20 @@ h1 {
   transform: translateX(-50%) translateY(0);
 }
 
+/* Clickable deck name in My Profile's deck list -- opens the quick
+   summary popup. */
+.pm-deck-name-link {
+  font-size: 13.5px;
+  color: var(--gold);
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  transition: text-decoration-color 0.15s ease;
+}
+.pm-deck-name-link:hover {
+  text-decoration-color: var(--gold);
+}
+
 /* ---- Respect reduced motion: disable the decorative animation, keep
    every functional transition (hover/focus feedback, toast fade) intact
    since those aren't the kind of motion this preference is about. ---- */
@@ -21026,7 +21040,6 @@ async function showProfileModal(opts) {
   if (!window.PodmatesCloud) return;
   injectTryADeckStyles();
   closeTryADeckModal();
-  expandedMyDeckIds = new Set(); // fresh collapsed state each time the modal opens
   const overlay = document.createElement('div');
   overlay.className = 'tad-overlay';
   overlay.id = 'tadOverlay';
@@ -21176,7 +21189,6 @@ function renderProfileModal(modal, myDecks, opts) {
   }
 }
 
-let expandedMyDeckIds = new Set();
 const myDecksSummaryCache = new Map();
 
 function computeQuickSummary(deck) {
@@ -21249,30 +21261,23 @@ function renderMyDecksList(modal, myDecks, isWelcome) {
   }
 
   container.innerHTML = myDecks.map(d => {
-    const isOpen = expandedMyDeckIds.has(d.id);
     const sourceLabel = d.source === 'archidekt' ? 'Archidekt' : d.source === 'moxfield' ? 'Moxfield' : 'Saved';
     const subtitleBits = [sourceLabel];
     if (d.source === 'saved') { if (d.commander) subtitleBits.push(d.commander); if (d.player) subtitleBits.push(d.player); }
     else if (d.commander) subtitleBits.push(d.commander);
     subtitleBits.push(`${d.cardCount} cards`);
     return `
-    <div style="border-bottom:1px solid var(--line);">
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 0; cursor:pointer;" data-action="toggle" data-id="${escapeHtml(d.id)}">
-        <div style="min-width:0; display:flex; align-items:center; gap:8px;">
-          <span style="color:var(--gold); font-size:11px; transition:transform 0.15s ease; display:inline-block; transform:rotate(${isOpen ? '90' : '0'}deg);">▶</span>
-          <div>
-            <div style="font-size:13.5px; color:var(--text-primary);">${escapeHtml(d.name)}</div>
-            <div style="font-size:11.5px; color:var(--text-soft); margin-top:2px;">${subtitleBits.map(escapeHtml).join(' · ')}</div>
-            ${d.isLinked ? `<div style="font-size:11px; color:var(--text-dim); margin-top:2px; font-style:italic;">Linked to ${escapeHtml(sourceLabel)} — Refresh pulls in whatever the deck looks like there right now.</div>` : ''}
-          </div>
+    <div style="border-bottom:1px solid var(--line); padding:10px 0;">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+        <div style="min-width:0;">
+          <div class="pm-deck-name-link" data-action="view-summary" data-id="${escapeHtml(d.id)}">${escapeHtml(d.name)}</div>
+          <div style="font-size:11.5px; color:var(--text-soft); margin-top:2px;">${subtitleBits.map(escapeHtml).join(' · ')}</div>
+          ${d.isLinked ? `<div style="font-size:11px; color:var(--text-dim); margin-top:2px; font-style:italic;">Linked to ${escapeHtml(sourceLabel)} — Refresh pulls in whatever the deck looks like there right now.</div>` : ''}
         </div>
         <div style="display:flex; gap:6px; flex-shrink:0;">
           ${d.url ? `<button class="ghost" data-action="refresh" data-id="${escapeHtml(d.id)}" style="padding:5px 10px; font-size:12px;">Refresh</button>` : ''}
           <button class="ghost" data-action="remove" data-id="${escapeHtml(d.id)}" style="padding:5px 10px; font-size:12px; border-color:var(--danger); color:var(--danger);">Remove</button>
         </div>
-      </div>
-      <div style="display:${isOpen ? 'block' : 'none'};" data-summary-for="${escapeHtml(d.id)}">
-        ${isOpen ? renderMyDeckSummary(d) : ''}
       </div>
     </div>
   `;
@@ -21283,19 +21288,8 @@ function renderMyDecksList(modal, myDecks, isWelcome) {
     const deck = myDecks.find(d => d.id === id);
     el.addEventListener('click', async (e) => {
       const action = el.getAttribute('data-action');
-      if (action === 'toggle') {
-        if (expandedMyDeckIds.has(id)) expandedMyDeckIds.delete(id);
-        else expandedMyDeckIds.add(id);
-        renderMyDecksList(modal, myDecks, isWelcome);
-      } else if (action === 'open-chart') {
-        e.stopPropagation();
-        if (!dbReady) { showToast('Card database still loading — try again in a moment.'); return; }
-        $('decklistInput').value = deck.decklistText;
-        if (deck.commander) $('commanderInput').value = deck.commander;
-        closeTryADeckModal();
-        setMode('single');
-        runAnalysis();
-        $('resultsSection').scrollIntoView({ behavior: 'smooth' });
+      if (action === 'view-summary') {
+        openDeckSummaryPopup(deck);
       } else if (action === 'refresh') {
         e.stopPropagation();
         el.disabled = true;
@@ -21303,7 +21297,7 @@ function renderMyDecksList(modal, myDecks, isWelcome) {
         try {
           const result = await window.PodmatesCloud.refreshLinkedDeck(deck.rawId, deck.url);
           if (result.ok) {
-            myDecksSummaryCache.delete(id); // stale after a refresh -- recompute next expand
+            myDecksSummaryCache.delete(id); // stale after a refresh -- recompute next time the summary popup opens
             const refreshed = await loadAndMergeMyDecks();
             renderMyDecksList(modal, refreshed, isWelcome);
             showToast(`“${deck.name}” refreshed.`);
@@ -21323,7 +21317,6 @@ function renderMyDecksList(modal, myDecks, isWelcome) {
           try {
             if (deck.source === 'saved') await window.PodmatesCloud.deleteDeck(deck.rawKey);
             else await window.PodmatesCloud.removeLinkedDeck(deck.rawId);
-            expandedMyDeckIds.delete(id);
             myDecksSummaryCache.delete(id);
             const refreshed = await loadAndMergeMyDecks();
             renderProfileModal(modal, refreshed, { welcome: isWelcome });
@@ -21333,6 +21326,53 @@ function renderMyDecksList(modal, myDecks, isWelcome) {
         });
       }
     });
+  });
+}
+
+// The quick-snapshot popup -- Commander, win condition, bracket, Command
+// Spark, and the five sub-scores, plus a one-click path straight into
+// Deck Chart. This used to only exist as an inline expand hidden behind a
+// small chevron on the row, easy to never notice was there at all; this
+// makes it a real, stacked popup opened by clicking the deck's own name,
+// which won't swallow whatever it was opened from (My Profile, or
+// anywhere else a deck list like this one shows up) when it closes --
+// same pattern as the card art popup, and for the same reason.
+function openDeckSummaryPopup(deck) {
+  injectTryADeckStyles();
+  const existing = document.getElementById('tadDeckSummaryOverlay');
+  if (existing) existing.remove(); // only replace a PREVIOUS summary popup, never whatever it was opened from
+  const overlay = document.createElement('div');
+  overlay.className = 'tad-overlay';
+  overlay.id = 'tadDeckSummaryOverlay';
+  overlay.style.zIndex = '10001'; // above both the base .tad-overlay (1000) and icon tooltips (9999)
+  const modal = document.createElement('div');
+  modal.className = 'tad-modal';
+  modal.style.maxWidth = '420px';
+  modal.innerHTML = `
+    <button class="tad-close" id="tadDeckSummaryCloseBtn">Close ×</button>
+    <h2 style="margin-bottom:4px; font-size:17px;">${escapeHtml(deck.name)}</h2>
+    ${renderMyDeckSummary(deck)}
+  `;
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  const closePopup = () => { const el = document.getElementById('tadDeckSummaryOverlay'); if (el) el.remove(); };
+  document.getElementById('tadDeckSummaryCloseBtn').addEventListener('click', closePopup);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closePopup(); });
+
+  // renderMyDeckSummary already builds its own "Open in Deck Chart" button
+  // (data-action="open-chart") -- wired here rather than through the
+  // outer list's generic delegation, since this popup is a standalone
+  // layer with no container in common with wherever it was opened from.
+  const openChartBtn = modal.querySelector('[data-action="open-chart"]');
+  if (openChartBtn) openChartBtn.addEventListener('click', () => {
+    if (!dbReady) { showToast('Card database still loading — try again in a moment.'); return; }
+    $('decklistInput').value = deck.decklistText;
+    if (deck.commander) $('commanderInput').value = deck.commander;
+    closePopup();
+    closeTryADeckModal(); // also close whatever this was opened from (e.g. My Profile) -- navigating away entirely, not just dismissing this popup
+    setMode('single');
+    runAnalysis();
+    $('resultsSection').scrollIntoView({ behavior: 'smooth' });
   });
 }
 
@@ -22295,26 +22335,42 @@ function linkifyKnownCardNames(escapedText, cardNames) {
 
 async function showSingleCardArtModal(name) {
   injectTryADeckStyles();
-  closeTryADeckModal();
+  // Deliberately does NOT call closeTryADeckModal() and uses its own
+  // overlay ID (tadArtOverlay, not tadOverlay) -- this needs to layer ON
+  // TOP of whatever's already open (a Player Profile, a Pod Profile, Load
+  // a Deck) rather than replacing it, since cardNameLink -- what actually
+  // triggers this -- gets clicked from inside those constantly. The old
+  // version replaced the current overlay entirely, so closing this popup
+  // lost whatever was open before it. Confirmed as a real, live bug
+  // specifically in Player Profile: the commander's name sits directly
+  // under art that's already visible, and clicking it to "see the art"
+  // (redundant on its own) used to cost you the whole profile just to
+  // back out of. A stacked layer fixes both the loss-of-context and
+  // keeps the (still slightly redundant, but now harmless) click cheap
+  // to dismiss.
+  const existingArt = document.getElementById('tadArtOverlay');
+  if (existingArt) existingArt.remove(); // only replace a PREVIOUS art popup, never the parent overlay underneath
   const overlay = document.createElement('div');
   overlay.className = 'tad-overlay';
-  overlay.id = 'tadOverlay';
+  overlay.id = 'tadArtOverlay';
+  overlay.style.zIndex = '10001'; // above both the base .tad-overlay (1000) and icon tooltips (9999)
   const modal = document.createElement('div');
   modal.className = 'tad-modal';
   modal.style.maxWidth = '340px';
   modal.innerHTML = `
-    <button class="tad-close" id="tadCloseBtn">Close ×</button>
+    <button class="tad-close" id="tadArtCloseBtn">Close ×</button>
     <h2 style="margin-bottom:12px; font-size:16px;">${escapeHtml(name)}</h2>
     <div id="singleCardArtArea" style="text-align:center; color:var(--text-soft); font-size:13px;">Loading art…</div>
   `;
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
-  document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
+  const closeArt = () => { const el = document.getElementById('tadArtOverlay'); if (el) el.remove(); };
+  document.getElementById('tadArtCloseBtn').addEventListener('click', closeArt);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeArt(); });
 
   const url = await fetchCardImageUrl(name, 'normal');
   const artArea = document.getElementById('singleCardArtArea');
-  if (!artArea) return; // modal was already closed before the fetch resolved
+  if (!artArea) return; // popup was already closed before the fetch resolved
   if (!url) { artArea.textContent = 'Could not find art for this card.'; return; }
   artArea.innerHTML = `<img src="${escapeHtml(url)}" alt="${escapeHtml(name)}" style="max-width:100%; border:2px solid var(--line-strong); border-radius:0;">`;
 }
@@ -23751,7 +23807,7 @@ async function renderPlayerProfileContent(container, uid, displayName, podId) {
     <div style="text-align:center; margin-bottom:14px;">
       ${artUrl ? `<img src="${escapeHtml(artUrl)}" alt="${escapeHtml(headerCommander)}" style="max-width:100%; max-height:260px; border:2px solid var(--line-strong); margin-bottom:8px;">` : ''}
       <div style="font-family:'Cinzel',Georgia,serif; font-size:16px;">${escapeHtml(displayName)}</div>
-      <div style="font-size:12.5px; margin-top:2px;">${cardNameLink(headerCommander)}</div>
+      <div style="font-size:12.5px; margin-top:2px;">${artUrl ? escapeHtml(headerCommander) : cardNameLink(headerCommander)}</div>
     </div>
     ${vibeTrait ? `<div class="panel" style="text-align:center; padding:10px; margin-bottom:16px;">
       <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold);">Player Type</div>
