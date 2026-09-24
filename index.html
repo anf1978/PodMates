@@ -23313,7 +23313,17 @@ function analyzeDecksForProfile(rawDecks) {
   for (const d of rawDecks) {
     if (!d || !d.list || !d.commander) continue;
     const result = analyzeOneList(d.list, d.player || '', d.commander);
-    if (result) out.push(result);
+    if (result) {
+      // Carried through as extra fields, additive only -- every existing
+      // consumer of this function's output (color/type/vibe/bracket) just
+      // ignores what it doesn't ask for, so this stays fully compatible
+      // with the individual Player Profile that already depends on it.
+      result._ownerUid = d._ownerUid || null;
+      result._ownerName = d._ownerName || d.player || '';
+      result._rawList = d.list;
+      result._rawCommander = d.commander;
+      out.push(result);
+    }
   }
   return out;
 }
@@ -23584,7 +23594,15 @@ function openPlayerProfileOverlay(uid, displayName, podId) {
 async function getPodRawDecksForProfile(podId) {
   let members = [];
   try { members = await window.PodmatesCloud.loadPodMembers(podId); } catch (e) { return []; }
-  const perMember = await Promise.all(members.map(m => getPlayerRawDecksForProfile(m.uid)));
+  const perMember = await Promise.all(members.map(async m => {
+    const decks = await getPlayerRawDecksForProfile(m.uid);
+    // Tagged with the REAL member record here, at the source, rather than
+    // trusting each deck's own free-text player label -- that field is
+    // whatever the owner happened to type when saving, which isn't
+    // guaranteed to match their real account name reliably enough to
+    // color-code by.
+    return decks.map(d => ({ ...d, _ownerUid: m.uid, _ownerName: m.displayName || 'Podmate' }));
+  }));
   return perMember.flat();
 }
 
@@ -23623,19 +23641,39 @@ function renderBracketHistogramSVG(distribution) {
   return svg;
 }
 
+// One color per pod member (cycling through POD_COLORS if a pod has more
+// members than the palette's 6 entries), used consistently across every
+// dot belonging to that person -- so someone who owns several decks reads
+// as one color, not several unrelated ones.
+function assignPlayerColors(decks) {
+  const owners = [];
+  const seen = new Set();
+  for (const d of decks) {
+    const key = d._ownerUid || d._ownerName || 'unknown';
+    if (!seen.has(key)) { seen.add(key); owners.push({ key, name: d._ownerName || 'Unknown' }); }
+  }
+  const colorMap = {};
+  owners.forEach((o, i) => { colorMap[o.key] = POD_COLORS[i % POD_COLORS.length]; });
+  return { colorMap, owners };
+}
+
+function renderPlayerColorLegend(owners, colorMap) {
+  return owners.map(o => `<span style="display:inline-flex; align-items:center; gap:5px; margin:3px 10px 3px 0;">
+    <span style="width:10px; height:10px; border-radius:50%; background:${colorMap[o.key]}; flex-shrink:0;"></span>
+    <span style="font-size:11.5px; color:var(--text-soft);">${escapeHtml(o.name)}</span>
+  </span>`).join('');
+}
+
 // Same coordinate system and axes as renderPaceRadar (built for one
 // Gathering's up to-6 seats), pointed at the pod's WHOLE library instead --
 // but deliberately without that function's risk-callout text underneath,
 // which was written for "two decks at one table" framing that doesn't
-// carry over to a pod's full collection. All dots share one semi-
-// transparent color rather than cycling through per-deck colors, since at
-// library scale the point is the overall CLUSTER shape, not identifying
-// any one deck -- overlapping translucent dots naturally show density
-// where many decks share similar pace/interaction, which a single solid
-// color per deck would just occlude instead of reveal. Labels are only
-// shown below a legible-count threshold; past that they'd just overlap
-// into unreadable clutter.
-function renderPodPaceScatterSVG(decks) {
+// carry over to a pod's full collection. Dots are colored per-player
+// (via colorMap) rather than one uniform color, and each carries a
+// data-deck-idx so a click handler wired up after insertion can look up
+// exactly which deck was clicked. Labels are only shown below a legible-
+// count threshold; past that they'd just overlap into unreadable clutter.
+function renderPodPaceScatterSVG(decks, colorMap) {
   const W = 360, H = 300, padL = 46, padR = 20, padT = 16, padB = 42;
   const plotW = W - padL - padR, plotH = H - padT - padB;
   const toX = v => padL + ((v - 1) / 9) * plotW;
@@ -23650,9 +23688,11 @@ function renderPodPaceScatterSVG(decks) {
   svg += `<text x="12" y="${padT + plotH / 2}" text-anchor="middle" font-size="11" fill="var(--text-soft)" transform="rotate(-90 12 ${padT + plotH / 2})">Interaction (quiet \u2192 heavy)</text>`;
 
   const showLabels = decks.length <= 10;
-  decks.forEach(d => {
+  decks.forEach((d, i) => {
     const x = toX(d.pace), y = toY(d.scores.disruption);
-    svg += `<circle cx="${x}" cy="${y}" r="6" fill="var(--gold)" fill-opacity="0.5" stroke="var(--bg-main)" stroke-width="1"/>`;
+    const key = d._ownerUid || d._ownerName || 'unknown';
+    const color = (colorMap && colorMap[key]) || 'var(--gold)';
+    svg += `<circle data-deck-idx="${i}" cx="${x}" cy="${y}" r="6.5" fill="${color}" fill-opacity="0.8" stroke="var(--bg-main)" stroke-width="1" style="cursor:pointer;"/>`;
     if (showLabels) {
       const label = (d.commanderLabel || d.name);
       const shortLabel = label.length > 14 ? label.slice(0, 13) + '\u2026' : label;
@@ -23661,6 +23701,28 @@ function renderPodPaceScatterSVG(decks) {
   });
   svg += `</svg>`;
   return svg;
+}
+
+// Wired up after the scatter's HTML is actually in the DOM (querying by
+// the data-deck-idx each circle carries) rather than inline handlers in
+// the SVG string, so this stays ordinary, debuggable JS instead of
+// string-building a second language inside the first.
+function wirePodPaceScatterClicks(container, decks) {
+  container.querySelectorAll('circle[data-deck-idx]').forEach(circle => {
+    const idx = parseInt(circle.getAttribute('data-deck-idx'), 10);
+    const d = decks[idx];
+    if (!d) return;
+    circle.addEventListener('click', () => {
+      const label = d.commanderLabel || d._rawCommander || 'this deck';
+      showConfirmModal(`Chart ${label}? This loads it into Chart Deck.`, () => {
+        $('decklistInput').value = d._rawList || '';
+        if ($('commanderInput')) $('commanderInput').value = d._rawCommander || '';
+        if ($('playerInput')) $('playerInput').value = d._ownerName || '';
+        setMode('single');
+        runAnalysis();
+      });
+    });
+  });
 }
 
 async function renderPodProfileContent(container, pod) {
@@ -23697,6 +23759,7 @@ async function renderPodProfileContent(container, pod) {
   </div>`).join('');
 
   const bracketDistribution = computeProfileBracketDistribution(analyzed);
+  const { colorMap, owners } = assignPlayerColors(analyzed);
 
   container.innerHTML = `
     <div style="text-align:center; margin-bottom:14px;">
@@ -23725,9 +23788,12 @@ async function renderPodProfileContent(container, pod) {
     </div>` : ''}
     <div>
       <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold); margin-bottom:8px; text-align:center;">Pace &amp; Interaction, Across the Library</div>
-      ${renderPodPaceScatterSVG(analyzed)}
+      <div style="text-align:center; margin-bottom:8px;">${renderPlayerColorLegend(owners, colorMap)}</div>
+      ${renderPodPaceScatterSVG(analyzed, colorMap)}
+      <p style="text-align:center; font-size:11.5px; color:var(--text-soft); margin-top:8px;">Click a dot to load that deck into Chart Deck.</p>
     </div>
   `;
+  wirePodPaceScatterClicks(container, analyzed);
 }
 
 function openPodProfileOverlay(pod) {
