@@ -21809,7 +21809,8 @@ async function renderPodDetailView(container, pods) {
     <h2 style="margin-bottom:4px;">${escapeHtml(pod.name)}</h2>
     <p style="font-size:11.5px; color:var(--text-soft); margin:0 0 16px;">${members.length} member${members.length === 1 ? '' : 's'} · you're ${isLeader ? 'the Steward' : isCoLeader ? 'a Co-Steward' : 'a member'}</p>
 
-    <button id="hostGatheringBtn" style="width:100%; margin-bottom:18px;">Host a Gathering</button>
+    <button id="hostGatheringBtn" style="width:100%; margin-bottom:10px;">Host a Gathering</button>
+    <button id="viewPodProfileBtn" class="ghost" style="width:100%; margin-bottom:18px;">View Pod Profile</button>
 
     <div style="margin-bottom:18px;">
       <div style="font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold); margin-bottom:8px;">Invite Link</div>
@@ -21842,6 +21843,8 @@ async function renderPodDetailView(container, pods) {
 
   const hostBtn = document.getElementById('hostGatheringBtn');
   if (hostBtn) hostBtn.addEventListener('click', () => openHostGatheringOverlay(pod, members));
+  const podProfileBtn = document.getElementById('viewPodProfileBtn');
+  if (podProfileBtn) podProfileBtn.addEventListener('click', () => openPodProfileOverlay(pod));
 
   const switcher = document.getElementById('podSwitcher');
   if (switcher) switcher.addEventListener('change', async () => {
@@ -23567,6 +23570,180 @@ function openPlayerProfileOverlay(uid, displayName, podId) {
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
   renderPlayerProfileContent(document.getElementById('playerProfileContent'), uid, displayName, podId);
+}
+
+// ---- Pod Profile: same three sections that translate cleanly to a whole
+// pod (colors, card types, Player Type), deliberately without the
+// commander header or archetype table -- across a whole pod, a single
+// "most played commander" usually just shows "no clear favorite" (a sign
+// of a healthy, varied table, not a gap), and an archetype table would run
+// one row per deck across every member, unwieldy rather than useful at
+// this scale. Reuses every aggregation function built for the individual
+// profile completely unchanged -- they already just operate on an array
+// of analyzed decks, whoever they belong to.
+async function getPodRawDecksForProfile(podId) {
+  let members = [];
+  try { members = await window.PodmatesCloud.loadPodMembers(podId); } catch (e) { return []; }
+  const perMember = await Promise.all(members.map(m => getPlayerRawDecksForProfile(m.uid)));
+  return perMember.flat();
+}
+
+// Grouped by bracketKey ('1-2', '3', '4'), not the display string
+// (bracket.bracket, e.g. "4 (Optimized)") -- the key is the clean,
+// stable identifier meant for exactly this kind of grouping, while the
+// display string exists for prose. Bracket 5 never appears here at all:
+// the app's own Bracket panel is explicit that cEDH can't be
+// auto-detected from a decklist, only self-identified by the deck's own
+// owner, so there's no reliable way to ever place a deck in that bucket
+// from saved-deck data alone.
+function computeProfileBracketDistribution(analyzedDecks) {
+  const order = ['1-2', '3', '4'];
+  const labels = { '1-2': '1–2 (Exhibition / Core)', '3': '3 (Upgraded)', '4': '4 (Optimized)' };
+  const counts = { '1-2': 0, '3': 0, '4': 0 };
+  for (const d of analyzedDecks) {
+    const key = d.bracket && d.bracket.bracketKey;
+    if (counts[key] !== undefined) counts[key] += 1;
+  }
+  return order.map(k => ({ key: k, label: labels[k], count: counts[k] })).filter(b => b.count > 0);
+}
+
+function renderBracketHistogramSVG(distribution) {
+  const maxCount = Math.max(1, ...distribution.map(d => d.count));
+  const barH = 26, gap = 12, labelW = 140, chartW = 180;
+  const H = distribution.length * (barH + gap);
+  let svg = `<svg viewBox="0 0 ${labelW + chartW + 30} ${H}" style="width:100%; max-width:380px; display:block; margin:0 auto;">`;
+  distribution.forEach((d, i) => {
+    const y = i * (barH + gap);
+    const w = (d.count / maxCount) * chartW;
+    svg += `<text x="${labelW - 8}" y="${y + barH / 2 + 4}" text-anchor="end" font-size="11.5" fill="var(--text-primary)">${escapeHtml(d.label)}</text>`;
+    svg += `<rect x="${labelW}" y="${y}" width="${Math.max(w, 3)}" height="${barH}" fill="var(--gold)" rx="2"/>`;
+    svg += `<text x="${labelW + Math.max(w, 3) + 8}" y="${y + barH / 2 + 4}" font-size="12" fill="var(--text-soft)">${d.count}</text>`;
+  });
+  svg += `</svg>`;
+  return svg;
+}
+
+// Same coordinate system and axes as renderPaceRadar (built for one
+// Gathering's up to-6 seats), pointed at the pod's WHOLE library instead --
+// but deliberately without that function's risk-callout text underneath,
+// which was written for "two decks at one table" framing that doesn't
+// carry over to a pod's full collection. All dots share one semi-
+// transparent color rather than cycling through per-deck colors, since at
+// library scale the point is the overall CLUSTER shape, not identifying
+// any one deck -- overlapping translucent dots naturally show density
+// where many decks share similar pace/interaction, which a single solid
+// color per deck would just occlude instead of reveal. Labels are only
+// shown below a legible-count threshold; past that they'd just overlap
+// into unreadable clutter.
+function renderPodPaceScatterSVG(decks) {
+  const W = 360, H = 300, padL = 46, padR = 20, padT = 16, padB = 42;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const toX = v => padL + ((v - 1) / 9) * plotW;
+  const toY = v => padT + plotH - ((v - 1) / 9) * plotH;
+
+  let svg = `<svg viewBox="0 0 ${W} ${H}" style="width:100%; max-width:420px; display:block; margin:0 auto;">`;
+  svg += `<line x1="${toX(5.5)}" y1="${padT}" x2="${toX(5.5)}" y2="${padT + plotH}" stroke="var(--line)" stroke-dasharray="3,3"/>`;
+  svg += `<line x1="${padL}" y1="${toY(5.5)}" x2="${padL + plotW}" y2="${toY(5.5)}" stroke="var(--line)" stroke-dasharray="3,3"/>`;
+  svg += `<line x1="${padL}" y1="${padT + plotH}" x2="${padL + plotW}" y2="${padT + plotH}" stroke="var(--line-strong)"/>`;
+  svg += `<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + plotH}" stroke="var(--line-strong)"/>`;
+  svg += `<text x="${padL + plotW / 2}" y="${H - 8}" text-anchor="middle" font-size="11" fill="var(--text-soft)">Pace (gradual \u2192 sudden)</text>`;
+  svg += `<text x="12" y="${padT + plotH / 2}" text-anchor="middle" font-size="11" fill="var(--text-soft)" transform="rotate(-90 12 ${padT + plotH / 2})">Interaction (quiet \u2192 heavy)</text>`;
+
+  const showLabels = decks.length <= 10;
+  decks.forEach(d => {
+    const x = toX(d.pace), y = toY(d.scores.disruption);
+    svg += `<circle cx="${x}" cy="${y}" r="6" fill="var(--gold)" fill-opacity="0.5" stroke="var(--bg-main)" stroke-width="1"/>`;
+    if (showLabels) {
+      const label = (d.commanderLabel || d.name);
+      const shortLabel = label.length > 14 ? label.slice(0, 13) + '\u2026' : label;
+      svg += `<text x="${x}" y="${y - 10}" text-anchor="middle" font-size="9.5" fill="var(--text-primary)">${escapeHtml(shortLabel)}</text>`;
+    }
+  });
+  svg += `</svg>`;
+  return svg;
+}
+
+async function renderPodProfileContent(container, pod) {
+  if (!container) return;
+  if (!dbReady) {
+    container.innerHTML = `<p style="color:var(--danger); font-size:13px;">Card database still loading — try again in a moment.</p>`;
+    return;
+  }
+  container.innerHTML = `<p style="text-align:center; color:var(--text-soft); font-size:13px;">Loading pod profile…</p>`;
+  const rawDecks = await getPodRawDecksForProfile(pod.id);
+  const analyzed = analyzeDecksForProfile(rawDecks);
+  if (!analyzed.length) {
+    container.innerHTML = `<h2 style="margin-bottom:8px;">${escapeHtml(pod.name)}</h2><p style="font-size:13px; color:var(--text-soft);">No saved decks across this pod yet to build a profile from.</p>`;
+    return;
+  }
+
+  const colorBreakdown = computeProfileColorBreakdown(analyzed);
+  const typeBreakdown = computeProfileTypeBreakdown(analyzed);
+  const vibeTrait = computeProfileVibeTrait(analyzed);
+
+  const colorRows = colorBreakdown.map(c => {
+    const bg = (MANA_COLOR_STYLE[c.color] || {}).bg || '#888';
+    return `<div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+      ${manaSymbol(c.color, 18)}
+      <span style="width:11px; height:11px; border-radius:50%; background:${bg}; flex-shrink:0;"></span>
+      <span style="font-size:13px;">${c.pct.toFixed(0)}%</span>
+    </div>`;
+  }).join('');
+
+  const typeRows = typeBreakdown.map(t => `<div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+    <span style="width:11px; height:11px; border-radius:50%; background:${PROFILE_TYPE_COLORS[t.type] || '#888'}; flex-shrink:0;"></span>
+    <span style="font-size:13px; flex:1;">${escapeHtml(t.type)}</span>
+    <span style="font-size:13px; color:var(--text-soft);">${t.pct.toFixed(0)}%</span>
+  </div>`).join('');
+
+  const bracketDistribution = computeProfileBracketDistribution(analyzed);
+
+  container.innerHTML = `
+    <div style="text-align:center; margin-bottom:14px;">
+      <div style="font-family:'Cinzel',Georgia,serif; font-size:17px;">${escapeHtml(pod.name)}</div>
+      <div style="font-size:12px; color:var(--text-soft); margin-top:2px;">${analyzed.length} deck${analyzed.length === 1 ? '' : 's'} across the pod</div>
+    </div>
+    ${vibeTrait ? `<div class="panel" style="text-align:center; padding:10px; margin-bottom:16px;">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold);">Pod Type</div>
+      <div style="font-family:'Cinzel',Georgia,serif; font-size:17px; margin-top:2px;">${escapeHtml(vibeTrait)}</div>
+    </div>` : ''}
+    <div style="display:flex; gap:18px; flex-wrap:wrap; margin-bottom:18px;">
+      <div style="flex:1; min-width:140px;">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold); margin-bottom:8px; text-align:center;">Colors</div>
+        ${renderProfilePieChartSVG(colorBreakdown.map(c => ({ pct: c.pct, color: (MANA_COLOR_STYLE[c.color] || {}).bg || '#888' })), 140)}
+        <div style="margin-top:10px;">${colorRows}</div>
+      </div>
+      <div style="flex:1; min-width:140px;">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold); margin-bottom:8px; text-align:center;">Card Types</div>
+        ${renderProfilePieChartSVG(typeBreakdown.map(t => ({ pct: t.pct, color: PROFILE_TYPE_COLORS[t.type] || '#888' })), 140)}
+        <div style="margin-top:10px;">${typeRows}</div>
+      </div>
+    </div>
+    ${bracketDistribution.length ? `<div style="margin-bottom:18px;">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold); margin-bottom:10px; text-align:center;">Bracket Spread</div>
+      ${renderBracketHistogramSVG(bracketDistribution)}
+    </div>` : ''}
+    <div>
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold); margin-bottom:8px; text-align:center;">Pace &amp; Interaction, Across the Library</div>
+      ${renderPodPaceScatterSVG(analyzed)}
+    </div>
+  `;
+}
+
+function openPodProfileOverlay(pod) {
+  injectTryADeckStyles();
+  closeTryADeckModal();
+  const overlay = document.createElement('div');
+  overlay.className = 'tad-overlay';
+  overlay.id = 'tadOverlay';
+  const modal = document.createElement('div');
+  modal.className = 'tad-modal';
+  modal.innerHTML = `<button class="tad-close" id="tadCloseBtn">Close ×</button><div id="podProfileContent"></div>`;
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
+  renderPodProfileContent(document.getElementById('podProfileContent'), pod);
 }
 
 function generateRuleZeroBlurb(deck) {
