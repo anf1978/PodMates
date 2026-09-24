@@ -1223,7 +1223,7 @@ One card per line. Formats like &quot;1x Sol Ring&quot;, plain names, or Moxfiel
 
   <div id="podMode" style="display:none;">
     <div class="panel">
-      <h2>OurPod</h2>
+      <h2>MyPods</h2>
       <p style="font-size:13.5px; color:var(--text-soft); margin:0 0 14px;">An OurPod is your regular group of people, not a specific set of decks — who's bringing what gets chosen fresh each time you chart a game night.</p>
       <div id="ourPodPanelArea"></div>
     </div>
@@ -21342,7 +21342,7 @@ function openDeckSummaryPopup(deck) {
   const existing = document.getElementById('tadDeckSummaryOverlay');
   if (existing) existing.remove(); // only replace a PREVIOUS summary popup, never whatever it was opened from
   const overlay = document.createElement('div');
-  overlay.className = 'tad-overlay';
+  overlay.className = 'tad-overlay tad-stacked-overlay';
   overlay.id = 'tadDeckSummaryOverlay';
   overlay.style.zIndex = '10001'; // above both the base .tad-overlay (1000) and icon tooltips (9999)
   const modal = document.createElement('div');
@@ -21488,11 +21488,7 @@ async function renderMyPodsLanding(container, pods) {
 
   document.getElementById('myPodsCreateBtn').addEventListener('click', () => openCreateOrJoinPodOverlay('create'));
   document.getElementById('myPodsJoinBtn').addEventListener('click', () => openCreateOrJoinPodOverlay('join'));
-  document.getElementById('myPodsSampleBtn').addEventListener('click', () => {
-    // Stub -- a real "sample gathering" (a demo table using precon decks,
-    // no pod or account required to explore) is separate follow-up work.
-    showToast('Sample Gatherings are coming soon.');
-  });
+  document.getElementById('myPodsSampleBtn').addEventListener('click', runSampleGathering);
 
   // Checked once whenever this landing page renders (tab opened, overlay
   // closed) rather than via a persistent connection -- see the earlier
@@ -21576,6 +21572,37 @@ function openPodDetailOverlay(pod, pods) {
 
 // --- Host a Gathering: name it, seat real pod members (host auto-seated
 // in Seat 1, seats 2-6 pick from the rest of the pod), then Go Live. -----
+// No account, no pod, nothing written to Firestore -- picks 6 distinct
+// decks at random from the same real precon/curated library "Try a Deck"
+// already uses, runs them through the exact same analysis and results
+// rendering a real Chart the Battle would, and shows it immediately. The
+// point is letting someone see what a charted table actually looks like
+// (Rule Zero Overview, Table Alignment, the whole results view) before
+// they've committed to creating an account or a pod. currentBattleContext
+// deliberately stays null here -- there's no real Gathering behind this,
+// so Log Battle and everything after it correctly has nothing to attach
+// to and won't appear.
+function runSampleGathering() {
+  if (!dbReady) { showToast('Card database still loading — try again in a moment.'); return; }
+  const pool = [...TRY_A_DECK_OPTIONS];
+  const picks = [];
+  while (picks.length < 6 && pool.length) {
+    const i = Math.floor(Math.random() * pool.length);
+    picks.push(pool.splice(i, 1)[0]);
+  }
+  const decks = [];
+  for (const p of picks) {
+    const result = analyzeOneList(p.decklist, p.flavorName, p.commander);
+    if (result) { result.color = POD_COLORS[decks.length % POD_COLORS.length]; decks.push(result); }
+  }
+  if (decks.length < 2) { showToast('Could not build a sample table right now — try again.'); return; }
+  closeTryADeckModal();
+  currentBattleContext = null;
+  setMode('pod');
+  renderPodAnalysisResults(decks);
+  renderBattleControls();
+}
+
 async function openHostGatheringOverlay(pod, members) {
   injectTryADeckStyles();
   closeTryADeckModal();
@@ -21804,9 +21831,11 @@ async function renderLiveGatheringTray(podId, gatheringId) {
       if (decks.length >= 2) {
         stopGatheringPolling();
         closeTryADeckModal();
+        const hostSeatForChart = (gathering.seats && Object.values(gathering.seats).find(s => s && s.uid === gathering.hostUid)) || null;
         currentBattleContext = {
           podId, gatheringId, gatheringTitle: gathering.title || '',
           isHost: gathering.hostUid === window.PodmatesCloud.uid,
+          hostName: (hostSeatForChart && hostSeatForChart.displayName) || 'the host',
           participants: seatKeysForChart.map(k => gathering.seats && gathering.seats[k]).filter(s => s && s.uid).map(s => ({ uid: s.uid, displayName: s.displayName || 'Podmate' })),
         };
         renderPodAnalysisResults(decks);
@@ -21818,29 +21847,100 @@ async function renderLiveGatheringTray(podId, gatheringId) {
   }
   const isHost = gathering.hostUid === window.PodmatesCloud.uid;
   const seatKeys = ['0', '1', '2', '3', '4', '5'];
+  const seatedList = seatKeys.map(k => gathering.seats && gathering.seats[k]).filter(s => s && s.uid);
+  const hostSeat = seatedList.find(s => s.uid === gathering.hostUid);
+  const hostName = hostSeat ? hostSeat.displayName : 'the host';
+
+  // Only fetched for the host, and only here -- non-hosts can't act on
+  // this data (adding/removing seats is host-only, matching how seat
+  // ASSIGNMENT already worked during setup; loading a deck into an
+  // existing seat stays open to anyone, unchanged), so there's no reason
+  // to spend the read on a device that can't use it.
+  let availableMembers = [];
+  if (isHost) {
+    try {
+      const allMembers = await window.PodmatesCloud.loadPodMembers(podId);
+      const seatedUids = new Set(seatedList.map(s => s.uid));
+      availableMembers = allMembers.filter(m => !seatedUids.has(m.uid));
+    } catch (e) { /* fine -- Add Player just won't have anyone to offer this refresh */ }
+  }
+
   content.innerHTML = `
     <h2 style="margin-bottom:4px;">${escapeHtml(gathering.title)}</h2>
-    <p style="font-size:11.5px; color:var(--text-soft); margin:0 0 16px;">Live Gathering</p>
+    <p style="font-size:11.5px; color:var(--text-soft); margin:0 0 16px;">Live Gathering — hosted by ${escapeHtml(hostName)}</p>
     ${isHost ? `<button id="endGatheringBtn" class="ghost" style="width:100%; margin-bottom:16px; border-color:var(--danger); color:var(--danger); font-size:12.5px;">End Gathering</button>` : ''}
     <div id="gatheringSeatsArea"></div>
-    ${isHost ? `<button id="chartBattleBtn" style="width:100%; margin-top:8px;">Chart the Battle</button>` : ''}
+    ${isHost
+      ? `<button id="chartBattleBtn" style="width:100%; margin-top:8px;">Chart the Battle</button>`
+      : `<p style="text-align:center; font-size:12px; color:var(--text-soft); margin-top:10px;">Waiting for ${escapeHtml(hostName)} to chart the battle once everyone's picked a deck.</p>`}
     <button id="gatheringRefreshBtn" class="ghost" style="width:100%; margin-top:6px; font-size:12.5px;">Refresh</button>
   `;
   const seatsArea = document.getElementById('gatheringSeatsArea');
   seatsArea.innerHTML = seatKeys.map(k => {
     const seat = gathering.seats && gathering.seats[k];
     if (!seat || !seat.uid) {
-      return `<div style="padding:12px; border:1px dashed var(--line); border-radius:4px; margin-bottom:10px; color:var(--text-soft); font-size:13px;">Seat ${parseInt(k) + 1} — empty</div>`;
+      const addControl = isHost
+        ? (availableMembers.length
+          ? `<select data-add-seat="${k}" style="width:100%; margin-top:6px; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:7px 9px; color:var(--text-primary); font-family:inherit; font-size:12.5px;">
+              <option value="">+ Add a player…</option>
+              ${availableMembers.map(m => `<option value="${escapeHtml(m.uid)}">${escapeHtml(m.displayName || 'Podmate')}</option>`).join('')}
+            </select>`
+          : `<p style="font-size:11.5px; color:var(--text-soft); margin:6px 0 0;">No other pod members free to seat here.</p>`)
+        : '';
+      return `<div style="padding:12px; border:1px dashed var(--line); border-radius:4px; margin-bottom:10px; color:var(--text-soft); font-size:13px;">Seat ${parseInt(k) + 1} — empty${addControl}</div>`;
     }
     const deckLabel = seat.deck ? escapeHtml(seat.deck.commander || 'Deck loaded') : 'No deck selected yet';
+    const removeControl = (isHost && seat.uid !== gathering.hostUid)
+      ? `<button type="button" class="ghost" data-remove-seat="${k}" style="font-size:12px; border-color:var(--danger); color:var(--danger);">Remove</button>`
+      : '';
     return `<div style="padding:12px; border:1px solid var(--line); border-radius:4px; margin-bottom:10px;">
-      <div style="font-weight:600; margin-bottom:4px;">Seat ${parseInt(k) + 1} — ${escapeHtml(seat.displayName || 'Podmate')}</div>
+      <div style="font-weight:600; margin-bottom:4px;">Seat ${parseInt(k) + 1} — ${escapeHtml(seat.displayName || 'Podmate')}${seat.uid === gathering.hostUid ? ' (Host)' : ''}</div>
       <div style="font-size:12.5px; color:var(--text-soft); margin-bottom:8px;">${deckLabel}</div>
-      <button type="button" class="ghost" data-gathering-seat="${k}" style="font-size:12px;">Load a Deck</button>
+      <div class="row" style="gap:6px;">
+        <button type="button" class="ghost" data-gathering-seat="${k}" style="font-size:12px; flex:1;">Load a Deck</button>
+        ${removeControl}
+      </div>
     </div>`;
   }).join('');
   seatsArea.querySelectorAll('[data-gathering-seat]').forEach(btn => {
     btn.addEventListener('click', () => openGatheringSeatDeckPicker(podId, gatheringId, btn.getAttribute('data-gathering-seat'), gathering));
+  });
+  // Host-only: pick a pod member into an empty seat immediately on
+  // selection -- one dropdown, no separate confirm step, matching how
+  // lightweight this action actually is (nothing destructive happens;
+  // the seat starts with no deck loaded either way).
+  seatsArea.querySelectorAll('[data-add-seat]').forEach(sel => {
+    sel.addEventListener('change', async () => {
+      const uid = sel.value;
+      if (!uid) return;
+      const seatIdx = sel.getAttribute('data-add-seat');
+      const member = availableMembers.find(m => m.uid === uid);
+      try {
+        await window.PodmatesCloud.setGatheringSeat(podId, gatheringId, seatIdx, {
+          uid, displayName: (member && member.displayName) || 'Podmate', deck: null,
+        });
+        renderLiveGatheringTray(podId, gatheringId);
+      } catch (err) {
+        showToast('Could not seat that player: ' + err.message);
+      }
+    });
+  });
+  // Host-only: clearing a seat back to empty -- confirmed first, since it
+  // also discards whatever deck that player had already picked, unlike
+  // adding a player which has nothing to lose.
+  seatsArea.querySelectorAll('[data-remove-seat]').forEach(btn => {
+    const seatIdx = btn.getAttribute('data-remove-seat');
+    const seat = gathering.seats && gathering.seats[seatIdx];
+    btn.addEventListener('click', () => {
+      showActionConfirmModal(`Remove ${seat && seat.displayName ? escapeHtml(seat.displayName) : 'this player'} from the Gathering? Their seat will be cleared, including any deck they'd already picked.`, 'Remove', async () => {
+        try {
+          await window.PodmatesCloud.setGatheringSeat(podId, gatheringId, seatIdx, { uid: null, displayName: null, deck: null });
+          renderLiveGatheringTray(podId, gatheringId);
+        } catch (err) {
+          showToast('Could not remove that player: ' + err.message);
+        }
+      });
+    });
   });
   const refreshBtn = document.getElementById('gatheringRefreshBtn');
   if (refreshBtn) refreshBtn.addEventListener('click', () => renderLiveGatheringTray(podId, gatheringId));
@@ -21880,6 +21980,7 @@ async function renderLiveGatheringTray(podId, gatheringId) {
     closeTryADeckModal();
     currentBattleContext = {
       podId, gatheringId, gatheringTitle: gathering.title || '', isHost: true,
+      hostName: (window.PodmatesCloud.user && window.PodmatesCloud.user.displayName) || 'the host',
       participants: seatKeys.map(k => gathering.seats && gathering.seats[k]).filter(s => s && s.uid).map(s => ({ uid: s.uid, displayName: s.displayName || 'Podmate' })),
     };
     renderPodAnalysisResults(decks);
@@ -22351,7 +22452,7 @@ async function showSingleCardArtModal(name) {
   const existingArt = document.getElementById('tadArtOverlay');
   if (existingArt) existingArt.remove(); // only replace a PREVIOUS art popup, never the parent overlay underneath
   const overlay = document.createElement('div');
-  overlay.className = 'tad-overlay';
+  overlay.className = 'tad-overlay tad-stacked-overlay';
   overlay.id = 'tadArtOverlay';
   overlay.style.zIndex = '10001'; // above both the base .tad-overlay (1000) and icon tooltips (9999)
   const modal = document.createElement('div');
@@ -22721,6 +22822,19 @@ function renderTryADeckModal() {
 function closeTryADeckModal() {
   const overlay = document.getElementById('tadOverlay');
   if (overlay) overlay.remove();
+  // Any stacked layer (card art, deck summary) opened on top of the base
+  // overlay is scoped to it -- if the base overlay is going away, anything
+  // stacked on it should go too, or it's left floating on top of whatever
+  // the page shows next with nothing underneath it anymore. This is what
+  // was actually happening when loading a deck into Chart Deck from a
+  // profile's deck summary popup after first clicking through to the
+  // commander's art from inside it: the art popup is a THIRD layer that
+  // "Open in Deck Chart" never knew to close on its own. Cleaning this up
+  // here, once, covers every existing close path automatically rather
+  // than needing each one individually updated -- and covers whatever
+  // gets stacked next too, without needing to remember to update this
+  // again each time.
+  document.querySelectorAll('.tad-stacked-overlay').forEach(el => el.remove());
 }
 
 // ---- Scan Cards from Photo: client-side OCR, matched by scanning the
@@ -23222,7 +23336,10 @@ function renderBattleControls() {
     });
     return;
   }
-  if (!currentBattleContext.isHost) { area.innerHTML = ''; return; }
+  if (!currentBattleContext.isHost) {
+    area.innerHTML = `<p style="text-align:center; font-size:12px; color:var(--text-soft); margin:0;">Waiting for ${escapeHtml(currentBattleContext.hostName || 'the host')} to log this battle.</p>`;
+    return;
+  }
   area.innerHTML = `<button id="logBattleBtn" class="ghost" style="width:100%; margin-bottom:14px; border-color:var(--gold); color:var(--gold);">Log Battle</button>`;
   const btn = document.getElementById('logBattleBtn');
   if (btn) btn.addEventListener('click', () => {
