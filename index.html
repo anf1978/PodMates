@@ -953,6 +953,125 @@ footer::after { content: ' ◆'; color: var(--cyan); font-style: normal; }
 
 /* Auth bar & misc small buttons already use .ghost – they inherit the new style */
 </style>
+
+<!-- ============================================================
+     VISUAL STRIKING OVERHAUL -- Phase 1
+     Additive only: every rule below either targets something with no
+     existing rule at all (the background atmosphere, the toast's real
+     classes) or relies on normal CSS cascade order to layer ON TOP of
+     the rules above (same selector, defined later, so no !important
+     needed except where an existing inline style would otherwise win).
+     Nothing above this block was removed or rewritten to keep this
+     change. Everything animated respects prefers-reduced-motion.
+     ============================================================ -->
+<style id="pm-visual-overhaul">
+
+/* ---- Atmosphere: layered background + CSS-only drifting motes -------- */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.5;
+  background:
+    radial-gradient(2px 2px at 10% 20%, rgba(232,193,74,0.35), transparent 60%),
+    radial-gradient(2px 2px at 80% 15%, rgba(78,200,224,0.3), transparent 60%),
+    radial-gradient(1.5px 1.5px at 60% 70%, rgba(232,193,74,0.28), transparent 60%),
+    radial-gradient(2px 2px at 30% 85%, rgba(78,200,224,0.22), transparent 60%),
+    radial-gradient(1.5px 1.5px at 90% 60%, rgba(232,193,74,0.22), transparent 60%),
+    radial-gradient(1.5px 1.5px at 45% 40%, rgba(78,200,224,0.2), transparent 60%);
+  background-repeat: no-repeat;
+  animation: pm-motes-drift 42s ease-in-out infinite alternate;
+}
+@keyframes pm-motes-drift {
+  0%   { background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0; }
+  100% { background-position: 0 -34px, 0 26px, 0 -22px, 0 30px, 0 -18px, 0 24px; }
+}
+/* Everything else in the page already sits in normal flow above this
+   fixed, zero-size-footprint layer -- no z-index bump needed on existing
+   content, since .wrap and everything in it already paints after this
+   pseudo-element in source/stacking order. */
+
+/* ---- Typography: more dramatic title, glowing "rare-item" numbers ---- */
+h1 {
+  font-size: clamp(28px, 4.6vw, 46px);
+  text-shadow:
+    0 0 22px rgba(232, 193, 74, 0.45),
+    0 0 46px rgba(232, 193, 74, 0.18);
+}
+.stat .num {
+  text-shadow: 0 0 10px rgba(232, 193, 74, 0.4);
+}
+.panel h2, .panel summary.panel-toggle {
+  text-shadow: 0 0 8px rgba(232, 193, 74, 0.22);
+}
+
+/* ---- Panels: hover/focus-within depth and corner-stud glow ----------- */
+.panel {
+  transition: box-shadow 0.2s ease;
+}
+.panel:hover, .panel:focus-within {
+  box-shadow:
+    0 0 0 1px var(--slot-border-hi),
+    0 0 18px rgba(232, 193, 74, 0.12),
+    inset 0 1px 0 rgba(255,255,255,0.04),
+    0 8px 24px rgba(0,0,0,0.5);
+}
+.panel:hover::after, .panel:focus-within::after {
+  opacity: 1;
+  filter: drop-shadow(0 0 4px rgba(232, 193, 74, 0.6));
+}
+.panel::after { transition: filter 0.2s ease, opacity 0.2s ease; }
+
+/* ---- Radar/spider chart: soft glow on the deck shape and its points -- */
+.deck-shape { filter: drop-shadow(0 0 6px rgba(78, 200, 224, 0.35)); }
+.deck-point { filter: drop-shadow(0 0 4px rgba(232, 193, 74, 0.55)); }
+
+/* ---- Mode tabs: CSS now fully owns active/inactive appearance -- the
+   JS side still toggles the .active class (that part was already
+   correct and stays), but no longer needs to also set matching inline
+   styles for the inactive state, since that's what this rule is for. */
+.mode-btn:not(.active) {
+  background: rgba(224,178,77,0.06) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--line-strong) !important;
+  box-shadow: none !important;
+}
+
+/* ---- Toast: real classes instead of inline styles + display toggle --- */
+.pm-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  background: var(--bg-panel-raised);
+  border: 2px solid var(--gold);
+  border-radius: 0;
+  padding: 12px 18px;
+  color: var(--text-primary);
+  font-size: 13.5px;
+  max-width: min(480px, 90vw);
+  text-align: center;
+  z-index: 9999;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4), 0 0 16px rgba(232, 193, 74, 0.18);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+.pm-toast.pm-toast-show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ---- Respect reduced motion: disable the decorative animation, keep
+   every functional transition (hover/focus feedback, toast fade) intact
+   since those aren't the kind of motion this preference is about. ---- */
+@media (prefers-reduced-motion: reduce) {
+  body::after { animation: none; }
+}
+
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -20778,18 +20897,23 @@ function renderAuthModal(modal, errorMsg) {
 // the modal system but doesn't block interaction the way a modal would,
 // since sign-in/out confirmations are informational, not decisions to make.
 function showToast(message) {
-  injectTryADeckStyles();
   let toast = document.getElementById('podmatesToast');
   if (!toast) {
     toast = document.createElement('div');
     toast.id = 'podmatesToast';
-    toast.style.cssText = 'position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--bg-panel-raised); border:1px solid var(--gold); border-radius:6px; padding:12px 18px; color:var(--text-primary); font-size:13.5px; max-width:min(480px, 90vw); text-align:center; z-index:9999; box-shadow:0 4px 20px rgba(0,0,0,0.4);';
+    toast.className = 'pm-toast';
     document.body.appendChild(toast);
   }
   toast.textContent = message;
-  toast.style.display = 'block';
+  // Reflow between removing and re-adding the class, so retriggering the
+  // toast while one's already showing (a second message arriving before
+  // the first faded out) restarts the transition instead of the browser
+  // silently no-op'ing a class that was technically never removed.
+  toast.classList.remove('pm-toast-show');
+  void toast.offsetWidth;
+  toast.classList.add('pm-toast-show');
   clearTimeout(toast._hideTimer);
-  toast._hideTimer = setTimeout(() => { toast.style.display = 'none'; }, 6000);
+  toast._hideTimer = setTimeout(() => { toast.classList.remove('pm-toast-show'); }, 6000);
 }
 
 // Every save-related action in the app funnels through this one check.
@@ -24264,24 +24388,14 @@ function setMode(mode) {
     if (container) container.style.display = (m === mode) ? 'block' : 'none';
     const btn = $(ids.btn);
     if (!btn) continue;
-    // .mode-btn.active carries !important styling in the stylesheet, which
-    // overrides any inline style below regardless of what it says -- the
-    // class itself has to actually move for the inactive tab to ever stop
-    // looking active. modeSingleBtn started with this class hardcoded in
-    // its markup and nothing removed it before, which is exactly why it
-    // stayed gold no matter which tab was actually selected.
+    // CSS fully owns both states now (.mode-btn.active and
+    // .mode-btn:not(.active), both !important) -- this just needs to move
+    // the class, not also set matching inline styles by hand. Before this,
+    // modeSingleBtn started with the active class hardcoded in its markup
+    // and nothing ever removed it, which is exactly why it stayed gold no
+    // matter which tab was actually selected -- the class moving is what
+    // was actually missing, not the inline styles this replaces.
     btn.classList.toggle('active', m === mode);
-    if (m === mode) {
-      btn.style.background = 'var(--gold)';
-      btn.style.color = 'var(--bg-main)';
-      btn.style.borderColor = 'var(--gold)';
-      btn.style.boxShadow = '0 0 14px rgba(224,178,77,0.45)';
-    } else {
-      btn.style.background = 'rgba(224,178,77,0.06)';
-      btn.style.color = 'var(--text-primary)';
-      btn.style.borderColor = 'var(--line-strong)';
-      btn.style.boxShadow = 'none';
-    }
   }
   // Explicitly show or hide each results area based on the tab we're
   // arriving at, rather than only ever hiding -- a tab we're leaving gets
