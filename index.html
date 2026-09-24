@@ -20611,6 +20611,53 @@ function showConfirmModal(message, onConfirm) {
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
 }
 
+// A more general confirm dialog than showConfirmModal above, which is
+// deliberately kept simple and reserved for actual deletions ("Delete"
+// is genuinely correct there). This one takes an explicit label for
+// whatever the real action is -- "Regenerate," "Make Steward," "Log
+// Battle" -- and an optional onCancel, for the case where this confirm
+// was opened from inside another overlay (an already-open Pod Profile or
+// pod detail view) that needs to be reopened on Cancel rather than just
+// leaving the person with nothing on screen. Leave onCancel unset when
+// the confirm was opened directly from the ordinary page (nothing was
+// hidden to bring back -- the page was never covered, just the confirm
+// laid over it).
+function showActionConfirmModal(message, confirmLabel, onConfirm, onCancel) {
+  injectTryADeckStyles();
+  closeTryADeckModal();
+  const overlay = document.createElement('div');
+  overlay.className = 'tad-overlay';
+  overlay.id = 'tadOverlay';
+  const modal = document.createElement('div');
+  modal.className = 'tad-modal';
+  modal.innerHTML = `
+    <p style="font-size:14px; color:var(--text-primary); line-height:1.6; margin:6px 0 20px;">${escapeHtml(message)}</p>
+    <div class="row" style="justify-content:flex-end; gap:10px;">
+      <button id="actionConfirmCancelBtn" class="ghost">Cancel</button>
+      <button id="actionConfirmOkBtn">${escapeHtml(confirmLabel)}</button>
+    </div>
+  `;
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  const cancel = () => { closeTryADeckModal(); if (onCancel) onCancel(); };
+  document.getElementById('actionConfirmCancelBtn').addEventListener('click', cancel);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) cancel(); });
+  document.getElementById('actionConfirmOkBtn').addEventListener('click', () => {
+    closeTryADeckModal();
+    onConfirm();
+  });
+}
+
+// Reopens a pod's detail overlay after a Cancel -- fetches a fresh pods
+// list itself rather than requiring every call site to have kept one
+// around, since by the time Cancel is clicked whatever was captured
+// earlier could already be stale.
+async function reopenPodDetailFor(pod) {
+  let pods = [];
+  try { pods = await window.PodmatesCloud.loadMyPods(); } catch (e) { /* fine -- best effort */ }
+  openPodDetailOverlay(pod, pods);
+}
+
 // ============================================================
 // SIGN IN / SIGN UP MODAL
 // ============================================================
@@ -21892,7 +21939,7 @@ async function renderPodDetailView(container, pods) {
     });
 
     document.getElementById('podRegenerateBtn').addEventListener('click', () => {
-      showConfirmModal('Regenerate the invite link? The old link will stop working immediately.', async () => {
+      showActionConfirmModal('Regenerate the invite link? The old link will stop working immediately.', 'Regenerate', async () => {
         try {
           await window.PodmatesCloud.regenerateInviteCode(pod.id);
           const refreshed = await window.PodmatesCloud.loadMyPods();
@@ -21901,7 +21948,7 @@ async function renderPodDetailView(container, pods) {
         } catch (err) {
           showToast('Could not regenerate: ' + err.message);
         }
-      });
+      }, () => reopenPodDetailFor(pod));
     });
 
     const deleteBtn = document.getElementById('podDeleteBtn');
@@ -21969,7 +22016,7 @@ function renderPodMembersList(outerContainer, pod, members, myUid, canManage, is
           showToast('Could not promote: ' + err.message);
         }
       } else if (action === 'transfer') {
-        showConfirmModal(`Make ${member.displayName} the OurPod Steward? You'll become a Co-Steward.`, async () => {
+        showActionConfirmModal(`Make ${member.displayName} the OurPod Steward? You'll become a Co-Steward.`, 'Make Steward', async () => {
           try {
             await window.PodmatesCloud.transferLeadership(pod.id, uid);
             const pods = await window.PodmatesCloud.loadMyPods();
@@ -21978,7 +22025,7 @@ function renderPodMembersList(outerContainer, pod, members, myUid, canManage, is
           } catch (err) {
             showToast('Could not hand off Stewardship: ' + err.message);
           }
-        });
+        }, () => reopenPodDetailFor(pod));
       } else if (action === 'remove') {
         showConfirmModal(`Remove ${member.displayName} from "${pod.name}"?`, async () => {
           try {
@@ -22945,7 +22992,7 @@ function renderBattleControls() {
     document.getElementById('repeatBattleBtn').addEventListener('click', runRepeatBattle);
     document.getElementById('startNewBattleBtn').addEventListener('click', runStartNewBattle);
     document.getElementById('endGatheringFromResultsBtn').addEventListener('click', () => {
-      showConfirmModal('End this Gathering? Everyone still seated will see it\u2019s over next time they check -- this doesn\u2019t delete anything, it just closes it out.', async () => {
+      showActionConfirmModal('End this Gathering? Everyone still seated will see it\u2019s over next time they check -- this doesn\u2019t delete anything, it just closes it out.', 'End Gathering', async () => {
         try {
           await window.PodmatesCloud.endGathering(currentBattleContext.podId, currentBattleContext.gatheringId);
           currentBattleContext = null;
@@ -22962,7 +23009,7 @@ function renderBattleControls() {
   area.innerHTML = `<button id="logBattleBtn" class="ghost" style="width:100%; margin-bottom:14px; border-color:var(--gold); color:var(--gold);">Log Battle</button>`;
   const btn = document.getElementById('logBattleBtn');
   if (btn) btn.addEventListener('click', () => {
-    showConfirmModal('End the current battle and log it to your OurPod\u2019s Chronicles? This can\u2019t be undone.', runLogBattle);
+    showActionConfirmModal('End the current battle and log it to your OurPod\u2019s Chronicles? This can\u2019t be undone.', 'Log Battle', runLogBattle);
   });
 }
 
@@ -23707,21 +23754,28 @@ function renderPodPaceScatterSVG(decks, colorMap) {
 // the data-deck-idx each circle carries) rather than inline handlers in
 // the SVG string, so this stays ordinary, debuggable JS instead of
 // string-building a second language inside the first.
-function wirePodPaceScatterClicks(container, decks) {
+// A dedicated confirm dialog rather than the shared showConfirmModal --
+// that one's buttons are hardcoded to "Cancel"/"Delete" for destructive
+// actions, wrong wording for a non-destructive "yes, chart it," and its
+// Cancel just closes everything rather than returning to wherever the
+// person actually was (the Pod Profile, in this case).
+function confirmChartDeckFromPodProfile(d, pod) {
+  const label = d.commanderLabel || d._rawCommander || 'this deck';
+  showActionConfirmModal(`Chart ${label}? This loads it into Chart Deck.`, 'Chart Deck', () => {
+    $('decklistInput').value = d._rawList || '';
+    if ($('commanderInput')) $('commanderInput').value = d._rawCommander || '';
+    if ($('playerInput')) $('playerInput').value = d._ownerName || '';
+    setMode('single');
+    runAnalysis();
+  }, () => openPodProfileOverlay(pod));
+}
+
+function wirePodPaceScatterClicks(container, decks, pod) {
   container.querySelectorAll('circle[data-deck-idx]').forEach(circle => {
     const idx = parseInt(circle.getAttribute('data-deck-idx'), 10);
     const d = decks[idx];
     if (!d) return;
-    circle.addEventListener('click', () => {
-      const label = d.commanderLabel || d._rawCommander || 'this deck';
-      showConfirmModal(`Chart ${label}? This loads it into Chart Deck.`, () => {
-        $('decklistInput').value = d._rawList || '';
-        if ($('commanderInput')) $('commanderInput').value = d._rawCommander || '';
-        if ($('playerInput')) $('playerInput').value = d._ownerName || '';
-        setMode('single');
-        runAnalysis();
-      });
-    });
+    circle.addEventListener('click', () => confirmChartDeckFromPodProfile(d, pod));
   });
 }
 
@@ -23793,7 +23847,7 @@ async function renderPodProfileContent(container, pod) {
       <p style="text-align:center; font-size:11.5px; color:var(--text-soft); margin-top:8px;">Click a dot to load that deck into Chart Deck.</p>
     </div>
   `;
-  wirePodPaceScatterClicks(container, analyzed);
+  wirePodPaceScatterClicks(container, analyzed, pod);
 }
 
 function openPodProfileOverlay(pod) {
@@ -25047,7 +25101,7 @@ if (authProfileBtn) authProfileBtn.addEventListener('click', () => showProfileMo
 
 const authSignOutBtn = $('authSignOutBtn');
 if (authSignOutBtn) authSignOutBtn.addEventListener('click', () => {
-  showConfirmModal('Sign out? You\u2019ll keep using PodMates as a guest, and anything already saved to the cloud stays there for next time you sign in.', async () => {
+  showActionConfirmModal('Sign out? You\u2019ll keep using PodMates as a guest, and anything already saved to the cloud stays there for next time you sign in.', 'Sign Out', async () => {
     try {
       if (window.PodmatesCloud) await window.PodmatesCloud.signOutUser();
       showToast('Signed out.');
