@@ -21102,7 +21102,7 @@ function renderProfileModal(modal, myDecks, opts) {
     </div>
     ${!isWelcome ? `
     <div style="margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid var(--line);">
-      <label style="font-size:12px; color:var(--text-soft); display:block; margin-bottom:6px;">Your Archidekt / Moxfield profiles — shown here so you (and later, podmates) have a quick link to your full collection elsewhere</label>
+      <label style="font-size:12px; color:var(--text-soft); display:block; margin-bottom:6px;">Your Archidekt / Moxfield profiles — a quick link to your full collection elsewhere</label>
       <div id="profileLinksArea"></div>
     </div>` : ''}
     <div class="row" style="margin-bottom:14px; gap:8px; align-items:center;">
@@ -22943,6 +22943,53 @@ function closeTryADeckModal() {
 // UI says this plainly rather than silently defaulting to some guess.
 
 let tesseractLoadPromise = null;
+// Preprocessing applied before handing a photo to either OCR engine --
+// none of this happened before; the raw photo went straight to Tesseract
+// with zero enhancement. Grayscale removes color noise from card frames
+// competing with the text; a min/max contrast stretch remaps whatever
+// tonal range is actually present in THIS photo (which may be narrow --
+// dim lighting, glare) out to the full black-to-white range, a classic,
+// safe OCR preprocessing step. Small photos get modestly upscaled too,
+// since both engines generally have more to work with at higher
+// resolution, up to a point of diminishing returns.
+async function preprocessImageForOcr(file) {
+  let bitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+  } catch (e) {
+    return file; // if decoding fails here, hand the original file to the OCR engine and let it try
+  }
+  const scale = bitmap.width < 1200 ? Math.min(1.6, 1600 / bitmap.width) : 1;
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  try {
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+    const gray = new Uint8ClampedArray(data.length / 4);
+    let min = 255, max = 0;
+    for (let i = 0, p = 0; i < data.length; i += 4, p++) {
+      const g = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+      gray[p] = g;
+      if (g < min) min = g;
+      if (g > max) max = g;
+    }
+    const range = Math.max(max - min, 1);
+    for (let i = 0, p = 0; i < data.length; i += 4, p++) {
+      const stretched = Math.round(((gray[p] - min) / range) * 255);
+      data[i] = data[i + 1] = data[i + 2] = stretched;
+    }
+    ctx.putImageData(imageData, 0, 0);
+  } catch (e) {
+    // Canvas pixel access can fail in rare cases (e.g. a tainted canvas);
+    // the unprocessed but still-scaled draw above is still a reasonable
+    // image to hand off, so fall through rather than aborting the scan.
+  }
+  return new Promise(resolve => canvas.toBlob(blob => resolve(blob || file), 'image/png'));
+}
+
 function loadTesseractScript() {
   if (tesseractLoadPromise) return tesseractLoadPromise;
   tesseractLoadPromise = new Promise((resolve, reject) => {
@@ -22957,6 +23004,43 @@ function loadTesseractScript() {
 }
 
 let scanCardsResults = []; // { card, checked } -- confirmed matches only; see processOcrText for why "no match" rows were removed entirely
+
+// PaddleOCR is meaningfully more accurate than Tesseract on real-world
+// photos (glare, odd angles, stylized fonts) per current independent
+// comparisons -- this is the primary engine now, with Tesseract kept on
+// as an automatic fallback below if anything about loading, initializing,
+// or running PaddleOCR fails for any reason. Loaded via a plain dynamic
+// import() from jsDelivr's ESM build rather than a <script> tag, since
+// the official package is ES-module-only and this app has no build step
+// to bundle it through. Deliberately no worker:true (would need a
+// bundler to emit a module worker) and no custom threading options (would
+// need COOP/COEP response headers, which GitHub Pages doesn't offer an
+// easy way to set) -- runs single-threaded on the main thread instead,
+// slower than its fastest possible configuration but correct without
+// needing anything this app's hosting can't provide.
+let paddleOcrLoadPromise = null;
+function loadPaddleOcr() {
+  if (paddleOcrLoadPromise) return paddleOcrLoadPromise;
+  paddleOcrLoadPromise = (async () => {
+    const { PaddleOCR } = await import('https://cdn.jsdelivr.net/npm/@paddleocr/paddleocr-js/+esm');
+    const ocr = await PaddleOCR.create({ lang: 'en', ortOptions: { backend: 'auto' } });
+    return ocr;
+  })();
+  return paddleOcrLoadPromise;
+}
+
+// Runs PaddleOCR on one already-preprocessed image and returns its text
+// as a single string, matching the shape Tesseract's result.data.text
+// already provides -- so processOcrText below needs no changes regardless
+// of which engine actually produced the text. Throws on any failure
+// (load, init, or predict), which is what lets the caller fall back to
+// Tesseract automatically instead of the scan just failing outright.
+async function recognizeWithPaddleOcr(image) {
+  const ocr = await loadPaddleOcr();
+  const [result] = await ocr.predict(image);
+  const items = (result && result.items) || [];
+  return items.map(it => it.text).filter(Boolean).join('\n');
+}
 
 function showScanCardsModal() {
   injectTryADeckStyles();
@@ -23018,29 +23102,39 @@ async function runOcrOnFiles(files) {
   const rescanBtn = document.getElementById('scanCardsRescanBtn');
   if (rescanBtn) rescanBtn.disabled = false;
   const statusEl = document.getElementById('scanCardsStatus');
-  if (statusEl) statusEl.textContent = 'Loading the OCR engine (first time only, may take a moment)…';
-  let Tesseract;
-  try {
-    Tesseract = await loadTesseractScript();
-  } catch (err) {
-    if (statusEl) statusEl.textContent = err.message;
-    return;
-  }
+  let usedFallback = false;
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     if (statusEl) statusEl.textContent = `Reading photo ${i + 1} of ${files.length}…`;
-    let text;
+    const processed = await preprocessImageForOcr(file);
+    let text = null;
+
+    // PaddleOCR first -- meaningfully more accurate on real photos per
+    // current comparisons. Any failure here (network, browser support,
+    // an unexpected result shape) falls through to Tesseract below for
+    // this same photo, rather than the scan just stopping.
     try {
-      const result = await Tesseract.recognize(file, 'eng');
-      text = (result && result.data && result.data.text) || '';
+      text = await recognizeWithPaddleOcr(processed);
     } catch (err) {
-      if (statusEl) statusEl.textContent = `Could not read that photo: ${err.message}`;
-      continue;
+      text = null;
+    }
+
+    if (text === null) {
+      usedFallback = true;
+      try {
+        if (statusEl) statusEl.textContent = `Reading photo ${i + 1} of ${files.length} (fallback engine)…`;
+        const Tesseract = await loadTesseractScript();
+        const result = await Tesseract.recognize(processed, 'eng');
+        text = (result && result.data && result.data.text) || '';
+      } catch (err) {
+        if (statusEl) statusEl.textContent = `Could not read that photo: ${err.message}`;
+        continue;
+      }
     }
     processOcrText(text);
   }
   if (statusEl) {
-    statusEl.textContent = `Done — found ${scanCardsResults.length} new card(s) across ${files.length} photo(s) (anything already found or already in your decklist is skipped automatically). Review below.`;
+    statusEl.textContent = `Done — found ${scanCardsResults.length} new card(s) across ${files.length} photo(s) (anything already found or already in your decklist is skipped automatically)${usedFallback ? ' — used the backup reader for at least one photo' : ''}. Review below.`;
   }
   renderScanCardsResults();
 }
