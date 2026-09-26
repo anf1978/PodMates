@@ -1185,6 +1185,9 @@ h1 {
       <input id="deckLinkInput" type="text" placeholder="archidekt.com/decks/... or moxfield.com/decks/..." style="flex:1; background:var(--bg-panel); border:1px solid var(--line); border-radius:3px; padding:7px 9px; color:var(--text-primary); font-family:inherit; font-size:13px;">
       <button id="deckLinkLoadBtn" class="ghost" style="padding:7px 14px; font-size:12.5px; white-space:nowrap;">Import Deck</button>
     </div>
+    <div style="text-align:center; margin-bottom:14px;">
+      <button id="openDeckBuilderBtn" class="ghost" style="font-size:12.5px;">Or build a deck from scratch</button>
+    </div>
     <div id="deckLinkStatus" style="font-size:12.5px; margin-bottom:10px;"></div>
     <textarea id="decklistInput" placeholder="1 Sol Ring
 1 Command Tower
@@ -24860,6 +24863,206 @@ function refreshSavedDeckSelect() {
   if (sel) sel.innerHTML = singleOpts;
 }
 
+// ---- Build a Deck: search-and-add deck builder --------------------------
+// Reuses what already exists rather than building parallel infrastructure:
+// the card database for instant local search (no network round-trip the
+// way Archidekt's own search needs), and saveCurrentDeck/runAnalysis for
+// finishing a deck off, by populating the exact same three inputs those
+// already read from. The only genuinely new piece is the search-and-add
+// UI itself; everything downstream of "here's a decklist" is untouched.
+
+// Prefix matches first, then substring matches, deduplicated by name, and
+// capped -- CARD_DB is a flat array with no partial-match index (the
+// existing indexes are exact-name lookups only), so this is a straight
+// scan, but debounced input keeps it from running on every keystroke and
+// the early exit once there are enough prefix matches keeps it fast for
+// any common search term without needing a more complex index.
+function searchCardsByName(query, limit) {
+  limit = limit || 25;
+  const q = (query || '').trim().toLowerCase();
+  if (q.length < 2 || !CARD_DB) return [];
+  const seen = new Set();
+  const startsWith = [];
+  const contains = [];
+  for (const card of CARD_DB) {
+    const nameLower = card.n.toLowerCase();
+    if (seen.has(nameLower)) continue;
+    if (nameLower.startsWith(q)) { startsWith.push(card); seen.add(nameLower); }
+    else if (nameLower.includes(q)) { contains.push(card); seen.add(nameLower); }
+    if (startsWith.length >= limit) break;
+  }
+  return startsWith.concat(contains).slice(0, limit);
+}
+
+// A card "fits" a commander when every color in its identity is also in
+// the commander's -- the same subset rule Commander itself uses. No
+// commander selected yet means nothing to flag against.
+function cardFitsCommanderIdentity(card, commanderCard) {
+  if (!commanderCard) return true;
+  const commanderColors = new Set((commanderCard.ci || '').split(''));
+  return (card.ci || '').split('').every(c => commanderColors.has(c));
+}
+
+let deckBuilderCards = {}; // { "Card Name": qty }
+let deckBuilderCommanderName = null;
+
+function deckBuilderToText() {
+  return Object.entries(deckBuilderCards).map(([name, qty]) => `${qty} ${name}`).join('\n');
+}
+
+function openDeckBuilderOverlay() {
+  if (!dbReady) { showToast('Card database still loading — try again in a moment.'); return; }
+  deckBuilderCards = {};
+  deckBuilderCommanderName = null;
+  injectTryADeckStyles();
+  closeTryADeckModal();
+  const overlay = document.createElement('div');
+  overlay.className = 'tad-overlay';
+  overlay.id = 'tadOverlay';
+  const modal = document.createElement('div');
+  modal.className = 'tad-modal';
+  modal.style.maxWidth = '480px';
+  modal.innerHTML = `
+    <button class="tad-close" id="tadCloseBtn">Close ×</button>
+    <h2 style="margin-bottom:4px;">Build a Deck</h2>
+    <p class="tad-sub">Search for cards to add them. Set a commander first to get a heads-up on anything outside its colors.</p>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:11.5px; color:var(--text-soft); display:block; margin-bottom:4px;">Commander</label>
+      <div id="dbCommanderDisplay"></div>
+      <input id="dbCommanderSearch" type="text" placeholder="Search for a commander…" style="width:100%; box-sizing:border-box; margin-top:6px; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
+      <div id="dbCommanderResults"></div>
+    </div>
+    <div style="margin-bottom:10px;">
+      <label style="font-size:11.5px; color:var(--text-soft); display:block; margin-bottom:4px;">Add cards</label>
+      <input id="dbCardSearch" type="text" placeholder="Search for a card…" style="width:100%; box-sizing:border-box; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
+      <div id="dbCardResults"></div>
+    </div>
+    <div style="font-size:11.5px; color:var(--text-soft); margin-bottom:6px;">Your deck (<span id="dbCardCount">0</span> cards)</div>
+    <div id="dbDeckList" style="max-height:220px; overflow-y:auto; border:1px solid var(--line); border-radius:4px; padding:8px; margin-bottom:14px;"></div>
+    <div class="row" style="gap:8px;">
+      <button id="dbSaveBtn" class="ghost" style="flex:1;">Save Deck</button>
+      <button id="dbChartBtn" style="flex:1;">Chart This Deck</button>
+    </div>
+  `;
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
+
+  renderDeckBuilderCommander();
+  renderDeckBuilderList();
+  wireDeckBuilderSearch('dbCommanderSearch', 'dbCommanderResults', (card) => {
+    deckBuilderCommanderName = card.n;
+    document.getElementById('dbCommanderSearch').value = '';
+    document.getElementById('dbCommanderResults').innerHTML = '';
+    renderDeckBuilderCommander();
+    renderDeckBuilderList(); // re-render so any already-added off-color cards get flagged now
+  });
+  wireDeckBuilderSearch('dbCardSearch', 'dbCardResults', (card) => {
+    deckBuilderCards[card.n] = (deckBuilderCards[card.n] || 0) + 1;
+    renderDeckBuilderList();
+  });
+
+  document.getElementById('dbSaveBtn').addEventListener('click', () => {
+    if (!Object.keys(deckBuilderCards).length) { showToast('Add at least one card first.'); return; }
+    $('decklistInput').value = deckBuilderToText();
+    if (deckBuilderCommanderName) $('commanderInput').value = deckBuilderCommanderName;
+    closeTryADeckModal();
+    setMode('single');
+    saveCurrentDeck();
+  });
+  document.getElementById('dbChartBtn').addEventListener('click', () => {
+    if (!Object.keys(deckBuilderCards).length) { showToast('Add at least one card first.'); return; }
+    $('decklistInput').value = deckBuilderToText();
+    if (deckBuilderCommanderName) $('commanderInput').value = deckBuilderCommanderName;
+    closeTryADeckModal();
+    setMode('single');
+    runAnalysis();
+    $('resultsSection').scrollIntoView({ behavior: 'smooth' });
+  });
+}
+
+function renderDeckBuilderCommander() {
+  const el = document.getElementById('dbCommanderDisplay');
+  if (!el) return;
+  if (!deckBuilderCommanderName) {
+    el.innerHTML = `<span style="font-size:13px; color:var(--text-soft); font-style:italic;">No commander set yet</span>`;
+    return;
+  }
+  el.innerHTML = `<span style="font-size:13.5px; color:var(--gold);">${escapeHtml(deckBuilderCommanderName)}</span> <button type="button" class="ghost" id="dbCommanderClearBtn" style="padding:2px 8px; font-size:11px; margin-left:6px;">Change</button>`;
+  const clearBtn = document.getElementById('dbCommanderClearBtn');
+  if (clearBtn) clearBtn.addEventListener('click', () => {
+    deckBuilderCommanderName = null;
+    renderDeckBuilderCommander();
+    renderDeckBuilderList();
+  });
+}
+
+// Shared wiring for both search boxes -- debounced so a fast typist
+// doesn't trigger a scan on every single keystroke, and results are
+// cleared whenever the box empties out rather than showing stale matches.
+function wireDeckBuilderSearch(inputId, resultsId, onPick) {
+  const input = document.getElementById(inputId);
+  const resultsEl = document.getElementById(resultsId);
+  if (!input || !resultsEl) return;
+  let debounceTimer = null;
+  input.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    const q = input.value;
+    if (q.trim().length < 2) { resultsEl.innerHTML = ''; return; }
+    debounceTimer = setTimeout(() => {
+      const matches = searchCardsByName(q, 12);
+      resultsEl.innerHTML = matches.map(c => `<div class="db-search-result" data-name="${escapeHtml(c.n)}" style="padding:6px 8px; cursor:pointer; font-size:13px; border-bottom:1px solid var(--line);">${escapeHtml(c.n)}</div>`).join('') ||
+        `<div style="padding:6px 8px; font-size:12.5px; color:var(--text-soft);">No cards found.</div>`;
+      resultsEl.querySelectorAll('.db-search-result').forEach(row => {
+        row.addEventListener('click', () => {
+          const card = indexes.byExactName.get(row.getAttribute('data-name').toLowerCase());
+          if (card) onPick(card);
+        });
+      });
+    }, 180);
+  });
+}
+
+function renderDeckBuilderList() {
+  const listEl = document.getElementById('dbDeckList');
+  const countEl = document.getElementById('dbCardCount');
+  if (!listEl) return;
+  const names = Object.keys(deckBuilderCards).sort();
+  if (countEl) countEl.textContent = Object.values(deckBuilderCards).reduce((s, n) => s + n, 0);
+  if (!names.length) {
+    listEl.innerHTML = `<p style="font-size:12.5px; color:var(--text-soft); margin:0; text-align:center;">No cards added yet.</p>`;
+    return;
+  }
+  const commanderCard = deckBuilderCommanderName ? indexes.byExactName.get(deckBuilderCommanderName.toLowerCase()) : null;
+  listEl.innerHTML = names.map(name => {
+    const card = indexes.byExactName.get(name.toLowerCase());
+    const fits = card ? cardFitsCommanderIdentity(card, commanderCard) : true;
+    const warning = !fits ? `<span title="Outside ${escapeHtml(deckBuilderCommanderName)}'s color identity" style="color:var(--danger); font-size:12px; margin-right:4px;">⚠</span>` : '';
+    return `<div style="display:flex; align-items:center; gap:8px; padding:5px 0; border-bottom:1px solid var(--line);">
+      ${warning}
+      <span style="flex:1; font-size:13px;">${escapeHtml(name)}</span>
+      <input type="number" min="0" value="${deckBuilderCards[name]}" data-qty-for="${escapeHtml(name)}" style="width:48px; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:3px 5px; color:var(--text-primary); font-family:inherit; font-size:12.5px;">
+      <button type="button" class="ghost" data-remove="${escapeHtml(name)}" style="padding:3px 8px; font-size:11px; border-color:var(--danger); color:var(--danger);">×</button>
+    </div>`;
+  }).join('');
+  listEl.querySelectorAll('[data-qty-for]').forEach(inp => {
+    inp.addEventListener('change', () => {
+      const name = inp.getAttribute('data-qty-for');
+      const qty = Math.max(0, parseInt(inp.value, 10) || 0);
+      if (qty === 0) delete deckBuilderCards[name];
+      else deckBuilderCards[name] = qty;
+      renderDeckBuilderList();
+    });
+  });
+  listEl.querySelectorAll('[data-remove]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      delete deckBuilderCards[btn.getAttribute('data-remove')];
+      renderDeckBuilderList();
+    });
+  });
+}
+
 function saveCurrentDeck() {
   const raw = $('decklistInput').value.trim();
   if (!raw) { setDeckMgmtStatus('Paste a decklist before saving.', true); return; }
@@ -25617,6 +25820,9 @@ if (authSignOutBtn) authSignOutBtn.addEventListener('click', () => {
     }
   });
 });
+
+const openDeckBuilderBtn = $('openDeckBuilderBtn');
+if (openDeckBuilderBtn) openDeckBuilderBtn.addEventListener('click', openDeckBuilderOverlay);
 
 const deckLinkLoadBtn = $('deckLinkLoadBtn');
 if (deckLinkLoadBtn) deckLinkLoadBtn.addEventListener('click', async () => {
