@@ -24871,6 +24871,20 @@ function refreshSavedDeckSelect() {
 // already read from. The only genuinely new piece is the search-and-add
 // UI itself; everything downstream of "here's a decklist" is untouched.
 
+// Various sources -- iOS's own "smart punctuation" chief among them --
+// render an apostrophe as a curly Unicode character (’, U+2019) rather
+// than the plain straight one (') the card database actually stores.
+// Visually identical, but a different character underneath means a
+// straight substring match silently fails -- typing "K'rrik" correctly
+// on an iPhone keyboard produces a curly apostrophe that never matches
+// the database's straight one. Folding every apostrophe-like character
+// to a single form before comparing fixes this directly, without needing
+// a heavier fuzzy-matching approach for what's really a single specific
+// mismatch.
+function normalizeApostrophes(str) {
+  return (str || '').replace(/[\u2018\u2019\u02BC\u00B4`]/g, "'");
+}
+
 // Prefix matches first, then substring matches, deduplicated by name, and
 // capped -- CARD_DB is a flat array with no partial-match index (the
 // existing indexes are exact-name lookups only), so this is a straight
@@ -24878,14 +24892,14 @@ function refreshSavedDeckSelect() {
 // the early exit once there are enough prefix matches keeps it fast for
 // any common search term without needing a more complex index.
 function searchCardsByName(query, limit) {
-  limit = limit || 25;
-  const q = (query || '').trim().toLowerCase();
+  limit = limit || 5;
+  const q = normalizeApostrophes((query || '').trim().toLowerCase());
   if (q.length < 2 || !CARD_DB) return [];
   const seen = new Set();
   const startsWith = [];
   const contains = [];
   for (const card of CARD_DB) {
-    const nameLower = card.n.toLowerCase();
+    const nameLower = normalizeApostrophes(card.n.toLowerCase());
     if (seen.has(nameLower)) continue;
     if (nameLower.startsWith(q)) { startsWith.push(card); seen.add(nameLower); }
     else if (nameLower.includes(q)) { contains.push(card); seen.add(nameLower); }
@@ -24906,14 +24920,39 @@ function cardFitsCommanderIdentity(card, commanderCard) {
 let deckBuilderCards = {}; // { "Card Name": qty }
 let deckBuilderCommanderName = null;
 
+// Nothing about an in-progress deck was saved anywhere until Save Deck was
+// explicitly clicked -- a plain in-memory variable, wiped by closing the
+// overlay by accident, a page refresh, a phone locking mid-session, or
+// the tab getting killed in the background. localStorage survives all of
+// those, so every change gets written here immediately, and the next
+// time the builder opens, an existing draft is restored automatically
+// rather than silently discarded.
+const DECK_BUILDER_DRAFT_KEY = 'podmates-deck-builder-draft';
+function saveDeckBuilderDraft() {
+  try {
+    localStorage.setItem(DECK_BUILDER_DRAFT_KEY, JSON.stringify({ cards: deckBuilderCards, commander: deckBuilderCommanderName }));
+  } catch (e) { /* fine -- draft persistence is a convenience, not a hard requirement */ }
+}
+function loadDeckBuilderDraft() {
+  try {
+    const raw = localStorage.getItem(DECK_BUILDER_DRAFT_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+function clearDeckBuilderDraft() {
+  try { localStorage.removeItem(DECK_BUILDER_DRAFT_KEY); } catch (e) { /* fine -- worst case an empty/stale draft lingers until next overwrite */ }
+}
+
 function deckBuilderToText() {
   return Object.entries(deckBuilderCards).map(([name, qty]) => `${qty} ${name}`).join('\n');
 }
 
 function openDeckBuilderOverlay() {
   if (!dbReady) { showToast('Card database still loading — try again in a moment.'); return; }
-  deckBuilderCards = {};
-  deckBuilderCommanderName = null;
+  const draft = loadDeckBuilderDraft();
+  const restoredDraft = !!(draft && draft.cards && Object.keys(draft.cards).length);
+  deckBuilderCards = restoredDraft ? draft.cards : {};
+  deckBuilderCommanderName = restoredDraft ? (draft.commander || null) : null;
   injectTryADeckStyles();
   closeTryADeckModal();
   const overlay = document.createElement('div');
@@ -24926,6 +24965,7 @@ function openDeckBuilderOverlay() {
     <button class="tad-close" id="tadCloseBtn">Close ×</button>
     <h2 style="margin-bottom:4px;">Build a Deck</h2>
     <p class="tad-sub">Search for cards to add them. Set a commander first to get a heads-up on anything outside its colors.</p>
+    ${restoredDraft ? `<p style="font-size:12px; color:var(--text-soft); font-style:italic; margin:0 0 10px;">Picked up where you left off. <button type="button" id="dbStartNewBtn" class="ghost" style="padding:2px 8px; font-size:11px; margin-left:4px;">Start New Deck</button></p>` : ''}
     <div style="margin-bottom:14px;">
       <label style="font-size:11.5px; color:var(--text-soft); display:block; margin-bottom:4px;">Commander</label>
       <div id="dbCommanderDisplay"></div>
@@ -24948,6 +24988,13 @@ function openDeckBuilderOverlay() {
   document.body.appendChild(overlay);
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
+  const startNewBtn = document.getElementById('dbStartNewBtn');
+  if (startNewBtn) startNewBtn.addEventListener('click', () => {
+    showActionConfirmModal('Start a new deck? This clears everything currently in the builder — there\u2019s no way back to it after this.', 'Start New', () => {
+      clearDeckBuilderDraft();
+      openDeckBuilderOverlay();
+    }, () => openDeckBuilderOverlay());
+  });
 
   renderDeckBuilderCommander();
   renderDeckBuilderList();
@@ -24965,8 +25012,11 @@ function openDeckBuilderOverlay() {
 
   document.getElementById('dbSaveBtn').addEventListener('click', () => {
     if (!Object.keys(deckBuilderCards).length) { showToast('Add at least one card first.'); return; }
+    if (!deckBuilderCommanderName) { showToast('Set a commander before saving.'); return; }
+    if (!(($('playerInput') || {}).value || '').trim()) { showToast('Set your player name on the main Deck Chart page first, then save.'); return; }
     $('decklistInput').value = deckBuilderToText();
-    if (deckBuilderCommanderName) $('commanderInput').value = deckBuilderCommanderName;
+    $('commanderInput').value = deckBuilderCommanderName;
+    clearDeckBuilderDraft();
     closeTryADeckModal();
     setMode('single');
     saveCurrentDeck();
@@ -25011,13 +25061,25 @@ function wireDeckBuilderSearch(inputId, resultsId, onPick) {
     const q = input.value;
     if (q.trim().length < 2) { resultsEl.innerHTML = ''; return; }
     debounceTimer = setTimeout(() => {
-      const matches = searchCardsByName(q, 12);
+      const matches = searchCardsByName(q, 5);
       resultsEl.innerHTML = matches.map(c => `<div class="db-search-result" data-name="${escapeHtml(c.n)}" style="padding:6px 8px; cursor:pointer; font-size:13px; border-bottom:1px solid var(--line);">${escapeHtml(c.n)}</div>`).join('') ||
         `<div style="padding:6px 8px; font-size:12.5px; color:var(--text-soft);">No cards found.</div>`;
       resultsEl.querySelectorAll('.db-search-result').forEach(row => {
         row.addEventListener('click', () => {
           const card = indexes.byExactName.get(row.getAttribute('data-name').toLowerCase());
-          if (card) onPick(card);
+          if (!card) return;
+          onPick(card);
+          // Clearing the box means the next search starts fresh instead of
+          // needing the just-typed text manually deleted first. The brief
+          // confirmation matters because the running deck list below can
+          // be scrolled out of view when a card is actually added -- this
+          // is the one place guaranteed to be visible right where the
+          // person is already looking.
+          input.value = '';
+          resultsEl.innerHTML = `<div class="db-added-flash" style="padding:6px 8px; font-size:12.5px; color:var(--success-text);">✓ ${escapeHtml(card.n)} added</div>`;
+          setTimeout(() => {
+            if (resultsEl.firstElementChild && resultsEl.firstElementChild.classList.contains('db-added-flash')) resultsEl.innerHTML = '';
+          }, 1400);
         });
       });
     }, 180);
@@ -25025,6 +25087,7 @@ function wireDeckBuilderSearch(inputId, resultsId, onPick) {
 }
 
 function renderDeckBuilderList() {
+  saveDeckBuilderDraft(); // every mutation path already calls this render, so this is the one place a save can't be missed
   const listEl = document.getElementById('dbDeckList');
   const countEl = document.getElementById('dbCardCount');
   if (!listEl) return;
