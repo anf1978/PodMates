@@ -1186,7 +1186,7 @@ h1 {
       <button id="deckLinkLoadBtn" class="ghost" style="padding:7px 14px; font-size:12.5px; white-space:nowrap;">Import Deck</button>
     </div>
     <div style="text-align:center; margin-bottom:14px;">
-      <button id="openDeckBuilderBtn" class="ghost" style="font-size:12.5px;">Or build a deck from scratch</button>
+      <button id="openDeckBuilderBtn" class="ghost has-tooltip" data-tooltip="Search and add cards to build a deck. If a deck's already loaded above, opens that one for editing instead of starting empty." style="font-size:12.5px;">Deck Crafter</button>
     </div>
     <div id="deckLinkStatus" style="font-size:12.5px; margin-bottom:10px;"></div>
     <textarea id="decklistInput" placeholder="1 Sol Ring
@@ -24962,13 +24962,49 @@ function deckBuilderToText() {
   return Object.entries(deckBuilderCards).map(([name, qty]) => `${qty} ${name}`).join('\n');
 }
 
+// Reads whatever's currently loaded in Deck Chart, reusing the same
+// parseDecklist used everywhere else in the app so quantity prefixes,
+// foil markers, and set codes are all handled identically rather than
+// needing a second parser with its own edge cases. Returns null when
+// there's nothing there to load.
+function getCurrentlyViewedDeckAsBuilder() {
+  const raw = (($('decklistInput') || {}).value || '').trim();
+  if (!raw) return null;
+  const { entries } = parseDecklist(raw);
+  if (!entries.length) return null;
+  const cards = {};
+  for (const e of entries) cards[e.name] = (cards[e.name] || 0) + e.qty;
+  return {
+    cards,
+    commander: (($('commanderInput') || {}).value || '').trim() || null,
+    player: (($('playerInput') || {}).value || '').trim(),
+  };
+}
+
 function openDeckBuilderOverlay() {
   if (!dbReady) { showToast('Card database still loading — try again in a moment.'); return; }
   const draft = loadDeckBuilderDraft();
   const restoredDraft = !!(draft && draft.cards && Object.keys(draft.cards).length);
-  deckBuilderCards = restoredDraft ? draft.cards : {};
-  deckBuilderCommanderName = restoredDraft ? (draft.commander || null) : null;
-  deckBuilderPlayerName = restoredDraft && draft.player ? draft.player : ((($('playerInput') || {}).value || '').trim());
+  const currentDeck = getCurrentlyViewedDeckAsBuilder();
+  // An unfinished draft always wins by default -- never silently discard
+  // real work just because something else happens to be loaded in Deck
+  // Chart. But when there IS something there too, it's offered as an
+  // explicit choice rather than being invisible: the person can still
+  // switch to editing it deliberately, they just can't lose the draft
+  // by accident.
+  if (restoredDraft) {
+    deckBuilderCards = draft.cards;
+    deckBuilderCommanderName = draft.commander || null;
+    deckBuilderPlayerName = draft.player || ((($('playerInput') || {}).value || '').trim());
+  } else if (currentDeck) {
+    deckBuilderCards = currentDeck.cards;
+    deckBuilderCommanderName = currentDeck.commander;
+    deckBuilderPlayerName = currentDeck.player;
+  } else {
+    deckBuilderCards = {};
+    deckBuilderCommanderName = null;
+    deckBuilderPlayerName = ((($('playerInput') || {}).value || '').trim());
+  }
   injectTryADeckStyles();
   closeTryADeckModal();
   const overlay = document.createElement('div');
@@ -24977,11 +25013,14 @@ function openDeckBuilderOverlay() {
   const modal = document.createElement('div');
   modal.className = 'tad-modal';
   modal.style.maxWidth = '480px';
+  const draftNotice = restoredDraft
+    ? `<p id="dbDraftNotice" style="font-size:12px; color:var(--text-soft); font-style:italic; margin:0 0 10px;">Picked up where you left off. <button type="button" id="dbStartNewBtn" class="ghost" style="padding:2px 8px; font-size:11px; margin-left:4px;">Start New Deck</button>${currentDeck ? ` <button type="button" id="dbLoadCurrentBtn" class="ghost" style="padding:2px 8px; font-size:11px; margin-left:4px;">Load ${escapeHtml(currentDeck.commander || 'current decklist')} instead</button>` : ''}</p>`
+    : (currentDeck ? `<p style="font-size:12px; color:var(--text-soft); font-style:italic; margin:0 0 10px;">Editing ${escapeHtml(currentDeck.commander || 'the current decklist')} from Deck Chart.</p>` : '');
   modal.innerHTML = `
     <button class="tad-close" id="tadCloseBtn">Close ×</button>
-    <h2 style="margin-bottom:4px;">Build a Deck</h2>
+    <h2 style="margin-bottom:4px;">Deck Crafter</h2>
     <p class="tad-sub">Search for cards to add them. Set a commander first to get a heads-up on anything outside its colors.</p>
-    ${restoredDraft ? `<p style="font-size:12px; color:var(--text-soft); font-style:italic; margin:0 0 10px;">Picked up where you left off. <button type="button" id="dbStartNewBtn" class="ghost" style="padding:2px 8px; font-size:11px; margin-left:4px;">Start New Deck</button></p>` : ''}
+    ${draftNotice}
     <div style="margin-bottom:14px;">
       <label style="font-size:11.5px; color:var(--text-soft); display:block; margin-bottom:4px;">Commander</label>
       <div id="dbCommanderDisplay"></div>
@@ -25008,6 +25047,19 @@ function openDeckBuilderOverlay() {
   document.body.appendChild(overlay);
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
+  const loadCurrentBtn = document.getElementById('dbLoadCurrentBtn');
+  if (loadCurrentBtn) loadCurrentBtn.addEventListener('click', () => {
+    deckBuilderCards = { ...currentDeck.cards };
+    deckBuilderCommanderName = currentDeck.commander;
+    deckBuilderPlayerName = currentDeck.player;
+    const playerFieldNow = document.getElementById('dbPlayerInput');
+    if (playerFieldNow) playerFieldNow.value = deckBuilderPlayerName;
+    renderDeckBuilderCommander();
+    renderDeckBuilderList(); // also persists the new state as the draft
+    const notice = document.getElementById('dbDraftNotice');
+    if (notice) notice.remove();
+    showToast(`Loaded ${deckBuilderCommanderName || 'the current decklist'} into the builder.`);
+  });
   const playerInputEl = document.getElementById('dbPlayerInput');
   if (playerInputEl) playerInputEl.addEventListener('input', () => {
     deckBuilderPlayerName = playerInputEl.value.trim();
@@ -25966,7 +26018,7 @@ document.addEventListener('click', (e) => {
 // button from ever getting a second tooltip span and a second set of
 // listeners if its container happens to re-render more than once.
 function setupIconTooltipsFor(scope) {
-  (scope || document).querySelectorAll('.icon-btn[data-tooltip]:not([data-tooltip-wired]), .icon-checkbox-label[data-tooltip]:not([data-tooltip-wired])').forEach(btn => {
+  (scope || document).querySelectorAll('.icon-btn[data-tooltip]:not([data-tooltip-wired]), .icon-checkbox-label[data-tooltip]:not([data-tooltip-wired]), .has-tooltip[data-tooltip]:not([data-tooltip-wired])').forEach(btn => {
     btn.setAttribute('data-tooltip-wired', '1');
     const tip = document.createElement('span');
     tip.className = 'icon-tooltip';
