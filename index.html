@@ -23129,9 +23129,14 @@ async function runOcrOnFiles(files) {
     // PaddleOCR first -- meaningfully more accurate on real photos per
     // current comparisons. Any failure here (network, browser support,
     // an unexpected result shape) falls through to Tesseract below for
-    // this same photo, rather than the scan just stopping.
+    // this same photo, rather than the scan just stopping. The timeout
+    // matters specifically because a stalled model-file download (slow
+    // connection, CDN hiccup) never actually rejects on its own -- it
+    // just sits there -- which would otherwise hang here forever with
+    // nothing for the catch block to catch and no fallback ever kicking
+    // in, looking exactly like the scanner had frozen.
     try {
-      text = await recognizeWithPaddleOcr(processed);
+      text = await withTimeout(recognizeWithPaddleOcr(processed), 20000, 'reading the photo');
     } catch (err) {
       text = null;
     }
