@@ -22962,7 +22962,21 @@ async function preprocessImageForOcr(file) {
   } catch (e) {
     return file; // if decoding fails here, hand the original file to the OCR engine and let it try
   }
-  const scale = bitmap.width < 1200 ? Math.min(1.6, 1600 / bitmap.width) : 1;
+  // Caps BOTH directions: a modern phone photo can be 12-48 megapixels,
+  // and reading every pixel of that into memory for the grayscale/contrast
+  // pass below -- multiple full-size buffers at once, then PNG-encoding
+  // the result -- can mean several hundred MB for a single photo. Mobile
+  // Safari in particular is known to kill tabs well before desktop
+  // browsers would even notice. OCR doesn't need or benefit from full
+  // resolution; capping the longest side at a size still comfortably
+  // legible avoids the memory spike entirely. Small photos still get
+  // upscaled as before -- that half of this was never the problem.
+  const MAX_DIM = 2000;
+  const MIN_DIM = 1200;
+  const longestSide = Math.max(bitmap.width, bitmap.height);
+  let scale = 1;
+  if (longestSide > MAX_DIM) scale = MAX_DIM / longestSide;
+  else if (bitmap.width < MIN_DIM) scale = Math.min(1.6, MIN_DIM / bitmap.width);
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(bitmap.width * scale);
   canvas.height = Math.round(bitmap.height * scale);
@@ -24919,6 +24933,7 @@ function cardFitsCommanderIdentity(card, commanderCard) {
 
 let deckBuilderCards = {}; // { "Card Name": qty }
 let deckBuilderCommanderName = null;
+let deckBuilderPlayerName = '';
 
 // Nothing about an in-progress deck was saved anywhere until Save Deck was
 // explicitly clicked -- a plain in-memory variable, wiped by closing the
@@ -24930,7 +24945,7 @@ let deckBuilderCommanderName = null;
 const DECK_BUILDER_DRAFT_KEY = 'podmates-deck-builder-draft';
 function saveDeckBuilderDraft() {
   try {
-    localStorage.setItem(DECK_BUILDER_DRAFT_KEY, JSON.stringify({ cards: deckBuilderCards, commander: deckBuilderCommanderName }));
+    localStorage.setItem(DECK_BUILDER_DRAFT_KEY, JSON.stringify({ cards: deckBuilderCards, commander: deckBuilderCommanderName, player: deckBuilderPlayerName }));
   } catch (e) { /* fine -- draft persistence is a convenience, not a hard requirement */ }
 }
 function loadDeckBuilderDraft() {
@@ -24953,6 +24968,7 @@ function openDeckBuilderOverlay() {
   const restoredDraft = !!(draft && draft.cards && Object.keys(draft.cards).length);
   deckBuilderCards = restoredDraft ? draft.cards : {};
   deckBuilderCommanderName = restoredDraft ? (draft.commander || null) : null;
+  deckBuilderPlayerName = restoredDraft && draft.player ? draft.player : ((($('playerInput') || {}).value || '').trim());
   injectTryADeckStyles();
   closeTryADeckModal();
   const overlay = document.createElement('div');
@@ -24972,6 +24988,10 @@ function openDeckBuilderOverlay() {
       <input id="dbCommanderSearch" type="text" placeholder="Search for a commander…" style="width:100%; box-sizing:border-box; margin-top:6px; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
       <div id="dbCommanderResults"></div>
     </div>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:11.5px; color:var(--text-soft); display:block; margin-bottom:4px;">Player</label>
+      <input id="dbPlayerInput" type="text" value="${escapeHtml(deckBuilderPlayerName)}" placeholder="Required to save — e.g. Alex" style="width:100%; box-sizing:border-box; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
+    </div>
     <div style="margin-bottom:10px;">
       <label style="font-size:11.5px; color:var(--text-soft); display:block; margin-bottom:4px;">Add cards</label>
       <input id="dbCardSearch" type="text" placeholder="Search for a card…" style="width:100%; box-sizing:border-box; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
@@ -24988,6 +25008,11 @@ function openDeckBuilderOverlay() {
   document.body.appendChild(overlay);
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
+  const playerInputEl = document.getElementById('dbPlayerInput');
+  if (playerInputEl) playerInputEl.addEventListener('input', () => {
+    deckBuilderPlayerName = playerInputEl.value.trim();
+    saveDeckBuilderDraft();
+  });
   const startNewBtn = document.getElementById('dbStartNewBtn');
   if (startNewBtn) startNewBtn.addEventListener('click', () => {
     showActionConfirmModal('Start a new deck? This clears everything currently in the builder — there\u2019s no way back to it after this.', 'Start New', () => {
@@ -25013,9 +25038,10 @@ function openDeckBuilderOverlay() {
   document.getElementById('dbSaveBtn').addEventListener('click', () => {
     if (!Object.keys(deckBuilderCards).length) { showToast('Add at least one card first.'); return; }
     if (!deckBuilderCommanderName) { showToast('Set a commander before saving.'); return; }
-    if (!(($('playerInput') || {}).value || '').trim()) { showToast('Set your player name on the main Deck Chart page first, then save.'); return; }
+    if (!deckBuilderPlayerName) { showToast('Enter a player name before saving.'); if (playerInputEl) playerInputEl.focus(); return; }
     $('decklistInput').value = deckBuilderToText();
     $('commanderInput').value = deckBuilderCommanderName;
+    $('playerInput').value = deckBuilderPlayerName;
     clearDeckBuilderDraft();
     closeTryADeckModal();
     setMode('single');
