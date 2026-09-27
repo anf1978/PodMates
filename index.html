@@ -23022,43 +23022,6 @@ function loadTesseractScript() {
 
 let scanCardsResults = []; // { card, checked } -- confirmed matches only; see processOcrText for why "no match" rows were removed entirely
 
-// PaddleOCR is meaningfully more accurate than Tesseract on real-world
-// photos (glare, odd angles, stylized fonts) per current independent
-// comparisons -- this is the primary engine now, with Tesseract kept on
-// as an automatic fallback below if anything about loading, initializing,
-// or running PaddleOCR fails for any reason. Loaded via a plain dynamic
-// import() from jsDelivr's ESM build rather than a <script> tag, since
-// the official package is ES-module-only and this app has no build step
-// to bundle it through. Deliberately no worker:true (would need a
-// bundler to emit a module worker) and no custom threading options (would
-// need COOP/COEP response headers, which GitHub Pages doesn't offer an
-// easy way to set) -- runs single-threaded on the main thread instead,
-// slower than its fastest possible configuration but correct without
-// needing anything this app's hosting can't provide.
-let paddleOcrLoadPromise = null;
-function loadPaddleOcr() {
-  if (paddleOcrLoadPromise) return paddleOcrLoadPromise;
-  paddleOcrLoadPromise = (async () => {
-    const { PaddleOCR } = await import('https://cdn.jsdelivr.net/npm/@paddleocr/paddleocr-js/+esm');
-    const ocr = await PaddleOCR.create({ lang: 'en', ortOptions: { backend: 'auto' } });
-    return ocr;
-  })();
-  return paddleOcrLoadPromise;
-}
-
-// Runs PaddleOCR on one already-preprocessed image and returns its text
-// as a single string, matching the shape Tesseract's result.data.text
-// already provides -- so processOcrText below needs no changes regardless
-// of which engine actually produced the text. Throws on any failure
-// (load, init, or predict), which is what lets the caller fall back to
-// Tesseract automatically instead of the scan just failing outright.
-async function recognizeWithPaddleOcr(image) {
-  const ocr = await loadPaddleOcr();
-  const [result] = await ocr.predict(image);
-  const items = (result && result.items) || [];
-  return items.map(it => it.text).filter(Boolean).join('\n');
-}
-
 function showScanCardsModal() {
   injectTryADeckStyles();
   closeTryADeckModal();
@@ -23119,44 +23082,23 @@ async function runOcrOnFiles(files) {
   const rescanBtn = document.getElementById('scanCardsRescanBtn');
   if (rescanBtn) rescanBtn.disabled = false;
   const statusEl = document.getElementById('scanCardsStatus');
-  let usedFallback = false;
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     if (statusEl) statusEl.textContent = `Reading photo ${i + 1} of ${files.length}…`;
     const processed = await preprocessImageForOcr(file);
-    let text = null;
-
-    // PaddleOCR first -- meaningfully more accurate on real photos per
-    // current comparisons. Any failure here (network, browser support,
-    // an unexpected result shape) falls through to Tesseract below for
-    // this same photo, rather than the scan just stopping. The timeout
-    // matters specifically because a stalled model-file download (slow
-    // connection, CDN hiccup) never actually rejects on its own -- it
-    // just sits there -- which would otherwise hang here forever with
-    // nothing for the catch block to catch and no fallback ever kicking
-    // in, looking exactly like the scanner had frozen.
+    let text;
     try {
-      text = await withTimeout(recognizeWithPaddleOcr(processed), 20000, 'reading the photo');
+      const Tesseract = await loadTesseractScript();
+      const result = await Tesseract.recognize(processed, 'eng');
+      text = (result && result.data && result.data.text) || '';
     } catch (err) {
-      text = null;
-    }
-
-    if (text === null) {
-      usedFallback = true;
-      try {
-        if (statusEl) statusEl.textContent = `Reading photo ${i + 1} of ${files.length} (fallback engine)…`;
-        const Tesseract = await loadTesseractScript();
-        const result = await Tesseract.recognize(processed, 'eng');
-        text = (result && result.data && result.data.text) || '';
-      } catch (err) {
-        if (statusEl) statusEl.textContent = `Could not read that photo: ${err.message}`;
-        continue;
-      }
+      if (statusEl) statusEl.textContent = `Could not read that photo: ${err.message}`;
+      continue;
     }
     processOcrText(text);
   }
   if (statusEl) {
-    statusEl.textContent = `Done — found ${scanCardsResults.length} new card(s) across ${files.length} photo(s) (anything already found or already in your decklist is skipped automatically)${usedFallback ? ' — used the backup reader for at least one photo' : ''}. Review below.`;
+    statusEl.textContent = `Done — found ${scanCardsResults.length} new card(s) across ${files.length} photo(s) (anything already found or already in your decklist is skipped automatically). Review below.`;
   }
   renderScanCardsResults();
 }
