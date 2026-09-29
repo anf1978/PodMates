@@ -1,0 +1,30 @@
+name: EMERGENCY Restore Card Database
+
+# One-off recovery workflow -- restores index.html from the last known-good
+# commit (24c2b31, before the broken empty-database commit). Safe to delete
+# once used; it only touches index.html and only runs when manually
+# triggered, never on a schedule.
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Restore index.html from the last known-good commit
+        run: git checkout 24c2b31 -- index.html
+
+      - name: Commit the restoration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --staged --quiet && echo "Nothing to restore." || (git commit -m "EMERGENCY: restore card database from 24c2b31" && git push)
