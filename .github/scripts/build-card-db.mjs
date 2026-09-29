@@ -1,16 +1,27 @@
 // PodMates card database builder -- reverse-engineered from the app's own
 // decompressCardDB() function, since the original build script no longer
 // exists anywhere accessible. Produces the exact payload shape and gzip
-// compression that function expects, verified by round-tripping against
-// an equivalent decompressor below before this is trusted against real data.
+// compression that function expects.
 //
-// Usage: node build-card-db.mjs <path-to-scryfall-bulk-file.jsonl>
-// Scryfall's bulk data completed its transition to JSONL-only in July 2026
-// (one JSON object per line), replacing the older single-JSON-array format.
+// Usage: node build-card-db.mjs <path-to-scryfall-bulk-file> [output-file]
+// Handles the input whether it's gzip-compressed or plain text -- Scryfall
+// serves its bulk data pre-gzipped (a .jsonl.gz download), which the first
+// version of this script didn't account for: it read the compressed bytes
+// as if they were already plain text, every line failed to parse, and it
+// silently produced an empty database instead of erroring. Detecting the
+// gzip magic bytes and decompressing when present fixes that regardless of
+// how this script gets invoked or whether Scryfall's serving format changes.
 
-import { createReadStream, readFileSync, writeFileSync } from 'fs';
-import { createInterface } from 'readline';
-import { gzipSync } from 'zlib';
+import { readFileSync, writeFileSync } from 'fs';
+import { gzipSync, gunzipSync } from 'zlib';
+
+// A real Oracle Cards file has been in the 25,000-30,000+ range for years
+// and only grows over time. Anything wildly below that means something
+// upstream went wrong (a bad download, an unexpected format change, a
+// parsing bug) -- refusing to write output in that case is what stops a
+// broken build from ever reaching a commit and overwriting a working
+// database, rather than silently producing an empty or near-empty one.
+const MIN_PLAUSIBLE_CARD_COUNT = 5000;
 
 // ---- Pip encoding -----------------------------------------------------
 // Reverse-engineered from how the app CONSUMES this field:
@@ -59,16 +70,28 @@ function cardToTuple(card) {
   return [name, typeLine, oracleText, manaCost, colorIdentity, cmc, pips, rarity];
 }
 
+// Reads the input file and returns its content as plain text, transparently
+// decompressing first if it looks gzip-compressed (magic bytes 0x1f 0x8b).
+function readInputAsText(path) {
+  const buf = readFileSync(path);
+  const isGzip = buf.length >= 2 && buf[0] === 0x1f && buf[1] === 0x8b;
+  const raw = isGzip ? gunzipSync(buf) : buf;
+  return { text: raw.toString('utf8'), wasGzipped: isGzip };
+}
+
 // ---- Main build ---------------------------------------------------------
-async function build(bulkFilePath, outPath) {
+function build(bulkFilePath, outPath) {
+  const { text, wasGzipped } = readInputAsText(bulkFilePath);
+  console.log(wasGzipped ? 'Input was gzip-compressed -- decompressed before parsing.' : 'Input was plain text.');
+
   const cards = [];
   const gc = [];
   const banned = [];
   const seenNames = new Set();
 
-  const rl = createInterface({ input: createReadStream(bulkFilePath, { encoding: 'utf8' }) });
-  for await (const line of rl) {
-    const trimmed = line.trim().replace(/,$/, '');
+  const lines = text.split('\n');
+  for (const rawLine of lines) {
+    const trimmed = rawLine.trim().replace(/,$/, '');
     if (!trimmed || trimmed === '[' || trimmed === ']') continue;
     let card;
     try { card = JSON.parse(trimmed); } catch (e) { continue; }
@@ -86,6 +109,14 @@ async function build(bulkFilePath, outPath) {
     if (card.legalities && card.legalities.commander === 'banned') banned.push(card.name);
   }
 
+  if (cards.length < MIN_PLAUSIBLE_CARD_COUNT) {
+    throw new Error(
+      `Only parsed ${cards.length} cards, expected at least ${MIN_PLAUSIBLE_CARD_COUNT}. ` +
+      `Refusing to write output -- something is wrong with the input file rather than trusting ` +
+      `this result, since committing a near-empty database would silently break the live app.`
+    );
+  }
+
   const payload = { cards, gc, banned };
   const json = JSON.stringify(payload);
   const gzipped = gzipSync(Buffer.from(json, 'utf8'));
@@ -97,12 +128,13 @@ async function build(bulkFilePath, outPath) {
 
 const [, , bulkFilePath, outPath] = process.argv;
 if (!bulkFilePath) {
-  console.error('Usage: node build-card-db.mjs <scryfall-bulk-file.jsonl> [output-file]');
+  console.error('Usage: node build-card-db.mjs <scryfall-bulk-file> [output-file]');
   process.exit(1);
 }
-build(bulkFilePath, outPath || 'card-db-compressed.b64').then(stats => {
+try {
+  const stats = build(bulkFilePath, outPath || 'card-db-compressed.b64');
   console.log('Build complete:', stats);
-}).catch(err => {
-  console.error('Build failed:', err);
+} catch (err) {
+  console.error('Build failed:', err.message);
   process.exit(1);
-});
+}
