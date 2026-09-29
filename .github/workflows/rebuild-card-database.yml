@@ -1,0 +1,50 @@
+name: Rebuild Card Database
+
+# Two ways to run this: the button under the Actions tab (workflow_dispatch),
+# or automatically every Monday morning UTC. Both do exactly the same thing.
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: '0 6 * * 1'
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Scryfall's own bulk-data endpoint always points at the CURRENT file --
+      # the actual download URL is timestamped and changes constantly, so this
+      # has to be looked up fresh every run rather than hardcoded anywhere.
+      - name: Look up the current Scryfall Oracle Cards download URL
+        run: |
+          curl -s https://api.scryfall.com/bulk-data/oracle-cards -o bulk-meta.json
+          BULK_URL=$(jq -r '.jsonl_download_uri' bulk-meta.json)
+          echo "Resolved download URL: $BULK_URL"
+          echo "BULK_URL=$BULK_URL" >> "$GITHUB_ENV"
+
+      - name: Download the current card data
+        run: curl -s -L "$BULK_URL" -o scryfall-bulk.jsonl
+
+      - name: Build the compressed database
+        run: node .github/scripts/build-card-db.mjs scryfall-bulk.jsonl new-card-db.b64
+
+      - name: Splice it into index.html
+        run: node .github/scripts/splice-card-db.mjs index.html new-card-db.b64
+
+      # Only commits if the card data actually changed -- a week where
+      # nothing new released (or Scryfall's data is unchanged) produces an
+      # identical file, and this deliberately doesn't create an empty commit
+      # just because the workflow ran.
+      - name: Commit the refreshed database, if it changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --staged --quiet && echo "No change -- nothing to commit." || (git commit -m "Automated card database refresh" && git push)
