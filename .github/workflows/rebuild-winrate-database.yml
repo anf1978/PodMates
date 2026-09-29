@@ -1,0 +1,40 @@
+name: Rebuild Commander Win-Rate Database
+
+# Runs weekly, offset from the card database rebuild rather than at the
+# same time, and can also be triggered manually from the Actions tab. This
+# one takes longer than the card database rebuild -- it has to make one
+# request per commander ID rather than a single bulk download, respecting
+# Playgroup.gg's stated rate limit -- so it's given its own schedule slot
+# rather than competing with that job for runtime.
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: '0 7 * * 1'
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build the win-rate database
+        run: node .github/scripts/build-winrate-db.mjs new-winrate-data.js
+
+      - name: Splice it into index.html
+        run: node .github/scripts/splice-winrate-db.mjs index.html new-winrate-data.js
+
+      - name: Commit the refreshed database, if it changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --staged --quiet && echo "No change -- nothing to commit." || (git commit -m "Automated commander win-rate refresh" && git push)
