@@ -7,6 +7,13 @@ on:
   schedule:
     - cron: '0 6 * * 1'
 
+# Explicitly granted rather than relying on the repo's default token
+# permissions -- GitHub increasingly defaults new repos to a read-only
+# token, which makes the final git push fail immediately (exit code 128)
+# before any of the real work even starts.
+permissions:
+  contents: write
+
 jobs:
   rebuild:
     runs-on: ubuntu-latest
