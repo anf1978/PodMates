@@ -3928,7 +3928,7 @@ function computeManaBaseBenchmark(matchedCards, commanderCards) {
     if (!typeLine.includes('land')) continue;
     if (typeLine.startsWith('basic land')) continue;
     nonbasicCount += qty;
-    const producible = (card.m || '').split('').filter(ch => identitySet.has(ch));
+    const producible = (card.ci || '').split('').filter(ch => identitySet.has(ch));
     const ratio = producible.length / identitySet.size;
     fixingRatioSum += ratio * qty;
   }
@@ -19775,7 +19775,7 @@ function renderChart(scores, commandSpark, agg, tierDiscrepancy) {
     return [cx + Math.cos(a) * radius * frac, cy + Math.sin(a) * radius * frac];
   }
 
-  let svg = `<svg viewBox="0 0 ${width} ${height}" width="100%" height="auto" style="max-width:560px;">`;
+  let svg = `<svg viewBox="0 0 ${width} ${height}" width="100%" style="max-width:560px;">`;
 
   for (let l = 1; l <= levels; l++) {
     const frac = l / levels;
