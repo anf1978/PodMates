@@ -1180,10 +1180,20 @@ h1 {
       <label style="font-size:12px; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-soft); min-width:90px;">Player</label>
       <input id="playerInput" type="text" placeholder="Required — e.g. Alex" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
     </div>
+    <div class="row" style="margin-bottom:10px; align-items:center;">
+      <label style="font-size:12px; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-soft); min-width:90px;">Deck Name</label>
+      <input id="deckNameInput" type="text" placeholder="Defaults to Commander (Player)" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
+    </div>
     <div class="row" style="margin-bottom:14px; align-items:center; gap:8px; padding:10px; background:var(--bg-main); border:1px dashed var(--line); border-radius:5px;">
       <label style="font-size:11.5px; letter-spacing:0.05em; text-transform:uppercase; color:var(--text-soft); white-space:nowrap;">Or paste a deck link</label>
       <input id="deckLinkInput" type="text" placeholder="archidekt.com/decks/... or moxfield.com/decks/..." style="flex:1; background:var(--bg-panel); border:1px solid var(--line); border-radius:3px; padding:7px 9px; color:var(--text-primary); font-family:inherit; font-size:13px;">
-      <button id="deckLinkLoadBtn" class="ghost" style="padding:7px 14px; font-size:12.5px; white-space:nowrap;">Import Deck</button>
+      <button id="deckLinkLoadBtn" class="ghost has-tooltip" data-tooltip="Fetches this deck's cards once, so you can chart or save it. Check 'keep synced' below to also have it stay updated automatically." style="padding:7px 14px; font-size:12.5px; white-space:nowrap;">Import Deck</button>
+    </div>
+    <div id="deckLinkSyncOption" style="display:none; margin-bottom:14px;">
+      <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-soft); cursor:pointer;">
+        <input type="checkbox" id="deckLinkSyncCheckbox">
+        Keep this deck synced with <span id="deckLinkSyncPlatform"></span> going forward (also adds it to My Profile)
+      </label>
     </div>
     <div style="text-align:center; margin-bottom:14px;">
       <button id="openDeckBuilderBtn" class="ghost has-tooltip" data-tooltip="Search and add cards to build a deck. If a deck's already loaded above, opens that one for editing instead of starting empty." style="font-size:12.5px;">Deck Crafter</button>
@@ -1226,10 +1236,8 @@ One card per line. Formats like &quot;1x Sol Ring&quot;, plain names, or Moxfiel
       <button id="scanCardsBtn" class="icon-btn ghost" data-tooltip="Scan Cards from Photo" aria-label="Scan Cards from Photo">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
       </button>
-      <button id="deleteDeckBtn" class="ghost" style="display:none;">Delete</button>
-      <select id="savedDeckSelect" style="display:none;"></select>
     </div>
-    <p style="font-size:12.5px; color:var(--text-soft); margin:8px 0 0;">Save Deck saves under commander (player name) — both required, to keep decks from overwriting each other</p>
+    <p style="font-size:12.5px; color:var(--text-soft); margin:8px 0 0;">Every saved deck needs a unique name — defaults to Commander (Player), but edit it freely to tell apart two builds of the same commander</p>
     <input type="file" id="scanCardsFileInput" accept="image/*" multiple style="display:none;">
     <div class="status" id="deckMgmtStatus"></div>
     <div class="status" id="status"></div>
@@ -19545,6 +19553,7 @@ function runAnalysis() {
     // Auto-fill the field when we detected something
     if (commanders.length && $('commanderInput')) {
       $('commanderInput').value = commanders.join(' / ');
+      if (typeof autoFillDeckName === 'function') autoFillDeckName();
     }
   }
   const agg = analyzeDeck(matched, commanders);
@@ -21083,6 +21092,7 @@ async function showProfileModal(opts) {
   try { myDecks = await loadAndMergeMyDecks(); } catch (e) { /* fine -- just start empty */ }
 
   renderProfileModal(modal, myDecks, opts);
+  setupIconTooltipsFor(modal);
 }
 
 function renderProfileModal(modal, myDecks, opts) {
@@ -21112,7 +21122,7 @@ function renderProfileModal(modal, myDecks, opts) {
     </div>` : ''}
     <div class="row" style="margin-bottom:14px; gap:8px; align-items:center;">
       <input id="profileDeckLinkInput" type="text" placeholder="archidekt.com/decks/... or moxfield.com/decks/..." style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
-      <button id="profileAddDeckBtn" class="ghost" style="white-space:nowrap;">Add Deck</button>
+      <button id="profileAddDeckBtn" class="ghost has-tooltip" data-tooltip="Creates a deck that stays synced with Archidekt/Moxfield going forward. For a one-time import instead, use Import Deck on the Deck Chart tab." style="white-space:nowrap;">Add Deck</button>
     </div>
     <div id="profileSyncStatus" style="font-size:12.5px; margin-bottom:12px;"></div>
     <div id="profileLinkedDecks" style="margin-bottom:10px;"></div>
@@ -21199,7 +21209,9 @@ function renderProfileModal(modal, myDecks, opts) {
         return;
       }
       input.value = '';
-      statusEl.textContent = `Added “${result.deck.name}.”`;
+      statusEl.textContent = result.renamed
+        ? `Added as "${result.deck.name}" — you already had a deck named that, so this one got a distinguishing suffix.`
+        : `Added “${result.deck.name}.”`;
       statusEl.className = 'status';
       const refreshed = await loadAndMergeMyDecks();
       renderMyDecksList(modal, refreshed, isWelcome);
@@ -21455,6 +21467,8 @@ function openDeckSummaryPopup(deck) {
     if (!dbReady) { showToast('Card database still loading — try again in a moment.'); return; }
     $('decklistInput').value = deck.decklistText;
     if (deck.commander) $('commanderInput').value = deck.commander;
+    if (deck.player && $('playerInput')) $('playerInput').value = deck.player;
+    if ($('deckNameInput')) { $('deckNameInput').value = deck.name; deckNameManuallyEdited = true; }
     closePopup();
     closeTryADeckModal(); // also close whatever this was opened from (e.g. My Profile) -- navigating away entirely, not just dismissing this popup
     setMode('single');
@@ -22898,6 +22912,8 @@ function renderTryADeckModal() {
         $('decklistInput').value = opt.decklist;
         if ($('commanderInput')) $('commanderInput').value = opt.commander;
         if ($('playerInput')) $('playerInput').value = '';
+        if ($('deckNameInput')) $('deckNameInput').value = '';
+        deckNameManuallyEdited = false;
         closeTryADeckModal();
         $('chartBtn').classList.add('tad-pulsing');
         if ($('chartBtn').scrollIntoView) $('chartBtn').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -23284,10 +23300,36 @@ $('clearBtn').addEventListener('click', () => {
   $('decklistInput').value = '';
   if ($('commanderInput')) $('commanderInput').value = '';
   if ($('playerInput')) $('playerInput').value = '';
+  if ($('deckNameInput')) $('deckNameInput').value = '';
+  deckNameManuallyEdited = false;
+  lastImportedDeckUrl = null;
+  if ($('deckLinkSyncOption')) $('deckLinkSyncOption').style.display = 'none';
   setStatus('');
   setDeckMgmtStatus('');
   $('notFoundBox').innerHTML = '';
   $('resultsSection').style.display = 'none';
+});
+
+// Deck Name defaults to "Commander (Player)" and tracks live edits to
+// either field -- right up until the person types into Deck Name
+// themselves, at which point their custom name (e.g. "Kenrith - Combo",
+// to tell it apart from a second build of the same commander) stops
+// being silently overwritten by further commander/player edits. Clearing
+// Deck Name back to empty resumes auto-naming, on the assumption that an
+// intentionally emptied field means "go back to the default."
+let deckNameManuallyEdited = false;
+function autoFillDeckName() {
+  if (deckNameManuallyEdited) return;
+  const nameInput = $('deckNameInput');
+  if (!nameInput) return;
+  const cmd = (($('commanderInput') || {}).value || '').trim();
+  const player = (($('playerInput') || {}).value || '').trim();
+  nameInput.value = (cmd || player) ? `${cmd} (${player})` : '';
+}
+if ($('commanderInput')) $('commanderInput').addEventListener('input', autoFillDeckName);
+if ($('playerInput')) $('playerInput').addEventListener('input', autoFillDeckName);
+if ($('deckNameInput')) $('deckNameInput').addEventListener('input', () => {
+  deckNameManuallyEdited = $('deckNameInput').value.trim().length > 0;
 });
 
 // ============================================================
@@ -24248,6 +24290,8 @@ function confirmChartDeckFromPodProfile(d, pod) {
     $('decklistInput').value = d._rawList || '';
     if ($('commanderInput')) $('commanderInput').value = d._rawCommander || '';
     if ($('playerInput')) $('playerInput').value = d._ownerName || '';
+    if ($('deckNameInput')) $('deckNameInput').value = '';
+    deckNameManuallyEdited = false;
     setMode('single');
     runAnalysis();
   }, () => openPodProfileOverlay(pod));
@@ -24806,7 +24850,6 @@ async function refreshCloudDecksCache() {
   const user = window.PodmatesCloud && window.PodmatesCloud.user;
   if (!user) {
     cloudDecksCache = {};
-    refreshSavedDeckSelect();
     return;
   }
   try {
@@ -24814,16 +24857,6 @@ async function refreshCloudDecksCache() {
   } catch (e) {
     cloudDecksCache = {};
   }
-  refreshSavedDeckSelect();
-}
-
-function refreshSavedDeckSelect() {
-  const decks = loadSavedDecks();
-  const names = Object.keys(decks).sort();
-  const singleOpts = '<option value="">— Saved decks —</option>' +
-    names.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
-  const sel = $('savedDeckSelect');
-  if (sel) sel.innerHTML = singleOpts;
 }
 
 // ---- Build a Deck: search-and-add deck builder --------------------------
@@ -25040,9 +25073,23 @@ function openDeckBuilderOverlay() {
     if (!Object.keys(deckBuilderCards).length) { showToast('Add at least one card first.'); return; }
     if (!deckBuilderCommanderName) { showToast('Set a commander before saving.'); return; }
     if (!deckBuilderPlayerName) { showToast('Enter a player name before saving.'); if (playerInputEl) playerInputEl.focus(); return; }
+    // If Deck Crafter was opened on an existing deck with this same
+    // commander and player, whatever custom name it already had is still
+    // valid and worth keeping. Otherwise this is effectively a different
+    // deck, and the name should reset to the standard default rather than
+    // carry over something stale and unrelated -- setting .value here
+    // programmatically doesn't fire the input event the normal auto-fill
+    // listens for, so this needs to be handled explicitly.
+    const priorCmd = (($('commanderInput') || {}).value || '').trim();
+    const priorPlayer = (($('playerInput') || {}).value || '').trim();
+    const sameDeck = priorCmd === deckBuilderCommanderName.trim() && priorPlayer === deckBuilderPlayerName.trim();
     $('decklistInput').value = deckBuilderToText();
     $('commanderInput').value = deckBuilderCommanderName;
     $('playerInput').value = deckBuilderPlayerName;
+    if (!sameDeck) {
+      deckNameManuallyEdited = false;
+      autoFillDeckName();
+    }
     clearDeckBuilderDraft();
     closeTryADeckModal();
     setMode('single');
@@ -25153,6 +25200,35 @@ function renderDeckBuilderList() {
   });
 }
 
+// Returns a name that doesn't collide with any existing deck, appending
+// " (2)", " (3)", etc. until one is free -- used for "Save as New" so the
+// person gets an immediate, working save instead of being sent back to
+// think of a different name themselves.
+function generateUniqueDeckName(baseName, existingNames) {
+  if (!existingNames.has(baseName)) return baseName;
+  let n = 2;
+  while (existingNames.has(`${baseName} (${n})`)) n++;
+  return `${baseName} (${n})`;
+}
+
+// The actual write, shared by the plain-save path and both branches of the
+// name-collision choice below -- one place that knows how to construct and
+// persist a deck entry, rather than three separate copies of the same logic.
+function performDeckSave(name, raw, cmd, player, existingKeyToReuse) {
+  const secretBox = $('deckSecretCheckbox');
+  const entry = {
+    list: raw, commander: cmd, player: player, deckName: name,
+    savedAt: Date.now(), secret: !!(secretBox && secretBox.checked),
+  };
+  setDeckMgmtStatus('Saving…');
+  window.PodmatesCloud.saveDeck(name, entry, existingKeyToReuse)
+    .then(async () => {
+      await refreshCloudDecksCache();
+      setDeckMgmtStatus(`Saved "${name}" to your account.`);
+    })
+    .catch((e) => setDeckMgmtStatus('Could not save: ' + e.message, true));
+}
+
 function saveCurrentDeck() {
   const raw = $('decklistInput').value.trim();
   if (!raw) { setDeckMgmtStatus('Paste a decklist before saving.', true); return; }
@@ -25170,16 +25246,76 @@ function saveCurrentDeck() {
   }
   if (!requireAccountToSave('decks')) return;
 
-  const key = `${cmd} (${player})`;
-  const secretBox = $('deckSecretCheckbox');
-  const entry = { list: raw, commander: cmd, player: player, savedAt: Date.now(), secret: !!(secretBox && secretBox.checked) };
-  setDeckMgmtStatus('Saving…');
-  window.PodmatesCloud.saveDeck(key, entry)
-    .then(async () => {
-      await refreshCloudDecksCache();
-      setDeckMgmtStatus(`Saved “${key}” to your account.`);
-    })
-    .catch((e) => setDeckMgmtStatus('Could not save: ' + e.message, true));
+  // "Keep synced" takes over the whole save -- linking already writes its
+  // own mirror into the same decks collection a normal save would
+  // otherwise land in too, so doing both would recreate the exact
+  // duplicate-deck problem this naming system exists to prevent.
+  const syncCheckbox = $('deckLinkSyncCheckbox');
+  if (syncCheckbox && syncCheckbox.checked && lastImportedDeckUrl) {
+    setDeckMgmtStatus('Linking…');
+    window.PodmatesCloud.addLinkedDeck(lastImportedDeckUrl)
+      .then(async (result) => {
+        if (!result.ok) { setDeckMgmtStatus('Could not link: ' + result.error, true); return; }
+        await refreshCloudDecksCache();
+        setDeckMgmtStatus(result.renamed
+          ? `Saved and linked as "${result.deck.name}" — you already had a deck by that name, so this one got a distinguishing suffix.`
+          : `Saved and linked as "${result.deck.name}" — it'll stay synced going forward.`);
+      })
+      .catch((e) => setDeckMgmtStatus('Could not link: ' + e.message, true));
+    return;
+  }
+
+  const nameInput = $('deckNameInput');
+  const proposedName = (nameInput && nameInput.value.trim()) || `${cmd} (${player})`;
+
+  // Every saved deck needs a name unique among THIS account's own decks --
+  // podmates' shared decks live in their own namespace and never collide
+  // with yours here. Legacy decks saved before this field existed don't
+  // have an explicit deckName yet; their old commander+player key stands
+  // in for it, so they're still correctly caught by this check.
+  const decks = loadSavedDecks();
+  let matchedKey = null;
+  for (const [existingKey, existingEntry] of Object.entries(decks)) {
+    const existingName = (typeof existingEntry === 'object' && existingEntry.deckName) || existingKey;
+    if (existingName === proposedName) { matchedKey = existingKey; break; }
+  }
+
+  if (matchedKey) {
+    injectTryADeckStyles();
+    closeTryADeckModal();
+    const overlay = document.createElement('div');
+    overlay.className = 'tad-overlay';
+    overlay.id = 'tadOverlay';
+    const modal = document.createElement('div');
+    modal.className = 'tad-modal';
+    modal.innerHTML = `
+      <button class="tad-close" id="tadCloseBtn">Close ×</button>
+      <h2 style="margin-bottom:10px;">Deck name already in use</h2>
+      <p class="tad-sub">A deck named "${escapeHtml(proposedName)}" already exists. Overwrite it, or save this as a separate, new deck?</p>
+      <div class="row" style="gap:8px; margin-top:14px;">
+        <button id="dnOverwriteBtn" class="ghost" style="flex:1;">Overwrite Existing</button>
+        <button id="dnSaveNewBtn" style="flex:1;">Save as New Deck</button>
+      </div>
+    `;
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
+    document.getElementById('dnOverwriteBtn').addEventListener('click', () => {
+      closeTryADeckModal();
+      performDeckSave(proposedName, raw, cmd, player, matchedKey);
+    });
+    document.getElementById('dnSaveNewBtn').addEventListener('click', () => {
+      closeTryADeckModal();
+      const existingNames = new Set(Object.entries(decks).map(([k, e]) => (typeof e === 'object' && e.deckName) || k));
+      const uniqueName = generateUniqueDeckName(proposedName, existingNames);
+      if (nameInput) { nameInput.value = uniqueName; deckNameManuallyEdited = true; }
+      performDeckSave(uniqueName, raw, cmd, player, null);
+    });
+    return;
+  }
+
+  performDeckSave(proposedName, raw, cmd, player, null);
 }
 
 function loadDeckByKey(key, target) {
@@ -25208,10 +25344,12 @@ function loadDeckByKey(key, target) {
   }
   if (typeof entry === 'string') {
     $('decklistInput').value = entry;
+    if ($('deckNameInput')) { $('deckNameInput').value = key; deckNameManuallyEdited = true; }
   } else {
     $('decklistInput').value = entry.list || '';
     if ($('commanderInput')) $('commanderInput').value = entry.commander || '';
     if ($('playerInput')) $('playerInput').value = entry.player || '';
+    if ($('deckNameInput')) { $('deckNameInput').value = entry.deckName || key; deckNameManuallyEdited = true; }
   }
   setDeckMgmtStatus(`Loaded “${key}”.`);
   if ($('chartBtn')) {
@@ -25557,7 +25695,7 @@ async function restoreMyDataBackup(jsonText) {
     }
     // Refresh whichever deck list is currently visible so the restore is
     // immediately reflected, not just saved silently in the background.
-    refreshSavedDeckSelect();
+    await refreshCloudDecksCache();
   } catch (e) {
     // mergeSavedDecks's own Firebase writes don't guarantee they never
     // throw -- a permission or network error partway through a restore
@@ -25565,22 +25703,6 @@ async function restoreMyDataBackup(jsonText) {
     // much of it actually went through.
     if (statusEl) { statusEl.textContent = 'Restore did not fully complete: ' + e.message + ' -- some decks may have been saved before the error.'; statusEl.className = 'status err'; }
   }
-}
-
-function deleteSelectedDeck() {
-  const sel = $('savedDeckSelect');
-  if (!sel || !sel.value) return;
-  const key = sel.value;
-  if (!requireAccountToSave('decks')) return;
-  showConfirmModal(`Delete saved deck "${key}"?`, async () => {
-    try {
-      await window.PodmatesCloud.deleteDeck(key);
-      await refreshCloudDecksCache();
-      setDeckMgmtStatus('Deleted.');
-    } catch (e) {
-      setDeckMgmtStatus('Could not delete: ' + e.message, true);
-    }
-  });
 }
 
 // ============================================================
@@ -25795,8 +25917,6 @@ const saveBtn = $('saveDeckBtn');
 if (saveBtn) saveBtn.addEventListener('click', saveCurrentDeck);
 const loadBtn = $('loadDeckBtn');
 if (loadBtn) loadBtn.addEventListener('click', showLoadDeckModal);
-const delBtn = $('deleteDeckBtn');
-if (delBtn) delBtn.addEventListener('click', deleteSelectedDeck);
 
 const clearHistBtn = $('clearMatchHistoryBtn');
 if (clearHistBtn) clearHistBtn.addEventListener('click', () => {
@@ -25812,7 +25932,6 @@ if (clearHistBtn) clearHistBtn.addEventListener('click', () => {
   });
 });
 
-refreshSavedDeckSelect();
 renderMatchLog();
 initDatabase();
 
@@ -25915,6 +26034,7 @@ const openDeckBuilderBtn = $('openDeckBuilderBtn');
 if (openDeckBuilderBtn) openDeckBuilderBtn.addEventListener('click', openDeckBuilderOverlay);
 
 const deckLinkLoadBtn = $('deckLinkLoadBtn');
+let lastImportedDeckUrl = null;
 if (deckLinkLoadBtn) deckLinkLoadBtn.addEventListener('click', async () => {
   const input = $('deckLinkInput');
   const statusEl = $('deckLinkStatus');
@@ -25925,6 +26045,8 @@ if (deckLinkLoadBtn) deckLinkLoadBtn.addEventListener('click', async () => {
   deckLinkLoadBtn.disabled = true;
   deckLinkLoadBtn.textContent = 'Importing…';
   statusEl.textContent = '';
+  $('deckLinkSyncOption').style.display = 'none';
+  lastImportedDeckUrl = null;
 
   const result = await window.PodmatesCloud.fetchDeckByLink(url);
 
@@ -25940,8 +26062,22 @@ if (deckLinkLoadBtn) deckLinkLoadBtn.addEventListener('click', async () => {
   const d = result.deck;
   $('decklistInput').value = d.decklistText;
   if (d.commander) $('commanderInput').value = d.commander;
+  // The platform's own deck name is usually more meaningful than the
+  // generic Commander (Player) default, and matches the name this deck
+  // will keep if "keep synced" below is used -- so it becomes the Deck
+  // Name here too, same as loading a saved deck already does.
+  if ($('deckNameInput')) {
+    $('deckNameInput').value = d.name;
+    deckNameManuallyEdited = true;
+  }
   statusEl.textContent = `Loaded “${d.name}” — ${d.cardCount} cards${d.commander ? `, commander: ${d.commander}` : ' (commander not auto-detected — enter it above if needed)'}.`;
   statusEl.className = 'status';
+
+  lastImportedDeckUrl = url;
+  const platformLabel = d.platform ? d.platform.charAt(0).toUpperCase() + d.platform.slice(1) : 'the source';
+  $('deckLinkSyncPlatform').textContent = platformLabel;
+  $('deckLinkSyncCheckbox').checked = false;
+  $('deckLinkSyncOption').style.display = '';
 });
 
 // ---- Icon button tooltips: appended to document.body (not to the button
@@ -26191,7 +26327,8 @@ setupIconTooltipsFor(document);
     const ref = doc(db, 'users', currentUser.uid, 'decks', safeDocId(docIdOverride || key));
     await setDoc(ref, {
       key, commander: entry.commander || '', player: entry.player || '',
-      list: entry.list || '', savedAt: entry.savedAt || Date.now(),
+      list: entry.list || '', deckName: entry.deckName || key,
+      savedAt: entry.savedAt || Date.now(),
       secret: entry.secret === true,
       updatedAt: serverTimestamp(),
     });
@@ -26214,7 +26351,7 @@ setupIconTooltipsFor(document);
     const out = {};
     snap.forEach(docSnap => {
       const d = docSnap.data();
-      out[d.key] = { list: d.list, commander: d.commander, player: d.player, savedAt: d.savedAt, secret: d.secret === true, docId: docSnap.id };
+      out[d.key] = { list: d.list, commander: d.commander, player: d.player, deckName: d.deckName, savedAt: d.savedAt, secret: d.secret === true, docId: docSnap.id };
       // A deck saved before the secret toggle existed has no `secret`
       // field at all, which a podmate's `where('secret', '==', false)`
       // query can never match no matter how long it sits there -- Firestore
@@ -26551,18 +26688,29 @@ setupIconTooltipsFor(document);
     const result = await fetchDeckByLink(deckUrl);
     if (!result.ok) return result;
     const d = result.deck;
+
+    // Linking is a deliberate, one-time setup action rather than something
+    // done repeatedly like a regular re-save, so a name collision here
+    // gets auto-disambiguated rather than interrupting with a choice --
+    // offering to silently overwrite an existing deck the person may not
+    // even have been thinking about felt like the wrong default for this
+    // specific flow.
+    const existingDecks = await cloudLoadAllDecks().catch(() => ({}));
+    const existingNames = new Set(Object.entries(existingDecks).map(([k, e]) => e.deckName || k));
+    const finalName = window.generateUniqueDeckName(d.name, existingNames);
+
     const id = `${d.platform}-${d.deckId}`;
     await setDoc(doc(db, 'users', currentUser.uid, 'linkedDecks', id), {
-      platform: d.platform, deckId: d.deckId, url: d.url, name: d.name,
+      platform: d.platform, deckId: d.deckId, url: d.url, name: finalName,
       commander: d.commander, decklistText: d.decklistText, cardCount: d.cardCount,
       addedAt: Date.now(), syncedAt: Date.now(),
     });
     await cloudSaveDeck(
-      d.name,
+      finalName,
       { commander: d.commander, list: d.decklistText, player: currentUser.displayName || '', secret: false },
       linkedDeckMirrorId(d.platform, d.deckId)
     ).catch(() => {}); // linking itself already succeeded above -- don't fail the whole action over the mirror
-    return { ok: true, deck: d, id };
+    return { ok: true, deck: { ...d, name: finalName }, id, renamed: finalName !== d.name };
   }
 
   async function refreshLinkedDeck(id, deckUrl) {
