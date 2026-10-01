@@ -305,22 +305,32 @@
 
   /* Spider chart */
   .chart-area{display:flex; flex-direction:column; align-items:center;}
+  /* Spark is deliberately a quiet secondary readout under the radar: the
+     five-axis shape is the headline, Spark is the one-number table-alignment
+     summary. Tapping it opens the full explainer. */
   .command-spark{
-    text-align:center; margin-bottom:30px;
+    display:inline-flex; flex-direction:column; align-items:center;
+    margin:6px 0 10px; padding:8px 16px;
+    border:1px solid var(--line); border-radius:2px;
+    background:var(--bg-panel-raised); cursor:pointer; text-align:center;
   }
+  .command-spark:hover{border-color:var(--gold);}
+  .command-spark .spark-main{display:flex; align-items:baseline; gap:8px;}
   .command-spark .num{
     font-family:'Cinzel', 'Trajan Pro', Georgia, serif;
-    font-size:42px; font-weight:700; color:var(--text-primary);
-    display:block; line-height:1;
-    text-shadow:0 0 18px rgba(198,153,44,0.35);
+    font-size:20px; font-weight:700; color:var(--text-primary); line-height:1;
   }
   .command-spark .lbl{
     font-family:'Cinzel', 'Trajan Pro', Georgia, serif;
-    font-size:13px; letter-spacing:0.16em; text-transform:uppercase; color:var(--gold);
+    font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:var(--gold);
   }
   .command-spark .spark-percentile{
     display:block; margin-top:4px; font-size:11.5px; color:var(--text-soft);
     font-family:'Crimson Pro', 'Palatino Linotype', Georgia, serif; letter-spacing:0.02em;
+  }
+  .chart-caption{
+    max-width:460px; text-align:center; margin-top:2px;
+    font-size:11.5px; color:var(--text-dim); line-height:1.4; font-style:italic;
   }
 
   svg text{font-family:'Crimson Pro', 'Palatino Linotype', Georgia, serif;}
@@ -3039,8 +3049,13 @@ function scorePowerLevel(agg) {
  * table-dominating decks (stax, high-power combo) and decks that are
  * merely well-built (Voltron, midrange toolbox), which the old unweighted
  * average compressed together. */
+// Single source of truth for Spark's weights (they sum to 5, so the result
+// stays on the same 1-10 scale as the axes). The Spark explainer popup reads
+// this same object, so what it shows can never drift from the real formula.
+const SPARK_WEIGHTS = { speed: 0.75, consistency: 0.75, versatility: 0.75, disruption: 1.25, powerLevel: 1.5 };
 function computeSpark(speed, consistency, versatility, disruption, powerLevel) {
-  const raw = (speed * 0.75 + consistency * 0.75 + versatility * 0.75 + disruption * 1.25 + powerLevel * 1.5) / 5;
+  const W = SPARK_WEIGHTS;
+  const raw = (speed * W.speed + consistency * W.consistency + versatility * W.versatility + disruption * W.disruption + powerLevel * W.powerLevel) / 5;
   return Math.round(raw * 10) / 10;
 }
 
@@ -19828,7 +19843,7 @@ function renderChart(scores, commandSpark, agg, tierDiscrepancy) {
   svg += '</svg>';
 
   const sparkPct = computeSparkPercentile(commandSpark);
-  const sparkHtml = `<div class="command-spark"><span class="num">${commandSpark.toFixed(1)}</span><span class="lbl">Spark${explainerBtn('commandSpark')}</span><span class="spark-percentile">${ordinalSuffix(sparkPct)} percentile</span></div>`;
+  const sparkHtml = `<div class="command-spark" data-explain="commandSpark" title="What is Spark?"><div class="spark-main"><span class="lbl">Spark</span><span class="num">${commandSpark.toFixed(1)}</span>${explainerBtn('commandSpark')}</div><span class="spark-percentile">Table-alignment signal · ${ordinalSuffix(sparkPct)} percentile of the PodMates benchmark</span></div>`;
   const discBadge = tierDiscrepancy ? (() => {
     const colors = { underbuilt: 'var(--gold)', overbuilt: 'var(--danger)', matched: 'var(--success-text)' };
     const labels = { underbuilt: 'Underbuilt for this commander', overbuilt: 'Overbuilt for this commander', matched: 'Matches this commander\'s track record' };
@@ -19837,7 +19852,8 @@ function renderChart(scores, commandSpark, agg, tierDiscrepancy) {
       `</div>`;
   })() : '';
 
-  $('chartArea').innerHTML = sparkHtml + discBadge + svg;
+  const benchCaption = `<div class="chart-caption">Percentiles compare against PodMates' benchmark set of ${PRECON_BENCHMARK_SPARK.length} official precon and curated decks, not all Commander decks.</div>`;
+  $('chartArea').innerHTML = svg + sparkHtml + discBadge + benchCaption;
 }
 
 function renderBracket(bracket, agg) {
@@ -22577,7 +22593,46 @@ async function showSingleCardArtModal(name) {
   artArea.innerHTML = `<img src="${escapeHtml(url)}" alt="${escapeHtml(name)}" style="max-width:100%; border:2px solid var(--line-strong); border-radius:0;">`;
 }
 
+function buildSparkExplainerHtml() {
+  const W = SPARK_WEIGHTS;
+  const sec = (title, body) => `<div style="margin-top:14px;"><div style="font-family:'Cinzel',Georgia,serif; font-size:12px; letter-spacing:0.1em; text-transform:uppercase; color:var(--gold); margin-bottom:4px;">${title}</div><div>${body}</div></div>`;
+  let table = '';
+  let plainLine = '';
+  if (currentScores && currentCommandSpark !== null) {
+    const rows = AXES.map(a => {
+      const sc = currentScores[a.key];
+      const pts = sc * W[a.key] / 5;
+      return `<tr><td style="padding:3px 6px 3px 0;">${escapeHtml(a.label)}</td><td style="padding:3px 6px; text-align:right;">${sc.toFixed(1)}</td><td style="padding:3px 6px; text-align:right;">×${W[a.key]}</td><td style="padding:3px 0 3px 6px; text-align:right;">${pts.toFixed(2)}</td></tr>`;
+    }).join('');
+    table = `<table style="width:100%; border-collapse:collapse; margin-top:8px; font-size:12.5px;">` +
+      `<tr style="color:var(--text-soft); border-bottom:1px solid var(--line);"><th style="text-align:left; font-weight:400; padding:3px 6px 3px 0;">Axis</th><th style="text-align:right; font-weight:400; padding:3px 6px;">This deck</th><th style="text-align:right; font-weight:400; padding:3px 6px;">Weight</th><th style="text-align:right; font-weight:400; padding:3px 0 3px 6px;">Adds</th></tr>` +
+      rows +
+      `<tr style="border-top:1px solid var(--line-strong); font-weight:700;"><td style="padding:4px 6px 3px 0;">Spark</td><td></td><td></td><td style="padding:4px 0 3px 6px; text-align:right;">${currentCommandSpark.toFixed(1)}</td></tr></table>`;
+    const plain = AXES.reduce((t, a) => t + currentScores[a.key], 0) / AXES.length;
+    const diff = currentCommandSpark - plain;
+    plainLine = Math.abs(diff) < 0.05
+      ? `<div style="margin-top:6px; color:var(--text-soft);">For this deck, a plain average of the five axes (${plain.toFixed(1)}) lands in the same place, because its axes are fairly even.</div>`
+      : `<div style="margin-top:6px; color:var(--text-soft);">A plain average of the five axes would read ${plain.toFixed(1)}. The extra weight on Power Level and Disruption moves it ${diff > 0 ? 'up' : 'down'} by ${Math.abs(diff).toFixed(1)} for this deck.</div>`;
+  }
+  let pct = '';
+  if (currentCommandSpark !== null) {
+    pct = sec('Where this deck sits',
+      `Spark ${currentCommandSpark.toFixed(1)} is at the ${ordinalSuffix(computeSparkPercentile(currentCommandSpark))} percentile of the PodMates benchmark: ${PRECON_BENCHMARK_SPARK.length} official precons and curated decks scored by this same engine. That is a handy yardstick, but it is not a percentile of all Commander decks.`);
+  }
+  return `<div style="font-size:13.5px; color:var(--text-primary); line-height:1.5;">` +
+    `<div>Spark exists so a table can <strong>line up before the game starts</strong>. Commander games usually go sideways not because a deck is weak or strong, but because the decks at the table don't match. Spark boils the five axes down to one shared number so a pod can compare decks quickly and talk about it. The Pod view uses the gaps between decks' Spark scores to call a table Well Balanced, Moderate Spread, or High Variance.</div>` +
+    sec('How to read it', `Compare it to the decks you're about to play against, not to a perfect 10. A low Spark isn't a bad deck and a high one isn't a good deck; they just play different games. Two decks can share a Spark and still get there very differently, so use the radar shape to see <em>how</em> a deck plays, and Spark to see whether it <em>fits the table</em>.`) +
+    sec('How it\'s calculated', `Spark is a weighted average of the five axes: each score is multiplied by its weight, added up, and divided by 5. The weights add up to 5, so Spark stays on the same 1–10 scale as the axes.${table}${plainLine}`) +
+    sec('Why the weights are uneven', `The radar draws five equal rings, but Spark doesn't count the axes equally. Power Level and Disruption count the most because they decide most directly whether a deck dominates or overwhelms a table. Speed, Consistency, and Versatility count less: they show how smoothly a deck runs, which matters, but a smooth deck isn't automatically a scary one. The weights were checked against a spread of decks from weak precons up to near-cEDH lists. They are a design judgment, not a law of nature, which is why the breakdown is shown here.`) +
+    sec('What it doesn\'t measure', `Who is piloting the deck, table politics, how the decks interact with each other, or whether a deck is fun to play against. It's a conversation starter, not a verdict, and not a grade on you or your deck. If your commander has enough tracked games, a badge under Spark also compares it with that commander's real win-rate history.`) +
+    pct + `</div>`;
+}
+
 function showExplainer(key) {
+  if (key === 'commandSpark') {
+    showInfoModal(`<h2 style="margin-bottom:10px;">What is Spark?</h2>`, buildSparkExplainerHtml());
+    return;
+  }
   const text = EXPLAINERS[key];
   if (!text) return;
   const contrib = getContributorsForAxis(key);
@@ -22592,7 +22647,7 @@ function showExplainer(key) {
     if (pct !== null) {
       pctHtml = `<div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--line); font-size:12.5px; color:var(--text-soft);">` +
         `This deck's ${AXES.find(a => a.key === key).label} of ${currentScores[key].toFixed(1)} sits at the ${ordinalSuffix(pct)} percentile ` +
-        `against ${PRECON_BENCHMARK_SCORES.length} real Commander precon and curated decks scored by this same engine.</div>`;
+        `of the PodMates benchmark (${PRECON_BENCHMARK_SCORES.length} official precons and curated decks scored by this same engine, not all Commander decks).</div>`;
     }
   }
   showInfoModal(
