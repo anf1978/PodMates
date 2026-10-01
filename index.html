@@ -24936,27 +24936,80 @@ function normalizeApostrophes(str) {
   return (str || '').replace(/[\u2018\u2019\u02BC\u00B4`]/g, "'");
 }
 
-// Prefix matches first, then substring matches, deduplicated by name, and
-// capped -- CARD_DB is a flat array with no partial-match index (the
-// existing indexes are exact-name lookups only), so this is a straight
-// scan, but debounced input keeps it from running on every keystroke and
-// the early exit once there are enough prefix matches keeps it fast for
-// any common search term without needing a more complex index.
-function searchCardsByName(query, limit) {
+// How many of the app's built-in decks (the Try-a-Deck precons and curated
+// lists) each card appears in. Used as a lightweight "is this a staple?"
+// signal for ranking search results -- it needs no outside data, but it is
+// only as broad as that library (precon-heavy), so it is used to nudge, not
+// to dictate. Built once, on first search.
+let _cardPopularityCache = null;
+const STAPLE_MIN_DECKS = 10; // appears in at least 10 of the built-in decks
+function getCardPopularity() {
+  if (_cardPopularityCache) return _cardPopularityCache;
+  const counts = new Map();
+  for (const opt of (typeof TRY_A_DECK_OPTIONS !== 'undefined' ? TRY_A_DECK_OPTIONS : [])) {
+    const inThisDeck = new Set();
+    for (const line of String(opt.decklist || '').split('\n')) {
+      const m = line.match(/^\s*\d+x?\s+(.+?)\s*$/);
+      if (m) inThisDeck.add(normalizeApostrophes(m[1].toLowerCase()));
+    }
+    for (const name of inThisDeck) counts.set(name, (counts.get(name) || 0) + 1);
+  }
+  _cardPopularityCache = counts;
+  return counts;
+}
+
+// Ranked name search for the Deck Crafter's card and commander pickers.
+//
+// Every card is scored against what was typed, then the best few are
+// returned. (An earlier version stopped scanning as soon as it had enough
+// "starts with" matches in raw database order, so a short exact name like
+// "Mountain" could get crowded out by earlier multi-word cards.)
+//
+// Ranking, best first:
+//   1. exact name match            (typing "mountain" -> Mountain)
+//   2. name starts with the text   (typing "moun"     -> Mountain, Mountain Goat...)
+//   3. a later word starts with it (typing "dragon"   -> Shivan Dragon, Elder Dragon...)
+//   4. text appears anywhere inside a name
+// Within each of those groups: staples (cards found in 10+ built-in decks)
+// come first, most common first, so "sol" finds Sol Ring before obscure
+// one-word names; then one-word names before multi-word ones, then shorter
+// names, then alphabetical.
+//
+// opts.commanderCard (optional): only return cards whose color identity fits
+// inside that commander's -- colorless cards always fit -- the same smart
+// filter Archidekt offers.
+function searchCardsByName(query, limit, opts) {
   limit = limit || 5;
   const q = normalizeApostrophes((query || '').trim().toLowerCase());
   if (q.length < 2 || !CARD_DB) return [];
+  const commanderCard = opts && opts.commanderCard ? opts.commanderCard : null;
+  const popularity = getCardPopularity();
   const seen = new Set();
-  const startsWith = [];
-  const contains = [];
+  const hits = [];
   for (const card of CARD_DB) {
     const nameLower = normalizeApostrophes(card.n.toLowerCase());
     if (seen.has(nameLower)) continue;
-    if (nameLower.startsWith(q)) { startsWith.push(card); seen.add(nameLower); }
-    else if (nameLower.includes(q)) { contains.push(card); seen.add(nameLower); }
-    if (startsWith.length >= limit) break;
+    const at = nameLower.indexOf(q);
+    if (at === -1) continue;
+    if (commanderCard && !cardFitsCommanderIdentity(card, commanderCard)) continue;
+    seen.add(nameLower);
+    let tier;
+    if (nameLower === q) tier = 0;
+    else if (at === 0) tier = 1;
+    else if (/[\s,\-\/]/.test(nameLower.charAt(at - 1))) tier = 2;
+    else tier = 3;
+    const pop = popularity.get(nameLower) || 0;
+    const words = nameLower.split(/\s+/).length;
+    hits.push({ card, tier, pop, staple: pop >= STAPLE_MIN_DECKS ? 0 : 1, oneWord: words === 1 ? 0 : 1, len: nameLower.length, nameLower });
   }
-  return startsWith.concat(contains).slice(0, limit);
+  hits.sort((a, b) =>
+    a.tier - b.tier ||
+    a.staple - b.staple ||
+    (a.staple === 0 && b.staple === 0 ? b.pop - a.pop : 0) ||
+    a.oneWord - b.oneWord ||
+    a.len - b.len ||
+    (a.nameLower < b.nameLower ? -1 : a.nameLower > b.nameLower ? 1 : 0));
+  return hits.slice(0, limit).map(h => h.card);
 }
 
 // A card "fits" a commander when every color in its identity is also in
@@ -24971,6 +25024,7 @@ function cardFitsCommanderIdentity(card, commanderCard) {
 let deckBuilderCards = {}; // { "Card Name": qty }
 let deckBuilderCommanderName = null;
 let deckBuilderPlayerName = '';
+let deckBuilderFilterByIdentity = true; // Archidekt-style smart search: only show cards that fit the commander's colors
 
 // Nothing about an in-progress deck was saved anywhere until Save Deck was
 // explicitly clicked -- a plain in-memory variable, wiped by closing the
@@ -25056,7 +25110,7 @@ function openDeckBuilderOverlay() {
   modal.innerHTML = `
     <button class="tad-close" id="tadCloseBtn">Close ×</button>
     <h2 style="margin-bottom:4px;">Deck Crafter</h2>
-    <p class="tad-sub">Search for cards to add them. Set a commander first to get a heads-up on anything outside its colors.</p>
+    <p class="tad-sub">Search for cards to add them. Set a commander first and search will only show cards that fit its colors (you can switch that off).</p>
     ${draftNotice}
     <div style="margin-bottom:14px;">
       <label style="font-size:11.5px; color:var(--text-soft); display:block; margin-bottom:4px;">Commander</label>
@@ -25071,6 +25125,10 @@ function openDeckBuilderOverlay() {
     <div style="margin-bottom:10px;">
       <label style="font-size:11.5px; color:var(--text-soft); display:block; margin-bottom:4px;">Add cards</label>
       <input id="dbCardSearch" type="text" placeholder="Search for a card…" style="width:100%; box-sizing:border-box; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
+      <label id="dbIdentityRow" style="display:none; align-items:center; gap:6px; margin-top:6px; font-size:12px; color:var(--text-soft); cursor:pointer;">
+        <input type="checkbox" id="dbIdentityToggle" checked style="width:auto; margin:0;">
+        <span>Only show cards that fit <span id="dbIdentityName" style="color:var(--gold);"></span>'s colors (plus colorless)</span>
+      </label>
       <div id="dbCardResults"></div>
     </div>
     <div style="font-size:11.5px; color:var(--text-soft); margin-bottom:6px;">Your deck (<span id="dbCardCount">0</span> cards)</div>
@@ -25118,10 +25176,22 @@ function openDeckBuilderOverlay() {
     document.getElementById('dbCommanderResults').innerHTML = '';
     renderDeckBuilderCommander();
     renderDeckBuilderList(); // re-render so any already-added off-color cards get flagged now
+    const cardBoxNow = document.getElementById('dbCardSearch');
+    if (cardBoxNow && cardBoxNow.value.trim().length >= 2) cardBoxNow.dispatchEvent(new Event('input'));
   });
   wireDeckBuilderSearch('dbCardSearch', 'dbCardResults', (card) => {
     deckBuilderCards[card.n] = (deckBuilderCards[card.n] || 0) + 1;
     renderDeckBuilderList();
+  }, () => {
+    if (!deckBuilderFilterByIdentity || !deckBuilderCommanderName) return null;
+    const cmdCard = indexes.byExactName.get(deckBuilderCommanderName.toLowerCase());
+    return cmdCard ? { commanderCard: cmdCard } : null;
+  });
+  const identityToggle = document.getElementById('dbIdentityToggle');
+  if (identityToggle) identityToggle.addEventListener('change', () => {
+    deckBuilderFilterByIdentity = identityToggle.checked;
+    const cardBox = document.getElementById('dbCardSearch');
+    if (cardBox && cardBox.value.trim().length >= 2) cardBox.dispatchEvent(new Event('input')); // re-run the current search
   });
 
   document.getElementById('dbSaveBtn').addEventListener('click', () => {
@@ -25164,6 +25234,15 @@ function openDeckBuilderOverlay() {
 function renderDeckBuilderCommander() {
   const el = document.getElementById('dbCommanderDisplay');
   if (!el) return;
+  // The color-identity filter only makes sense once a commander is set.
+  const idRow = document.getElementById('dbIdentityRow');
+  if (idRow) {
+    idRow.style.display = deckBuilderCommanderName ? 'flex' : 'none';
+    const nameEl = document.getElementById('dbIdentityName');
+    if (nameEl) nameEl.textContent = deckBuilderCommanderName || '';
+    const toggleEl = document.getElementById('dbIdentityToggle');
+    if (toggleEl) toggleEl.checked = deckBuilderFilterByIdentity;
+  }
   if (!deckBuilderCommanderName) {
     el.innerHTML = `<span style="font-size:13px; color:var(--text-soft); font-style:italic;">No commander set yet</span>`;
     return;
@@ -25180,7 +25259,7 @@ function renderDeckBuilderCommander() {
 // Shared wiring for both search boxes -- debounced so a fast typist
 // doesn't trigger a scan on every single keystroke, and results are
 // cleared whenever the box empties out rather than showing stale matches.
-function wireDeckBuilderSearch(inputId, resultsId, onPick) {
+function wireDeckBuilderSearch(inputId, resultsId, onPick, getSearchOpts) {
   const input = document.getElementById(inputId);
   const resultsEl = document.getElementById(resultsId);
   if (!input || !resultsEl) return;
@@ -25190,9 +25269,14 @@ function wireDeckBuilderSearch(inputId, resultsId, onPick) {
     const q = input.value;
     if (q.trim().length < 2) { resultsEl.innerHTML = ''; return; }
     debounceTimer = setTimeout(() => {
-      const matches = searchCardsByName(q, 5);
+      const searchOpts = getSearchOpts ? getSearchOpts() : null;
+      const matches = searchCardsByName(q, 5, searchOpts);
+      let emptyMsg = 'No cards found.';
+      if (!matches.length && searchOpts && searchOpts.commanderCard && searchCardsByName(q, 1).length) {
+        emptyMsg = `No cards in ${escapeHtml(searchOpts.commanderCard.n)}'s colors match that. Untick the filter above to see all cards.`;
+      }
       resultsEl.innerHTML = matches.map(c => `<div class="db-search-result" data-name="${escapeHtml(c.n)}" style="padding:6px 8px; cursor:pointer; font-size:13px; border-bottom:1px solid var(--line);">${escapeHtml(c.n)}</div>`).join('') ||
-        `<div style="padding:6px 8px; font-size:12.5px; color:var(--text-soft);">No cards found.</div>`;
+        `<div style="padding:6px 8px; font-size:12.5px; color:var(--text-soft);">${emptyMsg}</div>`;
       resultsEl.querySelectorAll('.db-search-result').forEach(row => {
         row.addEventListener('click', () => {
           const card = indexes.byExactName.get(row.getAttribute('data-name').toLowerCase());
