@@ -21418,7 +21418,7 @@ function renderMyDecksList(modal, myDecks, isWelcome) {
             else await window.PodmatesCloud.removeLinkedDeck(deck.rawId);
             myDecksSummaryCache.delete(id);
             const refreshed = await loadAndMergeMyDecks();
-            renderProfileModal(modal, refreshed, { welcome: isWelcome });
+            renderMyDecksList(modal, refreshed, isWelcome);
           } catch (err) {
             showToast(`Could not remove this deck: ${err.message}`);
           }
@@ -25509,7 +25509,7 @@ function renderLoadDeckList() {
       ? `<button type="button" data-toggle-secret-key="${escapeHtml(e.key)}" style="background:none; border:1px solid var(--line); color:${e.secret ? 'var(--gold)' : 'var(--text-soft)'}; border-radius:3px; padding:4px 9px; cursor:pointer; font-size:13px; font-family:inherit;" title="${e.secret ? 'Secret — only you can load this. Click to share with your pod.' : 'Click to keep this deck secret from your pod'}">${e.secret ? '🔒' : '🔓'}</button>`
       : '';
     const deleteBtn = e.mine
-      ? `<button type="button" data-delete-deck-key="${escapeHtml(e.key)}" style="background:none; border:1px solid var(--line); color:var(--text-soft); border-radius:3px; padding:4px 9px; cursor:pointer; font-size:13px; font-family:inherit;" title="Delete">×</button>`
+      ? `<button type="button" data-delete-deck-key="${escapeHtml(e.key)}" data-delete-doc-id="${escapeHtml(e.docId || '')}" style="background:none; border:1px solid var(--line); color:var(--text-soft); border-radius:3px; padding:4px 9px; cursor:pointer; font-size:13px; font-family:inherit;" title="Delete">×</button>`
       : '';
     return `<div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 0; border-bottom:1px solid var(--line);">
       <div data-load-deck-key="${escapeHtml(e.key)}" style="cursor:pointer; flex:1;">
@@ -25555,10 +25555,11 @@ document.addEventListener('click', (e) => {
   const deleteBtn = e.target && e.target.closest ? e.target.closest('[data-delete-deck-key]') : null;
   if (deleteBtn) {
     const key = deleteBtn.getAttribute('data-delete-deck-key');
+    const docId = deleteBtn.getAttribute('data-delete-doc-id') || null;
     if (!requireAccountToSave('decks')) return;
     showConfirmModal(`Delete saved deck "${key}"?`, async () => {
       try {
-        await window.PodmatesCloud.deleteDeck(key);
+        await window.PodmatesCloud.deleteDeck(key, docId);
         await refreshCloudDecksCache();
         renderLoadDeckPlayerChips();
         renderLoadDeckList();
@@ -26324,6 +26325,7 @@ setupIconTooltipsFor(document);
 
   async function cloudSaveDeck(key, entry, docIdOverride) {
     if (!currentUser) throw new Error('Not signed in yet');
+    if (!key) throw new Error('Cannot save a deck with no name.');
     const ref = doc(db, 'users', currentUser.uid, 'decks', safeDocId(docIdOverride || key));
     await setDoc(ref, {
       key, commander: entry.commander || '', player: entry.player || '',
@@ -26340,9 +26342,14 @@ setupIconTooltipsFor(document);
     await setDoc(ref, { secret: secret === true, updatedAt: serverTimestamp() }, { merge: true });
   }
 
-  async function cloudDeleteDeck(key) {
+  // docIdOverride lets a caller target a deck by its real, stable document
+  // ID rather than its display key/name -- essential for a linked deck's
+  // mirror, whose actual ID (linked-{platform}-{deckId}) is deliberately
+  // different from whatever name it's shown under, so deleting "by name"
+  // would silently miss it entirely.
+  async function cloudDeleteDeck(key, docIdOverride) {
     if (!currentUser) throw new Error('Not signed in yet');
-    await deleteDoc(doc(db, 'users', currentUser.uid, 'decks', safeDocId(key)));
+    await deleteDoc(doc(db, 'users', currentUser.uid, 'decks', safeDocId(docIdOverride || key)));
   }
 
   async function cloudLoadAllDecks() {
@@ -26688,6 +26695,11 @@ setupIconTooltipsFor(document);
     const result = await fetchDeckByLink(deckUrl);
     if (!result.ok) return result;
     const d = result.deck;
+    // The source platform occasionally has no title set for a deck -- an
+    // unnamed draft, typically. Falling back here rather than letting a
+    // missing name propagate is what stops it turning into the literal
+    // text "undefined" once it's used as a storage key downstream.
+    const sourceName = (d.name && d.name.trim()) || (d.commander ? `${d.commander} (Linked)` : 'Untitled Linked Deck');
 
     // Linking is a deliberate, one-time setup action rather than something
     // done repeatedly like a regular re-save, so a name collision here
@@ -26697,7 +26709,7 @@ setupIconTooltipsFor(document);
     // specific flow.
     const existingDecks = await cloudLoadAllDecks().catch(() => ({}));
     const existingNames = new Set(Object.entries(existingDecks).map(([k, e]) => e.deckName || k));
-    const finalName = window.generateUniqueDeckName(d.name, existingNames);
+    const finalName = window.generateUniqueDeckName(sourceName, existingNames);
 
     const id = `${d.platform}-${d.deckId}`;
     await setDoc(doc(db, 'users', currentUser.uid, 'linkedDecks', id), {
@@ -26718,8 +26730,9 @@ setupIconTooltipsFor(document);
     const result = await fetchDeckByLink(deckUrl);
     if (!result.ok) return result;
     const d = result.deck;
+    const sourceName = (d.name && d.name.trim()) || (d.commander ? `${d.commander} (Linked)` : 'Untitled Linked Deck');
     await setDoc(doc(db, 'users', currentUser.uid, 'linkedDecks', id), {
-      platform: d.platform, deckId: d.deckId, url: d.url, name: d.name,
+      platform: d.platform, deckId: d.deckId, url: d.url, name: sourceName,
       commander: d.commander, decklistText: d.decklistText, cardCount: d.cardCount,
       syncedAt: Date.now(),
     }, { merge: true });
@@ -26735,7 +26748,7 @@ setupIconTooltipsFor(document);
       if (existing.exists()) existingSecret = existing.data().secret === true;
     } catch (e) { /* fine -- fall back to not-secret */ }
     await cloudSaveDeck(
-      d.name,
+      sourceName,
       { commander: d.commander, list: d.decklistText, player: currentUser.displayName || '', secret: existingSecret },
       linkedDeckMirrorId(d.platform, d.deckId)
     ).catch(() => {});
