@@ -20208,6 +20208,51 @@ function handleRecalibrate() {
   $('recalibrateResult').innerHTML = html;
 }
 
+// ---- Cards that lift Commander's one-copy limit --------------------------
+// Commander is singleton, but a few cards say otherwise in their own rules
+// text ("A deck can have any number of cards named X" / "up to nine cards
+// named X"). The limit is read from that text, so any card Wizards adds later
+// is picked up automatically by the weekly database rebuild. This table is a
+// safety net for the 13 known cards (as of Oct 2026) in case the text is ever
+// missing or reworded; the text wins when both exist.
+const COPY_LIMIT_FALLBACK = {
+  'Cid, Timeless Artificer': Infinity,
+  "Dragon's Approach": Infinity,
+  'Hare Apparent': Infinity,
+  'Nazg\u00FBl': 9,
+  'Persistent Petitioners': Infinity,
+  'Rat Colony': Infinity,
+  'Relentless Rats': Infinity,
+  'Shadowborn Apostle': Infinity,
+  'Seven Dwarves': 7,
+  'Slime Against Humanity': Infinity,
+  "Sphinx's Approach": Infinity,
+  'Tempest Hawk': Infinity,
+  'Templar Knight': Infinity,
+};
+const COPY_LIMIT_NUMBER_WORDS = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12 };
+
+// How many copies of this card a deck may hold (basic lands are handled by
+// the caller): 1 for most cards, a number for "up to N", Infinity for "any number".
+function getCopyLimit(card) {
+  if (!card) return 1;
+  if (card._copyLimit !== undefined) return card._copyLimit;
+  let limit = 1;
+  const m = /a deck can have (any number of|up to (\w+)) cards named/i.exec(String(card.o || ''));
+  if (m) {
+    if (!m[2]) limit = Infinity;
+    else {
+      const w = m[2].toLowerCase();
+      const n = /^\d+$/.test(w) ? parseInt(w, 10) : COPY_LIMIT_NUMBER_WORDS[w];
+      limit = n || COPY_LIMIT_FALLBACK[card.n] || Infinity;
+    }
+  } else if (Object.prototype.hasOwnProperty.call(COPY_LIMIT_FALLBACK, card.n)) {
+    limit = COPY_LIMIT_FALLBACK[card.n];
+  }
+  card._copyLimit = limit;
+  return limit;
+}
+
 function checkLegality(matched, commanders, notFound) {
   const issues = [];
   const notes = [];
@@ -20233,14 +20278,27 @@ function checkLegality(matched, commanders, notFound) {
     issues.push(`Card count is ${total} — far from a standard 100-card Commander list.`);
   }
 
-  // Singleton: qty > 1 on non-basic cards
+  // Singleton: qty > 1 on non-basic cards -- except the few cards whose own
+  // text lets a deck hold many (or up to N) copies, which are checked against
+  // their own limit instead.
   const dupes = [];
+  const multiAllowed = [];
+  const seenDupNames = new Set();
   for (const m of matched) {
+    const name = m.card.n;
+    if (seenDupNames.has(name)) continue;
+    seenDupNames.add(name);
     const t = (m.card.t || '').toLowerCase();
     const isBasic = t.includes('basic');
-    const qty = byName.get(m.card.n) || m.qty;
-    if (!isBasic && qty > 1) {
-      if (!dupes.includes(m.card.n)) dupes.push(m.card.n);
+    const qty = byName.get(name) || m.qty;
+    if (isBasic || qty <= 1) continue;
+    const limit = getCopyLimit(m.card);
+    if (limit === Infinity) {
+      multiAllowed.push(`${name} ×${qty}`);
+    } else if (qty > limit) {
+      dupes.push(limit > 1 ? `${name} (${qty} copies, limit ${limit})` : name);
+    } else {
+      multiAllowed.push(`${name} ×${qty} (limit ${limit})`);
     }
   }
   if (dupes.length) {
@@ -20248,7 +20306,10 @@ function checkLegality(matched, commanders, notFound) {
     issues.push(msg);
     hardViolations.push(msg);
   } else {
-    notes.push('No non-basic duplicates detected.');
+    notes.push('No non-basic duplicates detected' + (multiAllowed.length ? ' beyond what card text allows.' : '.'));
+  }
+  if (multiAllowed.length) {
+    notes.push(`Multiple copies allowed by card text: ${multiAllowed.join(', ')}.`);
   }
 
   // Banned
