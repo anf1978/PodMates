@@ -3335,11 +3335,10 @@ const TIER_EXPECTED_SPARK = { S: [5.5, 10], A: [4.5, 9.5], B: [2.5, 7.5], C: [1.
 // changes -- only its center -- which keeps this additive rather than
 // something that could make the band untrustworthily narrow.
 const ARCHETYPE_SPARK_OFFSET = {
-  "Voltron": -0.03, "Aristocrats": 0.10, "Tokens & Go-Wide": 0.14, "Stax & Control": 0.72,
-  "Spellslinger": 0.40, "Ramp & Big Creatures": 0.16, "Reanimator & Graveyard": -0.15,
-  "Goodstuff & Multicolor Value": 0.07, "Group Hug & Politics": 0.10, "Blink & ETB Value": -0.28,
-  "Artifacts Matter": -0.18, "Tribal & Typal": -0.22, "Enchantments Matter": -0.30,
-  "Land Matters & Landfall": -0.13, "Mill & Self-Mill": -0.38,
+  "Voltron": -0.04, "Aristocrats": 0.11, "Tokens & Go-Wide": 0.16, "Stax & Control": 0.7,
+  "Spellslinger": 0.39, "Ramp & Big Creatures": 0.16, "Reanimator & Graveyard": -0.16, "Goodstuff & Multicolor Value": 0.08,
+  "Group Hug & Politics": 0.12, "Blink & ETB Value": -0.26, "Artifacts Matter": -0.18, "Tribal & Typal": -0.22,
+  "Enchantments Matter": -0.3, "Land Matters & Landfall": -0.11, "Mill & Self-Mill": -0.36,
 };
 const SPARK_OFFSET_DAMPING = 0.75;
 
@@ -3939,15 +3938,16 @@ const AXES = [
 // Real axis scores for all 159 official/curated Try-a-Deck entries, computed
 // by running this same scoring engine (analyzeDeck + scoreSpeed/Consistency/
 // Versatility/Disruption/PowerLevel) against every deck in TRY_A_DECK_OPTIONS.
+// Regenerated Oct 2026 (card database + engine had both moved since the original run).
 // Order matches TRY_A_DECK_OPTIONS array order at generation time. Used to
 // give each axis score a percentile against a real, representative corpus
 // rather than showing a bare 1-10 number with no reference point.
-const PRECON_BENCHMARK_SCORES = [[6.4,7,5.5,3.8,3.4],[8.4,7.4,7.6,4.4,6.9],[8.1,5.2,6,6.7,3.4],[5.2,5.2,7.2,10,7.8],[9.8,6.6,8,10,8.3],[8.8,7.6,7.4,4.7,10],[4.8,3.9,5.6,5.4,2.9],[4.9,4.5,6.5,5.5,2.6],[3.7,4,6.1,8.2,2.3],[4.3,4.6,6.6,8,2.6],[4.4,4.2,6.3,8.7,2.5],[5.2,4.5,6,5.3,2.4],[3.6,4.7,6.7,8.6,2.2],[3.5,4.2,6.6,9.5,2.2],[3.6,4.6,6,6.3,2.2],[3.9,4,6.2,7.1,1.9],[4.4,5,6.1,5.6,2.1],[5,4.9,6,6.1,2.7],[3.9,4.6,6.2,6.9,1.9],[5.4,4.4,6.4,5.6,2.3],[4.1,5.1,6.2,5.9,2],[4.5,4.3,6.3,5.1,1.9],[3.9,4.4,6.4,6.9,1.9],[4.7,4.2,6.2,4.7,1.6],[4.8,4.9,6.1,6.8,1.8],[4.1,5,5.5,5.7,1.6],[4.5,4.2,5.7,5.7,2.4],[4.8,4.8,6.1,4.9,2],[3.9,4.6,6.6,6.4,2.9],[4.2,4.4,5.9,6.3,2.5],[5.3,6.4,6.5,5.2,2.8],[4.1,6.1,6.6,5.2,2.5],[4.6,5.3,7.1,6.2,4.1],[4.8,4.4,6.8,7.3,2.5],[4.1,5.1,6.6,6.1,1.4],[4.2,5.6,5.7,4.5,2],[4.4,4.7,6.6,4.9,2.2],[4.1,4.4,5.7,5.5,2.6],[4.1,3.9,7,5.7,2.8],[4.6,4.4,6.2,4.8,3],[5.3,5.1,6.7,7.6,3.2],[3.9,5.3,6.1,5.1,2.6],[4.6,4.5,7,6.5,2],[4.1,4.7,7.1,4.4,2.2],[3.8,5.2,6.6,6.3,1.8],[4.2,4.1,7,4.7,2.5],[4.5,4.8,6.2,4.4,2.3],[4.5,4.7,6.1,9.5,4.1],[4.6,5.4,6.3,8.2,3],[4.2,4.5,6.7,5.9,3.5],[4.5,4.2,6,3.7,2.5],[4.2,3.9,6.2,7.1,2.8],[4.6,3.9,5.4,2.5,1.6],[4.5,4.4,6.6,6.5,1.6],[4.6,5.3,6.9,6,1.9],[5.5,4.2,5.9,2.7,2.5],[4.2,5.2,6.3,5.4,1.9],[4.4,4.7,5.7,5.2,1.9],[4,4.7,5.9,3.9,2],[6,5.5,6.5,5.8,2.7],[4.2,4,5.9,6.1,1.9],[5.2,4.8,6.5,6.8,2.5],[5.1,4.8,6.5,4.7,2.2],[4.7,4.3,5.7,4.6,2.2],[4.5,4.8,5.8,5.2,2.5],[4.9,5.5,6.5,5.7,2.2],[5.2,5.2,6.4,5.3,2.8],[4.9,4.7,5.5,4.1,1.6],[4.5,4.6,6,5.6,1.9],[5.2,5.2,6.5,6,2.8],[4.8,4.5,6.7,5.2,2.2],[4.7,4.7,6.8,4.7,2.6],[4.8,5.1,6.6,5.8,2.4],[4.9,4.9,6.2,5.5,2.2],[4.6,5.5,5.9,4.9,2.5],[4.6,5.5,6.2,5,2.5],[5,5.5,6.3,5.2,2.2],[4.2,4.3,6.8,5.7,1.3],[5.2,5.5,6.3,4.8,2],[5.1,4,5.8,6.4,1.8],[4.9,5,6.1,5.7,1.5],[4.5,5.5,6.2,7.2,1.9],[4.2,4.7,5.6,5.8,1.3],[4.7,4.6,5.7,6.2,1.3],[5.2,5.1,6.9,7.8,1.6],[4.1,4.1,6,7.7,1.3],[4.7,4.8,5.6,4.6,1.3],[5.4,3.8,5.9,7.2,1.6],[4.6,5.1,6.5,9.2,2.3],[4.8,4.8,6.2,5,1.6],[4.7,5.3,5.9,5.4,2.2],[4.2,5.2,6.6,6.3,1.9],[5.2,4.2,6.1,4.4,2.2],[4.4,4.9,6.6,4.7,2.1],[3.9,4.9,6.4,6,1.3],[5,5.1,6.4,6.2,2],[4.5,4.8,5.7,5,2.2],[5.2,4.5,6.6,6,1.9],[4.6,5.1,6.5,4.1,3],[4.8,5.2,6.4,3.7,2.8],[4.5,5.9,6.6,7.5,3.1],[4.6,4.1,6.1,5.7,1.3],[5.6,5.3,6.1,5.1,2.6],[4.9,4.2,6.7,6.2,2.2],[5,6,6.7,6.1,2.3],[4,5.6,6.5,4.2,2.7],[4.7,5.5,6.2,2.8,2],[4.2,5.3,6.3,5.7,2.4],[4.9,4.8,6.6,4.9,1.8],[5.6,5.6,6.6,4.7,2.4],[4.7,5.3,5.9,3.4,1.9],[4.5,4.1,5.9,5.3,1.8],[4.9,4.9,6.4,5.4,1.9],[4.6,5.2,6.6,4.4,4.1],[5.4,4.6,6.1,4.5,2.2],[5,5,6.1,5,3.8],[5.2,5.3,7.3,6.1,2.5],[5.8,4.5,6.3,5.9,2.5],[4.4,3.8,5,3.5,2.5],[5.1,5.5,6.7,4.1,3],[5.4,4.6,6.9,6.3,2.3],[4.4,5,7.1,3.9,2.7],[4.5,5.5,6.6,4.8,2.6],[4.9,5.2,6.9,4.2,3],[5.1,5.1,6.7,4.9,2.7],[5.1,5.1,6.4,6.4,2.5],[5,5.4,6.2,5.9,4],[5.2,5.1,6.5,5,3.4],[4,4.3,6.4,4.2,2.7],[4.1,5.4,6.9,4.1,2.3],[5.4,5.5,6.3,5.9,3.5],[5.4,5.2,6.4,4.3,2.6],[4.6,5.5,6.6,5.3,1.8],[4.9,5.1,6.1,7.1,2.4],[4.9,4.4,6.1,5.3,2.3],[5.8,4.7,6.8,6.8,2.6],[5.6,4.1,7.3,2.9,2.4],[4.7,5.5,6.3,3.9,2.2],[3.9,4.1,6.6,5.7,1.9],[5.7,4.9,6.6,4.6,2.5],[5.1,5.3,8.1,7.2,2.5],[5.3,4.7,6.8,7.6,3.2],[4.8,5,6.7,7.3,2.6],[4.8,4.7,6.7,4.8,3.5],[5.1,5.3,6.1,6.8,2.5],[4.5,4.8,6.3,3.9,2.6],[4.5,4.8,5.6,4.8,2.3],[5.3,4.9,6.6,6.6,2.5],[4.4,4.9,6.6,5.5,1.7],[4.3,5,6.4,4.9,1.9],[5.5,4.8,6.6,5.4,2.3],[5.4,5,6.6,6.4,2.2],[5.4,5.2,6.7,4.6,1.9],[5.5,5.3,6.3,4.5,2.2],[7.4,5.3,6.2,4.6,2.2],[4.2,5.6,6.6,6,1.4],[4.8,5.5,6.8,6.3,1.6],[4.5,5.4,6.2,5.5,1.4],[3.4,5.3,6.6,7.1,1.9]];
+const PRECON_BENCHMARK_SCORES = [[6.4,7,5.5,3.8,3.4],[8.4,7.3,7.6,4.4,6.9],[8.1,5.2,6,6.7,3.4],[5.2,5.2,7.2,10,7.8],[9.8,6.6,8,10,8.3],[8.8,7.6,7.4,4.7,10],[4.8,3.9,5.6,5.4,2.9],[4.7,4.5,6.5,5.5,2.6],[3.7,4,6.1,8.2,2.3],[4.3,4.6,6.6,8,2.6],[4.4,4.2,6.3,8.7,2.5],[5.2,4.5,6,5.3,2.4],[3.6,4.7,6.7,8.6,2.2],[3.5,4.2,6.6,9.5,2.2],[3.6,4.6,6,6.3,2.2],[3.9,4,6.2,7.1,1.9],[4.4,5,6.1,5.6,2.1],[5,4.9,6,6.1,2.7],[3.9,4.6,6.2,6.9,1.9],[5.4,4.4,6.4,5.6,2.3],[4.1,5.1,6.2,5.9,2],[4.5,4.3,6.3,5.1,1.9],[3.9,4.4,6.4,6.9,1.9],[4.7,4.2,6.2,4.7,1.6],[4.8,4.9,6.1,6.8,1.8],[4.1,5,5.5,5.7,1.6],[4.6,4.2,5.7,5.7,2.4],[4.9,4.8,6.1,4.9,2],[3.9,4.6,6.6,6.4,2.9],[4.2,4.4,5.9,6.3,2.5],[5.3,6.4,6.3,4.9,2.8],[4.1,6.1,6.6,5.2,2.5],[4.6,5.3,7.1,6.2,4.1],[4.8,4.4,6.8,7.3,2.5],[4.2,5.1,6.6,6.1,1.4],[4.2,5.6,5.7,4.5,2],[4.4,4.7,6.6,4.9,2.2],[4.1,4.4,5.7,5.5,2.6],[4.2,3.8,7,5.7,2.8],[4.6,4.4,6.2,4.8,3],[5.3,5.1,6.7,7.6,3.2],[3.9,5.3,6.1,5.1,2.6],[4.6,4.5,7,6.5,2],[4.1,4.7,7.1,4.4,2.2],[3.8,5.2,6.6,6.3,1.8],[4.2,4.1,7,4.7,2.5],[4.5,4.8,6.2,4.4,2.3],[4.5,4.7,6.1,9.5,4.1],[4.6,5.4,6.3,8.2,3],[4.2,4.5,6.7,5.9,3.5],[4.5,4.2,6,3.7,2.5],[4.2,3.9,6.2,6.5,2.8],[4.6,3.9,5.4,2.5,1.6],[4.5,4.4,6.6,6.5,1.6],[4.6,5.3,6.9,6,1.9],[5.5,4.2,5.9,2.7,2.5],[4.2,5.2,6.3,5.2,1.9],[4.4,4.7,5.7,5.2,1.9],[4,4.7,5.9,3.9,2],[6,5.5,6.5,5.2,2.7],[4.2,4,5.9,6.1,1.9],[5.2,4.8,6.5,6.8,2.5],[5.1,4.8,6.5,4.7,2.2],[4.7,4.3,5.7,4.6,2.2],[4.5,4.8,5.8,5.2,2.5],[4.9,5.5,6.5,5.7,2.2],[5.2,5.2,6.4,5.3,2.8],[4.9,4.7,5.5,4.1,1.6],[4.5,4.6,6,5.6,1.9],[5.2,5.2,6.5,6,2.8],[4.8,4.5,6.7,5.2,2.2],[4.8,4.7,6.8,4.7,2.6],[4.8,5.1,6.4,5.8,2.4],[4.9,4.9,6.2,5.5,2.2],[4.6,5.5,5.9,4.9,2.5],[4.6,5.5,6.2,5,2.5],[5,5.5,6.3,5.2,2.2],[4.3,4.3,6.8,5.7,1.3],[5.2,5.5,6.3,4.8,2],[5.1,4,5.8,6.4,1.8],[4.9,5,6.1,5.7,1.5],[4.5,5.5,6.2,7.2,1.9],[4.2,4.7,5.6,5.8,1.3],[4.7,4.6,5.7,6.2,1.3],[5.2,5.1,6.9,7.8,1.6],[4.1,4.1,6,7.7,1.3],[4.7,4.8,5.6,4.6,1.3],[5.4,3.8,5.9,7.2,1.6],[4.6,5.1,6.5,9.2,2.3],[4.8,4.8,6.2,5,1.6],[4.7,5.3,5.9,5.2,2.2],[4.2,5.2,6.6,6.3,1.9],[5.2,4.2,6.1,4.4,2.2],[4.4,4.9,6.6,4.7,2.1],[3.9,4.9,6.4,6,1.3],[5,5.1,6.4,6.2,2],[4.5,4.8,5.7,5,2.2],[5.2,4.5,6.6,6,1.9],[4.6,5.1,6.5,4.1,3],[4.8,5.2,6.4,3.7,2.8],[4.5,5.9,6.6,7.5,3.1],[4.7,4,6.1,5.7,1.3],[5.6,5.3,6.1,4.5,2.6],[4.9,4.2,6.7,5.8,2.2],[5,5.5,6.7,6.1,2.2],[4,5.6,6.5,4.1,2.7],[4.7,4.9,6.2,2.7,1.9],[4.3,5.2,6.3,5.6,2.3],[4.9,4.8,6.6,4.9,1.8],[5.6,5.6,6.6,4.7,2.4],[4.7,5.3,5.9,3.4,1.9],[4.5,4.1,5.9,5.3,1.8],[4.9,4.9,6.4,5.4,1.9],[4.6,5.2,6.6,4.4,4.1],[5.4,4.6,6.1,4.3,2.2],[5,5,6.1,5,3.8],[5.2,5.3,7.3,6.1,2.5],[5.8,4.5,6.3,5.9,2.5],[4.4,3.8,5,3.5,2.5],[5.1,5.5,6.7,4.1,3],[5.5,4.6,6.9,5.8,2.3],[4.4,5,7.1,3.9,2.7],[4.5,5.5,6.6,4.8,2.6],[4.9,5.2,6.9,4.2,3],[5.1,5.1,6.7,4.9,2.7],[5.1,5.1,6.4,6.4,2.5],[5,5.4,6,5.2,4],[5.2,5.1,6.5,5,3.4],[4,4.3,6.4,4.2,2.7],[4.1,5.4,6.8,4.1,2.3],[5.4,5.5,6.3,5.9,3.5],[5.3,5.2,6.4,4.3,2.6],[4.6,5.5,6.6,5.3,1.8],[4.9,5.1,6.1,7,2.4],[4.9,4.4,6.1,5.3,2.3],[5.8,4.7,6.8,6.8,2.6],[5.6,4.1,7.3,2.9,2.4],[4.7,5.5,6.3,3.9,2.2],[3.9,4,6.4,5.4,1.9],[5.7,4.9,6.6,4.6,2.5],[5.1,5.3,8.1,7.2,2.5],[5.3,4.7,6.8,7.6,3.2],[4.8,5,6.7,6.7,2.6],[4.8,4.7,6.7,4.8,3.5],[5.1,5.3,6.1,6.8,2.5],[4.5,4.8,6.3,3.9,2.6],[4.6,4.8,5.6,4.8,2.2],[5.4,4.9,6.6,6.6,2.5],[4.4,4.9,6.6,5.5,1.7],[4.3,5,6.4,4.9,1.9],[5.5,4.8,6.5,5.4,2.3],[5.4,5,6.6,6.4,2.2],[5.4,5.2,6.5,4,1.9],[5.3,5.3,6.2,4.5,2.2],[7.4,5.3,6.2,4.6,2.2],[4.2,5.6,6.6,6,1.4],[4.8,5.5,6.8,6.3,1.6],[4.5,5.4,6.2,5.5,1.4],[3.4,5.3,6.6,7.1,1.9]];
 const BENCHMARK_AXIS_INDEX = {speed: 0, consistency: 1, versatility: 2, disruption: 3, powerLevel: 4};
 // Same corpus, but Command Spark (the weighted composite) rather than the
 // five raw axes -- kept as its own array since it isn't one of the five
 // BENCHMARK_AXIS_INDEX columns and doesn't need to be recomputed per-axis.
-const PRECON_BENCHMARK_SPARK = [4.8,6.7,5.6,7.5,8.7,7.7,4.4,4.5,4.8,5.1,5.2,4.4,5.1,5.2,4.4,4.5,4.4,4.7,4.5,4.5,4.4,4.1,4.5,3.9,4.6,4.1,4.3,4.2,4.7,4.5,4.9,4.6,5.3,5,4.3,4.1,4.2,4.3,4.5,4.4,5.4,4.4,4.6,4.1,4.5,4.2,4.1,5.9,5.4,4.8,3.9,4.8,3.2,4.4,4.6,3.8,4.3,4.1,3.8,5,4.2,4.9,4.3,4,4.3,4.6,4.7,3.8,4.2,4.9,4.4,4.4,4.6,4.4,4.4,4.4,4.5,4.1,4.4,4.4,4.3,4.8,4,4.2,5,4.4,3.8,4.5,5.4,4.1,4.4,4.5,4.1,4.2,4.2,4.6,4.2,4.5,4.4,4.2,5.4,4,4.6,4.6,4.9,4.3,3.8,4.5,4.2,4.6,3.8,4,4.4,4.8,4.2,4.8,4.9,4.7,3.6,4.5,4.8,4.3,4.5,4.5,4.6,4.8,5.2,4.8,4.1,4.2,5.1,4.4,4.4,4.9,4.3,5.1,4,4.1,4.2,4.5,5.3,5.4,5.1,4.7,4.9,4.1,4.1,4.9,4.3,4.2,4.6,4.8,4.3,4.4,4.6,4.4,4.6,4.2,4.6];
+const PRECON_BENCHMARK_SPARK = [4.8,6.7,5.6,7.5,8.7,7.7,4.4,4.5,4.8,5.1,5.2,4.4,5.1,5.2,4.4,4.5,4.4,4.7,4.5,4.5,4.4,4.1,4.5,3.9,4.6,4.1,4.3,4.2,4.7,4.5,4.8,4.6,5.3,5,4.3,4.1,4.2,4.3,4.5,4.4,5.4,4.4,4.6,4.1,4.5,4.2,4.1,5.9,5.4,4.8,3.9,4.6,3.2,4.4,4.6,3.8,4.2,4.1,3.8,4.8,4.2,4.9,4.3,4,4.3,4.6,4.7,3.8,4.2,4.9,4.4,4.4,4.6,4.4,4.4,4.4,4.5,4.1,4.4,4.4,4.3,4.8,4,4.2,5,4.4,3.8,4.5,5.4,4.1,4.3,4.5,4.1,4.2,4.2,4.6,4.2,4.5,4.4,4.2,5.4,4,4.5,4.5,4.8,4.3,3.6,4.5,4.2,4.6,3.8,4,4.4,4.8,4.2,4.8,4.9,4.7,3.6,4.5,4.7,4.3,4.5,4.5,4.6,4.8,5,4.8,4.1,4.2,5.1,4.4,4.4,4.9,4.3,5.1,4,4.1,4.1,4.5,5.3,5.4,4.9,4.7,4.9,4.1,4.1,4.9,4.3,4.2,4.6,4.8,4.1,4.3,4.6,4.4,4.6,4.2,4.6];
 
 function computeSparkPercentile(value) {
   const below = PRECON_BENCHMARK_SPARK.filter(v => v < value).length;
@@ -19309,6 +19309,85 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+// escapeHtml stops text breaking out of an HTML attribute, but it does NOT
+// stop a link from running code: href="javascript:..." survives escaping
+// untouched. Any link whose address came from a person (profile links, deck
+// links) must pass through this first. It returns a clean http(s) address, or
+// "" if the value isn't a real web link -- so callers simply skip the link.
+// A bare "archidekt.com/u/name" gets https:// added, since that is the
+// format the profile fields ask for.
+// ---- Size limits ---------------------------------------------------------
+// One table, used by the page (input boxes, friendly messages) and by the
+// cloud functions in the module script below (window.PM_LIMITS), so the two
+// can never disagree. They exist to stop accidents and abuse -- a runaway
+// paste, a pod that keeps growing, one account hoarding storage -- and every
+// figure sits well above what a normal playgroup would ever reach. The
+// matching server-side limits live in firestore.rules, because anything
+// enforced only in the browser can be bypassed by someone calling Firebase
+// directly.
+window.PM_LIMITS = Object.freeze({
+  // text lengths (characters)
+  displayName: 40, playerName: 40, podName: 60, gatheringTitle: 80, formationName: 60,
+  deckName: 200, commanderName: 150, deckKey: 300, profileUrl: 200, deckLinkUrl: 300,
+  notes: 500, bestMoment: 280,
+  // one decklist (a normal 100-card list is roughly 3,000 characters / 100 lines)
+  deckListChars: 30000, deckListLines: 600,
+  // counts
+  maxSavedDecks: 150, maxLinkedDecks: 25,
+  maxPodsPerUser: 10, maxPodMembers: 30,
+  maxFormationsPerPod: 30, maxChroniclesPerPod: 1000,
+  chronicleDecks: 6, chronicleParticipants: 12, feedbackResponses: 24,
+  builderMaxCards: 300, builderMaxQty: 99,
+});
+
+// Returns a plain-English problem with a pasted/stored decklist, or '' if fine.
+function pmDeckListProblem(raw) {
+  const text = String(raw == null ? '' : raw);
+  const L = window.PM_LIMITS;
+  if (text.length > L.deckListChars) {
+    return `That decklist is too long (${text.length.toLocaleString()} characters; the limit is ${L.deckListChars.toLocaleString()}). A normal 100-card list is about 3,000 — it may have extra text pasted in.`;
+  }
+  const lines = text.split('\n').length;
+  if (lines > L.deckListLines) {
+    return `That decklist has too many lines (${lines.toLocaleString()}; the limit is ${L.deckListLines.toLocaleString()}). A normal Commander list is about 100.`;
+  }
+  return '';
+}
+
+// Applies a length limit to the page's text boxes the first time each one is
+// used -- this covers the boxes created later by pop-ups as well as the
+// static ones. (The decklist box is deliberately NOT here: silently chopping
+// a long paste could save half a deck, so it's checked with a message instead.)
+const PM_INPUT_LIMIT_KEYS = {
+  commanderInput: 'commanderName', playerInput: 'playerName', deckNameInput: 'deckName',
+  deckLinkInput: 'deckLinkUrl', profileDeckLinkInput: 'deckLinkUrl',
+  authDisplayName: 'displayName', profileDisplayNameInput: 'displayName', dbPlayerInput: 'playerName',
+  profileArchidektInput: 'profileUrl', profileMoxfieldInput: 'profileUrl',
+  gatheringTitleInput: 'gatheringTitle', saveLineupNameInput: 'formationName',
+  podCreateNameInput: 'podName', podRenameInput: 'podName',
+  bestMomentInput: 'bestMoment', dbCommanderSearch: 'commanderName', dbCardSearch: 'commanderName',
+};
+document.addEventListener('focusin', (e) => {
+  const t = e.target;
+  if (!t || !t.id || !Object.prototype.hasOwnProperty.call(PM_INPUT_LIMIT_KEYS, t.id)) return;
+  if (t.maxLength > 0) return; // already limited
+  t.maxLength = window.PM_LIMITS[PM_INPUT_LIMIT_KEYS[t.id]];
+});
+
+function safeHttpUrl(raw) {
+  let s = String(raw == null ? '' : raw).trim();
+  if (!s) return '';
+  // Browsers ignore tabs/newlines hidden inside a scheme ("java\tscript:"),
+  // so strip control characters before looking at it.
+  s = s.replace(/[\u0000-\u001F\u007F]/g, '');
+  if (!/^[a-zA-Z][a-zA-Z0-9+.\-]*:/.test(s)) s = 'https://' + s.replace(/^\/+/, '');
+  let u;
+  try { u = new URL(s); } catch (e) { return ''; }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+  if (!u.hostname) return '';
+  return u.href;
+}
+
 // ============================================================
 // CARD ART — fetched on demand from Scryfall, not stored anywhere.
 // Scryfall's API sets CORS headers for all requests (confirmed directly
@@ -19696,6 +19775,12 @@ function detectCommander(matched, commanderNamesFromParse) {
 function runAnalysis() {
   if (!dbReady) return;
   const raw = $('decklistInput').value;
+  const sizeProblem = pmDeckListProblem(raw);
+  if (sizeProblem) {
+    setStatus(sizeProblem, true);
+    $('resultsSection').style.display = 'none';
+    return;
+  }
   const parsed = parseDecklist(raw);
   const entries = parsed.entries;
 
@@ -20804,10 +20889,10 @@ function renderCommanderTrackRecord(tierRecords, discrepancy) {
   const cards = tierRecords.map(rec => {
     const color = TIER_COLORS[rec.t] || 'var(--text-primary)';
     return `<div style="display:flex; align-items:center; gap:12px; margin-bottom:8px; padding:8px 0; border-bottom:1px dashed var(--line);">
-      <div style="font-family:'Cinzel',Georgia,serif; font-size:20px; font-weight:700; color:${color}; width:28px; text-align:center;">${rec.t}</div>
+      <div style="font-family:'Cinzel',Georgia,serif; font-size:20px; font-weight:700; color:${color}; width:28px; text-align:center;">${escapeHtml(rec.t)}</div>
       <div style="flex:1;">
         <div style="font-size:14px; color:var(--text-primary); font-weight:600;">${escapeHtml(rec.n)}</div>
-        <div style="font-size:12.5px; color:var(--text-soft);">${rec.w.toFixed(1)}% win rate · ${rec.g.toLocaleString()} tracked games · ranked #${rec.r} of 1,284</div>
+        <div style="font-size:12.5px; color:var(--text-soft);">${rec.w.toFixed(1)}% win rate · ${rec.g.toLocaleString()} tracked games · ranked #${escapeHtml(String(rec.r))} of ${COMMANDER_TIER_DATA.length.toLocaleString()}</div>
       </div>
     </div>`;
   }).join('');
@@ -21488,19 +21573,22 @@ async function renderProfileLinksSection(container) {
   try { userDoc = await window.PodmatesCloud.getMyRawUserDoc(); } catch (e) { /* fine -- just show empty inputs */ }
   const archidektUrl = (userDoc && userDoc.archidektProfileUrl) || '';
   const moxfieldUrl = (userDoc && userDoc.moxfieldProfileUrl) || '';
+  // Only ever link to a real http(s) address -- see safeHttpUrl.
+  const archidektHref = safeHttpUrl(archidektUrl);
+  const moxfieldHref = safeHttpUrl(moxfieldUrl);
   container.innerHTML = `
     <div style="margin-bottom:8px;">
       <label style="font-size:11.5px; color:var(--text-soft); display:block; margin-bottom:4px;">Archidekt profile</label>
       <div class="row" style="gap:8px; align-items:center;">
         <input id="profileArchidektInput" type="text" value="${escapeHtml(archidektUrl)}" placeholder="archidekt.com/u/yourname" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:7px 9px; color:var(--text-primary); font-family:inherit; font-size:13px;">
-        ${archidektUrl ? `<a href="${escapeHtml(archidektUrl)}" target="_blank" rel="noopener noreferrer" class="ghost" style="padding:6px 10px; font-size:12px; white-space:nowrap; text-decoration:none; display:inline-block;">Visit ↗</a>` : ''}
+        ${archidektHref ? `<a href="${escapeHtml(archidektHref)}" target="_blank" rel="noopener noreferrer" class="ghost" style="padding:6px 10px; font-size:12px; white-space:nowrap; text-decoration:none; display:inline-block;">Visit ↗</a>` : ''}
       </div>
     </div>
     <div style="margin-bottom:10px;">
       <label style="font-size:11.5px; color:var(--text-soft); display:block; margin-bottom:4px;">Moxfield profile</label>
       <div class="row" style="gap:8px; align-items:center;">
         <input id="profileMoxfieldInput" type="text" value="${escapeHtml(moxfieldUrl)}" placeholder="moxfield.com/users/yourname" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:7px 9px; color:var(--text-primary); font-family:inherit; font-size:13px;">
-        ${moxfieldUrl ? `<a href="${escapeHtml(moxfieldUrl)}" target="_blank" rel="noopener noreferrer" class="ghost" style="padding:6px 10px; font-size:12px; white-space:nowrap; text-decoration:none; display:inline-block;">Visit ↗</a>` : ''}
+        ${moxfieldHref ? `<a href="${escapeHtml(moxfieldHref)}" target="_blank" rel="noopener noreferrer" class="ghost" style="padding:6px 10px; font-size:12px; white-space:nowrap; text-decoration:none; display:inline-block;">Visit ↗</a>` : ''}
       </div>
     </div>
     <button id="profileSaveLinksBtn" class="ghost" style="font-size:12.5px;">Save Links</button>
@@ -21571,6 +21659,7 @@ function renderMyDeckSummary(deck) {
   }
   const chip = (label, val) => `<div style="text-align:center;"><div style="font-size:16px; font-weight:700; color:var(--gold-bright);">${val.toFixed(1)}</div><div style="font-size:9.5px; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-soft);">${label}</div></div>`;
   const sourceLabel = deck.source === 'archidekt' ? 'Archidekt' : deck.source === 'moxfield' ? 'Moxfield' : null;
+  const deckHref = safeHttpUrl(deck.url);
   return `
     <div style="padding:12px 0 6px;">
       <div style="font-size:13px; color:var(--text-primary); margin-bottom:2px;"><strong>Commander:</strong> ${cardNameLink(s.commander)}</div>
@@ -21585,7 +21674,7 @@ function renderMyDeckSummary(deck) {
         </div>
       </div>
       <button class="ghost" data-action="open-chart" data-id="${escapeHtml(deck.id)}" style="width:100%; font-size:12.5px;">Open in Deck Chart →</button>
-      ${deck.url ? `<div style="text-align:center; margin-top:8px;"><a href="${escapeHtml(deck.url)}" target="_blank" rel="noopener" style="font-size:11.5px; color:var(--text-soft); text-decoration:underline;">View original on ${escapeHtml(sourceLabel)} ↗</a></div>` : ''}
+      ${deckHref ? `<div style="text-align:center; margin-top:8px;"><a href="${escapeHtml(deckHref)}" target="_blank" rel="noopener" style="font-size:11.5px; color:var(--text-soft); text-decoration:underline;">View original on ${escapeHtml(sourceLabel)} ↗</a></div>` : ''}
     </div>
   `;
 }
@@ -25405,7 +25494,12 @@ function openDeckBuilderOverlay() {
     if (cardBoxNow && cardBoxNow.value.trim().length >= 2) cardBoxNow.dispatchEvent(new Event('input'));
   });
   wireDeckBuilderSearch('dbCardSearch', 'dbCardResults', (card) => {
-    deckBuilderCards[card.n] = (deckBuilderCards[card.n] || 0) + 1;
+    const BL = window.PM_LIMITS;
+    if (!deckBuilderCards[card.n] && Object.keys(deckBuilderCards).length >= BL.builderMaxCards) {
+      showToast(`Deck Crafter holds up to ${BL.builderMaxCards} different cards.`);
+      return;
+    }
+    deckBuilderCards[card.n] = Math.min((deckBuilderCards[card.n] || 0) + 1, BL.builderMaxQty);
     renderDeckBuilderList();
   }, () => {
     if (!deckBuilderFilterByIdentity || !deckBuilderCommanderName) return null;
@@ -25543,14 +25637,14 @@ function renderDeckBuilderList() {
     return `<div style="display:flex; align-items:center; gap:8px; padding:5px 0; border-bottom:1px solid var(--line);">
       ${warning}
       <span style="flex:1; font-size:13px;">${escapeHtml(name)}</span>
-      <input type="number" min="0" value="${deckBuilderCards[name]}" data-qty-for="${escapeHtml(name)}" style="width:48px; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:3px 5px; color:var(--text-primary); font-family:inherit; font-size:12.5px;">
+      <input type="number" min="0" value="${Number(deckBuilderCards[name]) || 0}" max="${window.PM_LIMITS.builderMaxQty}" data-qty-for="${escapeHtml(name)}" style="width:48px; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:3px 5px; color:var(--text-primary); font-family:inherit; font-size:12.5px;">
       <button type="button" class="ghost" data-remove="${escapeHtml(name)}" style="padding:3px 8px; font-size:11px; border-color:var(--danger); color:var(--danger);">×</button>
     </div>`;
   }).join('');
   listEl.querySelectorAll('[data-qty-for]').forEach(inp => {
     inp.addEventListener('change', () => {
       const name = inp.getAttribute('data-qty-for');
-      const qty = Math.max(0, parseInt(inp.value, 10) || 0);
+      const qty = Math.min(window.PM_LIMITS.builderMaxQty, Math.max(0, parseInt(inp.value, 10) || 0));
       if (qty === 0) delete deckBuilderCards[name];
       else deckBuilderCards[name] = qty;
       renderDeckBuilderList();
@@ -25596,6 +25690,8 @@ function performDeckSave(name, raw, cmd, player, existingKeyToReuse) {
 function saveCurrentDeck() {
   const raw = $('decklistInput').value.trim();
   if (!raw) { setDeckMgmtStatus('Paste a decklist before saving.', true); return; }
+  const rawSizeProblem = pmDeckListProblem(raw);
+  if (rawSizeProblem) { setDeckMgmtStatus(rawSizeProblem, true); return; }
   const cmd = (($('commanderInput') || {}).value || '').trim();
   if (!cmd) {
     setDeckMgmtStatus('Commander is required to save. Enter the commander name above.', true);
@@ -25690,6 +25786,8 @@ function loadDeckByKey(key, target) {
     const g = target.gatheringSeat;
     const commander = (typeof entry === 'object' && entry.commander) || key;
     const list = (typeof entry === 'string') ? entry : (entry.list || '');
+    const seatListProblem = pmDeckListProblem(list);
+    if (seatListProblem) { showToast(seatListProblem); return; }
     // Fire-and-forget rather than making this whole function async -- its
     // one other caller (the click delegate below) doesn't await it either,
     // and keeping this function's signature unchanged avoids touching
@@ -25798,7 +25896,7 @@ async function showLoadDeckModal(target) {
   overlay.id = 'tadOverlay';
   const modal = document.createElement('div');
   modal.className = 'tad-modal';
-  const titleSuffix = isGatheringSeat ? ` — Seat ${target.gatheringSeat.seatIndex + 1} (${target.gatheringSeat.seatDisplayName})` : '';
+  const titleSuffix = isGatheringSeat ? ` — Seat ${(Number(target.gatheringSeat.seatIndex) || 0) + 1} (${escapeHtml(target.gatheringSeat.seatDisplayName)})` : '';
   modal.innerHTML = `<button class="tad-close" id="tadCloseBtn">Close ×</button>` +
     `<h2 style="margin-bottom:10px;">Load a Deck${titleSuffix}</h2>` +
     `<input type="text" id="loadDeckSearch" placeholder="Search by commander or player…" style="width:100%; box-sizing:border-box; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px; margin-bottom:10px;">` +
@@ -25952,14 +26050,20 @@ async function mergeSavedDecks(importedDecks) {
     return { added: 0, updated: 0, skipped: 0, total: Object.keys(importedDecks).length, blocked: true };
   }
   const existing = loadSavedDecks(); // current Firebase-backed cache
-  let added = 0, updated = 0, skipped = 0;
+  let added = 0, updated = 0, skipped = 0, overLimit = 0, failed = 0;
   const writes = [];
+  // New decks only fit while the account is under its cap. Counted up front,
+  // because the writes below all run at once and would each see the same
+  // "still room" answer.
+  let room = Math.max(0, window.PM_LIMITS.maxSavedDecks - Object.keys(existing).length);
   for (const [key, incoming] of Object.entries(importedDecks)) {
     const incomingObj = (typeof incoming === 'string')
       ? { list: incoming, commander: '', player: '', savedAt: 0 }
       : incoming;
     const current = existing[key];
     if (!current) {
+      if (room <= 0) { overLimit++; continue; }
+      room--;
       writes.push(window.PodmatesCloud.saveDeck(key, incomingObj));
       added++;
     } else {
@@ -25973,9 +26077,12 @@ async function mergeSavedDecks(importedDecks) {
       }
     }
   }
-  await Promise.all(writes);
+  // One oversized or malformed deck in a backup shouldn't sink the others.
+  const settled = await Promise.allSettled(writes);
+  failed = settled.filter(r => r.status === 'rejected').length;
+  added = Math.max(0, added - failed); // (a failed write isn't a deck that was added)
   await refreshCloudDecksCache();
-  return { added, updated, skipped, total: Object.keys(importedDecks).length };
+  return { added, updated, skipped, overLimit, failed, total: Object.keys(importedDecks).length };
 }
 
 // ============================================================
@@ -26055,8 +26162,11 @@ async function restoreMyDataBackup(jsonText) {
       return;
     }
     if (statusEl) {
-      statusEl.textContent = `Restored: ${result.added} new, ${result.updated} updated, ${result.skipped} already up to date.`;
-      statusEl.className = 'status';
+      const extras = [];
+      if (result.overLimit) extras.push(`${result.overLimit} not restored because you've reached the ${window.PM_LIMITS.maxSavedDecks}-deck limit`);
+      if (result.failed) extras.push(`${result.failed} couldn't be saved (too large or invalid)`);
+      statusEl.textContent = `Restored: ${result.added} new, ${result.updated} updated, ${result.skipped} already up to date.` + (extras.length ? ' ' + extras.join('; ') + '.' : '');
+      statusEl.className = extras.length ? 'status err' : 'status';
     }
     // Refresh whichever deck list is currently visible so the restore is
     // immediately reflected, not just saved silently in the background.
@@ -26548,7 +26658,7 @@ setupIconTooltipsFor(document);
   } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
   import {
     getFirestore, doc, setDoc, updateDoc, getDoc, getDocs, deleteDoc, collection, serverTimestamp,
-    query, where, arrayUnion, arrayRemove,
+    query, where, arrayUnion, arrayRemove, getCountFromServer,
   } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -26573,6 +26683,33 @@ setupIconTooltipsFor(document);
   function safeDocId(key) {
     return encodeURIComponent(key).slice(0, 1500); // Firestore doc ID length limit
   }
+
+  // ---- Size limits (see window.PM_LIMITS in the main script) -------------
+  // Everything written to Firestore passes through here, so this is the one
+  // place that decides "too big". Text typed by a person is REJECTED with a
+  // clear message (silently chopping a deck name could point at a different
+  // document); text copied from somewhere else -- a Google account name, a
+  // title from Moxfield -- is trimmed instead, since refusing it would just
+  // strand someone over something they didn't type.
+  const PML = () => window.PM_LIMITS || {};
+  function clampText(v, max) { return String(v == null ? '' : v).slice(0, max || 1000); }
+  function requireText(v, max, label) {
+    const s = String(v == null ? '' : v);
+    if (max && s.length > max) throw new Error(`${label} is too long (${s.length} characters; the limit is ${max}).`);
+    return s;
+  }
+  // Returns '' if the decklist is a sensible size, otherwise a plain-English problem.
+  function deckListProblem(list) {
+    const text = String(list == null ? '' : list), L = PML();
+    if (L.deckListChars && text.length > L.deckListChars) {
+      return `That decklist is too long (${text.length.toLocaleString()} characters; the limit is ${L.deckListChars.toLocaleString()}).`;
+    }
+    if (L.deckListLines && text.split('\n').length > L.deckListLines) {
+      return `That decklist has too many lines (the limit is ${L.deckListLines.toLocaleString()}).`;
+    }
+    return '';
+  }
+  async function countDocs(q) { return (await getCountFromServer(q)).data().count; }
 
   function describeUser(user) {
     if (!user) return null;
@@ -26633,7 +26770,7 @@ setupIconTooltipsFor(document);
   async function signUpWithEmail(email, password, displayName) {
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, password);
-      if (displayName) await updateProfile(cred.user, { displayName });
+      if (displayName) await updateProfile(cred.user, { displayName: clampText(String(displayName).trim(), PML().displayName) });
       return { ok: true, user: describeUser(cred.user) };
     } catch (err) {
       if (err.code === 'auth/email-already-in-use') {
@@ -26690,7 +26827,20 @@ setupIconTooltipsFor(document);
   async function cloudSaveDeck(key, entry, docIdOverride) {
     if (!currentUser) throw new Error('Not signed in yet');
     if (!key) throw new Error('Cannot save a deck with no name.');
+    const L = PML();
+    requireText(key, L.deckKey, 'Deck name');
+    requireText(entry.deckName || key, L.deckName, 'Deck name');
+    requireText(entry.commander || '', L.commanderName, 'Commander name');
+    requireText(entry.player || '', L.playerName, 'Player name');
+    const listProblem = deckListProblem(entry.list || '');
+    if (listProblem) throw new Error(listProblem);
     const ref = doc(db, 'users', currentUser.uid, 'decks', safeDocId(docIdOverride || key));
+    // A cap on how many decks one account can hold. Overwriting an existing
+    // deck never counts against it -- only creating a new one does.
+    if (L.maxSavedDecks && !(await getDoc(ref)).exists()) {
+      const have = await countDocs(collection(db, 'users', currentUser.uid, 'decks'));
+      if (have >= L.maxSavedDecks) throw new Error(`You've reached the limit of ${L.maxSavedDecks} saved decks. Delete one you no longer use to make room.`);
+    }
     await setDoc(ref, {
       key, commander: entry.commander || '', player: entry.player || '',
       list: entry.list || '', deckName: entry.deckName || key,
@@ -26797,9 +26947,16 @@ setupIconTooltipsFor(document);
   async function cloudSaveTableFormation(podId, name, entry) {
     if (!currentUser) throw new Error('Not signed in yet');
     if (!podId) throw new Error('No pod selected');
-    await setDoc(doc(db, 'pods', podId, 'tableFormations', safeDocId(name)), {
-      name, seats: entry.seats || [], savedAt: entry.savedAt || Date.now(),
-      savedBy: currentUser.displayName || currentUser.email || 'Someone',
+    const L = PML();
+    requireText(name, L.formationName, 'Lineup name');
+    const formationRef = doc(db, 'pods', podId, 'tableFormations', safeDocId(name));
+    if (L.maxFormationsPerPod && !(await getDoc(formationRef)).exists()) {
+      const haveFormations = await countDocs(collection(db, 'pods', podId, 'tableFormations'));
+      if (haveFormations >= L.maxFormationsPerPod) throw new Error(`This pod has reached its limit of ${L.maxFormationsPerPod} saved lineups. Delete an old one first.`);
+    }
+    await setDoc(formationRef, {
+      name, seats: (entry.seats || []).slice(0, 6), savedAt: entry.savedAt || Date.now(),
+      savedBy: clampText(currentUser.displayName || currentUser.email || 'Someone', L.displayName),
       updatedAt: serverTimestamp(),
     });
   }
@@ -26832,18 +26989,24 @@ setupIconTooltipsFor(document);
   async function cloudAddChronicleEntry(podId, entry) {
     if (!currentUser) throw new Error('Not signed in yet');
     if (!podId) throw new Error('No pod selected');
+    const L = PML();
+    if (L.maxChroniclesPerPod) {
+      const haveEntries = await countDocs(collection(db, 'pods', podId, 'chronicles'));
+      if (haveEntries >= L.maxChroniclesPerPod) throw new Error(`This pod's Chronicles are full (${L.maxChroniclesPerPod} entries). Clear some old entries to keep logging.`);
+    }
     const ref = doc(collection(db, 'pods', podId, 'chronicles'));
     await setDoc(ref, {
-      date: entry.date || '', notes: entry.notes || '', decks: entry.decks || [],
+      date: clampText(entry.date || '', 60), notes: clampText(entry.notes || '', L.notes),
+      decks: (entry.decks || []).slice(0, L.chronicleDecks || 6),
       createdAt: entry.createdAt || Date.now(),
-      loggedBy: currentUser.displayName || currentUser.email || 'Someone',
+      loggedBy: clampText(currentUser.displayName || currentUser.email || 'Someone', L.displayName),
       // Optional -- only set when this entry came from Log Battle inside a
       // Gathering, not the older standalone "Add to Chronicles" action.
       // gatheringTitle is denormalized specifically so the Chronicles view
       // can group entries by it without a lookup per entry.
       gatheringId: entry.gatheringId || null,
-      gatheringTitle: entry.gatheringTitle || null,
-      participants: entry.participants || [],
+      gatheringTitle: entry.gatheringTitle ? clampText(entry.gatheringTitle, L.gatheringTitle) : null,
+      participants: (entry.participants || []).slice(0, L.chronicleParticipants || 12),
       feedbackResponses: [],
     });
     return ref.id;
@@ -26859,8 +27022,8 @@ setupIconTooltipsFor(document);
     await setDoc(doc(db, 'pods', podId, 'chronicles', chronicleId), {
       feedbackResponses: arrayUnion({
         uid: currentUser.uid,
-        displayName: currentUser.displayName || currentUser.email || 'Someone',
-        fun: feedback.fun, accuracy: feedback.accuracy, bestMoment: feedback.bestMoment || '',
+        displayName: clampText(currentUser.displayName || currentUser.email || 'Someone', PML().displayName),
+        fun: feedback.fun, accuracy: feedback.accuracy, bestMoment: clampText(feedback.bestMoment || '', PML().bestMoment),
         submittedAt: Date.now(),
       }),
     }, { merge: true });
@@ -26909,10 +27072,10 @@ setupIconTooltipsFor(document);
     if (!currentUser) throw new Error('Not signed in yet');
     if (!podId) throw new Error('No pod selected');
     const seats = emptyGatheringSeats();
-    seats[0] = { uid: currentUser.uid, displayName: currentUser.displayName || currentUser.email || 'Host', deck: null };
+    seats[0] = { uid: currentUser.uid, displayName: clampText(currentUser.displayName || currentUser.email || 'Host', PML().displayName), deck: null };
     const ref = doc(collection(db, 'pods', podId, 'gatherings'));
     await setDoc(ref, {
-      title: (title || '').trim() || 'Untitled Gathering',
+      title: clampText((title || '').trim() || 'Untitled Gathering', PML().gatheringTitle),
       hostUid: currentUser.uid,
       status: 'setup',
       seats,
@@ -26940,6 +27103,11 @@ setupIconTooltipsFor(document);
 
   async function cloudSetGatheringSeat(podId, gatheringId, seatIndex, seatData) {
     if (!currentUser) throw new Error('Not signed in yet');
+    if (seatData && seatData.deck) {
+      const seatListProblem = deckListProblem(seatData.deck.list || '');
+      if (seatListProblem) throw new Error(seatListProblem);
+    }
+    if (seatData && seatData.displayName) seatData = { ...seatData, displayName: clampText(seatData.displayName, PML().displayName) };
     // setDoc(..., {merge:true}) only merges at the TOP level -- a
     // dot-notation key like "seats.1" passed to it does NOT get
     // interpreted as a nested field path the way it does with updateDoc.
@@ -27059,11 +27227,21 @@ setupIconTooltipsFor(document);
     const result = await fetchDeckByLink(deckUrl);
     if (!result.ok) return result;
     const d = result.deck;
+    const L = PML();
+    const linkedListProblem = deckListProblem(d.decklistText || '');
+    if (linkedListProblem) return { ok: false, error: linkedListProblem };
+    // Titles and commander names come from the other site, so trim rather than reject.
+    d.commander = clampText(d.commander || '', L.commanderName);
+    // Cap on linked decks. Re-linking one that is already linked is fine.
+    if (L.maxLinkedDecks && !(await getDoc(doc(db, 'users', currentUser.uid, 'linkedDecks', `${d.platform}-${d.deckId}`))).exists()) {
+      const haveLinked = await countDocs(collection(db, 'users', currentUser.uid, 'linkedDecks'));
+      if (haveLinked >= L.maxLinkedDecks) return { ok: false, error: `You've reached the limit of ${L.maxLinkedDecks} linked decks. Remove one to link another.` };
+    }
     // The source platform occasionally has no title set for a deck -- an
     // unnamed draft, typically. Falling back here rather than letting a
     // missing name propagate is what stops it turning into the literal
     // text "undefined" once it's used as a storage key downstream.
-    const sourceName = (d.name && d.name.trim()) || (d.commander ? `${d.commander} (Linked)` : 'Untitled Linked Deck');
+    const sourceName = clampText((d.name && d.name.trim()) || (d.commander ? `${d.commander} (Linked)` : 'Untitled Linked Deck'), L.deckName);
 
     // Linking is a deliberate, one-time setup action rather than something
     // done repeatedly like a regular re-save, so a name collision here
@@ -27094,7 +27272,11 @@ setupIconTooltipsFor(document);
     const result = await fetchDeckByLink(deckUrl);
     if (!result.ok) return result;
     const d = result.deck;
-    const sourceName = (d.name && d.name.trim()) || (d.commander ? `${d.commander} (Linked)` : 'Untitled Linked Deck');
+    const L = PML();
+    const refreshListProblem = deckListProblem(d.decklistText || '');
+    if (refreshListProblem) return { ok: false, error: refreshListProblem };
+    d.commander = clampText(d.commander || '', L.commanderName);
+    const sourceName = clampText((d.name && d.name.trim()) || (d.commander ? `${d.commander} (Linked)` : 'Untitled Linked Deck'), L.deckName);
     await setDoc(doc(db, 'users', currentUser.uid, 'linkedDecks', id), {
       platform: d.platform, deckId: d.deckId, url: d.url, name: sourceName,
       commander: d.commander, decklistText: d.decklistText, cardCount: d.cardCount,
@@ -27157,10 +27339,17 @@ setupIconTooltipsFor(document);
 
   async function createPod(name) {
     if (!currentUser) throw new Error('Not signed in yet');
+    const L = PML();
+    const podName = (name || '').trim() || 'Our Pod';
+    requireText(podName, L.podName, 'Pod name');
+    if (L.maxPodsPerUser) {
+      const inPods = await countDocs(query(collection(db, 'pods'), where('memberIds', 'array-contains', currentUser.uid)));
+      if (inPods >= L.maxPodsPerUser) throw new Error(`You're already in ${L.maxPodsPerUser} pods, which is the limit. Leave one before creating another.`);
+    }
     const podRef = doc(collection(db, 'pods'));
     const inviteCode = generateInviteCode();
     await setDoc(podRef, {
-      name: (name || '').trim() || 'Our Pod',
+      name: podName,
       leaderId: currentUser.uid,
       coLeaderIds: [],
       memberIds: [currentUser.uid],
@@ -27168,7 +27357,7 @@ setupIconTooltipsFor(document);
       createdAt: serverTimestamp(),
     });
     await setDoc(doc(db, 'pods', podRef.id, 'members', currentUser.uid), {
-      displayName: currentUser.displayName || currentUser.email || 'Player',
+      displayName: clampText(currentUser.displayName || currentUser.email || 'Player', L.displayName),
       role: 'leader',
       joinedAt: Date.now(),
     });
@@ -27188,9 +27377,17 @@ setupIconTooltipsFor(document);
     if ((podData.memberIds || []).includes(currentUser.uid)) {
       return { ok: false, error: `You're already a member of "${podData.name}."`, podId, podName: podData.name };
     }
+    const L = PML();
+    if (L.maxPodMembers && (podData.memberIds || []).length >= L.maxPodMembers) {
+      return { ok: false, error: `That pod is full (${L.maxPodMembers} members).` };
+    }
+    if (L.maxPodsPerUser) {
+      const inPods = await countDocs(query(collection(db, 'pods'), where('memberIds', 'array-contains', currentUser.uid)));
+      if (inPods >= L.maxPodsPerUser) return { ok: false, error: `You're already in ${L.maxPodsPerUser} pods, which is the limit. Leave one before joining another.` };
+    }
     await setDoc(doc(db, 'pods', podId), { memberIds: arrayUnion(currentUser.uid) }, { merge: true });
     await setDoc(doc(db, 'pods', podId, 'members', currentUser.uid), {
-      displayName: currentUser.displayName || currentUser.email || 'Player',
+      displayName: clampText(currentUser.displayName || currentUser.email || 'Player', L.displayName),
       role: 'member',
       joinedAt: Date.now(),
     });
@@ -27231,9 +27428,19 @@ setupIconTooltipsFor(document);
   // to an external profile, not something the app itself needs to parse.
   async function updateMyProfileLinks(links) {
     if (!currentUser) throw new Error('Not signed in yet');
+    // Only real web addresses are stored (an empty value clears the link).
+    // Bare "archidekt.com/u/name" is saved as https://archidekt.com/u/name.
+    const clean = (raw, label) => {
+      const trimmed = (raw || '').trim();
+      if (!trimmed) return '';
+      const safe = window.safeHttpUrl ? window.safeHttpUrl(trimmed) : '';
+      if (!safe) throw new Error(`${label} link doesn't look like a web address. Use something like archidekt.com/u/yourname.`);
+      requireText(safe, PML().profileUrl, `${label} link`);
+      return safe;
+    };
     await setDoc(doc(db, 'users', currentUser.uid), {
-      archidektProfileUrl: (links.archidektUrl || '').trim(),
-      moxfieldProfileUrl: (links.moxfieldUrl || '').trim(),
+      archidektProfileUrl: clean(links.archidektUrl, 'Archidekt'),
+      moxfieldProfileUrl: clean(links.moxfieldUrl, 'Moxfield'),
     }, { merge: true });
   }
 
@@ -27241,6 +27448,7 @@ setupIconTooltipsFor(document);
     if (!currentUser) throw new Error('Not signed in yet');
     const trimmed = (name || '').trim();
     if (!trimmed) throw new Error('Enter a display name first.');
+    if (trimmed.length > PML().displayName) throw new Error(`Display name must be ${PML().displayName} characters or fewer.`);
     await updateProfile(currentUser, { displayName: trimmed });
     let pods = [];
     try { pods = await loadMyPods(); } catch (e) { /* fine -- profile itself is already updated */ }
@@ -27300,7 +27508,9 @@ setupIconTooltipsFor(document);
 
   async function renamePod(podId, newName) {
     if (!currentUser) throw new Error('Not signed in yet');
-    await setDoc(doc(db, 'pods', podId), { name: (newName || '').trim() || 'Our Pod' }, { merge: true });
+    const renamed = (newName || '').trim() || 'Our Pod';
+    requireText(renamed, PML().podName, 'Pod name');
+    await setDoc(doc(db, 'pods', podId), { name: renamed }, { merge: true });
   }
 
   async function regenerateInviteCode(podId) {
