@@ -1254,8 +1254,8 @@ One card per line. Formats like &quot;1x Sol Ring&quot;, plain names, or Moxfiel
       <button id="sampleBtn" class="icon-btn ghost" data-tooltip="Try a Deck" aria-label="Try a Deck">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v6.5L4.2 19a1.5 1.5 0 0 0 1.3 2.2h13a1.5 1.5 0 0 0 1.3-2.2L15 9.5V3"/><line x1="8.5" y1="3" x2="15.5" y2="3"/><line x1="7.5" y1="15" x2="16.5" y2="15"/></svg>
       </button>
-      <button id="clearBtn" class="icon-btn ghost" data-tooltip="Clear" aria-label="Clear">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+      <button id="clearBtn" class="icon-btn ghost" data-tooltip="Clear form" aria-label="Clear form">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>
       </button>
       <button id="saveDeckBtn" class="icon-btn ghost" data-tooltip="Save Deck" aria-label="Save Deck">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
@@ -2424,6 +2424,38 @@ function deriveManaProduction(card) {
   return card._mp;
 }
 
+// ---- Commander names: reading what a person typed --------------------------
+// A two-faced commander is ONE card named "Front // Back". The Commander box
+// used to split on every slash, so "Front // Back" became two commanders and
+// raised a false "this pairing likely isn't legal" warning. It also meant a
+// commander typed as just the front face, or in lower case, never matched its
+// card, so later checks (color identity, the Centrality panel) quietly skipped it.
+// These two functions are the single place that turns text into commander cards.
+function resolveCommanderName(name, matchedCards) {
+  const norm = s => String(s || '').toLowerCase().replace(/[\u2018\u2019]/g, "'").replace(/\s+/g, ' ').trim();
+  const want = norm(name).replace(/\s*\/{1,2}\s*/g, ' // '); // "A / B", "A/B" and "A // B" all read as the two-faced name "A // B"
+  if (!want) return null;
+  const pools = [(matchedCards || []).map(m => m.card), (typeof CARD_DB !== 'undefined' && CARD_DB) ? CARD_DB : []];
+  for (const pool of pools) {
+    for (const c of pool) if (norm(c.n) === want) return c;
+    for (const c of pool) if (norm(c.n).startsWith(want + ' // ')) return c; // front face only
+  }
+  return null;
+}
+// "Tymna the Weaver / Kraum, Ludevic's Opus" -> two commanders.
+// "Esika, God of the Tree // The Prismatic Bridge" or just "Esika, God of the Tree" -> one.
+function parseCommanderField(raw, matchedCards) {
+  const text = String(raw == null ? '' : raw).trim();
+  if (!text) return [];
+  const whole = resolveCommanderName(text, matchedCards);
+  if (whole) return [whole.n]; // one card, however it was typed
+  const SENT = '\u0001';
+  const parts = text.replace(/\s*\/\/\s*/g, SENT).split(/\s*\/\s*|\s+&\s+/)
+    .map(x => x.split(SENT).join(' // ').trim()).filter(Boolean);
+  const names = parts.map(x => { const c = resolveCommanderName(x, matchedCards); return c ? c.n : x; });
+  return names.filter((n, i) => names.indexOf(n) === i);
+}
+
 // ===== BEGIN COMMANDER CENTRALITY =====
 // How central is the commander to this deck? Two halves:
 //   (1) what the commander DOES for the deck -- how many combos it is part of,
@@ -2459,11 +2491,24 @@ const CENTRALITY_SUPPORT_WEIGHTS = { protection: 1.0, recursion: 0.8, tutor: 0.5
 const CENTRALITY_SUPPORT_LABELS = { protection: 'Protection', recursion: 'Recursion', tutor: 'Tutors', costReducer: 'Cost reducers', gear: 'Equipment & Auras', direct: 'Names your commander' };
 // Typical number of each kind of card in the PodMates benchmark decks (median).
 const CENTRALITY_SUPPORT_BASELINE = { protection: 3, recursion: 1, tutor: 0, costReducer: 0, gear: 2, direct: 0 };
+// Typical support-card counts for each archetype: the median across all 159
+// PodMates benchmark decks, grouped by archetype (n = how many decks that is).
+// Archetypes with few decks are blended toward the all-deck figure above,
+// because a median of 3 or 4 decks is too easily thrown by one odd list.
+const CENTRALITY_SUPPORT_BASELINE_BY_ARCHETYPE = {"Voltron": {"n": 20, "protection": 4, "recursion": 0, "tutor": 0, "costReducer": 0, "gear": 3, "direct": 0}, "Aristocrats": {"n": 13, "protection": 2, "recursion": 1, "tutor": 0, "costReducer": 0, "gear": 3, "direct": 0}, "Tokens & Go-Wide": {"n": 10, "protection": 2, "recursion": 0, "tutor": 0, "costReducer": 0, "gear": 1.5, "direct": 0}, "Stax & Control": {"n": 5, "protection": 3, "recursion": 0, "tutor": 0, "costReducer": 0, "gear": 4, "direct": 0}, "Spellslinger": {"n": 14, "protection": 0.5, "recursion": 0.5, "tutor": 0, "costReducer": 0.5, "gear": 1.5, "direct": 0}, "Ramp & Big Creatures": {"n": 13, "protection": 3, "recursion": 0, "tutor": 0, "costReducer": 0, "gear": 2, "direct": 0}, "Reanimator & Graveyard": {"n": 12, "protection": 2, "recursion": 4, "tutor": 0, "costReducer": 0, "gear": 2, "direct": 0}, "Goodstuff & Multicolor Value": {"n": 9, "protection": 3, "recursion": 0, "tutor": 0, "costReducer": 0, "gear": 2, "direct": 0}, "Group Hug & Politics": {"n": 5, "protection": 6, "recursion": 2, "tutor": 0, "costReducer": 0, "gear": 5, "direct": 0}, "Blink & ETB Value": {"n": 4, "protection": 3.5, "recursion": 1.5, "tutor": 0, "costReducer": 0, "gear": 1, "direct": 0}, "Artifacts Matter": {"n": 11, "protection": 4, "recursion": 0, "tutor": 0, "costReducer": 0, "gear": 2, "direct": 0}, "Tribal & Typal": {"n": 29, "protection": 2, "recursion": 0, "tutor": 0, "costReducer": 0, "gear": 2, "direct": 0}, "Enchantments Matter": {"n": 5, "protection": 4, "recursion": 1, "tutor": 0, "costReducer": 0, "gear": 16, "direct": 0}, "Land Matters & Landfall": {"n": 6, "protection": 1.5, "recursion": 0, "tutor": 0, "costReducer": 0, "gear": 0, "direct": 0}, "Mill & Self-Mill": {"n": 3, "protection": 2, "recursion": 4, "tutor": 0, "costReducer": 0, "gear": 5, "direct": 0}};
+function centralityBaselineFor(archetype) {
+  const a = CENTRALITY_SUPPORT_BASELINE_BY_ARCHETYPE[archetype];
+  const weight = !a ? 0 : a.n >= 8 ? 1 : a.n >= 4 ? 0.5 : 0;
+  if (!weight) return { values: CENTRALITY_SUPPORT_BASELINE, label: null, n: 0 };
+  const values = {};
+  for (const k of Object.keys(CENTRALITY_SUPPORT_BASELINE)) values[k] = weight * (a[k] || 0) + (1 - weight) * CENTRALITY_SUPPORT_BASELINE[k];
+  return { values, label: archetype, n: a.n };
+}
 const CENTRALITY_BANDS = [
   { min: 0,  label: 'Self-sufficient', blurb: 'The deck would mostly run without its commander.' },
   { min: 25, label: 'Supported',       blurb: 'The commander helps, but the deck has plenty going on without it.' },
-  { min: 42, label: 'Reliant',         blurb: 'Much of the deck\'s plan leans on the commander.' },
-  { min: 60, label: 'All-in',          blurb: 'The deck is built around the commander.' },
+  { min: 43, label: 'Reliant',         blurb: 'Much of the deck\'s plan leans on the commander.' },
+  { min: 52, label: 'All-in',          blurb: 'The deck is built around the commander.' },
 ];
 
 function centralityShortName(name) { return String(name || '').split(',')[0].trim(); }
@@ -2578,13 +2623,19 @@ function centralityFedCards(cmdCards, matchedCards, cmdSet) {
   return { fed, used, poolSize: pool.length, lean };
 }
 
-function computeCommanderCentrality(agg, matchedCards, commanderNames, winCons) {
-  const cmdNames = (commanderNames || []).filter(Boolean);
-  if (!cmdNames.length) return null;
+function computeCommanderCentrality(agg, matchedCards, commanderNames, winCons, archetype) {
+  const rawNames = (commanderNames || []).filter(Boolean);
+  if (!rawNames.length) return null;
   const byName = new Map(matchedCards.map(m => [m.card.n, m.card]));
-  const cmdCards = cmdNames.map(n => byName.get(n) || (typeof CARD_DB !== 'undefined' && CARD_DB ? CARD_DB.find(x => x.n === n) : null)).filter(Boolean);
+  // Names may arrive typed loosely (front face only, any case), so resolve each to its real card.
+  const cmdCards = [], cmdNames = [];
+  for (const n of rawNames) {
+    const c = byName.get(n) || resolveCommanderName(n, matchedCards);
+    if (c && !cmdNames.includes(c.n)) { cmdCards.push(c); cmdNames.push(c.n); }
+  }
   if (!cmdCards.length) return null;
   const cmdSet = new Set(cmdNames);
+  const base = centralityBaselineFor(archetype);
 
   // ---- (1a) plan involvement -------------------------------------------
   const combos = agg.detectedComboDetails || [];
@@ -2638,7 +2689,7 @@ function computeCommanderCentrality(agg, matchedCards, commanderNames, winCons) 
   let weightedExcess = 0;
   for (const key of Object.keys(CENTRALITY_SUPPORT_WEIGHTS)) {
     const names = [...sets[key]];
-    const baseline = CENTRALITY_SUPPORT_BASELINE[key] || 0;
+    const baseline = base.values[key] || 0;
     let w = CENTRALITY_SUPPORT_WEIGHTS[key];
     // A commander that works from the command zone does not need protecting or rebuying.
     if (worksFromCommandZone && (key === 'protection' || key === 'recursion')) w *= 0.3;
@@ -2693,7 +2744,7 @@ function computeCommanderCentrality(agg, matchedCards, commanderNames, winCons) 
 
   return { score, bandIndex, band: CENTRALITY_BANDS[bandIndex].label, blurb: CENTRALITY_BANDS[bandIndex].blurb,
     components: { plan, engine, alignment, ability: ability.strength, investment: investmentScore },
-    ability, worksFromCommandZone, reasons: reasons.slice(0, 4), notes, tiles, investment,
+    ability, worksFromCommandZone, reasons: reasons.slice(0, 4), notes, tiles, investment, baselineLabel: base.label, baselineN: base.n,
     detail: { clusterWith, clusterWithout, linked: linked.size, orphaned: orphaned.length, edgeShare, fed: feeding.fed.size, terms: feeding.used } };
 }
 // ===== END COMMANDER CENTRALITY =====
@@ -2766,7 +2817,7 @@ function analyzeDeck(matchedCards, commanders = []) {
     const set = new Set();
     let commanderFound = false;
     for (const name of (commanders || [])) {
-      const cc = nameToCard.get(name) || ((typeof CARD_DB !== 'undefined' && CARD_DB) ? CARD_DB.find(x => x.n === name) : null);
+      const cc = nameToCard.get(name) || resolveCommanderName(name, matchedCards);
       if (cc) { commanderFound = true; for (const ch of (cc.ci || '')) set.add(ch); }
     }
     if (commanderFound) return set;
@@ -19647,6 +19698,15 @@ window.PM_LIMITS = Object.freeze({
 });
 
 // Returns a plain-English problem with a pasted/stored decklist, or '' if fine.
+// Gives a network step a time limit, so a stalled connection ends in an
+// error the screen can show instead of an endless "Loading...".
+function pmTimeout(promise, ms, what) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${what} timed out`)), ms);
+    Promise.resolve(promise).then(v => { clearTimeout(timer); resolve(v); }, e => { clearTimeout(timer); reject(e); });
+  });
+}
+
 function pmDeckListProblem(raw) {
   const text = String(raw == null ? '' : raw);
   const L = window.PM_LIMITS;
@@ -19915,7 +19975,7 @@ async function showDeckViewerModal(decklistText, commanderStr) {
   const { matched } = matchDecklist(parsed.entries, CARD_DB, indexes);
   if (!matched.length) { showToast('Could not read any cards from this decklist.'); return; }
 
-  const commanderNames = new Set((commanderStr || '').split(/\s*\/\s*|\s+&\s+/).map(s => s.trim()).filter(Boolean));
+  const commanderNames = new Set(parseCommanderField(commanderStr || ''));
 
   injectTryADeckStyles();
   closeTryADeckModal();
@@ -20108,7 +20168,7 @@ function runAnalysis() {
   const cmdField = (($('commanderInput') || {}).value || '').trim();
   let commanders = [];
   if (cmdField) {
-    commanders = cmdField.split(/\s*\/\s*|\s+&\s+/).map(s => s.trim()).filter(Boolean);
+    commanders = parseCommanderField(cmdField, matched);
   } else {
     commanders = detectCommander(matched, parsed.commanderNames);
     // Auto-fill the field when we detected something
@@ -20157,7 +20217,7 @@ function runAnalysis() {
   renderTypeTable(agg.typeFrequency, agg.totalCards, agg.avgCmc, agg.manaCurve);
   renderManaBase(agg, manaBaseBenchmark);
   renderKeyPieces(agg);
-  renderCommanderCentrality(agg, matched, commanders, winCons);
+  renderCommanderCentrality(agg, matched, commanders, winCons, archetypeMatch);
   const legalityReport = checkLegality(matched, commanders, notFound);
   renderLegality(legalityReport);
   renderCommanderTrackRecord(commanderTiers, tierDiscrepancy);
@@ -20722,11 +20782,7 @@ function checkLegality(matched, commanders, notFound) {
   // Multiple commanders without partner-style support
   let cmdCards = [];
   if (commanders && commanders.length) {
-    cmdCards = commanders.map(name => {
-      const inList = matched.find(m => m.card.n === name);
-      if (inList) return inList.card;
-      return CARD_DB.find(c => c.n === name) || null;
-    }).filter(Boolean);
+    cmdCards = commanders.map(name => resolveCommanderName(name, matched)).filter(Boolean);
   }
   if (commanders && commanders.length >= 2) {
     const partnerRe = /\bpartner\b|\bfriends forever\b|\bchoose a background\b|\bdoctor's companion\b/i;
@@ -21222,11 +21278,12 @@ function renderCommanderTrackRecord(tierRecords, discrepancy) {
 // ---- Commander Centrality panel ------------------------------------------
 let currentCentrality = null;
 
-function renderCommanderCentrality(agg, matched, commanders, winCons) {
+function renderCommanderCentrality(agg, matched, commanders, winCons, archetypeMatch) {
   const panel = $('centralityPanel'), area = $('centralityArea');
   if (!panel || !area) return;
   let r = null;
-  try { r = computeCommanderCentrality(agg, matched, commanders, winCons); } catch (e) { console.error(e); }
+  const arch = (archetypeMatch && archetypeMatch.top && archetypeMatch.top.deck) ? archetypeMatch.top.deck.archetype : null;
+  try { r = computeCommanderCentrality(agg, matched, commanders, winCons, arch); } catch (e) { console.error(e); }
   currentCentrality = r;
   if (!r) { panel.style.display = 'none'; return; }
 
@@ -21247,7 +21304,7 @@ function renderCommanderCentrality(agg, matched, commanders, winCons) {
     return `<div class="cc-bar-row"><div class="cc-bar-label">${escapeHtml(i.label)}</div>` +
       `<div class="cc-bar-track"><div class="cc-bar-fill${over ? ' over' : ''}" style="width:${Math.min(100, (i.count / scaleMax) * 100).toFixed(1)}%"></div>` +
       (i.baseline > 0 ? `<div class="cc-bar-mark" style="left:${Math.min(100, (i.baseline / scaleMax) * 100).toFixed(1)}%" title="Typical deck"></div>` : '') +
-      `</div><div class="cc-bar-val">${i.count}${i.baseline > 0 ? ` <span style="opacity:.7">/ ${i.baseline} typ.</span>` : ''}</div></div>`;
+      `</div><div class="cc-bar-val">${i.count}${i.baseline > 0 ? ` <span style="opacity:.7">/ ${+i.baseline.toFixed(1)} typ.</span>` : ''}</div></div>`;
   }).join('');
 
   area.innerHTML = `
@@ -21258,9 +21315,9 @@ function renderCommanderCentrality(agg, matched, commanders, winCons) {
     ${notes}
     <div class="cc-grid">${tiles}</div>
     <div class="cc-legend">${legend}</div>
-    <div class="cc-bars-title">Commander support vs. a typical deck</div>
+    <div class="cc-bars-title">Commander support vs. a typical ${r.baselineLabel ? escapeHtml(r.baselineLabel) + ' ' : ''}deck</div>
     ${bars}
-    <div style="font-size:11.5px; color:var(--text-dim); margin-top:2px;">White tick = typical benchmark deck. Gold bar = this deck runs more than that.</div>`;
+    <div style="font-size:11.5px; color:var(--text-dim); margin-top:2px;">White tick = typical ${r.baselineLabel ? escapeHtml(r.baselineLabel) + ' ' : ''}benchmark deck${r.baselineLabel ? ` (from ${r.baselineN} decks)` : ''}. Gold bar = this deck runs more than that.</div>`;
   panel.style.display = 'block';
 }
 
@@ -21281,7 +21338,7 @@ function buildCentralityExplainerHtml() {
     `<div>Centrality shows how much this deck is <strong>built around its commander</strong>, as opposed to simply being led by it. Two things feed it: what the commander does for the deck, and how much the builder has invested in keeping it around. A deck full of ways to protect, recur, tutor for and cheapen its commander is telling you what its builder thinks the deck is about.</div>` +
     sec('How to read the grid', `Each square is one card in the deck. The gold square with the white border is the commander. <strong>Bright gold</strong> cards are essential: part of a combo with it, or with no other synergy partner in the deck. <strong>Dim gold</strong> cards are linked: they synergize with it or match what its ability cares about. <strong>Teal</strong> cards are support (protection, recursion, tutors, cost reducers, equipment). Dark squares would work the same without it. Tap a square to see the card.`) +
     sec('How it is calculated', `Five signals, each 0–100, combined by weight.${table}`) +
-    sec('What each signal means', `<strong>Plan involvement</strong>: how many of the deck's detected combos include the commander. <strong>Synergy reliance</strong>: if you removed the commander from the deck's synergy web, how much of it would fall apart. <strong>Deck alignment</strong>: how much of the deck matches what the commander's ability cares about (artifacts, a creature type, counters...), compared with a typical deck. <strong>Ability type</strong>: a repeating effect counts for more than a one-time enters-the-battlefield effect. <strong>Builder investment</strong>: support cards beyond what a typical benchmark deck runs, so generic protection like Swiftfoot Boots doesn't inflate it.`) +
+    sec('What each signal means', `<strong>Plan involvement</strong>: how many of the deck's detected combos include the commander. <strong>Synergy reliance</strong>: if you removed the commander from the deck's synergy web, how much of it would fall apart. <strong>Deck alignment</strong>: how much of the deck matches what the commander's ability cares about (artifacts, a creature type, counters...), compared with a typical deck. <strong>Ability type</strong>: a repeating effect counts for more than a one-time enters-the-battlefield effect. <strong>Builder investment</strong>: support cards beyond what a typical benchmark deck of the same archetype runs (a Voltron deck is expected to carry more protection than a Spellslinger deck), so generic protection like Swiftfoot Boots doesn't inflate it.`) +
     sec('What it does not tell you', `It does not say the deck is good or bad, or that the commander is easy to answer. A high reading is a fair question for the table: "if this commander is dealt with, what does the deck do?" Bands are calibrated against the PodMates benchmark decks, and the plan signal only counts when combos are detected.`) +
     sec('How commanders work (what the scoring relies on)', `<ul style="margin:0; padding-left:18px; font-size:12.5px; color:var(--text-soft);">${rules}</ul>`) +
     `</div>`;
@@ -22002,7 +22059,7 @@ function computeQuickSummary(deck) {
     const parsed = parseDecklist(deck.decklistText);
     const { matched } = matchDecklist(parsed.entries, CARD_DB, indexes);
     if (!matched.length) return { error: 'Could not read this deck\u2019s cards.' };
-    const commanders = (deck.commander || '').split(/\s*\/\s*|\s+&\s+/).map(s => s.trim()).filter(Boolean);
+    const commanders = parseCommanderField(deck.commander || '');
     const agg = analyzeDeck(matched, commanders);
     agg.commanders = commanders;
     const winCons = detectWinCondition(agg);
@@ -24095,7 +24152,7 @@ function analyzeOneList(raw, playerName, commanderOverride) {
   let commanders = [];
   if (commanderOverride && commanderOverride.trim()) {
     // Split partner pairs on / or &
-    commanders = commanderOverride.split(/\s*\/\s*|\s+&\s+/).map(s => s.trim()).filter(Boolean);
+    commanders = parseCommanderField(commanderOverride);
   } else {
     commanders = detectCommander(matched, parsed.commanderNames);
   }
@@ -26287,12 +26344,30 @@ async function showLoadDeckModal(target) {
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
   document.getElementById('loadDeckSearch').addEventListener('input', renderLoadDeckList);
 
-  await refreshPodmateDecksCache();
+  // The person's own decks are already in memory, so show them straight away.
+  // Podmates' decks come over the network and get a time limit: if the
+  // connection stalls, the modal says so and offers Retry rather than sitting
+  // on "Loading..." until the page is refreshed.
+  const haveOwnDecks = Object.keys(loadSavedDecks()).length > 0;
+  if (haveOwnDecks) { renderLoadDeckPlayerChips(); renderLoadDeckList(); }
+  let podmateLoadFailed = false;
+  try {
+    await pmTimeout(refreshPodmateDecksCache(), 8000, "Loading podmates' decks");
+  } catch (e) {
+    console.error('Load a Deck: podmates\' decks did not load', e);
+    podmateLoadFailed = true;
+  }
+  const listAreaNow = document.getElementById('loadDeckListArea');
+  if (!listAreaNow) return; // the modal was closed while loading
 
-  // Bail out only now, once BOTH sources are known -- a person with zero
-  // decks of their own but a pod full of shared ones should still see
-  // this modal populate, not get turned away at the door.
-  if (Object.keys(loadSavedDecks()).length === 0 && Object.keys(podmateDecksCache).length === 0) {
+  const retryNotice = `<div id="loadDeckRetryNotice" style="color:var(--text-soft); font-size:12.5px; padding:6px 0 8px;">Podmates' decks didn't load (slow connection?). <button type="button" id="loadDeckRetryBtn" style="background:none; border:1px solid var(--gold); color:var(--gold); border-radius:3px; padding:2px 10px; cursor:pointer;">Retry</button></div>`;
+  const wireRetry = () => { const b = document.getElementById('loadDeckRetryBtn'); if (b) b.addEventListener('click', () => showLoadDeckModal(target)); };
+
+  // Bail out only once BOTH sources are known -- a person with zero decks of
+  // their own but a pod full of shared ones should still see this modal
+  // populate, not get turned away at the door.
+  if (!haveOwnDecks && Object.keys(podmateDecksCache).length === 0) {
+    if (podmateLoadFailed) { listAreaNow.innerHTML = retryNotice; wireRetry(); return; }
     closeTryADeckModal();
     if (isGatheringSeat) showToast('No saved decks in this pod yet -- save one from the Deck Chart tab first.');
     else setDeckMgmtStatus('No saved decks yet — save one first.', true);
@@ -26300,6 +26375,7 @@ async function showLoadDeckModal(target) {
   }
   renderLoadDeckPlayerChips();
   renderLoadDeckList();
+  if (podmateLoadFailed) { listAreaNow.insertAdjacentHTML('afterbegin', retryNotice); wireRetry(); }
 }
 
 function renderLoadDeckPlayerChips() {
@@ -27088,7 +27164,16 @@ setupIconTooltipsFor(document);
     }
     return '';
   }
-  async function countDocs(q) { return (await getCountFromServer(q)).data().count; }
+  // The count/exists checks behind the size caps are a convenience, not a
+  // gate: if the network is slow or the check fails, the save goes ahead
+  // (firestore.rules still holds the hard limits) rather than hanging.
+  const capCheckTimeout = (p) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('cap check timed out')), 6000))]);
+  async function countDocs(q) {
+    try { return (await capCheckTimeout(getCountFromServer(q))).data().count; } catch (e) { console.warn('Size-cap count skipped:', e.message); return 0; }
+  }
+  async function docExistsSafe(ref) {
+    try { return (await capCheckTimeout(getDoc(ref))).exists(); } catch (e) { console.warn('Size-cap check skipped:', e.message); return true; } // true = "assume it exists", so the cap is not applied
+  }
 
   function describeUser(user) {
     if (!user) return null;
@@ -27216,7 +27301,7 @@ setupIconTooltipsFor(document);
     const ref = doc(db, 'users', currentUser.uid, 'decks', safeDocId(docIdOverride || key));
     // A cap on how many decks one account can hold. Overwriting an existing
     // deck never counts against it -- only creating a new one does.
-    if (L.maxSavedDecks && !(await getDoc(ref)).exists()) {
+    if (L.maxSavedDecks && !(await docExistsSafe(ref))) {
       const have = await countDocs(collection(db, 'users', currentUser.uid, 'decks'));
       if (have >= L.maxSavedDecks) throw new Error(`You've reached the limit of ${L.maxSavedDecks} saved decks. Delete one you no longer use to make room.`);
     }
@@ -27329,7 +27414,7 @@ setupIconTooltipsFor(document);
     const L = PML();
     requireText(name, L.formationName, 'Lineup name');
     const formationRef = doc(db, 'pods', podId, 'tableFormations', safeDocId(name));
-    if (L.maxFormationsPerPod && !(await getDoc(formationRef)).exists()) {
+    if (L.maxFormationsPerPod && !(await docExistsSafe(formationRef))) {
       const haveFormations = await countDocs(collection(db, 'pods', podId, 'tableFormations'));
       if (haveFormations >= L.maxFormationsPerPod) throw new Error(`This pod has reached its limit of ${L.maxFormationsPerPod} saved lineups. Delete an old one first.`);
     }
@@ -27612,7 +27697,7 @@ setupIconTooltipsFor(document);
     // Titles and commander names come from the other site, so trim rather than reject.
     d.commander = clampText(d.commander || '', L.commanderName);
     // Cap on linked decks. Re-linking one that is already linked is fine.
-    if (L.maxLinkedDecks && !(await getDoc(doc(db, 'users', currentUser.uid, 'linkedDecks', `${d.platform}-${d.deckId}`))).exists()) {
+    if (L.maxLinkedDecks && !(await docExistsSafe(doc(db, 'users', currentUser.uid, 'linkedDecks', `${d.platform}-${d.deckId}`)))) {
       const haveLinked = await countDocs(collection(db, 'users', currentUser.uid, 'linkedDecks'));
       if (haveLinked >= L.maxLinkedDecks) return { ok: false, error: `You've reached the limit of ${L.maxLinkedDecks} linked decks. Remove one to link another.` };
     }
