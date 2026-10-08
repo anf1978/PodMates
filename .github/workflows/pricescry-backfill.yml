@@ -1,0 +1,83 @@
+name: PriceScry MTGJSON Backfill (run once)
+
+# One-off: pulls roughly 90 days of price history for every card from MTGJSON (TCGplayer, Cardmarket,
+# Card Kingdom retail AND buylist, Manapool) into the PriceScry history, so charts have a past to show
+# from day one instead of starting empty.
+#
+# BEFORE running this: run "PriceScry Daily Snapshot" at least once, so there are card files to attach
+# the prices to. This job stops with a clear message if there are none.
+#
+# The first two steps only LOOK at the files and print their structure, so you can see in the log that
+# MTGJSON's layout matches what the importer expects before it changes anything. If a "Look at" step
+# shows something unexpected, stop and send me the log.
+#
+# It is safe to run again: each run replaces only the days inside the file's window and keeps everything older.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pricescry-daily      # shares the daily job's lock, so the two never publish over each other
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      NODE_OPTIONS: --max-old-space-size=5120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Load the existing price history
+        run: |
+          mkdir -p pricescry-data
+          if git fetch origin pricescry-data --depth=1 2>/dev/null; then
+            git archive FETCH_HEAD | tar -x -C pricescry-data
+            echo "Loaded: $(ls pricescry-data/cards 2>/dev/null | wc -l) card files"
+          else
+            echo "There is no pricescry-data branch yet. Run 'PriceScry Daily Snapshot' first, then run this again."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+
+      - name: Download MTGJSON files
+        run: |
+          UA="PodMatesPriceScry/1.0 (+https://github.com/anf1978/PodMates)"
+          curl -sS --fail -L -H "User-Agent: $UA" -o AllIdentifiers.json.gz https://mtgjson.com/api/v5/AllIdentifiers.json.gz
+          curl -sS --fail -L -H "User-Agent: $UA" -o AllPrices.json.gz https://mtgjson.com/api/v5/AllPrices.json.gz
+          ls -l AllIdentifiers.json.gz AllPrices.json.gz
+
+      - name: Look at the identifiers file (structure check)
+        run: node .github/scripts/pricescry-mtgjson.mjs peek AllIdentifiers.json.gz
+
+      - name: Look at the prices file (structure check)
+        run: node .github/scripts/pricescry-mtgjson.mjs peek AllPrices.json.gz
+
+      - name: Build the card-id link
+        run: node .github/scripts/pricescry-mtgjson.mjs build-map AllIdentifiers.json.gz pricescry-data
+
+      - name: Add the price history
+        run: node .github/scripts/pricescry-mtgjson.mjs prices AllPrices.json.gz pricescry-data
+
+      - name: Recompute the movers from all shops
+        continue-on-error: true   # if this fails the earlier Scryfall-only movers list is still published
+        run: node .github/scripts/pricescry-movers.mjs pricescry-data
+
+      - name: Publish to the pricescry-data branch
+        run: |
+          cd pricescry-data
+          rm -rf .git
+          git init -q -b pricescry-data
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "PriceScry data + MTGJSON backfill $(date -u +%F)"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" pricescry-data

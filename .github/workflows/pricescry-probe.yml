@@ -1,0 +1,41 @@
+name: PriceScry Probe (look at one web address)
+
+# Fetches ONE address and shows what comes back, so a new price source can be built
+# against its real response. Run it from the Actions tab: "Run workflow", paste the address.
+# The log shows the status, content type, size and the start of the response, and the
+# full response is attached to the run as a downloadable file called "probe-output".
+#
+# Try, for example, a search on Hareruya's English site for a card, or one card's page on
+# Card Rush or BigMagic. One request per run; it never crawls.
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'The address to look at (one request)'
+        required: true
+        default: 'https://www.hareruyamtg.com/en/products/search?product=Sol+Ring'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Fetch it
+        env:
+          PROBE_URL: ${{ github.event.inputs.url }}
+        run: node .github/scripts/pricescry-probe.mjs "$PROBE_URL" probe-output.txt
+      - name: Attach the full response
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: probe-output
+          path: probe-output.txt
+          if-no-files-found: ignore
