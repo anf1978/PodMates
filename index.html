@@ -330,6 +330,8 @@
   }
   /* PriceScry */
   .ps-overlay{position:fixed; inset:0; background:var(--bg-main); z-index:1500; overflow-y:auto; -webkit-overflow-scrolling:touch;}
+  /* PriceScry sits above the normal pop-up layer, so any pop-up opened from inside it (trade form, confirmations) must sit above PriceScry */
+  #pricescryOverlay ~ .tad-overlay{z-index:1600;}
   .ps-wrap{max-width:720px; margin:0 auto; padding:14px 16px 32px;}
   .ps-head{display:flex; align-items:center; gap:10px; margin-bottom:6px;}
   .ps-title{flex:1; font-family:'Cinzel','Trajan Pro',Georgia,serif; font-size:24px; font-weight:700; color:var(--gold-bright);}
