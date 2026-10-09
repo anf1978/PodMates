@@ -336,7 +336,19 @@
   .ps-head{display:flex; align-items:center; gap:10px; margin-bottom:6px;}
   .ps-title{flex:1; font-family:'Cinzel','Trajan Pro',Georgia,serif; font-size:24px; font-weight:700; color:var(--gold-bright);}
   .ps-asof{font-size:11.5px; color:var(--text-dim); margin-bottom:10px; min-height:14px;}
-  .ps-tabs{display:flex; gap:6px; margin-bottom:12px;}
+
+  .ps-board{border:1px solid var(--line); border-radius:4px; background:var(--bg-panel-raised); padding:12px 14px; margin-bottom:14px;}
+  .ps-board-h{font-weight:700; color:var(--gold-bright); margin-bottom:6px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
+  .ps-board-h2{font-weight:700; color:var(--text-primary); margin:14px 0 6px; font-size:13px;}
+  .ps-board-r{margin-bottom:4px;} .ps-board-n{font-size:12px; color:var(--text-soft); margin-bottom:8px;}
+  .ps-badge{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; border-radius:3px; padding:2px 7px; border:1px solid var(--line); color:var(--text-soft);}
+  .ps-b-good{border-color:#4a9a5a; color:#7fd18f;} .ps-b-bad{border-color:#b05050; color:#e08a8a;} .ps-b-wait{border-color:var(--gold); color:var(--gold-bright);}
+  .ps-tablewrap{overflow-x:auto; margin:6px 0;} .ps-table{border-collapse:collapse; width:100%; font-size:12.5px;}
+  .ps-table th,.ps-table td{border-bottom:1px solid var(--line); padding:5px 8px; text-align:left; white-space:nowrap;} .ps-table th{color:var(--text-soft); font-weight:600;}
+  .ps-board-more{margin:8px 0;} .ps-board-more summary{cursor:pointer; color:var(--text-soft);} .ps-board-ev,.ps-radar-set,.ps-radar-found,.ps-radar-post{padding:6px 0; border-bottom:1px solid var(--line); font-size:13px;}
+  .ps-link{background:none; border:none; box-shadow:none; color:var(--gold-bright); padding:0; font-size:inherit; text-decoration:underline; cursor:pointer; text-transform:none; letter-spacing:0; font-family:inherit; font-weight:400;}
+  .ps-link:hover{background:none; box-shadow:none;} .ps-radar-post a,.ps-radar-found a{color:var(--gold-bright);}
+  .ps-tabs{display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap;}
   .ps-tabs button,.ps-range button{background:var(--bg-panel-raised); border:1px solid var(--line); color:var(--text-soft); border-radius:3px; padding:7px 14px; font-size:13px; cursor:pointer;}
   .ps-tabs button.on,.ps-range button.on{border-color:var(--gold); color:var(--gold-bright);}
   .ps-range{display:flex; gap:6px; margin:10px 0; flex-wrap:wrap;}
@@ -22066,7 +22078,7 @@ function openPriceScry() {
   o.innerHTML = `<div class="ps-wrap">
     <div class="ps-head"><div class="ps-title">PriceScry</div><button class="ghost" id="psClose">Close ×</button></div>
     <div id="psAsOf" class="ps-asof">Loading…</div>
-    <div class="ps-tabs"><button data-ps-tab="search" class="on">Search</button><button data-ps-tab="movers">Movers</button><button data-ps-tab="signals">Signals</button><button data-ps-tab="ledger">Ledger</button></div>
+    <div class="ps-tabs"><button data-ps-tab="search" class="on">Search</button><button data-ps-tab="movers">Movers</button><button data-ps-tab="signals">Signals</button><button data-ps-tab="radar">Radar</button><button data-ps-tab="ledger">Ledger</button></div>
     <div id="psBody"></div>
     <div class="ps-foot">Information only, not financial advice. Prices come from Scryfall and MTGJSON (TCGplayer, Cardmarket, Card Kingdom, Manapool), shown in yen at the day's exchange rate, and refresh once a day. History starts on the first day the data was collected, plus about 90 days back-filled from MTGJSON. Japanese shop prices are being added.</div>
   </div>`;
@@ -22079,7 +22091,7 @@ function openPriceScry() {
 function psSetTab(tab) {
   psState.tab = tab;
   document.querySelectorAll('#pricescryOverlay [data-ps-tab]').forEach(b => b.classList.toggle('on', b.getAttribute('data-ps-tab') === tab));
-  if (tab === 'search') psRenderSearch(); else if (tab === 'signals') psRenderSignals(); else if (tab === 'ledger') psRenderLedger(); else psRenderMovers();
+  if (tab === 'search') psRenderSearch(); else if (tab === 'signals') psRenderSignals(); else if (tab === 'radar') psRenderRadar(); else if (tab === 'ledger') psRenderLedger(); else psRenderMovers();
 }
 async function psLoadIndex() {
   const asOf = document.getElementById('psAsOf');
@@ -22375,9 +22387,66 @@ async function psRenderSignals() {
   const byDay = new Map(); for (const e of list) { if (!byDay.has(e.day)) byDay.set(e.day, []); byDay.get(e.day).push(e); }
   const chips = [['all', 'All'], ['reprints', 'Reprints'], ['bans', 'Bans & legality'], ['newcards', 'New cards'], ['demand', 'Demand']].map(([k, l]) => `<button type="button" data-ps-sig="${k}" class="${psState.signalType === k ? 'on' : ''}">${l}</button>`).join('');
   const html = [...byDay.entries()].slice(0, 30).map(([d, es]) => `<div class="ps-sigday">${pricescryIsoFromDay(d)}</div>` + es.slice(0, 60).map(e => `<button type="button" class="ps-signal" data-ps-card="${escapeHtml(e.n)}">${psSignalText(e)}</button>`).join('') + (es.length > 60 ? `<div class="ps-note">…and ${es.length - 60} more that day.</div>` : '')).join('');
-  body.innerHTML = `<div class="ps-range">${chips}</div>` + (html || `<div class="ps-note">Nothing in the last 30 days for this filter.</div>`) +
+  let board = '';
+  try { psState.shadow = psState.shadow || await pricescryFetch('shadow-report.json'); board = psScoreboardHtml(psState.shadow); }
+  catch (e) { board = `<div class="ps-board"><div class="ps-board-h">Prediction scoreboard</div><div class="ps-note">${e.status === 404 ? 'Not started yet. It appears after the next daily run that includes the shadow-prediction step.' : 'Couldn\'t load the scoreboard (' + escapeHtml(e.message) + ').'}</div></div>`; }
+  body.innerHTML = board + `<div class="ps-range">${chips}</div>` + (html || `<div class="ps-note">Nothing in the last 30 days for this filter.</div>`) +
     `<div class="ps-note" style="margin-top:10px;">Recorded every day from Scryfall: new cards and reprints, bans and unbans, Game Changers list changes, and sharp rises in EDHREC popularity. Tap one to see the card's price history.</div>`;
   body.querySelectorAll('[data-ps-sig]').forEach(b => b.addEventListener('click', () => { psState.signalType = b.getAttribute('data-ps-sig'); psRenderSignals(); }));
+  body.querySelectorAll('[data-ps-card]').forEach(b => b.addEventListener('click', () => { psState.tab = 'search'; psOpenCard(b.getAttribute('data-ps-card')); }));
+}
+
+
+// ---- Prediction scoreboard (reads shadow-report.json, written daily by pricescry-shadow.mjs) -------------------------------
+const PS_LINK_NAMES = { any: 'All linked cards', top5: 'Top 5 picks only', named: 'Card is named by the new card', tribal: 'Creature-type links', mechanic: 'Shared mechanics', enabler: 'New commander fits their colours' };
+const PS_VERDICT_WORDS = { 'too early': 'Too early to say', 'beats ordinary cards': 'Beating ordinary cards', 'no edge': 'No better than ordinary cards', 'inconclusive': 'Too close to call' };
+function psPct(x) { return x == null || !Number.isFinite(x) ? '–' : Math.round(x * 100) + '%'; }
+function psScoreboardHtml(rep) {
+  if (!rep || typeof rep !== 'object') return '';
+  const status = String(rep.status || 'collecting');
+  const mood = { 'collecting': 'ps-b-wait', 'promising': 'ps-b-good', 'not working yet': 'ps-b-bad', 'inconclusive': 'ps-b-wait' }[status] || 'ps-b-wait';
+  const h = (rep.byType && rep.byType.any && rep.byType.any[7]) ? 7 : 3;
+  const rows = Object.keys(PS_LINK_NAMES).map(t => {
+    const r = rep.byType && rep.byType[t] && rep.byType[t][h]; if (!r) return '';
+    return `<tr><td>${PS_LINK_NAMES[t]}</td><td>${escapeHtml(PS_VERDICT_WORDS[r.verdict] || r.verdict)}</td><td>${psPct(r.hit25)}</td><td>${psPct(r.control25)}</td><td>${Number(r.n).toLocaleString()} cards, ${r.events} new</td></tr>`;
+  }).join('');
+  const recent = (rep.recent || []).map(e => {
+    const picks = (e.top || []).map(c => `<button type="button" class="ps-link" data-ps-card="${escapeHtml(c.n)}">${escapeHtml(c.n)}</button>${c.r7 == null ? '' : ' <small>(' + (c.r7 >= 0 ? '+' : '') + Math.round(c.r7 * 100) + '% after 7 days)</small>'}`).join(', ');
+    return `<div class="ps-board-ev"><strong>${escapeHtml(e.n)}</strong> <small>${escapeHtml(e.day || '')}${e.set ? ' · ' + escapeHtml(String(e.set).toUpperCase()) : ''}</small><div>${e.cands} cards linked${picks ? '. Top: ' + picks : ''}</div></div>`;
+  }).join('');
+  return `<div class="ps-board">
+    <div class="ps-board-h">Prediction scoreboard <span class="ps-badge ${mood}">${escapeHtml(status)}</span></div>
+    <div class="ps-board-r">${escapeHtml(rep.reason || '')}</div>
+    <div class="ps-board-n">${Number(rep.events || 0).toLocaleString()} new cards logged · ${Number(rep.scoredEvents || 0).toLocaleString()} old enough to score · as of ${escapeHtml(rep.day || '')}</div>
+    ${rows ? `<div class="ps-tablewrap"><table class="ps-table"><thead><tr><th>Kind of link (after ${h} days)</th><th>Verdict</th><th>Rose 25%+</th><th>Ordinary cards</th><th>Tested</th></tr></thead><tbody>${rows}</tbody></table></div>` : ''}
+    ${recent ? `<details class="ps-board-more"><summary>Latest cards written down</summary>${recent}</details>` : ''}
+    <div class="ps-note">How this works: when a new card appears, the tool writes down which existing cards it thinks could rise, with today's price. Days later it checks what they did against ordinary cards of the same price. Nothing on the Movers or Ledger tabs is changed by this until a kind of link has proved itself.</div>
+  </div>`;
+}
+
+// ---- Radar: upcoming sets, spoiler chatter and cards read from leaked pictures (reads radar.json, written daily by pricescry-radar.mjs) ----
+function psAgo(iso) {
+  const t = Date.parse(iso); if (!Number.isFinite(t)) return '';
+  const h = Math.max(0, Math.round((Date.now() - t) / 3600000));
+  return h < 1 ? 'just now' : h < 48 ? h + 'h ago' : Math.round(h / 24) + 'd ago';
+}
+async function psRenderRadar() {
+  const body = document.getElementById('psBody'); if (!body) return;
+  if (!psState.index) { const ok = await psLoadIndex(); if (!ok) return; }
+  psState.rec = null;
+  body.innerHTML = `<div class="ps-note">Loading…</div>`;
+  let rd;
+  try { rd = psState.radar = psState.radar || await pricescryFetch('radar.json'); }
+  catch (e) { body.innerHTML = `<div class="ps-note">${e.status === 404 ? 'The radar has not run yet. It appears after the next daily run that includes the radar step.' : 'Couldn\'t load the radar (' + escapeHtml(e.message) + ').'}</div>`; return; }
+  const sets = (rd.sets || []).map(s => `<div class="ps-radar-set"><div><strong>${escapeHtml(s.name)}</strong> <small>${escapeHtml(String(s.code || '').toUpperCase())} · releases ${escapeHtml(s.releaseDate || '?')} · ${Number(s.cards || 0).toLocaleString()} cards listed so far</small></div>${(s.newest || []).length ? `<div class="ps-radar-new">${s.newest.map(c => `<button type="button" class="ps-link" data-ps-card="${escapeHtml(c.n)}">${escapeHtml(c.n)}</button>`).join(', ')}</div>` : '<div class="ps-note">No new previews in the last 7 days.</div>'}</div>`).join('');
+  const found = (rd.found || []).map(f => `<div class="ps-radar-found"><div><strong>${escapeHtml(f.n)}</strong> <small>${escapeHtml(f.type || '')} · ${escapeHtml(f.day || '')}${f.url ? ` · <a href="${escapeHtml(f.url)}" target="_blank" rel="noopener noreferrer">source</a>` : ''}</small></div><div>${(f.picks || []).length ? 'Could lift: ' + f.picks.slice(0, 8).map(c => `<button type="button" class="ps-link" data-ps-card="${escapeHtml(c.n)}">${escapeHtml(c.n)}</button> <small>${escapeHtml(c.t || '')}${c.p0 ? ', ' + (c.p0 / 100).toLocaleString(undefined, { style: 'currency', currency: 'USD' }) : ''}</small>`).join(', ') : '<small>No linked cards worth $2 or more.</small>'}</div></div>`).join('');
+  const posts = ((rd.reddit && rd.reddit.posts) || []).slice(0, 20).map(p => `<div class="ps-radar-post"><a href="${escapeHtml(p.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(p.title)}</a> <small>${p.kind === 'leak' ? '<span class="ps-badge ps-b-wait">leak</span> ' : ''}${escapeHtml(p.flair || '')} · ${psAgo(p.created)} · ${Number(p.score || 0).toLocaleString()} points</small></div>`).join('');
+  const rs = rd.reddit || {}, rg = rd.reading || {};
+  body.innerHTML = `<div class="ps-board"><div class="ps-board-h">Spoiler radar <small>as of ${escapeHtml(rd.day || '')}</small></div>
+    <div class="ps-board-h2">Upcoming sets</div>${sets || '<div class="ps-note">No upcoming sets are listed on Scryfall right now.</div>'}
+    <div class="ps-board-h2">Cards read from leaked pictures</div>${found || `<div class="ps-note">${escapeHtml(rg.note || 'None yet.')}</div>`}
+    <div class="ps-board-h2">Chatter on Reddit</div>${posts || `<div class="ps-note">${escapeHtml(rs.note || 'Nothing to show.')}</div>`}
+    <div class="ps-note">Everything here is rumour until the card is on Scryfall. Cards from leaks are written into the prediction scoreboard too, so the tool learns whether leaks are worth acting on. Information only, not financial advice.</div></div>`;
   body.querySelectorAll('[data-ps-card]').forEach(b => b.addEventListener('click', () => { psState.tab = 'search'; psOpenCard(b.getAttribute('data-ps-card')); }));
 }
 
