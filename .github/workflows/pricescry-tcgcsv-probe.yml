@@ -1,0 +1,42 @@
+name: PriceScry TCGCSV Probe 2 (run once, then send me the log)
+
+# The first probe was refused (HTTP 403) when asking for the history archives. This one shows WHY: it prints the
+# refusal message and headers, and tries the same file a few polite ways (our own identifying name, curl's default
+# name, and a tiny partial download). It also checks the plain daily endpoints. It changes nothing.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: The plain daily endpoints (no archive)
+        continue-on-error: true
+        run: |
+          UA="PodMatesPriceScry/1.0 (+https://github.com/anf1978/PodMates)"
+          echo "--- last-updated ---"; curl -sS -L -w "\nHTTP %{http_code}\n" -H "User-Agent: $UA" https://tcgcsv.com/last-updated.txt
+          echo "--- Magic groups, first 500 characters ---"
+          curl -sS -L -w "\nHTTP %{http_code}\n" -H "User-Agent: $UA" https://tcgcsv.com/tcgplayer/1/groups | head -c 700; echo
+
+      - name: Archive refusal - read the message
+        continue-on-error: true
+        run: |
+          UA="PodMatesPriceScry/1.0 (+https://github.com/anf1978/PodMates)"
+          URL=https://tcgcsv.com/archive/tcgplayer/prices-2025-10-15.ppmd.7z
+          echo "=== our own name, full response headers and body (GET, first 2000 bytes) ==="
+          curl -sS -L -D - -r 0-1999 -H "User-Agent: $UA" -o body1.bin "$URL"; echo "--- body ---"; head -c 800 body1.bin; echo
+          echo "=== curl's default name ==="
+          curl -sS -L -D - -r 0-1999 -o body2.bin "$URL" | head -15; echo "--- body ---"; head -c 400 body2.bin; echo
+          echo "=== the folder listing page ==="
+          curl -sS -L -w "\nHTTP %{http_code}\n" -H "User-Agent: $UA" https://tcgcsv.com/archive/tcgplayer/ | head -c 600; echo
+
+      - name: Where is this runner (for the record)
+        continue-on-error: true
+        run: |
+          curl -sS https://api.ipify.org; echo
+          curl -sS -H "User-Agent: PodMatesPriceScry/1.0" https://ipinfo.io/org 2>/dev/null | head -c 200; echo
