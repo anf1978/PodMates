@@ -21963,7 +21963,7 @@ const PRICESCRY_EPOCH_MS = Date.UTC(2020, 0, 1);
 const pricescryCache = new Map();
 let pricescryUnlocked = false;
 let pricescryFailures = 0, pricescryLockUntil = 0;
-const psState = { tab: 'search', index: null, fx: null, rec: null, printingId: null, finish: 'nonfoil', range: 90, movers: null, moverWindow: '7', moverDir: 'up', signals: null, signalType: 'all' };
+const psState = { tab: 'search', index: null, fx: null, rec: null, printingId: null, finish: 'nonfoil', range: 90, movers: null, moverWindow: '7', moverDir: 'up', signals: null, signalType: 'all', origin: null, q: '' };
 
 // ---- helpers kept identical to .github/scripts/pricescry-lib.mjs ------------
 function pricescryNameKey(name) {
@@ -22082,6 +22082,7 @@ function openPriceScry() {
     <div id="psBody"></div>
     <div class="ps-foot">Information only, not financial advice. Prices come from Scryfall and MTGJSON (TCGplayer, Cardmarket, Card Kingdom, Manapool), shown in yen at the day's exchange rate, and refresh once a day. History starts on the first day the data was collected, plus about 90 days back-filled from MTGJSON. Japanese shop prices are being added.</div>
   </div>`;
+  psState.q = ''; psState.origin = null;
   document.body.appendChild(o);
   document.body.style.overflow = 'hidden';
   document.getElementById('psClose').addEventListener('click', closePriceScry);
@@ -22091,7 +22092,7 @@ function openPriceScry() {
 function psSetTab(tab) {
   psState.tab = tab;
   document.querySelectorAll('#pricescryOverlay [data-ps-tab]').forEach(b => b.classList.toggle('on', b.getAttribute('data-ps-tab') === tab));
-  if (tab === 'search') psRenderSearch(); else if (tab === 'signals') psRenderSignals(); else if (tab === 'radar') psRenderRadar(); else if (tab === 'ledger') psRenderLedger(); else psRenderMovers();
+  if (tab === 'search') return psRenderSearch(); else if (tab === 'signals') return psRenderSignals(); else if (tab === 'radar') return psRenderRadar(); else if (tab === 'ledger') return psRenderLedger(); else return psRenderMovers();
 }
 async function psLoadIndex() {
   const asOf = document.getElementById('psAsOf');
@@ -22121,20 +22122,29 @@ function psRenderSearch() {
     <div id="psResults"></div>
     <div class="ps-note" style="margin-top:12px;">Type a card name, then pick it to see its price history. Cards are tracked from the day data collection began; older history isn't available from the free sources.</div>`;
   const input = document.getElementById('psSearch'), results = document.getElementById('psResults');
-  input.addEventListener('input', () => {
-    const q = input.value.trim();
+  const showResults = () => {
+    const q = input.value.trim(); psState.q = input.value;
     if (q.length < 2) { results.innerHTML = ''; return; }
     const hits = searchCardsByName(q, 8);
     results.innerHTML = hits.length
       ? hits.map(c => `<button type="button" class="ps-result" data-ps-card="${escapeHtml(c.n)}"><span>${escapeHtml(c.n)}</span><small>${escapeHtml(String(c.t || '').split('—')[0].trim())}</small></button>`).join('')
       : `<div class="ps-note">No card found.</div>`;
     results.querySelectorAll('[data-ps-card]').forEach(b => b.addEventListener('click', () => psOpenCard(b.getAttribute('data-ps-card'))));
-  });
-  input.focus();
+  };
+  input.addEventListener('input', showResults);
+  if (psState.q) { input.value = psState.q; showResults(); } else input.focus();   // no keyboard pops up when coming back to a list
+}
+// Back from a card goes to where you were: the same tab, the same filters (kept in psState), and the same place in the list.
+async function psBackToOrigin() {
+  const o = psState.origin || { tab: 'search', top: 0 };
+  psState.rec = null; psState.origin = null;
+  try { await psSetTab(o.tab); } catch (e) { /* the tab shows its own message */ }
+  const ov = document.getElementById('pricescryOverlay'); if (ov) ov.scrollTop = o.top || 0;
 }
 async function psOpenCard(name) {
   const body = document.getElementById('psBody'); if (!body) return;
-  psSetTabHighlight('search');
+  if (!psState.rec) { const ov = document.getElementById('pricescryOverlay'); psState.origin = { tab: psState.tab || 'search', top: ov ? ov.scrollTop : 0 }; }
+  psSetTabHighlight(psState.origin ? psState.origin.tab : 'search');
   body.innerHTML = `<div class="ps-note">Loading ${escapeHtml(name)}…</div>`;
   const key = pricescryNameKey(name);
   try {
@@ -22142,7 +22152,7 @@ async function psOpenCard(name) {
     const rec = shard.cards && shard.cards[key];
     if (!rec) {
       body.innerHTML = `<button class="ghost" id="psBack">← Back</button><h2 class="ps-card-title">${escapeHtml(name)}</h2><div class="ps-note">No price data for this card yet. It may not have a paper price on Scryfall.</div>`;
-      document.getElementById('psBack').addEventListener('click', () => { psState.rec = null; psRenderSearch(); });
+      document.getElementById('psBack').addEventListener('click', psBackToOrigin);
       return;
     }
     psState.rec = rec;
@@ -22156,7 +22166,7 @@ async function psOpenCard(name) {
     body.innerHTML = e.status === 404
       ? `<button class="ghost" id="psBack">← Back</button><h2 class="ps-card-title">${escapeHtml(name)}</h2><div class="ps-note">No price data for this card yet. It may not have a paper price on Scryfall.</div>`
       : `<button class="ghost" id="psBack">← Back</button><div class="ps-note">Couldn't load ${escapeHtml(name)} (${escapeHtml(e.message)}).</div>`;
-    document.getElementById('psBack').addEventListener('click', () => { psState.rec = null; psRenderSearch(); });
+    document.getElementById('psBack').addEventListener('click', psBackToOrigin);
   }
 }
 function psSetTabHighlight(tab) { document.querySelectorAll('#pricescryOverlay [data-ps-tab]').forEach(b => b.classList.toggle('on', b.getAttribute('data-ps-tab') === tab)); }
@@ -22340,7 +22350,7 @@ function psRenderCard() {
       ${(() => { const b = psSeriesFor(printing, psState.finish, 'ckBuy'), r = psSeriesFor(printing, psState.finish, 'ck'); const bn = b ? pricescryValueAt(b, endDay) : null, rn = r ? pricescryValueAt(r, endDay) : null; return bn && rn ? `<li>Card Kingdom (US) pays about <strong>${Math.round((bn / rn) * 100)}%</strong> of its own selling price when it buys, a floor for resale value and a gauge of demand.</li>` : ''; })()}
       <li>History for this card began ${escapeHtml(ix.firstDay)}. Older history isn't available from Scryfall.</li>
     </ul>`;
-  document.getElementById('psBack').addEventListener('click', () => { psState.rec = null; psRenderSearch(); });
+  document.getElementById('psBack').addEventListener('click', psBackToOrigin);
   const planRefresh = () => { const o = document.getElementById('psPlOut'); if (o) o.innerHTML = psPlanOutputHtml(rec); };
   ['psPlChance', 'psPlMult', 'psPlMiss', 'psPlRef', 'psPlNow', 'psPlBank'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('input', planRefresh); });
   const planBox = document.getElementById('psPlan'); if (planBox) planBox.addEventListener('toggle', planRefresh);
@@ -22393,7 +22403,7 @@ async function psRenderSignals() {
   body.innerHTML = board + `<div class="ps-range">${chips}</div>` + (html || `<div class="ps-note">Nothing in the last 30 days for this filter.</div>`) +
     `<div class="ps-note" style="margin-top:10px;">Recorded every day from Scryfall: new cards and reprints, bans and unbans, Game Changers list changes, and sharp rises in EDHREC popularity. Tap one to see the card's price history.</div>`;
   body.querySelectorAll('[data-ps-sig]').forEach(b => b.addEventListener('click', () => { psState.signalType = b.getAttribute('data-ps-sig'); psRenderSignals(); }));
-  body.querySelectorAll('[data-ps-card]').forEach(b => b.addEventListener('click', () => { psState.tab = 'search'; psOpenCard(b.getAttribute('data-ps-card')); }));
+  body.querySelectorAll('[data-ps-card]').forEach(b => b.addEventListener('click', () => { psOpenCard(b.getAttribute('data-ps-card')); }));
 }
 
 
@@ -22447,7 +22457,7 @@ async function psRenderRadar() {
     <div class="ps-board-h2">Cards read from leaked pictures</div>${found || `<div class="ps-note">${escapeHtml(rg.note || 'None yet.')}</div>`}
     <div class="ps-board-h2">Chatter on Reddit</div>${posts || `<div class="ps-note">${escapeHtml(rs.note || 'Nothing to show.')}</div>`}
     <div class="ps-note">Everything here is rumour until the card is on Scryfall. Cards from leaks are written into the prediction scoreboard too, so the tool learns whether leaks are worth acting on. Information only, not financial advice.</div></div>`;
-  body.querySelectorAll('[data-ps-card]').forEach(b => b.addEventListener('click', () => { psState.tab = 'search'; psOpenCard(b.getAttribute('data-ps-card')); }));
+  body.querySelectorAll('[data-ps-card]').forEach(b => b.addEventListener('click', () => { psOpenCard(b.getAttribute('data-ps-card')); }));
 }
 
 // ---- Ledger: trade journal, paper trading and honest P&L ------------------------------------------
@@ -22787,7 +22797,7 @@ async function psRenderMovers() {
     <div class="ps-note" style="margin-top:10px;">${mv.v >= 2 ? "The middle price across shops (TCGplayer, Cardmarket, Card Kingdom, Manapool) for each card's cheapest non-foil printing. A card is listed only when at least two shops show the move, so one shop's thin-stock spike cannot appear. Cards over $2 only." : "US-market price of each card's cheapest non-foil printing, cards over $2 only. Big moves on thin trading can be noise: open a card to see its chart before acting."} Open a card to see its chart before acting.</div>`;
   body.querySelectorAll('[data-ps-mw]').forEach(b => b.addEventListener('click', () => { psState.moverWindow = b.getAttribute('data-ps-mw'); psRenderMovers(); }));
   body.querySelectorAll('[data-ps-md]').forEach(b => b.addEventListener('click', () => { psState.moverDir = b.getAttribute('data-ps-md'); psRenderMovers(); }));
-  body.querySelectorAll('[data-ps-card]').forEach(b => b.addEventListener('click', () => { psState.tab = 'search'; psOpenCard(b.getAttribute('data-ps-card')); }));
+  body.querySelectorAll('[data-ps-card]').forEach(b => b.addEventListener('click', () => { psOpenCard(b.getAttribute('data-ps-card')); }));
 }
 
 function renderProfileModal(modal, myDecks, opts) {
