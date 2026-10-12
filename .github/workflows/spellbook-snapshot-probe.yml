@@ -1,0 +1,65 @@
+name: Spellbook Snapshot Probe (run once, then send me the log of the step called Size estimate)
+
+# Measures how big an offline Commander Spellbook snapshot would be, before anything is built. It asks for the
+# public data export ONCE (two possible addresses), prints what each answered, and for the first that works it
+# estimates the compact size (card-name table plus one short list of card numbers per combo, gzipped).
+# It changes nothing and stores nothing. Honest User-Agent; if a site refuses, the log says so and we stop.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Who answers
+        continue-on-error: true
+        run: |
+          UA="PodMatesSpellbook/1.0 (+https://github.com/anf1978/PodMates)"
+          for URL in https://json.commanderspellbook.com/variants.json "https://backend.commanderspellbook.com/variants/?format=json&limit=1"; do
+            echo "=== $URL ==="
+            curl -sS -L -D - -o /dev/null -r 0-0 -H "User-Agent: $UA" "$URL" | head -15
+          done
+
+      - name: Download the export once
+        continue-on-error: true
+        run: |
+          UA="PodMatesSpellbook/1.0 (+https://github.com/anf1978/PodMates)"
+          curl -sS -L -w "\nHTTP %{http_code}, %{size_download} bytes, %{time_total}s\n" -H "User-Agent: $UA" -o variants.json https://json.commanderspellbook.com/variants.json
+          ls -l variants.json
+          head -c 600 variants.json; echo
+
+      - name: Size estimate
+        continue-on-error: true
+        run: |
+          node - <<'JS'
+          const fs = require('fs'), zlib = require('zlib');
+          if (!fs.existsSync('variants.json')) { console.log('No file to measure.'); process.exit(0); }
+          let j; try { j = JSON.parse(fs.readFileSync('variants.json', 'utf8')); } catch (e) { console.log('Not JSON:', e.message); process.exit(0); }
+          const list = Array.isArray(j) ? j : (j.variants || j.results || []);
+          console.log('top-level keys:', Array.isArray(j) ? '(array)' : Object.keys(j).join(', '));
+          console.log('variants:', list.length);
+          if (!list.length) process.exit(0);
+          console.log('first variant keys:', Object.keys(list[0]).join(', '));
+          console.log('first variant sample:', JSON.stringify(list[0]).slice(0, 700));
+          const namesOf = v => (v.uses || v.cards || []).map(u => (u.card && u.card.name) || u.name || u.cardName).filter(Boolean);
+          const legal = v => !v.legalities || v.legalities.commander !== false;
+          const names = new Map(), rows = [];
+          for (const v of list) {
+            if (!legal(v)) continue;
+            const cs = namesOf(v);
+            if (cs.length < 2 || cs.length > 6) continue;
+            rows.push(cs.map(n => { if (!names.has(n)) names.set(n, names.size); return names.get(n); }));
+          }
+          const table = Array.from(names.keys());
+          const compact = JSON.stringify({ n: table, c: rows });
+          const gz = zlib.gzipSync(Buffer.from(compact), { level: 9 });
+          console.log('commander-legal combos of 2-6 cards:', rows.length, '| unique cards:', table.length);
+          console.log('compact JSON bytes:', compact.length, '| gzipped bytes:', gz.length, '| base64 of that (what sits in index.html):', Math.ceil(gz.length * 4 / 3));
+          const ids = rows.map(r => r.join(',')).join(';');
+          console.log('plain id-list text bytes (gzipped):', zlib.gzipSync(Buffer.from(ids), { level: 9 }).length);
+          JS
