@@ -22,7 +22,7 @@ import { SHARDS, dayIndex, isoFromDayIndex, nameKey, shardOf, shardFile, marketC
 import { buildIndex, linksFor, strongestType } from './pricescry-links.mjs';
 import { readBulk } from './pricescry-backtest.mjs';
 
-const HORIZONS = [7, 14, 30], SUSTAIN = 3, TOP = 25, SETTLE_DAYS = 14, CONTROL_STEP = 4;
+const HORIZONS = [7, 14, 30, 45], SUSTAIN = 3, TOP = 25, SETTLE_DAYS = 14, CONTROL_STEP = 4;
 const BANDS = [[1, 30], [30, 60], [60, 100], [100, 150]];                       // yen on the event day
 const bandOf = (y) => BANDS.findIndex(([lo, hi]) => y >= lo && y < hi);
 const mean = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
@@ -84,7 +84,7 @@ export async function bulkJump({ bulkPath, dataDir, outDir, minLead = 30, maxYen
     for (const [key, rec] of Object.entries(sh.cards)) {
       cardsSeen++;
       const mine = candsByKey.get(key);
-      if (mine) for (const pk of mine) { const e = events[pk.ei]; for (const h of HORIZONS) { const minY = sustained(rec, e.day, h); pk.res[h] = { minY, y: yen(marketCentsAt(rec, e.day + h, eurUsd), e.day + h) }; } }
+      if (mine) for (const pk of mine) { const e = events[pk.ei]; for (const h of HORIZONS) { if (e.day + h > latest) continue; const minY = sustained(rec, e.day, h); pk.res[h] = { minY, y: yen(marketCentsAt(rec, e.day + h, eurUsd), e.day + h) }; } }
       if (cardsSeen % CONTROL_STEP) continue;                                // control sample: every fourth card
       const cache = new Map();
       for (let ei = 0; ei < events.length; ei++) {
@@ -92,7 +92,7 @@ export async function bulkJump({ bulkPath, dataDir, outDir, minLead = 30, maxYen
         let y0 = cache.get(e.day); if (y0 === undefined) { y0 = yen(marketCentsAt(rec, e.day, eurUsd), e.day); cache.set(e.day, y0); }
         if (y0 == null) continue; const bd = bandOf(y0); if (bd < 0 || y0 >= maxYen) continue;
         if (marketCentsAt(rec, e.day - SETTLE_DAYS, eurUsd) == null) continue;
-        HORIZONS.forEach((h, hi) => { const minY = sustained(rec, e.day, h); const c = ctl[ei][hi][bd]; c.n++; TARGETS.forEach((t, ti) => { if (isHit(t, y0, minY)) c.hit[ti]++; }); });
+        HORIZONS.forEach((h, hi) => { if (e.day + h > latest) return; const minY = sustained(rec, e.day, h); const c = ctl[ei][hi][bd]; c.n++; TARGETS.forEach((t, ti) => { if (isHit(t, y0, minY)) c.hit[ti]++; }); });
       }
     }
     shardCache.delete(n);
@@ -109,22 +109,28 @@ export async function bulkJump({ bulkPath, dataDir, outDir, minLead = 30, maxYen
     HORIZONS.forEach((h, hi) => {
       lines.push(`=== ${h} days after the new card ===`);
       for (const [label, f] of sections) {
-        const perEv = []; let picks = 0, hits = 0, ctlExpected = 0, basket0 = 0, basket1 = 0;
+        const perEv = [], bySet = new Map(); let picks = 0, hits = 0, ctlExpected = 0, basket0 = 0, basket1 = 0;
         events.forEach((e, ei) => {
           const ps = e.picks.filter(p => f(p) && p.res[h]); if (!ps.length) return;
           let hitsE = 0, expE = 0;
           for (const p of ps) { picks++; const cell = ctl[ei][hi][p.band], rate = cell.n ? cell.hit[ti] / cell.n : 0; expE += rate; ctlExpected += rate; if (isHit(t, p.y0, p.res[h].minY)) { hitsE++; hits++; } if (ti === 0) { basket0 += p.y0; basket1 += (p.res[h].y == null ? p.y0 : p.res[h].y); } }
-          perEv.push((hitsE - expE) / ps.length);
+          const sk = e.set || e.name; (bySet.get(sk) || bySet.set(sk, []).get(sk)).push((hitsE - expE) / ps.length); perEv.push((hitsE - expE) / ps.length);
         });
         if (!picks) { lines.push(`${label.padEnd(15)} no picks`); continue; }
-        const [lo, hi2] = boot(perEv);
-        const row = { target: t.label, horizon: h, group: label, picks, hits, expectedByChance: ctlExpected, hitRate: hits / picks, controlRate: ctlExpected / picks, events: perEv.length, edge: mean(perEv), edgeLow: lo, edgeHigh: hi2, basketReturn: ti === 0 ? basket1 / basket0 - 1 : null };
+        const setMeans = [...bySet.values()].map(a => mean(a)), [lo, hi2] = boot(setMeans);
+        const row = { target: t.label, horizon: h, group: label, picks, hits, expectedByChance: ctlExpected, hitRate: hits / picks, controlRate: ctlExpected / picks, events: perEv.length, sets: bySet.size, edge: mean(setMeans), edgeLow: lo, edgeHigh: hi2, basketReturn: ti === 0 ? basket1 / basket0 - 1 : null };
         out.rows.push(row);
-        lines.push(`${label.padEnd(15)} picks ${String(picks).padStart(5)}  hits ${String(hits).padStart(4)} (${pc(row.hitRate)}); ordinary cheap cards would give about ${ctlExpected.toFixed(1)} (${pc(row.controlRate)})   edge per new card ${pc(row.edge)} [${pc(lo)} to ${pc(hi2)}]` + (ti === 0 ? `   basket of one of each pick: ${(100 * row.basketReturn).toFixed(1)}% in value` : ''));
+        lines.push(`${label.padEnd(15)} picks ${String(picks).padStart(5)}  hits ${String(hits).padStart(4)} (${pc(row.hitRate)}); ordinary cheap cards would give about ${ctlExpected.toFixed(1)} (${pc(row.controlRate)})   edge per SET ${pc(row.edge)} [${pc(lo)} to ${pc(hi2)}] (${bySet.size} sets)` + (ti === 0 ? `   basket of one of each pick: ${(100 * row.basketReturn).toFixed(1)}% in value` : ''));
       }
       lines.push('');
     });
   });
+  // which releases produced the hits (new cards from one set share one release day, so a set is really ONE event, not dozens)
+  lines.push('################ BY SET: picks and hits at 30 days, loosest target (100 yen and 2x), all picks ################');
+  const hi30 = HORIZONS.indexOf(30), t3 = TARGETS.length - 1, setRows = new Map();
+  events.forEach((e, ei) => { const sk = e.set || e.name; const r = setRows.get(sk) || setRows.set(sk, { set: sk, days: new Set(), cards: 0, picks: 0, hits: 0, exp: 0 }).get(sk); r.days.add(isoFromDayIndex(e.day)); r.cards++; for (const p of e.picks) { if (!p.res[30]) continue; r.picks++; const cell = ctl[ei][hi30][p.band]; r.exp += cell.n ? cell.hit[t3] / cell.n : 0; if (isHit(TARGETS[t3], p.y0, p.res[30].minY)) r.hits++; } });
+  for (const r of [...setRows.values()].sort((a, b) => b.hits - a.hits || b.picks - a.picks).slice(0, 25)) lines.push(`  ${String(r.set).padEnd(6)} new cards ${String(r.cards).padStart(3)}  picks ${String(r.picks).padStart(5)}  hits ${String(r.hits).padStart(3)}  (chance would give about ${r.exp.toFixed(1)})  release day(s) ${[...r.days].slice(0, 3).join(', ')}`);
+  lines.push('');
   // every pick that met any target, with the first horizon it did
   const seen = new Map();
   for (const e of events) for (const p of e.picks) for (const h of HORIZONS) {
@@ -135,7 +141,8 @@ export async function bulkJump({ bulkPath, dataDir, outDir, minLead = 30, maxYen
   }
   const uniq = [...seen.values()].sort((a, b) => b.yenThen / b.fromYen - a.yenThen / a.fromYen);
   out.hits = uniq;
-  lines.push(`Every pick that met at least one target (first horizon it did so): ${uniq.length}`);
+  const distinctCards = new Set(uniq.map(x => x.pick));
+  lines.push(`Every pick that met at least one target (first horizon it did so): ${uniq.length} pick-and-new-card pairs, but only ${distinctCards.size} DIFFERENT old cards: ${[...distinctCards].join(', ')}`);
   for (const x of uniq.slice(0, 50)) lines.push(`  ${x.pick}  ${x.fromYen} yen -> ${x.yenThen} yen within ${x.horizonDays} days   (linked to ${x.newCard}, ${x.set}, rank ${x.rank}, ${x.link} link, ${x.eventDay}; met: ${x.targetsMet})`);
   lines.push('', 'Reading this: a "hit" means the shop-consensus price stayed at or above the target for three days. A paper price is not a sale; thin cards can show a price nobody pays.',
     'If ordinary cheap cards would give fewer than about 5 hits in a row, the test has too little to measure with: read it as "rare", not as "no edge".');
