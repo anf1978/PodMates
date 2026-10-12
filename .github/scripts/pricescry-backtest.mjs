@@ -24,7 +24,7 @@ import { evaluate } from './pricescry-shadow.mjs';
 const SKIP_LAYOUTS = new Set(['token', 'double_faced_token', 'emblem', 'art_series']);
 const MIN_CENTS = 200, TOP = 25;
 
-async function readBulk(bulkPath) {                                     // one entry per card name: tuple, earliest release, preview day
+export async function readBulk(bulkPath) {                                     // one entry per card name: tuple, earliest release, preview day
   const head = readFileSync(bulkPath).subarray(0, 2);
   const input = head[0] === 0x1f && head[1] === 0x8b ? createReadStream(bulkPath).pipe(createGunzip()) : createReadStream(bulkPath);
   const byName = new Map();
