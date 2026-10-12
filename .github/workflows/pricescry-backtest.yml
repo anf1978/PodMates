@@ -1,0 +1,63 @@
+name: PriceScry Backtest (run on demand)
+
+# Replays the link engine over the price history already saved on the pricescry-data branch and reports whether its picks would have
+# risen more than ordinary cards of the same price. It changes nothing: it only reads the data branch and uploads a report you can download
+# from the run page (under "Artifacts"). Safe to run any time; the summary is also printed in the log, in the step "Run the backtest".
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      NODE_OPTIONS: --max-old-space-size=5120
+    steps:
+      - name: Check out the scripts
+        uses: actions/checkout@v4
+
+      - name: Load the price history
+        run: |
+          mkdir -p pricescry-data
+          git fetch origin pricescry-data --depth=1
+          git archive FETCH_HEAD | tar -x -C pricescry-data
+          echo "Loaded: $(ls pricescry-data/cards 2>/dev/null | wc -l) card files"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Download Scryfall default_cards (every printing, with prices)
+        run: |
+          UA="PodMatesPriceScry/1.0 (+https://github.com/anf1978/PodMates)"
+          curl -sS -L -H "User-Agent: $UA" -H "Accept: application/json" -o bulk-list.json -w "Scryfall bulk list: HTTP %{http_code}\n" https://api.scryfall.com/bulk-data
+          URI=$(node -e "
+            const j = JSON.parse(require('fs').readFileSync('bulk-list.json','utf8'));
+            const list = Array.isArray(j.data) ? j.data : (j.download_uri ? [j] : []);
+            const pick = x => x && (x.jsonl_download_uri || x.download_uri);
+            const hit = list.find(x => x && x.type === 'default_cards' && pick(x)) || list.find(x => pick(x) && /default[-_]cards/i.test(pick(x)));
+            console.log(hit ? pick(hit) : '');
+          ")
+          if [ -z "$URI" ]; then
+            echo "Could not find the default_cards download address. What Scryfall returned (first 1500 characters):"
+            head -c 1500 bulk-list.json; echo
+            exit 1
+          fi
+          echo "Downloading $URI"
+          curl -sS --fail -L --compressed -H "User-Agent: $UA" -H "Accept: */*" -o default-cards.jsonl.gz "$URI"
+          ls -l default-cards.jsonl.gz
+
+      - name: Run the backtest
+        run: node .github/scripts/pricescry-backtest.mjs default-cards.jsonl.gz pricescry-data backtest-out
+
+      - name: Keep the report
+        uses: actions/upload-artifact@v4
+        with:
+          name: pricescry-backtest
+          path: |
+            backtest-out/backtest-report.json
+            backtest-out/backtest-summary.txt
