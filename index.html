@@ -2558,10 +2558,10 @@ const CENTRALITY_WEIGHTS = { plan: 0.25, engine: 0.25, alignment: 0.20, ability:
 // How much each kind of support counts toward "invested in the commander".
 const CENTRALITY_SUPPORT_WEIGHTS = { protection: 1.0, recursion: 0.8, tutor: 0.5, costReducer: 0.6, gear: 0.4, direct: 1.5 };
 const CENTRALITY_SUPPORT_LABELS = { protection: 'Protection', recursion: 'Recursion', tutor: 'Tutors', costReducer: 'Cost reducers', gear: 'Equipment & Auras', direct: 'Names your commander' };
-// Typical number of each kind of card in the PodMates benchmark decks (median).
+// Typical number of each kind of card in the original 159 PodMates precon and curated decks (median; not the wider reference set).
 const CENTRALITY_SUPPORT_BASELINE = { protection: 3, recursion: 1, tutor: 0, costReducer: 0, gear: 2, direct: 0 };
-// Typical support-card counts for each archetype: the median across all 159
-// PodMates benchmark decks, grouped by archetype (n = how many decks that is).
+// Typical support-card counts for each archetype: the median across the original 159
+// PodMates precon and curated decks, grouped by archetype (n = how many decks that is).
 // Archetypes with few decks are blended toward the all-deck figure above,
 // because a median of 3 or 4 decks is too easily thrown by one odd list.
 const CENTRALITY_SUPPORT_BASELINE_BY_ARCHETYPE = {"Voltron": {"n": 20, "protection": 4, "recursion": 0, "tutor": 0, "costReducer": 0, "gear": 3, "direct": 0}, "Aristocrats": {"n": 13, "protection": 2, "recursion": 1, "tutor": 0, "costReducer": 0, "gear": 3, "direct": 0}, "Tokens & Go-Wide": {"n": 10, "protection": 2, "recursion": 0, "tutor": 0, "costReducer": 0, "gear": 1.5, "direct": 0}, "Stax & Control": {"n": 5, "protection": 3, "recursion": 0, "tutor": 0, "costReducer": 0, "gear": 4, "direct": 0}, "Spellslinger": {"n": 14, "protection": 0.5, "recursion": 0.5, "tutor": 0, "costReducer": 0.5, "gear": 1.5, "direct": 0}, "Ramp & Big Creatures": {"n": 13, "protection": 3, "recursion": 0, "tutor": 0, "costReducer": 0, "gear": 2, "direct": 0}, "Reanimator & Graveyard": {"n": 12, "protection": 2, "recursion": 4, "tutor": 0, "costReducer": 0, "gear": 2, "direct": 0}, "Goodstuff & Multicolor Value": {"n": 9, "protection": 3, "recursion": 0, "tutor": 0, "costReducer": 0, "gear": 2, "direct": 0}, "Group Hug & Politics": {"n": 5, "protection": 6, "recursion": 2, "tutor": 0, "costReducer": 0, "gear": 5, "direct": 0}, "Blink & ETB Value": {"n": 4, "protection": 3.5, "recursion": 1.5, "tutor": 0, "costReducer": 0, "gear": 1, "direct": 0}, "Artifacts Matter": {"n": 11, "protection": 4, "recursion": 0, "tutor": 0, "costReducer": 0, "gear": 2, "direct": 0}, "Tribal & Typal": {"n": 29, "protection": 2, "recursion": 0, "tutor": 0, "costReducer": 0, "gear": 2, "direct": 0}, "Enchantments Matter": {"n": 5, "protection": 4, "recursion": 1, "tutor": 0, "costReducer": 0, "gear": 16, "direct": 0}, "Land Matters & Landfall": {"n": 6, "protection": 1.5, "recursion": 0, "tutor": 0, "costReducer": 0, "gear": 0, "direct": 0}, "Mill & Self-Mill": {"n": 3, "protection": 2, "recursion": 4, "tutor": 0, "costReducer": 0, "gear": 5, "direct": 0}};
@@ -2645,7 +2645,7 @@ const CENTRALITY_MECHANICS = {
   'copying': /\bcopy\b|\bcopies\b/i,
   'lands': /landfall|\bland enters\b|additional land|search your library for [^.]*\bland\b/i,
 };
-// How much of a typical benchmark deck matches each term (median share of its
+// How much of a typical precon baseline deck matches each term (median share of its
 // nonland cards). A term only counts when THIS deck leans into it noticeably
 // harder than that, so "has some artifacts" does not read as "built around
 // an artifact commander". Creature-type terms default to 0.10.
@@ -2819,6 +2819,12 @@ function computeCommanderCentrality(agg, matchedCards, commanderNames, winCons, 
 // ===== END COMMANDER CENTRALITY =====
 
 function analyzeDeck(matchedCards, commanders = []) {
+  // Banned cards can't be played in Commander, so they are listed (and
+  // flagged in the Bracket panel) but left out of every score, count, combo
+  // and curve below. A deck full of banned fast mana used to score as if it
+  // could cast it.
+  const bannedEntries = matchedCards.filter(m => m.card && m.card.b);
+  matchedCards = matchedCards.filter(m => !(m.card && m.card.b));
   const agg = {
     totalCards: 0, landCount: 0, nonlandCount: 0, cmcSum: 0,
     ramp: 0, fastMana: 0, fastManaExtended: 0, draw: 0, removal: 0, wipe: 0, protection: 0,
@@ -2878,8 +2884,20 @@ function analyzeDeck(matchedCards, commanders = []) {
     colorlessNonlandCount: 0,
   };
 
+  agg.bannedCards = bannedEntries.map(m => m.card.n);
+  agg.bannedCount = bannedEntries.reduce((a, m) => a + (m.qty || 1), 0);
   const namesInDeck = new Set(matchedCards.map(m => m.card.n));
+  agg.deckCardNames = Array.from(namesInDeck);
   const nameToCard = new Map(matchedCards.map(m => [m.card.n, m.card]));
+  // The commander is not part of the 99-card library: it is available every
+  // game (no drawing needed). Its names are collected so the library-based
+  // ratios and the mana curve can treat it separately.
+  const commanderCardNames = new Set();
+  for (const name of (commanders || [])) {
+    const cc = nameToCard.get(name) || resolveCommanderName(name, matchedCards);
+    if (cc) commanderCardNames.add(cc.n);
+  }
+  let cmdrNonland = 0, cmdrCmcSum = 0, cmdrEarly = 0, cmdrEngine = 0;
   // The colors this deck can actually cast: the commander's color identity
   // when a commander is known, otherwise the colors found on its nonland cards.
   const deckColorIdentity = (() => {
@@ -2902,6 +2920,7 @@ function analyzeDeck(matchedCards, commanders = []) {
 
   for (const { qty, card } of matchedCards) {
     const c = classifyCard(card);
+    const isCmdr = commanderCardNames.has(card.n);
     agg.totalCards += qty;
 
     if (c.isLand) {
@@ -2912,6 +2931,7 @@ function analyzeDeck(matchedCards, commanders = []) {
       const bucket = c.cmc >= 7 ? '7+' : String(Math.floor(c.cmc));
       if (agg.manaCurve[bucket] !== undefined) agg.manaCurve[bucket] += qty;
       if (c.cmc <= 2) agg.earlySpells += qty;
+      if (isCmdr) { cmdrNonland += qty; cmdrCmcSum += c.cmc * qty; if (c.cmc <= 2) cmdrEarly += qty; }
 
       // Voltron signal: Auras and Equipment specifically (not just any
       // permanent), tracked by type line since neither has a dedicated
@@ -2968,7 +2988,7 @@ function analyzeDeck(matchedCards, commanders = []) {
     if (!c.isLand && (c.ramp || c.fastMana || c.manaDork || c.manaRock)) {
       const output = c.manaMultiplier ? 0 : ((c.fastMana || c.fastManaExtended || c.landEngine) ? 2 : 1);
       for (let i = 0; i < qty; i++) {
-        agg.manaCurveContributors.push({ cmc: card.m || 0, output, isMultiplier: !!c.manaMultiplier });
+        agg.manaCurveContributors.push({ cmc: card.m || 0, output, isMultiplier: !!c.manaMultiplier, isCommander: isCmdr });
       }
     }
     if (c.fastMana) { agg.fastMana += qty; agg.fastManaCards.push(card.n); }
@@ -3005,7 +3025,6 @@ function analyzeDeck(matchedCards, commanders = []) {
     if (c.burnFace) agg.burnFaceCount += qty;
     if (c.infect) agg.infectCount += qty;
     if (c.gameChanger) agg.gameChangers.push(card.n);
-    if (c.banned) agg.bannedCards.push(card.n);
 
     if (c.aristocrats) agg.themes.aristocrats += qty;
     if (c.sacOutlet) { agg.sacOutlets += qty; agg.sacOutletsWeighted += qty * castabilityWeight(card.m || 0); }
@@ -3022,7 +3041,7 @@ function analyzeDeck(matchedCards, commanders = []) {
     if (c.impulseDraw) agg.themes.impulseDraw += qty;
     if (c.exileMatters) agg.themes.exileMatters += qty;
     if (c.blink) agg.themes.blink += qty;
-    if (c.engine) agg.engines += qty;
+    if (c.engine) { agg.engines += qty; if (isCmdr) cmdrEngine += qty; }
     if (c.freeInteraction) { agg.freeInteraction += qty; agg.freeInteractionCards.push(card.n); }
     if (c.cheapInteraction) agg.cheapInteraction += qty;
     if (c.expensiveInteraction) agg.expensiveInteraction += qty;
@@ -3086,8 +3105,13 @@ function analyzeDeck(matchedCards, commanders = []) {
 
   agg.avgCmc = agg.nonlandCount > 0 ? agg.cmcSum / agg.nonlandCount : 0;
   const nl = Math.max(agg.nonlandCount, 1);
-  agg.earlyDensity = agg.earlySpells / nl;
-  agg.engineRatio = agg.engines / nl;
+  // Scoring ratios are measured on the library (the commander is always
+  // available, so it is not "a card in the deck" for density purposes). The
+  // raw counts and the displayed Avg. CMC still include every card.
+  const libNonland = Math.max(agg.nonlandCount - cmdrNonland, 1);
+  agg.avgCmcLibrary = agg.nonlandCount - cmdrNonland > 0 ? (agg.cmcSum - cmdrCmcSum) / libNonland : agg.avgCmc;
+  agg.earlyDensity = (agg.earlySpells - cmdrEarly) / libNonland;
+  agg.engineRatio = (agg.engines - cmdrEngine) / libNonland;
   agg.themeScores = Object.entries(agg.themes)
     .map(([k, v]) => ({ theme: k, count: v, density: v / nl }))
     .filter(t => t.count > 0)
@@ -3133,11 +3157,18 @@ function analyzeDeck(matchedCards, commanders = []) {
         const card = matchedName ? nameToCard.get(matchedName) : null;
         return sum + (card ? (card.m || 0) : 0);
       }, 0);
+      // Each piece's own mana value (whichever alternative is in THIS deck),
+      // so the Bracket check can ask whether the pieces could be cast in time.
+      const pieceCosts = combo.s.map(slot => {
+        const matchedName = slot.find(name => namesInDeck.has(name));
+        const pieceCard = matchedName ? nameToCard.get(matchedName) : null;
+        return pieceCard ? (pieceCard.m || 0) : 0;
+      });
       agg.detectedComboDetails.push({
         cards: combo.s.map(slot => slot.join(' / ')),
         outcome: combo.o || null,
         infinite: combo.t === 'infinite_combo',
-        commanderPiece, redundancy, reliability, totalCastCost,
+        commanderPiece, redundancy, reliability, totalCastCost, pieceCosts,
         pieceCount: combo.s.length,
       });
     }
@@ -3386,7 +3417,8 @@ function computeManaCurve(agg) {
     let multiplierBoost = 0;
     for (const piece of contributors) {
       if (piece.cmc > turn) continue; // can't have been cast yet regardless of being drawn
-      const pDrawn = Math.min(1, cardsSeen / librarySize); // probability this specific copy has been seen by now
+      // The commander needs no drawing: it is available from the turn it can be cast.
+      const pDrawn = piece.isCommander ? 1 : Math.min(1, cardsSeen / librarySize); // probability this specific copy has been seen by now
       if (piece.isMultiplier) {
         multiplierBoost += pDrawn * 0.5; // each multiplier scales existing production, not additive
       } else {
@@ -3473,7 +3505,7 @@ function scoreSpeed(agg, hasSpecificWinCon) {
   const curveBonusPts = Math.min(Math.max(manaAtTurn4 - 5.0, 0) * 0.3, 1.0);
 
   const earlyPts = Math.min((agg.earlyDensity || 0) * 2.0, 1.2); // soft bonus only
-  const curvePen = Math.min(Math.max(agg.avgCmc - 2.8, 0) * 0.45, 1.5);
+  const curvePen = Math.min(Math.max((agg.avgCmcLibrary != null ? agg.avgCmcLibrary : agg.avgCmc) - 2.8, 0) * 0.45, 1.5);
   const raw = 1.4 + rampPts + fastPts + triggerSynergyPts + costReducerPts + curveBonusPts + earlyPts + Math.min((agg.reanimateWeighted || agg.reanimate) * 0.25, 0.8) - curvePen;
   return clamp(Math.round(raw * 10) / 10);
 }
@@ -3563,7 +3595,52 @@ function scoreDisruption(agg) {
   return clamp(Math.round(raw * 10) / 10);
 }
 
-function scorePowerLevel(agg) {
+// Default "impact cards": cards that are near-universal in competitive (cEDH)
+// lists yet almost never appear in precons or tuned Bracket 4 decks. They are
+// found by frequency across the reference decks (>= 7 of 20 cEDH lists, at
+// most 2 of 30 tuned lists and at most 1 precon) and are NOT Game Changers, so
+// they add signal the Game Changer count cannot see. Pods can propose their own
+// list; that only ever feeds the separate "Pod view" Power figure, never the
+// standard radar, Spark or bands.
+const DEFAULT_IMPACT_CARDS = [
+  "Gemstone Caverns",
+  "Mox Amber",
+  "Mox Opal",
+  "Lotus Petal",
+  "Pact of Negation",
+  "Mental Misstep",
+  "Simian Spirit Guide",
+  "Elvish Spirit Guide",
+  "Flusterstorm",
+  "Ragavan, Nimble Pilferer",
+  "Mindbreak Trap",
+  "Rite of Flame",
+  "Cabal Ritual",
+  "Borne Upon a Wind",
+  "Red Elemental Blast",
+  "Pyroblast",
+  "Chain of Vapor",
+  "Misdirection",
+  "Redirect Lightning",
+  "Silence",
+  "Tainted Pact",
+  "Demonic Consultation",
+  "Final Fortune",
+  "Brain Freeze",
+  "Beseech the Mirror",
+  "Wishclaw Talisman",
+  "Vexing Bauble",
+  "Wheel of Fortune"
+];
+const IMPACT_PTS_PER_CARD = 0.25;
+const IMPACT_PTS_CAP = 2.0;
+/** Names from impactList that are in the (non-banned) deck. */
+function impactCardsInDeck(agg, impactList) {
+  const have = new Set((agg.deckCardNames || []).map(n => String(n).toLowerCase()));
+  return (impactList || DEFAULT_IMPACT_CARDS).filter(n => have.has(String(n).toLowerCase()));
+}
+
+function scorePowerLevel(agg, impactList) {
   // Recalibrated so Game Changers alone can't saturate the axis: it now takes
   // ~16 GCs to hit the per-term cap, not ~5, giving real separation between a
   // deck that just cleared the Bracket 4 floor and one that's maximally tuned.
@@ -3609,7 +3686,8 @@ function scorePowerLevel(agg) {
   // Baselined at 0.35 so an ordinary deck's normal share of "whenever"/
   // "{T}:" cards doesn't earn credit -- only genuine density above that.
   const enginePts = Math.min(Math.max((agg.engineRatio || 0) - 0.35, 0) * 6.0, 1.5);
-  const raw = 1.0 + gcPts + freePts + comboPts + fastPts + tutorPts + landBuffPts + extraTurnPts + explosiveManaPts + enginePts;
+  const impactPts = Math.min(impactCardsInDeck(agg, impactList).length * IMPACT_PTS_PER_CARD, IMPACT_PTS_CAP);
+  const raw = 1.0 + gcPts + freePts + comboPts + fastPts + tutorPts + landBuffPts + extraTurnPts + explosiveManaPts + enginePts + impactPts;
   return clamp(Math.round(raw * 10) / 10);
 }
 
@@ -3656,9 +3734,10 @@ function detectSpiritBand(agg, commandSpark) {
   // assemble one is genuinely sharper than one that can't -- this is
   // exactly the kind of "sharp even when official signals stay in B1-2"
   // case the Tuned/Focused bands exist to catch.
-  const multiPieceCombos = (agg.detectedComboDetails || []).filter(c => c.pieceCount >= 3);
+  const spiritCurve = computeManaCurve(agg);
+  const multiPieceCombos = (agg.detectedComboDetails || []).filter(c => c.pieceCount >= 3 || (c.pieceCount === 2 && !comboIsEarly(c, spiritCurve)));
   if (multiPieceCombos.length >= 1) {
-    firedSignals.push(`${multiPieceCombos.length} multi-piece combo line${multiPieceCombos.length > 1 ? 's' : ''} (3+ cards)`);
+    firedSignals.push(`${multiPieceCombos.length} slower combo line${multiPieceCombos.length > 1 ? 's' : ''} (3+ cards, or two cards that come online after turn ${EARLY_COMBO_BY_TURN})`);
   }
   const tunedSignals = firedSignals.length;
 
@@ -3754,18 +3833,13 @@ const TIER_EXPECTED_SPARK = { S: [5.5, 10], A: [4.5, 9.5], B: [2.5, 7.5], C: [1.
 // So this applies the archetype signal as a bounded NUDGE on the existing
 // tier band's center, rather than replacing it: ARCHETYPE_SPARK_OFFSET is
 // each archetype's mean Command Spark minus the corpus-wide mean (computed
-// once, offline, across all 159 decks), and getExpectedSparkBand() shifts
+// once, offline, across the original 159 precon and curated decks, regenerated Oct 2026 with the default impact cards), and getExpectedSparkBand() shifts
 // both ends of the tier band by that offset, damped by SPARK_OFFSET_DAMPING
 // to stay conservative about extrapolating a precon-weighted corpus onto
 // the broader ecosystem the tier band represents. The band's WIDTH never
 // changes -- only its center -- which keeps this additive rather than
 // something that could make the band untrustworthily narrow.
-const ARCHETYPE_SPARK_OFFSET = {
-  "Voltron": -0.04, "Aristocrats": 0.11, "Tokens & Go-Wide": 0.16, "Stax & Control": 0.7,
-  "Spellslinger": 0.39, "Ramp & Big Creatures": 0.16, "Reanimator & Graveyard": -0.16, "Goodstuff & Multicolor Value": 0.08,
-  "Group Hug & Politics": 0.12, "Blink & ETB Value": -0.26, "Artifacts Matter": -0.18, "Tribal & Typal": -0.22,
-  "Enchantments Matter": -0.3, "Land Matters & Landfall": -0.11, "Mill & Self-Mill": -0.36,
-};
+const ARCHETYPE_SPARK_OFFSET = {"Voltron": -0.03, "Aristocrats": 0.12, "Tokens & Go-Wide": 0.17, "Stax & Control": 0.7, "Spellslinger": 0.39, "Ramp & Big Creatures": 0.15, "Reanimator & Graveyard": -0.16, "Goodstuff & Multicolor Value": 0.09, "Group Hug & Politics": 0.12, "Blink & ETB Value": -0.26, "Artifacts Matter": -0.2, "Tribal & Typal": -0.22, "Enchantments Matter": -0.32, "Land Matters & Landfall": -0.11, "Mill & Self-Mill": -0.36};
 const SPARK_OFFSET_DAMPING = 0.75;
 
 function getExpectedSparkBand(tier, archetypeMatch) {
@@ -3832,51 +3906,102 @@ function detectCommanderSparkDiscrepancy(tierRecords, commandSpark, archetypeMat
   return null;
 }
 
+// ---- Bracket rules that depend on timing and quantity (Oct 2026) ----
+// Wizards' Bracket 3 allows a two-card combo only if it can't be assembled and
+// won before turn six; Bracket 4 has no such limit. So a two-card combo only forces
+// Bracket 4 when THIS deck could realistically have it online by turn five.
+// "Online" is judged with the deck's own mana model (computeManaCurve): either both
+// pieces fit in one turn's mana, or they are cast on consecutive turns, cheapest
+// first, each paid from that turn's mana. It looks only at mana, not at drawing the
+// pieces, so it errs on the side of "could happen" -- a cheap combo in a deck with no
+// tutors still counts as early, because that is the fast hand Bracket 4 is about.
+const EARLY_COMBO_BY_TURN = 5;
+// Extra turns: Brackets 2 and 3 allow a few that are not chained or looped. Wizards gives
+// no exact number, so these two cut-offs are THIS APP'S JUDGMENT, not an official figure:
+// from 3 extra-turn cards the deck is past "a few" (at least Bracket 3); from 5 it can
+// realistically chain them (Bracket 4).
+const EXTRA_TURN_B3_AT = 3;
+const EXTRA_TURN_B4_AT = 5;
+
+function earliestComboTurn(detail, manaCurve) {
+  const manaAt = (t) => (manaCurve[t] && manaCurve[t].mana) || 0;
+  const total = detail.totalCastCost || 0;
+  let costs = (detail.pieceCosts && detail.pieceCosts.length) ? detail.pieceCosts.slice() : null;
+  if (!costs) { const n = Math.max(detail.pieceCount || 2, 1); costs = Array(n).fill(total / n); }
+  costs.sort((x, y) => x - y);
+  const n = costs.length;
+  for (let T = 1; T <= 10; T++) {
+    if (manaAt(T) >= total) return T;                       // everything fits in one turn
+    let ok = true;                                            // or one piece per turn, ending on turn T
+    for (let k = 0; k < n; k++) {
+      const t = T - (n - 1 - k);
+      if (t < 1 || manaAt(t) < costs[k]) { ok = false; break; }
+    }
+    if (ok) return T;
+  }
+  return null;                                                // not within ten turns
+}
+function comboIsEarly(detail, manaCurve) {
+  const t = earliestComboTurn(detail, manaCurve);
+  return t !== null && t <= EARLY_COMBO_BY_TURN;
+}
+
 function detectBracket(agg, commandSpark) {
   const gcCount = agg.gameChangers.length;
   const hasMld = agg.mld > 0;
-  // Only a TRUE two-card combo drives the automatic Bracket 4 bump, matching
-  // both official WotC bracket guidance (Bracket 4 explicitly calls out
-  // "two-card" combos as its signature) and simple reachability -- a combo
-  // needing 3+ specific cards together is meaningfully harder to assemble
-  // and disrupt than one needing just two, and shouldn't be scored as if it
-  // were the same threat. Multi-piece combos are real and still surfaced
-  // (see multiPieceCombos below and the Spirit Band signal in
-  // detectSpiritBand), just not as an automatic B4 trigger on their own.
+  // Only a TRUE two-card combo can drive the automatic Bracket 4 bump, and only an EARLY one
+  // (see EARLY_COMBO_BY_TURN above): official Bracket 3 explicitly allows a two-card combo that
+  // can't be assembled and won before turn six. A multi-piece combo (3+ cards) is meaningfully
+  // harder to assemble and disrupt, so it is not an automatic Bracket 4 on its own either.
+  // Both kinds are still surfaced (see detectSpiritBand).
   const comboDetails = agg.detectedComboDetails || [];
-  const twoCardCombos = comboDetails.filter(c => c.pieceCount === 2);
-  const multiPieceCombos = comboDetails.filter(c => c.pieceCount >= 3);
-  const twoCardComboNames = agg.detectedCombos.filter((_, i) => comboDetails[i] && comboDetails[i].pieceCount === 2);
-  const multiPieceComboNames = agg.detectedCombos.filter((_, i) => comboDetails[i] && comboDetails[i].pieceCount >= 3);
-  const hasFastCombo = twoCardCombos.length > 0;
+  const manaCurve = computeManaCurve(agg);
+  const earlyTwoCard = [], lateTwoCard = [], multiPieceComboNames = [];
+  comboDetails.forEach((c, i) => {
+    const name = agg.detectedCombos[i];
+    if (c.pieceCount === 2) {
+      const turn = earliestComboTurn(c, manaCurve);
+      (turn !== null && turn <= EARLY_COMBO_BY_TURN ? earlyTwoCard : lateTwoCard).push({ name, turn });
+    } else if (c.pieceCount >= 3) multiPieceComboNames.push(name);
+  });
+  const hasFastCombo = earlyTwoCard.length > 0;
+  const extraTurns = agg.extraTurn || 0;
+  const extraTurnChain = extraTurns >= EXTRA_TURN_B4_AT;
+  const extraTurnPackage = extraTurns >= EXTRA_TURN_B3_AT;
   const spirit = detectSpiritBand(agg, commandSpark);
+  const turnWord = (t) => (t === null ? 'much later than turn ten' : `about turn ${t}`);
 
-  if (hasMld || hasFastCombo || gcCount >= 4) {
+  if (hasMld || hasFastCombo || gcCount >= 4 || extraTurnChain) {
     return {
       bracket: '4 (Optimized)',
       bracketKey: '4',
       spirit,
       reasoning: [
         hasMld ? `Contains mass land denial (${agg.mld} card(s)).` : null,
-        hasFastCombo ? `Contains a known two-card combo line: ${twoCardComboNames.join('; ')}.` : null,
+        hasFastCombo ? `Contains a known two-card combo that could be online by turn ${EARLY_COMBO_BY_TURN} (${earlyTwoCard.map(x => `${x.name}, ${turnWord(x.turn)}`).join('; ')}).` : null,
         gcCount >= 4 ? `Contains ${gcCount} Game Changers (over the Bracket 3 limit of 3).` : null,
+        extraTurnChain ? `Contains ${extraTurns} extra-turn cards, enough to chain them (Bracket 2 and 3 allow only a few, never chained).` : null,
+        lateTwoCard.length ? `Also contains ${lateTwoCard.length} two-card combo line(s) too slow to count on their own (${lateTwoCard.map(x => x.name).join('; ')}).` : null,
         multiPieceComboNames.length ? `Also contains ${multiPieceComboNames.length} multi-piece combo line(s) (3+ cards): ${multiPieceComboNames.join('; ')}.` : null,
       ].filter(Boolean),
       note: 'Bracket 5 (cEDH) cannot be auto-detected from a decklist alone — it depends on the local competitive meta, not just card choices. If this deck is built for cEDH play, self-identify it as such.',
     };
   }
 
-  if (gcCount >= 1) {
+  if (gcCount >= 1 || lateTwoCard.length || extraTurnPackage) {
     return {
       bracket: '3 (Upgraded)',
       bracketKey: '3',
       spirit,
       reasoning: [
-        `Contains ${gcCount} Game Changer(s): ${agg.gameChangers.join(', ')}.`,
+        gcCount >= 1 ? `Contains ${gcCount} Game Changer(s): ${agg.gameChangers.join(', ')}.` : null,
+        lateTwoCard.length ? `Contains ${lateTwoCard.length} two-card combo line(s) that would not be online before turn six in this deck (${lateTwoCard.map(x => `${x.name}, ${turnWord(x.turn)}`).join('; ')}). Bracket 3 allows these; a faster version would be Bracket 4.` : null,
+        extraTurnPackage ? `Contains ${extraTurns} extra-turn cards: more than the few Bracket 2 allows, but not enough to chain.` : null,
         multiPieceComboNames.length
-          ? `Contains ${multiPieceComboNames.length} multi-piece combo line(s) requiring 3+ specific cards together (${multiPieceComboNames.join('; ')}) -- doesn't meet the two-card threshold for an automatic Bracket 4, but see Spirit Band above.`
-          : 'No mass land denial or known fast combos detected.',
-      ],
+          ? `Contains ${multiPieceComboNames.length} multi-piece combo line(s) requiring 3+ specific cards together (${multiPieceComboNames.join('; ')}) -- not an automatic Bracket 4, but see Spirit Band above.`
+          : null,
+        (!lateTwoCard.length && !extraTurnPackage && !multiPieceComboNames.length) ? 'No mass land denial, early two-card combos or extra-turn chains detected.' : null,
+      ].filter(Boolean),
       note: null,
     };
   }
@@ -3887,8 +4012,8 @@ function detectBracket(agg, commandSpark) {
     spirit,
     reasoning: [
       multiPieceComboNames.length
-        ? `No Game Changers or mass land denial detected. Contains ${multiPieceComboNames.length} multi-piece combo line(s) requiring 3+ specific cards together (${multiPieceComboNames.join('; ')}), which doesn't meet the two-card threshold for an automatic Bracket 4 -- see Spirit Band above.`
-        : 'No Game Changers, mass land denial, or known combo lines detected.',
+        ? `No Game Changers or mass land denial detected. Contains ${multiPieceComboNames.length} multi-piece combo line(s) requiring 3+ specific cards together (${multiPieceComboNames.join('; ')}), which isn't an automatic Bracket 4 -- see Spirit Band above.`
+        : 'No Game Changers, mass land denial, extra-turn chains or known combo lines detected.',
     ],
     note: 'Official brackets alone cannot show the real range inside B1–2 — see Deck Craft in the Table Vibe box for a finer read.',
   };
@@ -3923,6 +4048,7 @@ function detectBracket(agg, commandSpark) {
 // decides how to label and display a recalibrated result alongside (never
 // in place of) the original instant one.
 function recalibrateWithExternalCombos(agg, matchedCards, commanders, externalCombos, speed, consistency, disruption) {
+  matchedCards = matchedCards.filter(m => !(m.card && m.card.b)); // banned cards never count toward a combo
   const namesInDeck = new Set(matchedCards.map(m => m.card.n));
   const nameToCard = new Map(matchedCards.map(m => [m.card.n, m.card]));
 
@@ -3963,11 +4089,12 @@ function recalibrateWithExternalCombos(agg, matchedCards, commanders, externalCo
 
     existingComboKeys.add(key); // guard against duplicate entries within externalCombos itself
     newCombos.push(describeCombo(combo));
+    const pieceCosts = cards.map(name => { const pc = nameToCard.get(name); return pc ? (pc.m || 0) : 0; });
     newComboDetails.push({
       cards: combo.s.map(slot => slot.join(' / ')),
       outcome: combo.o,
       infinite: true,
-      commanderPiece, redundancy, reliability, totalCastCost,
+      commanderPiece, redundancy, reliability, totalCastCost, pieceCosts,
       pieceCount: combo.s.length,
       source: 'spellbook',
     });
@@ -4361,31 +4488,60 @@ const AXES = [
   { key: 'powerLevel', label: 'Power Level', short: 'Power' },
 ];
 
-// Real axis scores for all 159 official/curated Try-a-Deck entries, computed
-// by running this same scoring engine (analyzeDeck + scoreSpeed/Consistency/
-// Versatility/Disruption/PowerLevel) against every deck in TRY_A_DECK_OPTIONS.
-// Regenerated Oct 2026 (card database + engine had both moved since the original run).
-// Order matches TRY_A_DECK_OPTIONS array order at generation time. Used to
-// give each axis score a percentile against a real, representative corpus
-// rather than showing a bare 1-10 number with no reference point.
-const PRECON_BENCHMARK_SCORES = [[6.4,7,5.5,3.8,3.4],[8.4,7.3,7.6,4.4,6.9],[8.1,5.2,6,6.7,3.4],[5.2,5.2,7.2,10,7.8],[9.8,6.6,8,10,8.3],[8.8,7.6,7.4,4.7,10],[4.8,3.9,5.6,5.4,2.9],[4.7,4.5,6.5,5.5,2.6],[3.7,4,6.1,8.2,2.3],[4.3,4.6,6.6,8,2.6],[4.4,4.2,6.3,8.7,2.5],[5.2,4.5,6,5.3,2.4],[3.6,4.7,6.7,8.6,2.2],[3.5,4.2,6.6,9.5,2.2],[3.6,4.6,6,6.3,2.2],[3.9,4,6.2,7.1,1.9],[4.4,5,6.1,5.6,2.1],[5,4.9,6,6.1,2.7],[3.9,4.6,6.2,6.9,1.9],[5.4,4.4,6.4,5.6,2.3],[4.1,5.1,6.2,5.9,2],[4.5,4.3,6.3,5.1,1.9],[3.9,4.4,6.4,6.9,1.9],[4.7,4.2,6.2,4.7,1.6],[4.8,4.9,6.1,6.8,1.8],[4.1,5,5.5,5.7,1.6],[4.6,4.2,5.7,5.7,2.4],[4.9,4.8,6.1,4.9,2],[3.9,4.6,6.6,6.4,2.9],[4.2,4.4,5.9,6.3,2.5],[5.3,6.4,6.3,4.9,2.8],[4.1,6.1,6.6,5.2,2.5],[4.6,5.3,7.1,6.2,4.1],[4.8,4.4,6.8,7.3,2.5],[4.2,5.1,6.6,6.1,1.4],[4.2,5.6,5.7,4.5,2],[4.4,4.7,6.6,4.9,2.2],[4.1,4.4,5.7,5.5,2.6],[4.2,3.8,7,5.7,2.8],[4.6,4.4,6.2,4.8,3],[5.3,5.1,6.7,7.6,3.2],[3.9,5.3,6.1,5.1,2.6],[4.6,4.5,7,6.5,2],[4.1,4.7,7.1,4.4,2.2],[3.8,5.2,6.6,6.3,1.8],[4.2,4.1,7,4.7,2.5],[4.5,4.8,6.2,4.4,2.3],[4.5,4.7,6.1,9.5,4.1],[4.6,5.4,6.3,8.2,3],[4.2,4.5,6.7,5.9,3.5],[4.5,4.2,6,3.7,2.5],[4.2,3.9,6.2,6.5,2.8],[4.6,3.9,5.4,2.5,1.6],[4.5,4.4,6.6,6.5,1.6],[4.6,5.3,6.9,6,1.9],[5.5,4.2,5.9,2.7,2.5],[4.2,5.2,6.3,5.2,1.9],[4.4,4.7,5.7,5.2,1.9],[4,4.7,5.9,3.9,2],[6,5.5,6.5,5.2,2.7],[4.2,4,5.9,6.1,1.9],[5.2,4.8,6.5,6.8,2.5],[5.1,4.8,6.5,4.7,2.2],[4.7,4.3,5.7,4.6,2.2],[4.5,4.8,5.8,5.2,2.5],[4.9,5.5,6.5,5.7,2.2],[5.2,5.2,6.4,5.3,2.8],[4.9,4.7,5.5,4.1,1.6],[4.5,4.6,6,5.6,1.9],[5.2,5.2,6.5,6,2.8],[4.8,4.5,6.7,5.2,2.2],[4.8,4.7,6.8,4.7,2.6],[4.8,5.1,6.4,5.8,2.4],[4.9,4.9,6.2,5.5,2.2],[4.6,5.5,5.9,4.9,2.5],[4.6,5.5,6.2,5,2.5],[5,5.5,6.3,5.2,2.2],[4.3,4.3,6.8,5.7,1.3],[5.2,5.5,6.3,4.8,2],[5.1,4,5.8,6.4,1.8],[4.9,5,6.1,5.7,1.5],[4.5,5.5,6.2,7.2,1.9],[4.2,4.7,5.6,5.8,1.3],[4.7,4.6,5.7,6.2,1.3],[5.2,5.1,6.9,7.8,1.6],[4.1,4.1,6,7.7,1.3],[4.7,4.8,5.6,4.6,1.3],[5.4,3.8,5.9,7.2,1.6],[4.6,5.1,6.5,9.2,2.3],[4.8,4.8,6.2,5,1.6],[4.7,5.3,5.9,5.2,2.2],[4.2,5.2,6.6,6.3,1.9],[5.2,4.2,6.1,4.4,2.2],[4.4,4.9,6.6,4.7,2.1],[3.9,4.9,6.4,6,1.3],[5,5.1,6.4,6.2,2],[4.5,4.8,5.7,5,2.2],[5.2,4.5,6.6,6,1.9],[4.6,5.1,6.5,4.1,3],[4.8,5.2,6.4,3.7,2.8],[4.5,5.9,6.6,7.5,3.1],[4.7,4,6.1,5.7,1.3],[5.6,5.3,6.1,4.5,2.6],[4.9,4.2,6.7,5.8,2.2],[5,5.5,6.7,6.1,2.2],[4,5.6,6.5,4.1,2.7],[4.7,4.9,6.2,2.7,1.9],[4.3,5.2,6.3,5.6,2.3],[4.9,4.8,6.6,4.9,1.8],[5.6,5.6,6.6,4.7,2.4],[4.7,5.3,5.9,3.4,1.9],[4.5,4.1,5.9,5.3,1.8],[4.9,4.9,6.4,5.4,1.9],[4.6,5.2,6.6,4.4,4.1],[5.4,4.6,6.1,4.3,2.2],[5,5,6.1,5,3.8],[5.2,5.3,7.3,6.1,2.5],[5.8,4.5,6.3,5.9,2.5],[4.4,3.8,5,3.5,2.5],[5.1,5.5,6.7,4.1,3],[5.5,4.6,6.9,5.8,2.3],[4.4,5,7.1,3.9,2.7],[4.5,5.5,6.6,4.8,2.6],[4.9,5.2,6.9,4.2,3],[5.1,5.1,6.7,4.9,2.7],[5.1,5.1,6.4,6.4,2.5],[5,5.4,6,5.2,4],[5.2,5.1,6.5,5,3.4],[4,4.3,6.4,4.2,2.7],[4.1,5.4,6.8,4.1,2.3],[5.4,5.5,6.3,5.9,3.5],[5.3,5.2,6.4,4.3,2.6],[4.6,5.5,6.6,5.3,1.8],[4.9,5.1,6.1,7,2.4],[4.9,4.4,6.1,5.3,2.3],[5.8,4.7,6.8,6.8,2.6],[5.6,4.1,7.3,2.9,2.4],[4.7,5.5,6.3,3.9,2.2],[3.9,4,6.4,5.4,1.9],[5.7,4.9,6.6,4.6,2.5],[5.1,5.3,8.1,7.2,2.5],[5.3,4.7,6.8,7.6,3.2],[4.8,5,6.7,6.7,2.6],[4.8,4.7,6.7,4.8,3.5],[5.1,5.3,6.1,6.8,2.5],[4.5,4.8,6.3,3.9,2.6],[4.6,4.8,5.6,4.8,2.2],[5.4,4.9,6.6,6.6,2.5],[4.4,4.9,6.6,5.5,1.7],[4.3,5,6.4,4.9,1.9],[5.5,4.8,6.5,5.4,2.3],[5.4,5,6.6,6.4,2.2],[5.4,5.2,6.5,4,1.9],[5.3,5.3,6.2,4.5,2.2],[7.4,5.3,6.2,4.6,2.2],[4.2,5.6,6.6,6,1.4],[4.8,5.5,6.8,6.3,1.6],[4.5,5.4,6.2,5.5,1.4],[3.4,5.3,6.6,7.1,1.9]];
+// PodMates reference set: real axis scores for 209 decks across three tiers,
+// computed by running this same scoring engine (analyzeDeck + scoreSpeed/
+// Consistency/Versatility/Disruption/PowerLevel) against each list:
+//   p = 153 official precons (Try-a-Deck entries)
+//   t =  36 tuned decks: 6 hand-curated Try-a-Deck entries plus 30 EDHREC
+//           Bracket 4 ("optimized") average decks covering all 15 archetypes
+//   c =  20 cEDH tournament lists from the 20 most competitive commanders
+// Regenerated Oct 2026 with the default impact cards in Power. Rows 0-158
+// follow TRY_A_DECK_OPTIONS array order at generation time; rows 159-188 are
+// the tuned EDHREC decks and 189-208 the cEDH lists. REFERENCE_TIERS runs
+// parallel to this array. Used to give each axis score a percentile and a
+// tier placement against real decks rather than a bare 1-10 number.
+const REFERENCE_SCORES = [[6.4,7,5.5,3.8,3.4],[8.4,7.3,7.6,4.4,7.3],[8.1,5.2,6,6.7,3.4],[5.2,5.2,7.2,10,8],[9.8,6.6,8,10,8.8],[8.8,7.6,7.4,4.7,10],[4.8,3.9,5.6,5.4,2.9],[4.7,4.5,6.5,5.5,2.6],[3.7,4,6.1,8.2,2.3],[4.3,4.5,6.6,8,2.6],[4.4,4.1,6.1,8.7,2.8],[5.2,4.5,6,5.3,2.4],[3.7,4.7,6.7,8.6,2.2],[3.5,4.2,6.6,9.5,2.2],[3.6,4.6,6,6.3,2.2],[3.9,4,6.2,7.1,1.9],[4.4,5,6.1,5.6,2.1],[5,4.9,6,6.1,2.7],[3.9,4.6,6.2,6.9,1.9],[5.4,4.4,6.4,5.6,2.3],[4.1,5.1,6.2,5.9,2],[4.5,4.3,6.3,5.1,1.9],[4.1,4.4,6.4,6.9,1.9],[4.7,4.1,6.2,4.7,1.6],[4.8,4.9,6.1,6.8,1.8],[4.1,5,5.5,5.7,1.6],[4.6,4.2,5.7,5.7,2.7],[4.9,4.8,6.1,4.9,2],[3.9,4.5,6.6,6.4,2.9],[4.2,4.4,5.9,6.3,2.5],[5.3,6.4,6.3,4.9,2.8],[4.1,6.1,6.6,5.2,2.5],[4.6,5.3,7.1,6.2,4.1],[4.8,4.4,6.8,7.3,2.5],[4.2,5.1,6.6,6.1,1.4],[4.2,5.6,5.7,4.5,1.9],[4.4,4.7,6.6,4.9,2.2],[4.1,4.5,5.7,5.5,2.6],[4.2,3.8,7,5.7,2.8],[4.6,4.4,6.2,4.8,3],[4.8,5.1,6.7,7.6,2.9],[4,5.3,6.1,5.1,2.6],[4.6,4.5,7,6.5,2],[4.1,4.7,7.1,4.4,2.2],[3.8,5.2,6.6,6.3,1.8],[4.2,4.1,7,4.7,2.5],[4.5,4.8,6.2,4.4,2.3],[4.5,4.7,6.1,9.5,4.1],[4.6,5.4,6.3,8.2,3],[4.2,4.6,6.7,5.9,3.5],[4.6,4.2,6,3.7,2.5],[4.2,3.9,6.2,6.5,2.8],[4.6,3.8,5.4,2.5,1.6],[4.5,4.3,6.6,6.5,1.6],[4.6,5.3,6.9,6,1.9],[5.5,4.2,5.9,2.7,2.5],[4.2,5.1,6.3,5.2,1.9],[4.4,4.6,5.7,5.2,1.9],[4,4.8,5.9,3.9,2],[6,5.5,6.5,5.2,2.7],[4.3,4.1,5.9,6.1,1.9],[5.2,4.8,6.5,6.8,2.5],[5.2,4.8,6.5,4.7,2.2],[4.7,4.3,5.7,4.6,2.2],[4.5,4.8,5.8,5.2,2.4],[4.9,5.5,6.5,5.7,2.2],[5.2,5.2,6.4,5.3,2.7],[4.9,4.7,5.5,4.1,1.6],[4.5,4.6,6,5.6,1.9],[5.2,5.2,6.5,6,2.8],[4.8,4.5,6.7,5.2,2.2],[4.8,4.6,6.8,4.7,2.6],[4.9,5.1,6.4,5.8,2.3],[5,4.9,6.2,5.5,2.2],[4.6,5.5,5.9,4.9,2.5],[4.6,5.4,6.2,5,2.5],[5,5.5,6.3,5.2,2.2],[4.3,4.3,6.8,5.7,1.3],[5.2,5.5,6.3,4.8,2],[5.1,4,5.8,6.4,1.8],[4.9,5,6.1,5.7,1.5],[4.6,5.5,6.2,7.2,1.9],[4.2,4.7,5.6,5.8,1.3],[4.7,4.7,5.7,6.2,1.3],[5.2,5,6.9,7.8,1.5],[4.2,4.2,6,7.7,1.3],[4.6,4.8,5.6,4.6,1.3],[5.5,3.8,5.9,7.2,1.6],[4.6,5,6.5,9.2,2.3],[4.8,4.8,6.2,5,1.6],[4.7,5.3,5.9,5.2,2.2],[4.3,5.2,6.6,6.3,1.9],[5.3,4.2,6.1,4.4,2.2],[4.4,4.9,6.6,4.7,2],[3.9,4.8,6.4,6,1.3],[5,5.1,6.4,6.2,1.9],[4.6,4.8,5.7,5,2.2],[5.2,4.5,6.6,6,1.9],[4.6,5.2,6.5,4.1,3],[4.8,5.1,6.4,3.7,2.7],[4.8,5.9,6.6,7.5,3.1],[4.7,4,6.1,5.7,1.3],[5.6,5.3,6.1,4.5,2.5],[4.9,4.2,6.7,5.8,2.2],[5,5.6,6.7,6.1,2.2],[4,5.6,6.5,4.1,2.7],[4.7,4.9,6.2,2.7,1.9],[4.3,5.2,6.3,5.6,2.3],[5,4.8,6.6,4.9,1.9],[5.6,5.6,6.6,4.7,2.4],[4.7,5.2,5.9,3.4,1.9],[4.5,4,5.9,5.3,1.8],[4.9,4.9,6.4,5.4,1.9],[4.6,5.2,6.6,4.4,4.1],[5.4,4.6,6.1,4.3,2.2],[5,4.9,6.1,5,3.8],[5.2,5.3,7.3,6.1,2.5],[5.8,4.5,6.3,5.9,2.5],[4.4,3.8,5,3.5,2.5],[5.1,5.5,6.7,4.1,3],[5.5,4.6,6.9,5.8,2.3],[4.4,5,7.1,3.9,2.7],[4.5,5.5,6.6,4.8,2.6],[4.9,5.2,6.9,4.2,3],[5.1,5.1,6.7,4.9,2.6],[5.1,5.1,6.4,6.4,2.5],[5,5.4,6,5.2,4],[5.5,5.1,6.5,5,3.3],[4,4.3,6.4,4.2,2.7],[4.1,5.4,6.8,4.1,2.3],[5.4,5.5,6.3,5.9,3.5],[5.3,5.2,6.4,4.3,2.6],[4.6,5.4,6.6,5.3,1.7],[4.9,5.1,6.1,7,2.4],[4.9,4.4,6.1,5.3,2.3],[5.8,4.6,6.8,6.8,2.6],[5.6,4.1,7.3,2.9,2.4],[4.8,5.5,6.3,3.9,2.2],[4,4,6.4,5.4,1.9],[5.7,4.9,6.6,4.6,2.5],[5.1,5.3,8.1,7.2,2.5],[5.3,4.7,6.8,7.6,3.2],[4.8,5,6.7,6.7,2.6],[5.1,4.6,6.7,4.8,3.5],[5.1,5.3,6.1,6.8,2.5],[4.6,4.9,6.3,3.9,2.6],[4.6,4.8,5.6,4.8,2.2],[5.4,4.9,6.6,6.6,2.4],[4.4,4.9,6.6,5.5,1.8],[4.3,5,6.4,4.9,1.9],[5.5,4.7,6.5,5.4,2.3],[5.4,5,6.6,6.4,2.2],[5.5,5.2,6.5,4,1.9],[5.3,5.3,6.2,4.5,2.2],[7.4,5.3,6.2,4.6,2.2],[4.2,5.6,6.6,6,1.4],[5,5.4,6.8,6.3,1.6],[4.5,5.4,6.2,5.5,1.4],[3.4,5.3,6.6,7.1,1.9],[9.4,7.5,7.9,7.2,6.9],[7,5.6,5.5,5.4,6.5],[8.1,7.9,8,7.1,7.9],[6.5,7,5.7,10,7.1],[7.6,7.2,9.3,10,10],[6.5,7.5,6.2,9.1,7.5],[8,7.2,6.7,4.6,5.6],[8.5,7.4,7.4,10,10],[8.4,5.3,6.6,10,6.8],[6.3,7.5,6.2,6.9,5.8],[6.3,5,6.6,10,7.4],[7.9,5.8,8.3,10,8],[8.5,7,6.7,6.6,5],[6.3,6.4,6.6,9,6.5],[7.6,7,6.7,9.8,6.3],[9.2,7.4,6.5,10,10],[5.7,6.7,6.1,10,5.6],[5.9,7.7,6.6,10,7.3],[9.3,7.7,7.6,10,10],[6.9,7.1,8.1,10,10],[5.9,6.5,7.6,6.7,7.9],[7.1,5.6,6,6.9,3.9],[8.5,8.1,9.1,10,10],[5.8,7.8,7.2,4.9,6.6],[6.9,7.4,8.9,10,10],[8.4,7.6,7.2,6.3,9],[5.9,5.8,6.7,7.4,6.1],[5.9,6.5,8.1,6.6,6.4],[5.7,5.9,8.4,8.4,9.1],[6.7,6.7,7.6,8.4,7.4],[9.6,6.7,9.2,10,10],[9.3,7.1,6.8,3.1,9.4],[7.9,6.7,6.5,9.2,10],[9.3,6.9,8.9,10,10],[8.9,7.5,6.8,10,10],[9,6.9,9,10,10],[9.2,7,6.5,10,10],[10,5.1,7,10,10],[10,7.4,8.1,6.9,10],[9.5,6.7,7.5,7,10],[9.7,7,7,10,10],[9,5.3,8.1,9.3,8.9],[8.5,7.1,6.5,10,10],[8.7,6.8,6.3,5.4,9.7],[10,7.5,9.8,9.9,10],[10,6.9,9.3,10,10],[10,6.8,6.5,10,10],[10,6.7,9.2,10,10],[8.9,7.3,9.3,10,10],[9.8,7.1,9.4,10,10]];
+const REFERENCE_TIERS = "ttttttpppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppttttttttttttttttttttttttttttttcccccccccccccccccccc".split('');
+const REFERENCE_TIER_LABELS = { p: 'official precons', t: 'tuned decks', c: 'cEDH tournament lists' };
 const BENCHMARK_AXIS_INDEX = {speed: 0, consistency: 1, versatility: 2, disruption: 3, powerLevel: 4};
-// Same corpus, but Command Spark (the weighted composite) rather than the
+// Same reference set, but Command Spark (the weighted composite) rather than the
 // five raw axes -- kept as its own array since it isn't one of the five
 // BENCHMARK_AXIS_INDEX columns and doesn't need to be recomputed per-axis.
-const PRECON_BENCHMARK_SPARK = [4.8,6.7,5.6,7.5,8.7,7.7,4.4,4.5,4.8,5.1,5.2,4.4,5.1,5.2,4.4,4.5,4.4,4.7,4.5,4.5,4.4,4.1,4.5,3.9,4.6,4.1,4.3,4.2,4.7,4.5,4.8,4.6,5.3,5,4.3,4.1,4.2,4.3,4.5,4.4,5.4,4.4,4.6,4.1,4.5,4.2,4.1,5.9,5.4,4.8,3.9,4.6,3.2,4.4,4.6,3.8,4.2,4.1,3.8,4.8,4.2,4.9,4.3,4,4.3,4.6,4.7,3.8,4.2,4.9,4.4,4.4,4.6,4.4,4.4,4.4,4.5,4.1,4.4,4.4,4.3,4.8,4,4.2,5,4.4,3.8,4.5,5.4,4.1,4.3,4.5,4.1,4.2,4.2,4.6,4.2,4.5,4.4,4.2,5.4,4,4.5,4.5,4.8,4.3,3.6,4.5,4.2,4.6,3.8,4,4.4,4.8,4.2,4.8,4.9,4.7,3.6,4.5,4.7,4.3,4.5,4.5,4.6,4.8,5,4.8,4.1,4.2,5.1,4.4,4.4,4.9,4.3,5.1,4,4.1,4.1,4.5,5.3,5.4,4.9,4.7,4.9,4.1,4.1,4.9,4.3,4.2,4.6,4.8,4.1,4.3,4.6,4.4,4.6,4.2,4.6];
+const REFERENCE_SPARK = [4.8,6.8,5.6,7.5,8.8,7.7,4.4,4.5,4.8,5.1,5.2,4.4,5.1,5.2,4.4,4.5,4.4,4.7,4.5,4.5,4.4,4.1,4.5,3.9,4.6,4.1,4.4,4.2,4.7,4.5,4.8,4.6,5.3,5,4.3,4,4.2,4.3,4.5,4.4,5.3,4.4,4.6,4.1,4.5,4.2,4.1,5.9,5.4,4.9,3.9,4.6,3.2,4.4,4.6,3.8,4.2,4.1,3.8,4.8,4.2,4.9,4.3,4,4.3,4.6,4.7,3.8,4.2,4.9,4.4,4.4,4.6,4.5,4.4,4.4,4.5,4.1,4.4,4.4,4.3,4.8,4,4.2,5,4.5,3.8,4.6,5.4,4.1,4.3,4.6,4.1,4.2,4.2,4.6,4.2,4.5,4.4,4.2,5.4,4,4.4,4.5,4.8,4.3,3.6,4.5,4.3,4.6,3.8,4,4.4,4.8,4.2,4.8,4.9,4.7,3.6,4.5,4.7,4.3,4.5,4.5,4.5,4.8,5,4.8,4.1,4.2,5.1,4.4,4.3,4.9,4.3,5.1,4,4.1,4.1,4.5,5.3,5.4,4.9,4.7,4.9,4.1,4.1,4.9,4.3,4.2,4.5,4.8,4.2,4.3,4.6,4.4,4.6,4.2,4.6,7.6,6,7.7,7.5,9.1,7.6,6.1,9,7.6,6.5,7.4,8.2,6.5,7.1,7.5,9,7,7.7,9.2,8.8,7,5.7,9.4,6.3,9,7.8,6.4,6.6,7.8,7.5,9.3,7.1,8.5,9.3,9,9.2,8.9,8.8,8.6,8.3,9.1,8.4,8.8,7.5,9.6,9.4,9,9.4,9.3,9.4];
+
+/** Where a value sits within each reference tier: the share of that tier's
+ * decks it scores above (ties count half). axisKey null means Command Spark. */
+function computeTierPlacement(value, axisKey) {
+  const idx = axisKey ? BENCHMARK_AXIS_INDEX[axisKey] : null;
+  const vals = axisKey ? REFERENCE_SCORES.map(r => r[idx]) : REFERENCE_SPARK;
+  return ['p', 't', 'c'].map(t => {
+    const tv = vals.filter((_, i) => REFERENCE_TIERS[i] === t);
+    const below = tv.filter(v => v < value).length;
+    const equal = tv.filter(v => v === value).length;
+    return { tier: t, label: REFERENCE_TIER_LABELS[t], n: tv.length, pctBelow: Math.round(((below + equal * 0.5) / tv.length) * 100) };
+  });
+}
+/** One sentence: "higher than 98% of the 153 official precons, ...". */
+function describeTierPlacement(value, axisKey) {
+  return computeTierPlacement(value, axisKey).map(p => `${p.pctBelow}% of the ${p.n} ${p.label}`).join(', ').replace(/, ([^,]*)$/, ', and $1');
+}
+/** Short caption naming the reference set and its three tiers. */
+function referenceSetSummary() {
+  const c = computeTierPlacement(0).map(p => `${p.n} ${p.label}`);
+  return `${REFERENCE_SPARK.length} real decks scored by this same engine: ${c[0]}, ${c[1]} and ${c[2]}`;
+}
 
 function computeSparkPercentile(value) {
-  const below = PRECON_BENCHMARK_SPARK.filter(v => v < value).length;
-  const equal = PRECON_BENCHMARK_SPARK.filter(v => v === value).length;
-  const percentile = Math.round(((below + equal * 0.5) / PRECON_BENCHMARK_SPARK.length) * 100);
+  const below = REFERENCE_SPARK.filter(v => v < value).length;
+  const equal = REFERENCE_SPARK.filter(v => v === value).length;
+  const percentile = Math.round(((below + equal * 0.5) / REFERENCE_SPARK.length) * 100);
   return Math.min(Math.max(percentile, 1), 99);
 }
 
 function computeAxisPercentile(axisKey, value) {
   const idx = BENCHMARK_AXIS_INDEX[axisKey];
   if (idx === undefined) return null;
-  const values = PRECON_BENCHMARK_SCORES.map(row => row[idx]);
+  const values = REFERENCE_SCORES.map(row => row[idx]);
   const below = values.filter(v => v < value).length;
   const equal = values.filter(v => v === value).length;
   // Midpoint-of-ties convention: a value tied with others is credited with
@@ -19765,6 +19921,7 @@ window.PM_LIMITS = Object.freeze({
   chronicleDecks: 6, chronicleParticipants: 12, feedbackResponses: 24,
   builderMaxCards: 300, builderMaxQty: 99,
   // PriceScry trade ledger
+  impactChanges: 60, impactAdds: 15, impactReason: 280,
   tradeCard: 150, tradeShop: 60, tradeNote: 280, maxTrades: 2000, tradeSells: 20, tradeQtyMax: 999, tradeYenMax: 10000000,
 });
 
@@ -20297,6 +20454,7 @@ function runAnalysis() {
   hasSingleResult = true;
 
   let statusMsg = `Charted ${agg.totalCards} cards (${matched.length} unique) — ${agg.landCount} lands, ${agg.nonlandCount} spells.`;
+  if (agg.bannedCount) statusMsg += ` ${agg.bannedCount} banned ${agg.bannedCount === 1 ? 'card was' : 'cards were'} left out of the scoring.`;
   if (commanders.length) {
     statusMsg += ` · Commander: ${commanders.join(' / ')}`;
   } else {
@@ -20521,7 +20679,7 @@ function renderChart(scores, commandSpark, agg, tierDiscrepancy) {
   svg += '</svg>';
 
   const sparkPct = computeSparkPercentile(commandSpark);
-  const sparkHtml = `<div class="command-spark" data-explain="commandSpark" title="What is Spark?"><div class="spark-main"><span class="lbl">Spark</span><span class="num">${commandSpark.toFixed(1)}</span>${explainerBtn('commandSpark')}</div><span class="spark-percentile">Table-alignment signal · ${ordinalSuffix(sparkPct)} percentile of the PodMates benchmark</span></div>`;
+  const sparkHtml = `<div class="command-spark" data-explain="commandSpark" title="What is Spark?"><div class="spark-main"><span class="lbl">Spark</span><span class="num">${commandSpark.toFixed(1)}</span>${explainerBtn('commandSpark')}</div><span class="spark-percentile">Table-alignment signal · ${ordinalSuffix(sparkPct)} percentile of the PodMates reference set</span></div>`;
   const discBadge = tierDiscrepancy ? (() => {
     const colors = { underbuilt: 'var(--gold)', overbuilt: 'var(--danger)', matched: 'var(--success-text)' };
     const labels = { underbuilt: 'Underbuilt for this commander', overbuilt: 'Overbuilt for this commander', matched: 'Matches this commander\'s track record' };
@@ -20530,8 +20688,12 @@ function renderChart(scores, commandSpark, agg, tierDiscrepancy) {
       `</div>`;
   })() : '';
 
-  const benchCaption = `<div class="chart-caption">Percentiles compare against PodMates' benchmark set of ${PRECON_BENCHMARK_SPARK.length} official precon and curated decks, not all Commander decks.</div>`;
-  $('chartArea').innerHTML = svg + sparkHtml + discBadge + benchCaption;
+  const benchCaption = `<div class="chart-caption">Percentiles compare against the PodMates reference set (${referenceSetSummary()}), not all Commander decks. Higher tiers are included so tuned and competitive decks are not all squeezed into the top few percent.</div>`;
+  const impactBtn = agg ? `<div class="chart-caption"><button type="button" class="ghost" id="impactCardsBtn" style="font-size:12px; padding:3px 10px;">Impact cards…</button> <span style="font-size:11.5px; color:var(--text-dim);">${impactCardsInDeck(agg).length} of ${DEFAULT_IMPACT_CARDS.length} default impact cards in this deck</span></div><div id="podViewLine"></div>` : '';
+  $('chartArea').innerHTML = svg + sparkHtml + discBadge + benchCaption + impactBtn;
+  const impactBtnEl = document.getElementById('impactCardsBtn');
+  if (impactBtnEl) impactBtnEl.addEventListener('click', openImpactCardsModal);
+  if (agg) refreshPodView();
 }
 
 function renderBracket(bracket, agg) {
@@ -20548,7 +20710,7 @@ function renderBracket(bracket, agg) {
     html += `<div class="detail" style="margin-top:6px; font-size:13px;"><strong>Known combos:</strong> ${comboLines.join('; ')}</div>`;
   }
   if (agg && agg.bannedCards.length > 0) {
-    html += `<div class="detail" style="margin-top:6px; font-size:13px; color:var(--danger);"><strong>Banned cards:</strong> ${agg.bannedCards.map(cardNameLink).join(', ')}</div>`;
+    html += `<div class="detail" style="margin-top:6px; font-size:13px; color:var(--danger);"><strong>Banned cards (left out of the scores):</strong> ${agg.bannedCards.map(cardNameLink).join(', ')}</div>`;
   }
   if (bracket.note) {
     html += `<div class="note">${escapeHtml(bracket.note)}</div>`;
@@ -21388,7 +21550,7 @@ function renderCommanderCentrality(agg, matched, commanders, winCons, archetypeM
     <div class="cc-legend">${legend}</div>
     <div class="cc-bars-title">Commander support vs. a typical ${r.baselineLabel ? escapeHtml(r.baselineLabel) + ' ' : ''}deck</div>
     ${bars}
-    <div style="font-size:11.5px; color:var(--text-dim); margin-top:2px;">White tick = typical ${r.baselineLabel ? escapeHtml(r.baselineLabel) + ' ' : ''}benchmark deck${r.baselineLabel ? ` (from ${r.baselineN} decks)` : ''}. Gold bar = this deck runs more than that.</div>`;
+    <div style="font-size:11.5px; color:var(--text-dim); margin-top:2px;">White tick = typical ${r.baselineLabel ? escapeHtml(r.baselineLabel) + ' ' : ''}precon baseline deck${r.baselineLabel ? ` (from ${r.baselineN} decks)` : ''}. Gold bar = this deck runs more than that.</div>`;
   panel.style.display = 'block';
 }
 
@@ -21409,7 +21571,7 @@ function buildCentralityExplainerHtml() {
     `<div>Centrality shows how much this deck is <strong>built around its commander</strong>, as opposed to simply being led by it. Two things feed it: what the commander does for the deck, and how much the builder has invested in keeping it around. A deck full of ways to protect, recur, tutor for and cheapen its commander is telling you what its builder thinks the deck is about.</div>` +
     sec('How to read the grid', `Each square is one card in the deck. The gold square with the white border is the commander. <strong>Bright gold</strong> cards are essential: part of a combo with it, or with no other synergy partner in the deck. <strong>Dim gold</strong> cards are linked: they synergize with it or match what its ability cares about. <strong>Teal</strong> cards are support (protection, recursion, tutors, cost reducers, equipment). Dark squares would work the same without it. Tap a square to see the card.`) +
     sec('How it is calculated', `Five signals, each 0–100, combined by weight.${table}`) +
-    sec('What each signal means', `<strong>Plan involvement</strong>: how many of the deck's detected combos include the commander. <strong>Synergy reliance</strong>: if you removed the commander from the deck's synergy web, how much of it would fall apart. <strong>Deck alignment</strong>: how much of the deck matches what the commander's ability cares about (artifacts, a creature type, counters...), compared with a typical deck. <strong>Ability type</strong>: a repeating effect counts for more than a one-time enters-the-battlefield effect. <strong>Builder investment</strong>: support cards beyond what a typical benchmark deck of the same archetype runs (a Voltron deck is expected to carry more protection than a Spellslinger deck), so generic protection like Swiftfoot Boots doesn't inflate it.`) +
+    sec('What each signal means', `<strong>Plan involvement</strong>: how many of the deck's detected combos include the commander. <strong>Synergy reliance</strong>: if you removed the commander from the deck's synergy web, how much of it would fall apart. <strong>Deck alignment</strong>: how much of the deck matches what the commander's ability cares about (artifacts, a creature type, counters...), compared with a typical deck. <strong>Ability type</strong>: a repeating effect counts for more than a one-time enters-the-battlefield effect. <strong>Builder investment</strong>: support cards beyond what a typical precon of the same archetype runs (a Voltron deck is expected to carry more protection than a Spellslinger deck), so generic protection like Swiftfoot Boots doesn't inflate it.`) +
     sec('What it does not tell you', `It does not say the deck is good or bad, or that the commander is easy to answer. A high reading is a fair question for the table: "if this commander is dealt with, what does the deck do?" Bands are calibrated against the PodMates benchmark decks, and the plan signal only counts when combos are detected.`) +
     sec('How commanders work (what the scoring relies on)', `<ul style="margin:0; padding-left:18px; font-size:12.5px; color:var(--text-soft);">${rules}</ul>`) +
     `</div>`;
@@ -21500,11 +21662,11 @@ const EXPLAINERS = {
   consistency: "How often does the deck actually do its thing instead of shrugging? Tutors are the biggest lever here (nothing says 'consistent' like being able to fetch the exact card you need) — weighted by how likely the tutor actually gets cast, since a 6-mana tutor is a much less reliable piece of consistency than a 1-mana one over the course of a typical game. Draw and protection are weighted the same way. On top of that: real credit for thematic redundancy (several cards doing a similar job so no single one is a single point of failure) and engine density.",
   versatility: "How many different ways can this deck win, and how many different jobs can it do along the way? Multiple detected win conditions give the biggest boost — a deck with a backup plan isn't a house of cards. Detected combos are weighted by how reliable they actually are, not just credited for existing: a combo where your commander is one of the pieces (always available), or one backed by real tutor/draw/protection density, counts for more than one sitting unsupported in the 99 — a combo you're unlikely to assemble shouldn't swing the score as much as one you can reliably find and protect. We also credit functional breadth: draw (castability-weighted, same as everywhere else), removal, tutors, protection, sacrifice outlets, modal/flexible cards, and every other functional category the app tracks (landfall, counters, tokens, and the rest). A deck that 'just' swings for combat damage but carries a genuine toolbox reads as more versatile than one that only attacks. Theme density and card-to-card interaction strength are tracked separately in the Synergy Profile panel below — that's a different question from 'how many ways can I close the game.'",
   disruption: "How much interaction does this deck pack? The single biggest lever is free and cheap interaction — efficient removal, counterspells, and protection that costs little or nothing, so castability weighting doesn't apply to those two specifically (they're already cost-filtered by definition) — followed by stax pieces, discard, mass land destruction (the nuclear option), board wipes (one of the most table-defining disruptive effects that exists, distinct from single-target removal), counterspells specifically, raw removal count, -1/-1 counter effects (which frequently double as attrition/removal), and 'everyone takes damage but especially you' punisher cards. Everything past the free/cheap tier — wipes, removal, counterspells, stax, discard, MLD, punisher effects — is weighted by how likely it is to actually get cast: a 7-mana board wipe is still a real, powerful effect when it resolves, just a less reliable piece of disruption over a typical game than a 3-mana one. Worth knowing: this leans toward measuring interaction density rather than purely 'how obnoxious is this deck to sit across from' — a pile of efficient Swords to Plowshares-style removal can score high here without being a stax nightmare.",
-  powerLevel: "Raw horsepower, roughly independent of how 'nice' the deck is to play against. We weight it heavily toward Wizards' own official Game Changers list, plus free interaction, fast mana (from the same curated core/extended list Speed uses, though here it's simple presence-weighted rather than focus-adjusted — a huge pile of fast mana is threatening on its own, regardless of whether the deck has a coherent plan for it), tutors, land reanimation/mass land search (a Splendid Reclamation blowout or a Primeval Titan hit is genuinely scary, and both are castability-weighted), extra-turn effects (comparable to a combo's power, just softer without one to chain into, also castability-weighted), and mana multipliers/explosive land engines (a Mana Reflection or a Gaea's Cradle is categorically scarier than an equivalent amount of flat ramp, since it compounds with everything else the deck is doing). Known combo pieces and tutors are weighted by reliability/castability, not just flat presence — a combo with your commander as one of the pieces, or backed by real tutor/draw/protection density, gets more credit than one sitting unsupported in the 99 with no way to reliably find or protect it. On top of all that, a deck can also be genuinely scary through sheer engine density — many individually-modest recurring triggers and activated abilities compounding into overwhelming value over a long game, rather than a few big bombs. This only kicks in meaningfully above an ordinary deck's normal share of such cards, so it rewards decks that are unusually dense with this, not every deck that happens to run a few. This is the 'how scared should the table be' number.",
+  powerLevel: "Raw horsepower, roughly independent of how 'nice' the deck is to play against. We weight it heavily toward Wizards' own official Game Changers list, plus free interaction, fast mana (from the same curated core/extended list Speed uses, though here it's simple presence-weighted rather than focus-adjusted — a huge pile of fast mana is threatening on its own, regardless of whether the deck has a coherent plan for it), tutors, land reanimation/mass land search (a Splendid Reclamation blowout or a Primeval Titan hit is genuinely scary, and both are castability-weighted), extra-turn effects (comparable to a combo's power, just softer without one to chain into, also castability-weighted), and mana multipliers/explosive land engines (a Mana Reflection or a Gaea's Cradle is categorically scarier than an equivalent amount of flat ramp, since it compounds with everything else the deck is doing). Known combo pieces and tutors are weighted by reliability/castability, not just flat presence — a combo with your commander as one of the pieces, or backed by real tutor/draw/protection density, gets more credit than one sitting unsupported in the 99 with no way to reliably find or protect it. On top of all that, a deck can also be genuinely scary through sheer engine density — many individually-modest recurring triggers and activated abilities compounding into overwhelming value over a long game, rather than a few big bombs. This only kicks in meaningfully above an ordinary deck's normal share of such cards, so it rewards decks that are unusually dense with this, not every deck that happens to run a few. On top of that, a short list of impact cards (cheap free spells, rituals, zero-cost mana rocks and combo pieces that are near-universal in cEDH but almost absent from precons and ordinary tuned decks) each add a little, up to a cap. A pod can propose its own version of that list, but that only produces a separate Pod view figure; this score always uses the standard list. This is the 'how scared should the table be' number.",
   commandSpark: "Spark is a weighted average of the five axes. Power Level and Disruption count for more — they're the two axes that most directly predict whether a deck will dominate or overwhelm a table, which is what actually matters when matching decks for a fair game. Speed, Consistency, and Versatility count for less — real qualities, but more about how well-built a deck is internally than how much it steamrolls the table. Not a grade on the pilot — a shared signal so the table can align on power level before a game starts. If your commander has enough tracked games to appear in Commander Track Record, you'll also see a badge here comparing this Spark against what that commander's real win-rate history would predict.",
   winCondition: "We scan the whole decklist for explicit win-the-game text, every known combo pair (each listed separately, with its actual outcome), and telltale signs of Voltron, aristocrats/slow drain, extra turns, mill, burn, and infect strategies. If none of that shows up, we assume you're just going to hit people with creatures until they're at zero, which, statistically, is what most Commander decks actually do. Detected combos also get a timing estimate — how likely the deck is to have both found every piece (via draw or tutor) and have enough mana to cast them all, by turn 10. This uses the same hypergeometric math as the Mana Curve panel, so it's honest about a hard truth: finding one specific non-land card via pure draw is genuinely difficult within a normal game even with real support, which is why even a well-supported combo often lands well under 50% rather than reading as a lock.",
   archetypeMatch: "We build a 27-dimension synergy fingerprint for this deck — density of 15 detected themes (aristocrats, tokens, artifacts, spellslinger, graveyard, drain, lifegain, landfall, counters, blink, stax, land buffing, -1/-1 counters, impulse draw, exile matters), 10 mechanical signals (ramp, tutors, removal, wipes, draw, reanimation, sacrifice, counterspells, discard, extra turns), and Aura/Equipment density for Voltron detection — then rank it by cosine similarity against the same fingerprint computed for all 159 real Commander precon and curated decks in this app's Try a Deck library. The closest match's own archetype label becomes this deck's \"closest match,\" with up to two runners-up shown if they land in a genuinely different archetype. Worth knowing: this measures mechanical overlap in a fixed feature set, not full deckbuilding intent — a deck with one dominant, unusual theme will match confidently, while a broad goodstuff pile without one clear identity will show noisier, less meaningful matches, which is the honest answer for that kind of deck rather than a limitation to paper over.",
-  bracket: "Wizards of the Coast's own official 1-5 power scale, based mostly on their published Game Changers list plus checks for mass land denial and fast combos. We can't tell Bracket 1 from Bracket 2 (that's more about vibe/theme than raw card choices), and we can't detect Bracket 5 (cEDH) at all — that one's about the room you're playing in, not just the cards in your deck. Also worth knowing if you're comparing against an older primer or writeup: Wizards' bracket rules have changed over time, so a deck's self-described bracket from a few years back may not line up with what this tool reports under the current ruleset.",
+  bracket: "Wizards of the Coast's own official 1-5 power scale, based mostly on their published Game Changers list plus checks for mass land denial, chained extra turns and fast combos. A two-card combo only counts as Bracket 4 if this deck could have it online by turn five (Wizards allows slower ones in Bracket 3), and extra-turn limits are our own judgment because Wizards gives no exact number. We can't tell Bracket 1 from Bracket 2 (that's more about vibe/theme than raw card choices), and we can't detect Bracket 5 (cEDH) at all — that one's about the room you're playing in, not just the cards in your deck. Also worth knowing if you're comparing against an older primer or writeup: Wizards' bracket rules have changed over time, so a deck's self-described bracket from a few years back may not line up with what this tool reports under the current ruleset.",
   manaBaseBenchmark: "The fixing ratio measures, for every nonbasic land in this deck, what fraction of the deck's own color identity it can actually produce (a perfect dual in a 2-color deck scores 1.0; the same land in a 3-color deck scores 0.67, since it only covers 2 of the 3 needed colors), averaged across all nonbasic lands. This is computed the identical way for both this deck and the 158 colored precons in the corpus (the one colorless commander is excluded), then compared against whichever bucket has enough sample size -- the exact color-identity combination if 4 or more precons share it, otherwise the broader same-color-count bucket. One deliberate simplification: land-fetch effects (Evolving Wilds, fetch lands) show as producing no colors directly in this metric, the same way this app's own Cost vs Production bars above already treat them, since the fixing actually comes from whatever land gets fetched, not the fetch card itself. Genuinely fetch-heavy manabases will read as weaker here than they actually play.",
   staplesBaseline: "For 12 mechanical categories this app already tracks (sacrifice outlets, ramp, tutors, removal, board wipes, card draw, counterspells, reanimation, discard, extra turns, stax, protection), we computed the median raw count across every precon in the closest-matching archetype from the Closest Match panel above, then flag any category where this deck sits at half the baseline or below, or at 1.75x or more above it -- the categories close to baseline aren't shown, since there's nothing notable to say about them. Categories where the archetype baseline itself is under 2 are skipped entirely (mostly tutors, since precons are deliberately light on those across the board) to avoid flagging noise around near-universal zeros. This baseline comes from real, shipped Commander products, not a theoretical ideal -- a deck sitting well below baseline in a given category isn't necessarily wrong, especially if something else in the 99 is doing that job instead, but it's worth knowing when your build diverges meaningfully from how Wizards' own designers have built that archetype.",
   commanderTrackRecord: "This is the one thing in Deck Compass that isn't a heuristic — it's real win-rate data from Playgroup.gg, covering commanders with at least 250 tracked games and 10 distinct decks each, refreshed automatically every week. Everything else here estimates what a decklist enables; this shows what the commander has actually done. We also compare it against this specific 99's Spark score: for S/A-tier commanders we flag if the build scores surprisingly low, for C/D-tier we flag surprisingly high, and for B-tier (no strong prior either way) we flag both directions — plus a positive confirmation when the two line up. Worth reading with the same caveats Playgroup.gg itself gives: it's their tracked userbase, not all of Commander, and most legal commanders don't have enough games logged to appear at all. The expected-Spark ranges behind the comparison are reasoned rather than derived from a large-scale correlation study, with a small adjustment for the deck's closest-matching archetype from the Closest Match panel above, so treat it as an informed cross-check rather than a validated statistic.",
@@ -24249,6 +24411,271 @@ function showInfoModal(headerHtml, bodyHtml) {
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
 }
 
+// ===========================================================================
+// Impact cards: the default list (see DEFAULT_IMPACT_CARDS in the engine),
+// pod proposals to change it, and the separate "Pod view" Power figure.
+//
+// SAFETY DESIGN: a pod's edits are stored only as small differences from the
+// default list (pods/{podId}/settings/impactCards -> changes). They are used
+// for ONE thing: the "Pod view" line under the radar, which is computed on the
+// side from the same deck. The radar, Spark, bands, percentiles and the
+// benchmark set ALWAYS use the standard default list, so no edit can move them.
+// ===========================================================================
+const IMPACT_LS_KEY = 'pm_impact_pod';
+const IMPACT_MAX_CHANGES = 60;
+const IMPACT_MAX_ADDS = 15;
+const IMPACT_REASON_MAX = 280;
+const impactState = { pods: null, podId: null, changes: {}, updatedAt: null, loadedFor: null, openReasonKey: null, searchHits: [], busy: false };
+
+function impactKey(name) {
+  return String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 80);
+}
+function impactIsDefault(name) {
+  const l = String(name).toLowerCase();
+  return DEFAULT_IMPACT_CARDS.some(n => n.toLowerCase() === l);
+}
+/** Keeps only well-formed, consistent changes: 'remove' of a default card, or
+ * 'add' of a non-default card. Anything else (partial or odd data) is ignored. */
+function impactCleanChanges(raw) {
+  const out = {};
+  Object.keys(raw || {}).forEach(k => {
+    const c = raw[k];
+    if (!c || typeof c.card !== 'string' || !c.card || c.card.length > 200) return;
+    if (c.action === 'remove' && impactIsDefault(c.card)) out[k] = c;
+    else if (c.action === 'add' && !impactIsDefault(c.card)) out[k] = c;
+  });
+  return out;
+}
+function impactEffectiveList(changes) {
+  const ch = impactCleanChanges(changes);
+  const removed = new Set(), added = [];
+  Object.keys(ch).forEach(k => { const c = ch[k]; if (c.action === 'remove') removed.add(c.card.toLowerCase()); else added.push(c.card); });
+  const out = DEFAULT_IMPACT_CARDS.filter(n => !removed.has(n.toLowerCase()));
+  added.forEach(n => { if (!out.some(x => x.toLowerCase() === n.toLowerCase())) out.push(n); });
+  return out;
+}
+/** The Pod view numbers for the deck currently on screen, or null. */
+function computePodView(changes) {
+  if (!currentAgg || !currentScores) return null;
+  const eff = impactEffectiveList(changes);
+  const power = scorePowerLevel(currentAgg, eff);
+  const s = currentScores;
+  const spark = computeSpark(s.speed, s.consistency, s.versatility, s.disruption, power);
+  return { power, spark, hits: impactCardsInDeck(currentAgg, eff) };
+}
+
+function impactCurrentPod() {
+  return (impactState.pods || []).find(p => p.id === impactState.podId) || null;
+}
+function impactCanEdit() {
+  const cloud = window.PodmatesCloud, pod = impactCurrentPod();
+  if (!cloud || !cloud.uid || !pod) return false;
+  return pod.leaderId === cloud.uid || (pod.coLeaderIds || []).includes(cloud.uid);
+}
+/** Loads the person's pods (once) and the chosen pod's impact settings. */
+async function impactLoadPod(forcePodId, force) {
+  const cloud = window.PodmatesCloud;
+  if (!cloud || !cloud.uid) throw new Error('not signed in');
+  if (!impactState.pods) impactState.pods = await cloud.loadMyPods();
+  let id = forcePodId || impactState.podId;
+  if (!id) { try { id = localStorage.getItem(IMPACT_LS_KEY); } catch (e) {} }
+  if (!id || !impactState.pods.some(p => p.id === id)) id = impactState.pods.length ? impactState.pods[0].id : null;
+  impactState.podId = id;
+  if (!id) { impactState.changes = {}; impactState.loadedFor = null; return; }
+  try { localStorage.setItem(IMPACT_LS_KEY, id); } catch (e) {}
+  if (force || impactState.loadedFor !== id) {
+    const data = await cloud.loadImpactSettings(id);
+    impactState.changes = (data && data.changes) || {};
+    impactState.updatedAt = data && data.updatedAt && data.updatedAt.toMillis ? data.updatedAt.toMillis() : null;
+    impactState.loadedFor = id;
+  }
+}
+
+/** Fills the "Pod view" line under the radar. Never touches the radar itself. */
+async function refreshPodView() {
+  const el = document.getElementById('podViewLine');
+  if (!el) return;
+  el.innerHTML = '';
+  if (!currentAgg || !window.PodmatesCloud || !window.PodmatesCloud.uid) return;
+  try { await impactLoadPod(); } catch (e) { return; }
+  const ch = impactCleanChanges(impactState.changes);
+  const n = Object.keys(ch).length;
+  const pod = impactCurrentPod();
+  if (!n || !pod) return;
+  const v = computePodView(ch);
+  if (!v) return;
+  const std = { power: currentScores.powerLevel, spark: currentCommandSpark };
+  el.innerHTML = `<div class="chart-caption" style="border:1px dashed var(--line); border-radius:8px; padding:8px 10px; margin-top:8px;">` +
+    `<strong>Pod view · ${escapeHtml(pod.name || 'your pod')}</strong>: Power ${v.power.toFixed(1)} (standard ${std.power.toFixed(1)}) · Spark ${v.spark.toFixed(1)} (standard ${std.spark.toFixed(1)}). ` +
+    `Uses your pod's edited impact-card list (${n} change${n === 1 ? '' : 's'} from the default). The radar and every band above always use the standard list.</div>`;
+}
+
+function impactReasonText(c) {
+  if (!c || !c.reason) return '';
+  return `<div style="font-size:12px; color:var(--text-soft); margin:2px 0 0 26px; font-style:italic;">“${escapeHtml(c.reason)}”${c.reasonBy ? ' — ' + escapeHtml(c.reasonBy) : (c.byName ? ' — ' + escapeHtml(c.byName) : '')}</div>`;
+}
+
+function renderImpactBody() {
+  impactState.confirmReset = false;
+  const body = document.getElementById('impactBody');
+  if (!body) return;
+  const cloud = window.PodmatesCloud;
+  const signedIn = !!(cloud && cloud.uid);
+  const pod = impactCurrentPod();
+  const ch = impactCleanChanges(impactState.changes);
+  const canEdit = signedIn && impactCanEdit();
+  const eff = impactEffectiveList(ch);
+  const effSet = new Set(eff.map(n => n.toLowerCase()));
+  const adds = Object.keys(ch).filter(k => ch[k].action === 'add');
+  const rows = DEFAULT_IMPACT_CARDS.concat(adds.map(k => ch[k].card));
+  const inDeck = (n) => currentAgg ? impactCardsInDeck(currentAgg, [n]).length > 0 : false;
+
+  let h = `<div style="font-size:13px; color:var(--text-primary); line-height:1.5;">` +
+    `Impact cards are cards that show up constantly in competitive (cEDH) lists but almost never in precons or ordinary tuned decks. Each one in a deck adds ${IMPACT_PTS_PER_CARD} to Power (up to ${IMPACT_PTS_CAP}). ` +
+    `The default list is chosen from the reference decks and is what the radar always uses.</div>`;
+
+  if (!signedIn) {
+    h += `<div style="font-size:12.5px; color:var(--text-soft); margin-top:10px;">Sign in and join a pod to see or propose your pod's own version of this list.</div>`;
+  } else if (!impactState.pods || !impactState.pods.length) {
+    h += `<div style="font-size:12.5px; color:var(--text-soft); margin-top:10px;">Join or create a pod to propose your own version of this list.</div>`;
+  } else {
+    h += `<div style="margin-top:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;"><label style="font-size:12px; color:var(--text-soft);">Pod</label>` +
+      `<select id="impactPodSel" style="padding:4px 6px; font-size:13px;">${impactState.pods.map(p => `<option value="${escapeHtml(p.id)}"${p.id === impactState.podId ? ' selected' : ''}>${escapeHtml(p.name || 'Pod')}</option>`).join('')}</select>` +
+      `<span style="font-size:12px; color:var(--text-soft);">${canEdit ? 'You can edit this list.' : 'Only the Steward and Co-Stewards can edit; you can read the list and reasons.'}</span></div>`;
+    const v = computePodView(ch);
+    if (v && Object.keys(ch).length) {
+      h += `<div style="font-size:12.5px; margin-top:8px; padding:6px 8px; border:1px dashed var(--line); border-radius:8px;">Pod view for the deck on screen: Power ${v.power.toFixed(1)} (standard ${currentScores.powerLevel.toFixed(1)}), Spark ${v.spark.toFixed(1)} (standard ${currentCommandSpark.toFixed(1)}).</div>`;
+    }
+    if (impactState.updatedAt) h += `<div style="font-size:11.5px; color:var(--text-dim); margin-top:4px;">List last changed ${escapeHtml(new Date(impactState.updatedAt).toLocaleDateString())}.</div>`;
+  }
+
+  const editable = signedIn && canEdit && !impactState.busy;
+  h += `<div style="margin-top:12px;">`;
+  rows.forEach(name => {
+    const key = impactKey(name);
+    const isDef = impactIsDefault(name);
+    const c = ch[key];
+    const checked = effSet.has(name.toLowerCase());
+    const changedTag = c ? (c.action === 'add' ? 'added by pod' : 'removed by pod') : '';
+    const showIcon = !!c && signedIn;
+    const open = impactState.openReasonKey === key;
+    h += `<div style="padding:4px 0; border-bottom:1px solid var(--line);">` +
+      `<div style="display:flex; align-items:center; gap:8px;">` +
+      `<input type="checkbox" data-impact-toggle="${escapeHtml(key)}" data-card="${escapeHtml(name)}" ${checked ? 'checked' : ''} ${editable ? '' : 'disabled'} aria-label="Include ${escapeHtml(name)}">` +
+      `<span style="flex:1; font-size:13.5px;${checked ? '' : ' text-decoration:line-through; color:var(--text-dim);'}">${cardNameLink(name)}</span>` +
+      (inDeck(name) ? `<span style="font-size:11px; color:var(--success-text);">in this deck</span>` : '') +
+      (changedTag ? `<span style="font-size:11px; color:var(--gold);">${changedTag}</span>` : '') +
+      (showIcon ? `<button type="button" class="ghost" data-impact-reason="${escapeHtml(key)}" title="${canEdit ? 'Add or edit the reason' : 'Read the reason'}" aria-label="Reason for ${escapeHtml(name)}" style="padding:1px 6px; font-size:13px;">💬</button>` : '') +
+      `</div>` + (open ? '' : impactReasonText(c));
+    if (open && c) {
+      h += canEdit
+        ? `<div style="margin:6px 0 4px 26px;"><div style="font-size:12px; color:var(--text-soft); margin-bottom:3px;">Why ${c.action === 'add' ? 'include' : 'remove'} ${escapeHtml(name)}? (optional)</div>` +
+          `<textarea id="impactReasonInput" maxlength="${IMPACT_REASON_MAX}" rows="2" style="width:100%; box-sizing:border-box; font-size:13px;">${escapeHtml(c.reason || '')}</textarea>` +
+          `<div style="margin-top:4px; display:flex; gap:6px;"><button type="button" data-impact-reason-save="${escapeHtml(key)}" style="padding:3px 10px; font-size:12px;">Save</button><button type="button" class="ghost" data-impact-reason-cancel="1" style="padding:3px 10px; font-size:12px;">Skip</button></div></div>`
+        : `<div style="margin:4px 0 4px 26px; font-size:12.5px; color:var(--text-soft);">${c.reason ? escapeHtml(c.reason) : 'No reason was given.'}</div>`;
+    }
+    h += `</div>`;
+  });
+  h += `</div>`;
+
+  if (editable) {
+    h += `<div style="margin-top:12px;"><input id="impactSearch" type="text" placeholder="Search for a card to add…" autocomplete="off" style="width:100%; box-sizing:border-box; font-size:13px;"><div id="impactSearchHits" style="margin-top:4px;"></div>` +
+      `<div style="font-size:11.5px; color:var(--text-dim); margin-top:4px;">Up to ${IMPACT_MAX_ADDS} added cards and ${IMPACT_MAX_CHANGES} changes in total. Every change is saved with your name and can be undone by ticking the card back.</div>` +
+      (Object.keys(ch).length ? `<div style="margin-top:8px;"><button type="button" class="ghost" id="impactResetBtn" style="font-size:12px; padding:4px 10px;">Reset to the default list</button></div>` : '') + `</div>`;
+  }
+  body.innerHTML = h;
+}
+
+async function impactWrite(fn, msgOk) {
+  impactState.busy = true;
+  renderImpactBody();
+  try {
+    await fn();
+    await impactLoadPod(impactState.podId, true);
+    if (msgOk) showToast(msgOk);
+  } catch (e) {
+    showToast((e && e.message) ? e.message : 'Could not save that change.');
+  }
+  impactState.busy = false;
+  renderImpactBody();
+  refreshPodView();
+}
+
+function impactWireBody() {
+  const body = document.getElementById('impactBody');
+  if (!body) return;
+  const cloud = window.PodmatesCloud;
+  body.addEventListener('change', (e) => {
+    const t = e.target;
+    if (t.id === 'impactPodSel') {
+      impactState.openReasonKey = null;
+      impactLoadPod(t.value, true).then(() => { renderImpactBody(); refreshPodView(); }).catch(() => showToast('Could not load that pod.'));
+      return;
+    }
+    const key = t.getAttribute && t.getAttribute('data-impact-toggle');
+    if (!key || !impactCanEdit()) return;
+    const card = t.getAttribute('data-card');
+    const wantOn = t.checked;
+    const isDef = impactIsDefault(card);
+    const existing = impactCleanChanges(impactState.changes)[key];
+    if (isDef && wantOn) {
+      impactWrite(() => cloud.setImpactChange(impactState.podId, key, null), `${card} is back in the pod list.`);
+    } else if (isDef && !wantOn) {
+      impactState.openReasonKey = key;
+      impactWrite(() => cloud.setImpactChange(impactState.podId, key, { card, action: 'remove' }), `${card} removed from the pod list.`);
+    } else if (!isDef && !wantOn) {
+      impactState.openReasonKey = null;
+      impactWrite(() => cloud.setImpactChange(impactState.podId, key, null), `${card} dropped from the pod list.`);
+    }
+  });
+  body.addEventListener('click', (e) => {
+    const t = e.target.closest ? e.target.closest('button') : null;
+    if (!t) return;
+    if (t.hasAttribute('data-impact-reason')) {
+      const k = t.getAttribute('data-impact-reason');
+      impactState.openReasonKey = impactState.openReasonKey === k ? null : k;
+      renderImpactBody();
+    } else if (t.hasAttribute('data-impact-reason-cancel')) {
+      impactState.openReasonKey = null; renderImpactBody();
+    } else if (t.hasAttribute('data-impact-reason-save')) {
+      const k = t.getAttribute('data-impact-reason-save');
+      const txt = (document.getElementById('impactReasonInput') || {}).value || '';
+      impactState.openReasonKey = null;
+      impactWrite(() => cloud.setImpactReason(impactState.podId, k, txt), 'Reason saved.');
+    } else if (t.hasAttribute('data-impact-add')) {
+      const card = t.getAttribute('data-impact-add');
+      const key = impactKey(card);
+      impactState.openReasonKey = key;
+      impactWrite(() => cloud.setImpactChange(impactState.podId, key, { card, action: 'add' }), `${card} added to the pod list.`);
+    } else if (t.id === 'impactResetBtn') {
+      if (!impactState.confirmReset) { impactState.confirmReset = true; t.textContent = 'Click again to confirm the reset'; return; }
+      impactState.confirmReset = false;
+      impactState.openReasonKey = null;
+      impactWrite(() => cloud.resetImpactSettings(impactState.podId), 'Pod list reset to the default.');
+    }
+  });
+  body.addEventListener('input', (e) => {
+    if (e.target.id !== 'impactSearch') return;
+    const q = e.target.value;
+    const hitsEl = document.getElementById('impactSearchHits');
+    if (!hitsEl) return;
+    const eff = new Set(impactEffectiveList(impactState.changes).map(n => n.toLowerCase()));
+    const hits = searchCardsByName(q, 8).filter(c => !eff.has(c.n.toLowerCase()) && !impactIsDefault(c.n)).slice(0, 6);
+    hitsEl.innerHTML = hits.map(c => `<button type="button" class="ghost" data-impact-add="${escapeHtml(c.n)}" style="display:block; width:100%; text-align:left; padding:4px 8px; font-size:13px; margin-bottom:2px;">+ ${escapeHtml(c.n)}</button>`).join('');
+  });
+}
+
+async function openImpactCardsModal() {
+  showInfoModal(`<h2 style="margin-bottom:4px;">Impact cards</h2><p class="tad-sub" style="margin-bottom:8px;">The cards that move Power beyond Game Changers</p>`, `<div id="impactBody">Loading…</div>`);
+  const m = document.querySelector('#tadOverlay .tad-modal');
+  if (m) m.style.maxWidth = '560px';
+  impactWireBody();
+  impactState.openReasonKey = null;
+  impactState.busy = false;
+  try { if (window.PodmatesCloud && window.PodmatesCloud.uid) await impactLoadPod(null, true); } catch (e) { /* offline or no pods: show the default list read-only */ }
+  renderImpactBody();
+}
+
 function showCardReason(cardName) {
   const entry = GAME_CHANGER_REASONS[cardName];
   if (!entry) return;
@@ -24374,7 +24801,7 @@ function buildSparkExplainerHtml() {
   let pct = '';
   if (currentCommandSpark !== null) {
     pct = sec('Where this deck sits',
-      `Spark ${currentCommandSpark.toFixed(1)} is at the ${ordinalSuffix(computeSparkPercentile(currentCommandSpark))} percentile of the PodMates benchmark: ${PRECON_BENCHMARK_SPARK.length} official precons and curated decks scored by this same engine. That is a handy yardstick, but it is not a percentile of all Commander decks.`);
+      `Spark ${currentCommandSpark.toFixed(1)} is at the ${ordinalSuffix(computeSparkPercentile(currentCommandSpark))} percentile of the PodMates reference set (${referenceSetSummary()}). In tier terms, it scores higher than ${describeTierPlacement(currentCommandSpark)}. That is a handy yardstick, but it is not a percentile of all Commander decks.`);
   }
   return `<div style="font-size:13.5px; color:var(--text-primary); line-height:1.5;">` +
     `<div>Spark exists so a table can <strong>line up before the game starts</strong>. Commander games usually go sideways not because a deck is weak or strong, but because the decks at the table don't match. Spark boils the five axes down to one shared number so a pod can compare decks quickly and talk about it. The Pod view uses the gaps between decks' Spark scores to call a table Well Balanced, Moderate Spread, or High Variance.</div>` +
@@ -24402,13 +24829,13 @@ function showExplainer(key) {
     const pct = computeSparkPercentile(currentCommandSpark);
     pctHtml = `<div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--line); font-size:12.5px; color:var(--text-soft);">` +
       `This deck's Command Spark of ${currentCommandSpark.toFixed(1)} sits at the ${ordinalSuffix(pct)} percentile ` +
-      `against ${PRECON_BENCHMARK_SPARK.length} real Commander precon and curated decks scored by this same engine.</div>`;
+      `against the PodMates reference set (${referenceSetSummary()}). It scores higher than ${describeTierPlacement(currentCommandSpark)}.</div>`;
   } else if (currentScores && currentScores[key] !== undefined) {
     const pct = computeAxisPercentile(key, currentScores[key]);
     if (pct !== null) {
       pctHtml = `<div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--line); font-size:12.5px; color:var(--text-soft);">` +
         `This deck's ${AXES.find(a => a.key === key).label} of ${currentScores[key].toFixed(1)} sits at the ${ordinalSuffix(pct)} percentile ` +
-        `of the PodMates benchmark (${PRECON_BENCHMARK_SCORES.length} official precons and curated decks scored by this same engine, not all Commander decks).</div>`;
+        `of the PodMates reference set (${referenceSetSummary()}, not all Commander decks). It scores higher than ${describeTierPlacement(currentScores[key], key)}.</div>`;
     }
   }
   showInfoModal(
@@ -28252,7 +28679,7 @@ setupIconTooltipsFor(document);
   } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
   import {
     getFirestore, doc, setDoc, updateDoc, getDoc, getDocs, deleteDoc, collection, serverTimestamp,
-    query, where, arrayUnion, arrayRemove, getCountFromServer, onSnapshot,
+    query, where, arrayUnion, arrayRemove, getCountFromServer, onSnapshot, deleteField,
   } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -29313,6 +29740,54 @@ setupIconTooltipsFor(document);
     await deleteDoc(doc(db, 'pods', podId));
   }
 
+  // ---- Impact-card list: pod proposals (pods/{podId}/settings/impactCards) ----
+  // Only differences from the default list are stored, one map entry per card
+  // (so two Co-Stewards editing different cards never overwrite each other).
+  // Writable by the Steward and Co-Stewards (enforced in firestore.rules);
+  // readable by pod members. Used only for the separate "Pod view" Power figure.
+  const impactRef = (podId) => doc(db, 'pods', podId, 'settings', 'impactCards');
+  async function cloudLoadImpactSettings(podId) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    if (!podId) return { changes: {} };
+    const snap = await getDoc(impactRef(podId));
+    return snap.exists() ? snap.data() : { changes: {} };
+  }
+  function impactWho() { return clampText(currentUser.displayName || currentUser.email || 'Someone', 80); }
+  async function cloudSetImpactChange(podId, key, entry) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    if (!podId) throw new Error('No pod selected');
+    if (!/^[a-z0-9_]{1,80}$/.test(key)) throw new Error('That card name cannot be used as a list key.');
+    const ref = impactRef(podId);
+    if (entry === null) {
+      await setDoc(ref, { changes: { [key]: deleteField() }, updatedAt: serverTimestamp() }, { merge: true });
+      return;
+    }
+    const L = PML();
+    const cur = (await cloudLoadImpactSettings(podId)).changes || {};
+    const keys = Object.keys(cur);
+    if (!(key in cur) && keys.length >= (L.impactChanges || 60)) throw new Error(`This pod's list already has ${L.impactChanges || 60} changes. Undo one first.`);
+    const adds = keys.filter(k => cur[k] && cur[k].action === 'add').length;
+    if (entry.action === 'add' && !(cur[key] && cur[key].action === 'add') && adds >= (L.impactAdds || 15)) throw new Error(`A pod list can add at most ${L.impactAdds || 15} cards beyond the default.`);
+    await setDoc(ref, { changes: { [key]: {
+      card: clampText(entry.card, 200), action: entry.action === 'add' ? 'add' : 'remove',
+      reason: '', by: currentUser.uid, byName: impactWho(), at: Date.now(),
+    } }, updatedAt: serverTimestamp() }, { merge: true });
+  }
+  async function cloudSetImpactReason(podId, key, reason) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    if (!podId) throw new Error('No pod selected');
+    if (!/^[a-z0-9_]{1,80}$/.test(key)) throw new Error('That card name cannot be used as a list key.');
+    const L = PML();
+    await setDoc(impactRef(podId), { changes: { [key]: {
+      reason: clampText(reason, L.impactReason || 280).trim(), reasonBy: impactWho(), reasonAt: Date.now(),
+    } }, updatedAt: serverTimestamp() }, { merge: true });
+  }
+  async function cloudResetImpactSettings(podId) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    if (!podId) throw new Error('No pod selected');
+    await setDoc(impactRef(podId), { changes: {}, updatedAt: serverTimestamp(), resetBy: impactWho() });
+  }
+
   window.PodmatesCloud = {
     get ready() { return isReady; },
     get uid() { return currentUser ? currentUser.uid : null; },
@@ -29347,6 +29822,8 @@ setupIconTooltipsFor(document);
     loadLiveGatherings: cloudLoadLiveGatherings, watchGathering: cloudWatchGathering, watchLiveGatherings: cloudWatchLiveGatherings, setGatheringSeat: cloudSetGatheringSeat,
     goLiveGathering: cloudGoLiveGathering, endGathering: cloudEndGathering,
     markGatheringCharted: cloudMarkGatheringCharted,
+    loadImpactSettings: cloudLoadImpactSettings, setImpactChange: cloudSetImpactChange,
+    setImpactReason: cloudSetImpactReason, resetImpactSettings: cloudResetImpactSettings,
   };
 
   // Scripts loaded with type="module" (required for Firebase's import
