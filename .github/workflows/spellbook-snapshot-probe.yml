@@ -1,9 +1,9 @@
-name: Spellbook Snapshot Probe (run once, then send me the log of the step called Size estimate)
+name: Spellbook Snapshot Build (run on demand; download the result from the run page)
 
-# Measures how big an offline Commander Spellbook snapshot would be, before anything is built. It asks for the
-# public data export ONCE (two possible addresses), prints what each answered, and for the first that works it
-# estimates the compact size (card-name table plus one short list of card numbers per combo, gzipped).
-# It changes nothing and stores nothing. Honest User-Agent; if a site refuses, the log says so and we stop.
+# Downloads the public Commander Spellbook data export once, boils it down to PodMates' compact
+# offline snapshot, and attaches two files to the run: spellbook-snapshot.json.gz and spellbook-stats.txt.
+# It changes nothing in the repo. Honest User-Agent; if the site refuses, the log says so and we stop.
+# Run it again whenever you want a fresher snapshot (then send me the two files).
 
 on:
   workflow_dispatch:
@@ -12,86 +12,25 @@ permissions:
   contents: read
 
 jobs:
-  probe:
+  build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
-      - name: Who answers
-        continue-on-error: true
-        run: |
-          UA="PodMatesSpellbook/1.0 (+https://github.com/anf1978/PodMates)"
-          for URL in https://json.commanderspellbook.com/variants.json "https://backend.commanderspellbook.com/variants/?format=json&limit=1"; do
-            echo "=== $URL ==="
-            curl -sS -L -D - -o /dev/null -r 0-0 -H "User-Agent: $UA" "$URL" | head -15
-          done
+      - name: Get this repository (for the script)
+        uses: actions/checkout@v4
 
       - name: Download the export once
-        continue-on-error: true
         run: |
           UA="PodMatesSpellbook/1.0 (+https://github.com/anf1978/PodMates)"
           curl -sS -L -w "\nHTTP %{http_code}, %{size_download} bytes, %{time_total}s\n" -H "User-Agent: $UA" -o variants.json https://json.commanderspellbook.com/variants.json
           ls -l variants.json
-          head -c 600 variants.json; echo
 
-      - name: Size estimate
-        continue-on-error: true
-        run: |
-          node - <<'JS'
-          // The export is ~690 MB, too big to read into one string, so this reads it in pieces and
-          // parses one combo at a time.
-          const fs = require('fs'), zlib = require('zlib');
-          if (!fs.existsSync('variants.json')) { console.log('No file to measure.'); process.exit(0); }
-          const names = new Map(), rows = [], statuses = {}, keySet = new Set();
-          let total = 0, kept = 0, sample = null, legalSample = null;
-          const fd = fs.openSync('variants.json', 'r');
-          const buf = Buffer.alloc(8 * 1024 * 1024);
-          let depth = 0, inStr = false, esc = false, started = false, arrDepth = -1, chunks = [], objStart = -1, carry = '';
-          function handle(txt) {
-            let v; try { v = JSON.parse(txt); } catch (e) { return; }
-            total++;
-            Object.keys(v).forEach(k => keySet.add(k));
-            statuses[v.status] = (statuses[v.status] || 0) + 1;
-            if (!sample) sample = JSON.stringify(Object.assign({}, v, { uses: '(' + (v.uses || []).length + ' cards)', requires: '...', produces: '...', of: '...' })).slice(0, 900);
-            if (!legalSample && v.legalities) legalSample = JSON.stringify(v.legalities).slice(0, 400);
-            if (v.status && v.status !== 'OK') return;
-            if (v.legalities && v.legalities.commander === false) return;
-            const cs = (v.uses || []).map(u => u.card && u.card.name).filter(Boolean);
-            if (cs.length < 2 || cs.length > 6) return;
-            kept++;
-            rows.push(cs.map(n => { if (!names.has(n)) names.set(n, names.size); return names.get(n); }));
-          }
-          // Scan the text, tracking brackets and quotes, to cut out each object inside the "variants" array.
-          let pos = 0, cur = '', inVariants = false, objDepth = 0;
-          const decoder = new (require('string_decoder').StringDecoder)('utf8');
-          function feed(text) {
-            for (let i = 0; i < text.length; i++) {
-              const c = text[i];
-              if (!inVariants) {
-                carry = (carry + c).slice(-14);
-                if (c === '[' && /"variants":\s*\[$/.test(carry)) inVariants = true;
-                continue;
-              }
-              if (inStr) { cur += c; if (esc) esc = false; else if (c === '\\') esc = true; else if (c === '"') inStr = false; continue; }
-              if (c === '"') { inStr = true; if (objDepth > 0) cur += c; continue; }
-              if (c === '{') { objDepth++; }
-              if (objDepth > 0) cur += c;
-              if (c === '}') { objDepth--; if (objDepth === 0) { handle(cur); cur = ''; } }
-              else if (c === ']' && objDepth === 0) { inVariants = false; }
-            }
-          }
-          let n;
-          while ((n = fs.readSync(fd, buf, 0, buf.length, null)) > 0) feed(decoder.write(buf.subarray(0, n)));
-          console.log('combos in the export:', total);
-          console.log('statuses:', JSON.stringify(statuses));
-          console.log('keys on a combo:', Array.from(keySet).join(', '));
-          console.log('sample combo (shortened):', sample);
-          console.log('legalities sample:', legalSample);
-          const table = Array.from(names.keys());
-          const compact = JSON.stringify({ n: table, c: rows });
-          const gz = zlib.gzipSync(Buffer.from(compact), { level: 9 });
-          console.log('kept (OK, commander-legal, 2-6 cards):', kept, '| unique cards:', table.length);
-          console.log('compact JSON bytes:', compact.length, '| gzipped bytes:', gz.length, '| base64 of that (what would sit in index.html):', Math.ceil(gz.length * 4 / 3));
-          const small = rows.filter(r => r.length <= 4);
-          const c2 = JSON.stringify({ n: table, c: small });
-          console.log('only combos of 2-4 cards:', small.length, '| gzipped bytes:', zlib.gzipSync(Buffer.from(c2), { level: 9 }).length);
-          JS
+      - name: Build the snapshot and the stats
+        run: node .github/scripts/spellbook-snapshot.mjs variants.json out
+
+      - name: Attach the results to this run
+        uses: actions/upload-artifact@v4
+        with:
+          name: spellbook-snapshot
+          path: out/
+          retention-days: 30
