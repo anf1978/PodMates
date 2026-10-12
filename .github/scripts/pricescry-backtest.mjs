@@ -67,17 +67,18 @@ export async function backtest({ bulkPath, dataDir, outDir, minLead = 14, maxEve
   }
   events.sort((a, b) => a.day - b.day);
   const used = events.length > maxEvents ? events.filter((_, i) => i % Math.ceil(events.length / maxEvents) === 0) : events;
-  // pool at each event day = cards whose first printing was on or before that day (no hindsight)
+  // One index over every card (built once: it used to be rebuilt for each event, which took 40 minutes). Hindsight is removed afterwards:
+  // a candidate must have been first printed at least SETTLE_DAYS BEFORE the event, so cards from the same set, whose prices are still
+  // settling, can never be picks. (Tag rarity weights use today's card pool; that has a negligible effect.)
+  const SETTLE_DAYS = 14;
   const firstDay = new Map([...byName].map(([n, v]) => [n, v.rel ? dayIndex(v.rel) : 0]));
-  const ixCache = new Map();
+  const ix = buildIndex(all);
   const log = { v: 1, events: [] };
   let withCands = 0;
   for (const e of used) {
-    const pool = all.filter(t => (firstDay.get(t[0]) || 0) <= e.day && t[0] !== e.name);
-    pool.push(e.tuple);                                                  // the new card itself must be in the index for the engine to skip it
-    const ix = buildIndex(pool);
     const cands = [];
-    for (const h of linksFor(e.tuple, ix, { top: 150 })) {
+    for (const h of linksFor(e.tuple, ix, { top: 600 })) {
+      if ((firstDay.get(h.name) || 0) > e.day - SETTLE_DAYS) continue;
       const rec = recOf(h.name); if (!rec) continue;
       const p0 = marketCentsAt(rec, e.day, eurUsd); if (p0 == null || p0 < MIN_CENTS) continue;
       cands.push({ n: h.name, k: nameKey(h.name), s: h.score, t: [...new Set(h.links.map(l => l.type))], main: strongestType(h), p0 });
@@ -103,7 +104,8 @@ export async function backtest({ bulkPath, dataDir, outDir, minLead = 14, maxEve
   for (const t of Object.keys(report.byType)) for (const h of Object.keys(report.byType[t])) {
     const r = report.byType[t][h]; if (!r) continue;
     const pc = (x) => x == null ? '  n/a' : (100 * x).toFixed(1).padStart(5) + '%';
-    L.push(`${t.padEnd(9)} ${String(h).padStart(2)}d  events ${String(r.events).padStart(3)}  picks ${String(r.n).padStart(5)}  mean return ${pc(r.meanReturn)}  vs ordinary ${pc(r.meanReturn - r.meanAbnormal)}  hit(+25%) ${pc(r.hit25)} vs ordinary ${pc(r.control25)}  -> ${r.verdict}`);
+    L.push(`${t.padEnd(9)} ${String(h).padStart(2)}d  new cards ${String(r.events).padStart(3)}  picks ${String(r.n).padStart(5)} | per-pick: extra return ${pc(r.meanAbnormal)}, hit(+25%) ${pc(r.hit25)} vs ordinary ${pc(r.control25)} -> ${r.verdict}`);
+    if (r.evMeanAbn !== undefined) L.push(`${''.padEnd(16)}   per NEW CARD (the honest count): extra return ${pc(r.evMeanAbn)} [95% range ${pc(r.evMeanAbnCI[0])} to ${pc(r.evMeanAbnCI[1])}], after 20% cost ${pc(r.evMeanAbn - 0.20)}; hit-rate edge over ordinary ${pc(r.evHitMinusControl)} [${pc(r.evHitMinusControlCI[0])} to ${pc(r.evHitMinusControlCI[1])}]; ${pc(r.evPosShare)} of new cards had positive extra return`);
   }
   writeFileSync(join(outDir, 'backtest-summary.txt'), L.join('\n') + '\n');
   return { report, summary: L.join('\n') };

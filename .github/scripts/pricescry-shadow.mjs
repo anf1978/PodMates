@@ -118,14 +118,15 @@ export function evaluate({ dataDir, horizons = HORIZONS, minEvents = 5, minCandi
   for (const t of types) byType[t] = {};
   for (const h of horizons) {
     const hjobs = jobs.filter(j => j.h === h);
-    const acc = Object.fromEntries(types.map(t => [t, { events: new Set(), n: 0, r: [], abn: [], ctrl25: [], ctrl100: [] }]));
+    const acc = Object.fromEntries(types.map(t => [t, { events: new Set(), n: 0, r: [], abn: [], ctrl25: [], ctrl100: [], byEv: new Map() }]));
     for (const j of hjobs) {
       const ctrlMed = j.ctrl.map(a => median(a)), ctrl25 = j.ctrl.map(a => (a.length ? a.filter(x => x >= 0.25).length / a.length : null)), ctrl100 = j.ctrl.map(a => (a.length ? a.filter(x => x >= 1).length / a.length : null));
       j.ev.cands.forEach((c, rank) => {
         const r = candRet.get(`${j.ev.id}|${h}|${c.k}`); if (r === undefined) return;
         const b = bandOf(c.p0); if (b < 0 || ctrlMed[b] == null) return;
         const tags = ['any']; if (rank < 5) tags.push('top5'); for (const t of c.t) if (acc[t]) tags.push(t);
-        for (const t of new Set(tags)) { const a = acc[t]; a.events.add(j.ev.id); a.n++; a.r.push(r); a.abn.push(r - ctrlMed[b]); a.ctrl25.push(ctrl25[b]); a.ctrl100.push(ctrl100[b]); }
+        for (const t of new Set(tags)) { const a = acc[t]; a.events.add(j.ev.id); a.n++; a.r.push(r); a.abn.push(r - ctrlMed[b]); a.ctrl25.push(ctrl25[b]); a.ctrl100.push(ctrl100[b]);
+          let e = a.byEv.get(j.ev.id); if (!e) a.byEv.set(j.ev.id, e = { abn: [], hit: 0, n: 0, c25: [] }); e.abn.push(r - ctrlMed[b]); e.n++; if (r >= 0.25) e.hit++; if (ctrl25[b] != null) e.c25.push(ctrl25[b]); }
       });
     }
     for (const t of types) {
@@ -134,7 +135,12 @@ export function evaluate({ dataDir, horizons = HORIZONS, minEvents = 5, minCandi
       const enough = a.events.size >= minEvents && a.n >= minCandidates;
       let verdict = 'too early';
       if (enough) verdict = (lo25 > c25 && mean(a.abn) > 0) ? 'beats ordinary cards' : (hi25 < c25 || mean(a.abn) < 0) ? 'no edge' : 'inconclusive';
-      byType[t][h] = { events: a.events.size, n: a.n, meanReturn: mean(a.r), meanAbnormal: mean(a.abn), medianAbnormal: median(a.abn), hit25: k25 / a.n, hit25Low: lo25, hit100: k100 / a.n, control25: c25, control100: c100, verdict };
+      // Event-level view: one number per new card, so a single busy card cannot count 25 times. Bootstrap over events (seeded, repeatable).
+      const evs = [...a.byEv.values()], evAbn = evs.map(e => mean(e.abn)), evHit = evs.map(e => e.hit / e.n), evCtl = evs.map(e => (e.c25.length ? mean(e.c25) : 0));
+      const boot = (arr) => { let seed = 12345; const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }; const m = []; for (let b = 0; b < 1000; b++) { let t2 = 0; for (let i = 0; i < arr.length; i++) t2 += arr[(rnd() * arr.length) | 0]; m.push(t2 / arr.length); } m.sort((x, y) => x - y); return [m[25], m[974]]; };
+      const evDiff = evHit.map((x, i) => x - evCtl[i]);
+      const ev = evs.length >= 2 ? { evMeanAbn: mean(evAbn), evMeanAbnCI: boot(evAbn), evHit25: mean(evHit), evHitMinusControl: mean(evDiff), evHitMinusControlCI: boot(evDiff), evPosShare: evAbn.filter(x => x > 0).length / evAbn.length } : {};
+      byType[t][h] = { ...ev, events: a.events.size, n: a.n, meanReturn: mean(a.r), meanAbnormal: mean(a.abn), medianAbnormal: median(a.abn), hit25: k25 / a.n, hit25Low: lo25, hit100: k100 / a.n, control25: c25, control100: c100, verdict };
     }
   }
   const settled = log.events.filter(e => horizons.some(h => e.day + h <= latest)).length;
