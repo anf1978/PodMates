@@ -28046,6 +28046,10 @@ async function buildSavedDecksTable() {
       disruption: result.scores.disruption,
       powerLevel: result.scores.powerLevel,
       commandSpark: result.commandSpark,
+      // Spark percentile within each reference tier (share of that tier's decks scored above), shown left of the bracket
+      pctPrecon: computeTierPlacement(result.commandSpark, null)[0].pctBelow,
+      pctTuned: computeTierPlacement(result.commandSpark, null)[1].pctBelow,
+      pctCedh: computeTierPlacement(result.commandSpark, null)[2].pctBelow,
       bracket: result.bracket.bracket,
     });
   }
@@ -28068,6 +28072,9 @@ const SAVED_DECKS_TABLE_COLUMNS = [
   { key: 'disruption', label: 'Disruption', numeric: true },
   { key: 'powerLevel', label: 'Power', numeric: true },
   { key: 'commandSpark', label: 'Spark', numeric: true },
+  { key: 'pctPrecon', label: 'Precon %', numeric: true, pct: true },
+  { key: 'pctTuned', label: 'Tuned %', numeric: true, pct: true },
+  { key: 'pctCedh', label: 'cEDH %', numeric: true, pct: true },
   { key: 'bracket', label: 'Bracket', numeric: false },
 ];
 
@@ -28093,12 +28100,13 @@ function renderSavedDecksTable() {
   const rowsHtml = sorted.map(r => {
     return `<tr>` + SAVED_DECKS_TABLE_COLUMNS.map(col => {
       const val = r[col.key];
-      const display = col.numeric ? Number(val).toFixed(1) : escapeHtml(String(val));
+      const display = col.pct ? (val == null ? '–' : Number(val) + '%') : col.numeric ? Number(val).toFixed(1) : escapeHtml(String(val));
       return `<td style="padding:7px 10px; text-align:${col.numeric ? 'right' : 'left'}; border-bottom:1px solid var(--line); font-size:13px; color:${col.numeric ? 'var(--text-primary)' : 'var(--text-soft)'}; white-space:nowrap;">${display}</td>`;
     }).join('') + `</tr>`;
   }).join('');
 
-  area.innerHTML = `<table style="border-collapse:collapse; width:100%; min-width:640px;"><thead><tr>${headerHtml}</tr></thead><tbody>${rowsHtml}</tbody></table>`;
+  area.innerHTML = `<table style="border-collapse:collapse; width:100%; min-width:760px;"><thead><tr>${headerHtml}</tr></thead><tbody>${rowsHtml}</tbody></table>` +
+    `<div style="margin-top:8px; font-size:12.5px; color:var(--text-soft); line-height:1.5;">Precon %, Tuned % and cEDH % show where each deck's Spark sits within the PodMates reference decks of that tier: the share of those decks it scores above (${escapeHtml(referenceSetSummary())}). A deck at 50% in a tier is level with that tier's middle deck.</div>`;
 }
 
 document.addEventListener('click', (e) => {
