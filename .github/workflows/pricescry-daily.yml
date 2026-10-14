@@ -114,6 +114,12 @@ jobs:
           node .github/scripts/pricescry-shadow.mjs log default-cards.jsonl.gz pricescry-data
           node .github/scripts/pricescry-shadow.mjs eval pricescry-data
 
+      - name: Cheap-pick watch - write down cheap old cards a new card might lift, then score the older ones
+        continue-on-error: true   # a problem here must never stop the rest of the day's data being published
+        run: |
+          node .github/scripts/pricescry-cheapwatch.mjs log default-cards.jsonl.gz pricescry-data pricescry-spoilers.txt
+          node .github/scripts/pricescry-cheapwatch.mjs eval pricescry-data
+
       - name: Publish to the pricescry-data branch
         run: |
           cd pricescry-data
