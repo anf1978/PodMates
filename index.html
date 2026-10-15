@@ -21725,6 +21725,11 @@ function showAuthModal() {
 
 function renderAuthModal(modal, errorMsg) {
   const isSignup = authModalMode === 'signup';
+  // Keep what was already typed in the email box when the window redraws (an error used to wipe it), else offer the email this browser last used.
+  const typedEl = document.getElementById('authEmail');
+  let prefillEmail = typedEl ? typedEl.value : '', rememberedEmail = '', rememberedVia = '';
+  try { const r = JSON.parse(localStorage.getItem('podmates_last_signin') || 'null'); if (r && typeof r.email === 'string') { rememberedEmail = r.email.slice(0, 200); rememberedVia = (r.providers || []).includes('google.com') && !(r.providers || []).includes('password') ? 'Google' : 'email and password'; } } catch (e) { /* ignore */ }
+  if (!prefillEmail && !isSignup && rememberedEmail) prefillEmail = rememberedEmail;
   modal.innerHTML = `
     <button class="tad-close" id="tadCloseBtn">Close ×</button>
     <h2 style="margin-bottom:4px;">${isSignup ? 'Create an Account' : 'Log In'}</h2>
@@ -21737,12 +21742,13 @@ function renderAuthModal(modal, errorMsg) {
         <input id="authDisplayName" type="text" placeholder="Display name (e.g. Alex)" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
       </div>` : ''}
       <div class="row" style="margin-bottom:10px;">
-        <input id="authEmail" type="email" placeholder="Email" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
+        <input id="authEmail" type="email" placeholder="Email" value="${escapeHtml(prefillEmail)}" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
       </div>
       <div class="row" style="margin-bottom:6px;">
         <input id="authPassword" type="password" placeholder="Password" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
       </div>
-      ${!isSignup ? `<div style="text-align:right; margin-bottom:10px;"><a href="#" id="authForgotLink" style="font-size:12px; color:var(--gold); text-decoration:none;">Forgot password?</a></div>` : '<div style="margin-bottom:10px;"></div>'}
+      ${!isSignup ? `<div style="text-align:right; margin-bottom:6px;"><a href="#" id="authForgotLink" style="font-size:12px; color:var(--gold); text-decoration:none;">Forgot password?</a></div>
+      <div style="font-size:11.5px; color:var(--text-soft); line-height:1.5; margin-bottom:10px;">${rememberedEmail ? `Last signed in on this browser: <strong>${escapeHtml(rememberedEmail)}</strong> (${rememberedVia}). ` : ''}Not sure which email you used? Try "Continue with Google" below, or enter each address you might have used and click "Forgot password?". After you sign in, <em>My Profile</em> shows the email on your account.</div>` : '<div style="margin-bottom:10px;"></div>'}
     </div>
     <button id="authSubmitBtn" style="width:100%; margin-bottom:14px;">${isSignup ? 'Create Account' : 'Log In'}</button>
     <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
@@ -21771,7 +21777,7 @@ function renderAuthModal(modal, errorMsg) {
     renderAuthModal(modal, result.ok ? null : result.error);
     if (result.ok) {
       const el = document.getElementById('authFormFields');
-      if (el) el.insertAdjacentHTML('afterbegin', `<div class="status" style="margin-bottom:10px;">Password reset email sent to ${escapeHtml(email)}.</div>`);
+      if (el) el.insertAdjacentHTML('afterbegin', `<div class="status" style="margin-bottom:10px;">If ${escapeHtml(email)} has a PodMates account, a reset link is on its way. It can take a few minutes, so check spam too. If nothing arrives, you probably signed up with a different address: try another one, or "Continue with Google".</div>`);
     }
   });
   document.getElementById('authSubmitBtn').addEventListener('click', async () => {
@@ -22866,6 +22872,7 @@ function renderProfileModal(modal, myDecks, opts) {
         : 'All your decks live here — anything saved from Chart Deck, plus anything linked from Archidekt or Moxfield below.'}
     </p>
     ${!isWelcome ? `<div id="myProfileHeaderArea" style="margin-bottom:18px; padding-bottom:16px; border-bottom:1px solid var(--line);"></div>` : ''}
+    ${!isWelcome ? `<div id="profileSignInBox" style="margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid var(--line);"></div>` : ''}
     <div style="margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid var(--line);">
       <label style="font-size:12px; color:var(--text-soft); display:block; margin-bottom:6px;">Display name — this is what your podmates see, instead of your email</label>
       <div class="row" style="gap:8px; align-items:center;">
@@ -22991,6 +22998,7 @@ function renderProfileModal(modal, myDecks, opts) {
     }
   });
 
+  renderProfileSignInBox();
   const profileHeaderArea = document.getElementById('myProfileHeaderArea');
   if (profileHeaderArea && window.PodmatesCloud && window.PodmatesCloud.uid) {
     const myName = (window.PodmatesCloud.user && window.PodmatesCloud.user.displayName) || 'You';
@@ -22998,6 +23006,47 @@ function renderProfileModal(modal, myDecks, opts) {
   }
   const profileLinksArea = document.getElementById('profileLinksArea');
   if (profileLinksArea) renderProfileLinksSection(profileLinksArea);
+}
+
+// "Your sign-in details": shows which email and method this account uses, with a copy button and a reset-link button, so nobody has to
+// remember which address they signed up with. Shown only for a real (not guest) account.
+function renderProfileSignInBox() {
+  const box = document.getElementById('profileSignInBox');
+  if (!box) return;
+  const u = window.PodmatesCloud && window.PodmatesCloud.user;
+  if (!u || u.isAnonymous || !u.email) {
+    box.innerHTML = `<label style="font-size:12px; color:var(--text-soft); display:block; margin-bottom:6px;">Your sign-in details</label><div style="font-size:12.5px; color:var(--text-soft);">You are using PodMates as a guest. Create an account (or log in) to save decks across devices; this box will then show which email you signed in with.</div>`;
+    return;
+  }
+  const providers = Array.isArray(u.providers) ? u.providers : [];
+  const hasPassword = providers.includes('password'), hasGoogle = providers.includes('google.com');
+  const method = [hasPassword ? 'email and password' : '', hasGoogle ? 'Google' : ''].filter(Boolean).join(' and ') || 'email';
+  box.innerHTML = `
+    <label style="font-size:12px; color:var(--text-soft); display:block; margin-bottom:6px;">Your sign-in details — keep a note of this email so you can always get back in</label>
+    <div class="row" style="gap:8px; align-items:center; margin-bottom:6px;">
+      <div style="flex:1; font-size:14px; color:var(--text-primary); word-break:break-all;"><strong id="profileSignInEmail">${escapeHtml(u.email)}</strong></div>
+      <button id="profileCopyEmailBtn" class="ghost" style="white-space:nowrap;">Copy email</button>
+    </div>
+    <div style="font-size:12.5px; color:var(--text-soft); margin-bottom:8px;">Signs in with: ${escapeHtml(method)}.${hasGoogle && !hasPassword ? ' There is no PodMates password to forget: use "Continue with Google" on the Log In window.' : ''}</div>
+    ${hasPassword ? `<button id="profileResetPwBtn" class="ghost" style="font-size:12.5px;">Email me a password reset link</button>` : ''}
+    <div id="profileSignInStatus" style="font-size:12px; margin-top:6px; min-height:16px;"></div>`;
+  const status = document.getElementById('profileSignInStatus');
+  const copyBtn = document.getElementById('profileCopyEmailBtn');
+  if (copyBtn) copyBtn.addEventListener('click', async () => {
+    let ok = false;
+    try { await navigator.clipboard.writeText(u.email); ok = true; } catch (e) {
+      try { const r = document.createRange(); r.selectNodeContents(document.getElementById('profileSignInEmail')); const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); ok = document.execCommand('copy'); } catch (e2) { ok = false; }
+    }
+    status.textContent = ok ? 'Email copied.' : 'Select the email above and copy it by hand.'; status.className = ok ? 'status' : 'status err';
+  });
+  const resetBtn = document.getElementById('profileResetPwBtn');
+  if (resetBtn) resetBtn.addEventListener('click', async () => {
+    resetBtn.disabled = true; status.textContent = 'Sending…'; status.className = 'status';
+    const result = await window.PodmatesCloud.resetPassword(u.email);
+    resetBtn.disabled = false;
+    status.textContent = result.ok ? `Reset link sent to ${u.email}. It can take a few minutes; check spam too.` : (result.error || 'Could not send the email.');
+    status.className = result.ok ? 'status' : 'status err';
+  });
 }
 
 // Reads the two profile-link fields back from the same users/{uid}
@@ -28354,6 +28403,8 @@ function wireCloudAuth() {
   if (!window.PodmatesCloud) return;
   window.PodmatesCloud.onAuthChange(async (user) => {
     updateAuthBar(user);
+    // Remember which email this browser last signed in with, so the Log In window can offer it next time (this browser only; never sent anywhere).
+    try { if (user && !user.isAnonymous && user.email) localStorage.setItem('podmates_last_signin', JSON.stringify({ email: user.email, providers: user.providers || [] })); } catch (e) { /* storage may be blocked; fine */ }
     // Each of these already handles both cases correctly -- fetches fresh
     // from Firebase for a real user, clears back to empty otherwise (e.g.
     // right after signing out) -- so it's always safe to call all three
@@ -28648,6 +28699,7 @@ setupIconTooltipsFor(document);
       isAnonymous: user.isAnonymous,
       email: user.email || null,
       displayName: user.displayName || null,
+      providers: (user.providerData || []).map(p => p.providerId).filter(Boolean),
     };
   }
 
