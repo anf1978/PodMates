@@ -42,8 +42,21 @@ jobs:
       - name: Build the compressed database
         run: node .github/scripts/build-card-db.mjs scryfall-bulk.jsonl new-card-db.b64
 
+      # Function tags (blink, extra combat) feed the Key Interactions panel.
+      # If Scryfall's tag search is down this step is allowed to fail: the
+      # card data still refreshes and the previous tag lists are kept.
+      - name: Fetch Scryfall function tags
+        continue-on-error: true
+        run: node .github/scripts/fetch-function-tags.mjs function-tags.json
+
       - name: Splice it into index.html
-        run: node .github/scripts/splice-card-db.mjs index.html new-card-db.b64
+        run: |
+          if [ -f function-tags.json ]; then
+            node .github/scripts/splice-card-db.mjs index.html new-card-db.b64 index.html function-tags.json
+          else
+            echo "No function-tags.json this run; splicing card data only."
+            node .github/scripts/splice-card-db.mjs index.html new-card-db.b64
+          fi
 
       # Only commits if the card data actually changed -- a week where
       # nothing new released (or Scryfall's data is unchanged) produces an
