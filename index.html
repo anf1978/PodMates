@@ -2833,6 +2833,10 @@ const CENTRALITY_MECHANICS = {
 // an artifact commander". Creature-type terms default to 0.10.
 const CENTRALITY_TERM_BASELINE = { 'artifacts': 0.169, 'enchantments': 0.083, 'instants': 0.113, 'sorceries': 0.143, 'planeswalkers': 0.02, 'equipments': 0.016, 'auras': 0.01, 'vehicles': 0.01, 'sagas': 0.01,
   'counters': 0.097, 'tokens': 0.159, 'the graveyard': 0.103, 'sacrifice': 0.10, 'lifegain': 0.049, 'discard': 0.033, 'copying': 0.033, 'lands': 0.033 };
+// Keywords a commander can care about (e.g. "creatures with defender"), and how common each is in a typical
+// precon (75th-percentile share of its nonland cards), so only a deck that leans into one counts it as a theme.
+const CENTRALITY_KEYWORDS = ['flying', 'defender', 'haste', 'trample', 'deathtouch', 'lifelink', 'vigilance', 'menace', 'reach', 'first strike', 'double strike', 'hexproof', 'indestructible', 'flash', 'ward', 'prowess'];
+const CENTRALITY_KEYWORD_BASELINE = { 'flying': 0.15, 'haste': 0.04, 'trample': 0.05, 'vigilance': 0.04 };
 const CENTRALITY_TYPE_WORDS = ['artifact', 'enchantment', 'instant', 'sorcery', 'planeswalker', 'equipment', 'aura', 'vehicle', 'saga'];
 function centralityPluralForms(sub) {
   const s = sub.toLowerCase(), forms = [s, s + 's', s + 'es'];
@@ -2862,16 +2866,29 @@ function centralityFedCards(cmdCards, matchedCards, cmdSet) {
   for (const [label, re] of Object.entries(CENTRALITY_MECHANICS)) {
     if (re.test(cmdText)) terms.push({ label, test: c => re.test(String(c.o || '')) });
   }
-  const fed = new Set(), used = [], leans = [];
+  // Keywords the commander cares about: "creatures you control with defender", "other flying creatures",
+  // "whenever a creature with haste ...". Only a keyword the commander is ABOUT counts -- its own keyword
+  // line ("Flying, vigilance") or granting one ("have flying") does not. A card carries the keyword when it
+  // is one of the card's own keyword abilities (or, for defender, a Wall).
+  for (const kw of CENTRALITY_KEYWORDS) {
+    const about = new RegExp('\\bwith ' + kw + '\\b|\\b' + kw + ' (?:creatures?|permanents?|spells?)\\b', 'i');
+    if (!about.test(cmdText)) continue;
+    const own = new RegExp('(^|\\n)(?:[a-z\' ]+, )*' + kw + '(?:,|\\n|$| \\(|\\s\\{|\\s\\d)', 'i');
+    terms.push({ label: 'cards with ' + kw, kw, test: c => own.test(String(c.o || '').replace(/\([^)]*\)/g, '')) || (kw === 'defender' && /\bWall\b/.test(String(c.t || ''))) });
+  }
+  const fed = new Set(), used = [], leans = [], byTerm = new Map(), kwFed = new Set();
   for (const term of terms) {
     const hits = pool.filter(c => term.test(c));
-    const base = CENTRALITY_TERM_BASELINE[term.label] !== undefined ? CENTRALITY_TERM_BASELINE[term.label] : 0.10;
+    const base = CENTRALITY_TERM_BASELINE[term.label] !== undefined ? CENTRALITY_TERM_BASELINE[term.label] : (term.kw ? (CENTRALITY_KEYWORD_BASELINE[term.kw] || 0.02) : 0.10);
     const lean = pool.length ? hits.length / pool.length - base : 0;
-    if (hits.length >= 5 && lean >= 0.08) { hits.forEach(c => fed.add(c.n)); if (!used.some(u => u.toLowerCase() === term.label.toLowerCase())) used.push(term.label); leans.push(lean); }
+    if (hits.length >= 5 && lean >= 0.08) {
+      hits.forEach(c => { fed.add(c.n); if (!byTerm.has(c.n)) byTerm.set(c.n, term.label); if (term.kw) kwFed.add(c.n); });
+      if (!used.some(u => u.toLowerCase() === term.label.toLowerCase())) used.push(term.label); leans.push(lean);
+    }
   }
   const maxLean = leans.length ? Math.max(...leans) : 0;
   const lean = maxLean + 0.5 * (leans.reduce((a, b) => a + b, 0) - maxLean);
-  return { fed, used, poolSize: pool.length, lean };
+  return { fed, used, poolSize: pool.length, lean, byTerm, kwFed };
 }
 
 function computeCommanderCentrality(agg, matchedCards, commanderNames, winCons, archetype) {
@@ -2901,7 +2918,11 @@ function computeCommanderCentrality(agg, matchedCards, commanderNames, winCons, 
   }
 
   // ---- (1b) engine reliance: ablation on the synergy web ------------------
-  const edges = agg.synergyEdges || [];
+  // The synergy web only knows a fixed list of themes, so a commander that rewards a KEYWORD (defender, flying...)
+  // had no links at all. Cards carrying a keyword the commander is about are linked to it here (this reading only).
+  const feedingEarly = centralityFedCards(cmdCards, matchedCards, cmdSet);
+  const edges = (agg.synergyEdges || []).slice();
+  for (const n of feedingEarly.kwFed) edges.push({ a: [...cmdSet][0], b: n, score: 3, reasons: ['carries a keyword the commander rewards'] });
   const adj = new Map();
   const link = (a, b) => { if (!adj.has(a)) adj.set(a, new Set()); adj.get(a).add(b); };
   for (const e of edges) { link(e.a, e.b); link(e.b, e.a); }
@@ -2921,13 +2942,17 @@ function computeCommanderCentrality(agg, matchedCards, commanderNames, winCons, 
   const cmdEdges = edges.filter(e => cmdSet.has(e.a) || cmdSet.has(e.b));
   const linked = new Map(); // card -> best edge score with the commander
   for (const e of cmdEdges) { const other = cmdSet.has(e.a) ? e.b : e.a; if (!cmdSet.has(other)) linked.set(other, Math.max(linked.get(other) || 0, e.score || 0)); }
-  const orphaned = [...linked.keys()].filter(n => [...(adj.get(n) || [])].every(x => cmdSet.has(x)));
+  const orphaned = [...linked.keys()].filter(n => !feedingEarly.kwFed.has(n) && [...(adj.get(n) || [])].every(x => cmdSet.has(x)));   // keyword-linked cards still do their job alone, so they are not 'orphans'
+  const linkedReal = [...linked.keys()].filter(n => !feedingEarly.kwFed.has(n));
   const edgeShare = edges.length ? cmdEdges.length / edges.length : 0;
   const engine = edges.length ? Math.min(1, 0.45 * collapse + 0.35 * Math.min(1, orphaned.length / 10) + 0.20 * Math.min(1, edgeShare * 4)) : 0;
 
   // ---- (1c) alignment: how much of the deck its ability feeds ---------------
-  const feeding = centralityFedCards(cmdCards, matchedCards, cmdSet);
+  const feeding = feedingEarly;
   const alignment = Math.min(1, feeding.lean / 0.40);
+  // No combo and no specific win condition would leave the plan unmeasured. When a third or more of the deck is
+  // what the commander cares about, the commander IS the plan, so count it as one.
+  if (plan === null && alignment >= 0.6 && feeding.kwFed.size >= 5) { plan = alignment; planDetail = { withCmd: 1, total: 1, kind: 'theme' }; }
 
   // ---- (1d) what kind of ability ---------------------------------------
   const abilities = cmdCards.map(analyzeCommanderAbility);
@@ -2972,9 +2997,9 @@ function computeCommanderCentrality(agg, matchedCards, commanderNames, winCons, 
     if (cmdSet.has(name)) { level = 4; why = 'Your commander'; }
     else if (comboCards.has(name)) { level = 3; why = 'Part of a combo with your commander'; }
     else if (shortNames.some(sn => String(m.card.o || '').includes(sn))) { level = 3; why = 'Names your commander'; }
-    else if (linked.has(name) && (orphaned.includes(name) || linked.get(name) >= strongEdge)) { level = 3; why = orphaned.includes(name) ? 'Only works with your commander in this deck' : 'Strong synergy with your commander'; }
-    else if (linked.has(name)) { level = 2; why = 'Synergizes with your commander'; }
-    else if (feeding.fed.has(name)) { level = 2; why = 'Matches what your commander cares about'; }
+    else if (linked.has(name) && !feeding.kwFed.has(name) && (orphaned.includes(name) || linked.get(name) >= strongEdge)) { level = 3; why = orphaned.includes(name) ? 'Only works with your commander in this deck' : 'Strong synergy with your commander'; }
+    else if (linked.has(name) && !feeding.kwFed.has(name)) { level = 2; why = 'Synergizes with your commander'; }
+    else if (feeding.fed.has(name)) { level = 2; why = 'Matches what your commander cares about' + (feeding.byTerm.get(name) ? ' (' + feeding.byTerm.get(name) + ')' : ''); }
     else if (supportAny.has(name)) { level = 1; const kinds = Object.keys(sets).filter(k => sets[k].has(name)).map(k => CENTRALITY_SUPPORT_LABELS[k].toLowerCase()); why = 'Supports it (' + kinds.join(', ') + ')'; }
     for (let i = 0; i < qty; i++) tiles.push({ name, level, why, land: /\bland\b/i.test(m.card.t || '') });
   }
@@ -2984,8 +3009,8 @@ function computeCommanderCentrality(agg, matchedCards, commanderNames, winCons, 
   const reasons = [];
   if (planDetail && planDetail.kind === 'combos') reasons.push(planDetail.withCmd === 0 ? `None of its ${planDetail.total} detected combo${planDetail.total === 1 ? '' : 's'} need the commander.` : `${planDetail.withCmd} of its ${planDetail.total} detected combo${planDetail.total === 1 ? '' : 's'} include the commander.`);
   if (feeding.used.length) reasons.push(`${feeding.fed.size} cards match what it cares about (${feeding.used.slice(0, 3).join(', ')}).`);
-  if (linked.size) reasons.push(`${linked.size} card${linked.size === 1 ? '' : 's'} synergize directly with it` + (orphaned.length ? `; ${orphaned.length} of those have no other synergy partner in the deck.` : '.'));
-  else if (edges.length) reasons.push('Almost nothing in the deck is tied to the commander through synergy.');
+  if (linkedReal.length) reasons.push(`${linkedReal.length} card${linkedReal.length === 1 ? '' : 's'} synergize directly with it` + (orphaned.length ? `; ${orphaned.length} of those have no other synergy partner in the deck.` : '.'));
+  else if (edges.length && !feeding.kwFed.size) reasons.push('Almost nothing in the deck is tied to the commander through synergy.');
   reasons.push(worksFromCommandZone ? 'Its ability works from the command zone, so it does not need to survive on the battlefield.' : `Its ability is ${ability.kind}.`);
   const excessBits = investment.filter(i => i.key !== 'direct' && i.count > i.baseline).map(i => `${i.count} ${i.label.toLowerCase()}`);
   if (investmentScore >= 0.4 && excessBits.length) reasons.push(`Heavier than a typical deck on commander support: ${excessBits.slice(0, 3).join(', ')}.`);
@@ -2996,7 +3021,7 @@ function computeCommanderCentrality(agg, matchedCards, commanderNames, winCons, 
   return { score, bandIndex, band: CENTRALITY_BANDS[bandIndex].label, blurb: CENTRALITY_BANDS[bandIndex].blurb,
     components: { plan, engine, alignment, ability: ability.strength, investment: investmentScore },
     ability, worksFromCommandZone, reasons: reasons.slice(0, 4), notes, tiles, investment, baselineLabel: base.label, baselineN: base.n,
-    detail: { clusterWith, clusterWithout, linked: linked.size, orphaned: orphaned.length, edgeShare, fed: feeding.fed.size, terms: feeding.used } };
+    detail: { clusterWith, clusterWithout, linked: linkedReal.length, orphaned: orphaned.length, edgeShare, fed: feeding.fed.size, terms: feeding.used } };
 }
 // ===== END COMMANDER CENTRALITY =====
 
@@ -20627,7 +20652,7 @@ function runAnalysis() {
   renderTableFeel(tableFeel, bracket.spirit);
   renderChart({ speed, consistency, versatility, disruption, powerLevel }, commandSpark, agg, tierDiscrepancy);
   renderManaCurveChart(agg);
-  renderSynergyProfile(agg, archetypeMatch);
+  renderSynergyProfile(agg, archetypeMatch, matched, commanders);
   renderBracket(bracket, agg);
   renderTypeTable(agg.typeFrequency, agg.totalCards, agg.avgCmc, agg.manaCurve);
   renderManaBase(agg, manaBaseBenchmark);
@@ -21341,7 +21366,395 @@ function themeLabel(key) {
   return map[key] || key;
 }
 
-function renderSynergyProfile(agg, archetypeMatch) {
+// ===== BEGIN INTERACTION PACKAGES =====
+// Reads the deck the way a player would: "this card pays off WHEN something happens; which cards in the deck make
+// that happen, which ones make it happen AGAIN, and which ones make it count TWICE?" Each such payoff, with its
+// objects, repeaters and multipliers, is a "package". Packages are ranked by how much of the deck feeds them and
+// how much they do, with the commander's own packages counted extra, so the list reflects the game plan.
+// Everything is computed from the cards' own text (no card is named here), only when the panel is drawn, and it
+// does not feed any score.
+function ixText(card) {
+  let t = String(card.o || '').replace(/\([^)]*\)/g, '');
+  [card.n, String(card.n).split(',')[0].trim()].forEach(n => { if (n && n.length >= 3) t = t.split(n).join('~'); });
+  return t.toLowerCase().replace(/\bthis (?:creature|permanent|artifact|enchantment|land|card|vehicle|equipment|aura|saga|planeswalker|spell)\b/g, '~');
+}
+function ixHasKeyword(card, kw) {
+  if (kw === 'defender' && /\bwall\b/i.test(String(card.t || ''))) return true;
+  const own = new RegExp('(^|\\n)(?:[a-z\' ]+, )*' + kw + '(?:,|\\n|$| \\(|\\s\\{|\\s\\d)', 'i');
+  return own.test(String(card.o || '').replace(/\([^)]*\)/g, ''));
+}
+function ixParseFilter(phrase, subtypes) {
+  const p = String(phrase || '').toLowerCase().trim();
+  if (!p || /opponent/.test(p)) return null;
+  if (p === '~') return { self: true, types: [], kws: [], subs: [], token: null, other: false, label: 'itself' };
+  const f = { self: false, types: [], kws: [], subs: [], token: null, other: /\b(?:another|other)\b/.test(p), label: '' };
+  ['creature', 'artifact', 'enchantment', 'planeswalker'].forEach(t => { if (new RegExp('\\b' + t + 's?\\b').test(p)) f.types.push(t); });
+  CENTRALITY_KEYWORDS.forEach(k => { if (new RegExp('\\bwith ' + k + '\\b|\\b' + k + ' (?:creature|permanent)').test(p)) f.kws.push(k); });
+  if (/\bnontoken\b/.test(p)) f.token = false; else if (/\btokens?\b/.test(p)) f.token = true;
+  subtypes.forEach(s => { if (centralityPluralForms(s).some(w => new RegExp('\\b' + w + '\\b').test(p))) f.subs.push(s); });
+  if (/\bwithout\b|\bnon[a-z]+/.test(p.replace(/nontoken/g, ''))) return null;      // "without flying", "noncreature": too fiddly to match honestly
+  { let rest = p; CENTRALITY_KEYWORDS.forEach(k => { rest = rest.replace(new RegExp('with ' + k + '\\b', 'g'), ''); });
+    if (/\bwith\b|\bthat\b|\bof\b|\bwhose\b|\bnamed\b|\bdifferent\b|\bfirst\b|\bsecond\b/.test(rest)) return null; }   // "power 3 or greater", "of that type": not understood, so not claimed
+  if (!f.types.length && !f.kws.length && !f.subs.length && f.token === null) return null;
+  if (!f.types.length && (f.subs.length || f.kws.length)) f.types = ['creature'];
+  const bits = [];
+  if (f.kws.length) bits.push(f.types[0] === 'creature' ? 'creature with ' + f.kws.join(' and ') : f.types.join('/') + ' with ' + f.kws.join(' and '));
+  else if (f.subs.length) bits.push(f.subs.map(s => s.toLowerCase()).join('/'));
+  else bits.push((f.token === true ? 'token ' : '') + f.types.join(' or '));
+  f.generic = !f.kws.length && !f.subs.length && f.token === null;
+  f.label = (f.other ? 'another ' : (/^[aeiou]/.test(bits[0]) ? 'an ' : 'a ')) + bits[0];
+  return f;
+}
+function ixCardMatches(card, f) {
+  if (f.token === true) return false;                      // tokens are covered by their makers
+  const type = String(card.t || '').toLowerCase(), dash = type.indexOf('—'), sub = dash >= 0 ? type.slice(dash + 1) : '';
+  if (f.types.length && !f.types.some(t => type.slice(0, dash >= 0 ? dash : undefined).includes(t))) return false;
+  if (f.kws.length && !f.kws.every(k => ixHasKeyword(card, k))) return false;
+  if (f.subs.length && !f.subs.some(s => new RegExp('\\b' + s.toLowerCase() + '\\b').test(sub))) return false;
+  return true;
+}
+// Tokens a card makes: [{creature, artifact, kws, desc}]
+function ixTokensMade(text) {
+  const out = [], re = /create (?:an?|one|two|three|four|five|x|\d+|that many|a number of)?\s*([^.;]*?)\btokens?\b(?: with ([^.;]*?))?(?=[.;,]| and |$| that| for each| until| at )/g;
+  let m;
+  while ((m = re.exec(text))) {
+    const desc = (m[1] || '') + ' ' + (m[2] || '');
+    out.push({ creature: /creature/.test(desc), artifact: /artifact|treasure|clue|food|blood|powerstone|incubator|map/.test(desc), kws: CENTRALITY_KEYWORDS.filter(k => new RegExp('\\b' + k + '\\b').test(desc)), desc });
+  }
+  return out;
+}
+function ixTokenMatches(tok, f, subtypes) {
+  if (f.token === false) return false;
+  if (f.types.length && !f.types.some(t => (t === 'creature' && tok.creature) || (t === 'artifact' && tok.artifact))) return false;
+  if (f.kws.length && !f.kws.every(k => tok.kws.includes(k))) return false;
+  if (f.subs.length && !f.subs.some(s => new RegExp('\\b' + s.toLowerCase() + '\\b').test(tok.desc))) return false;
+  return true;
+}
+const IX_EFFECTS = [
+  [/\bdraw(?:s)? (?:a|an|one|two|three|x|that many|\d+) cards?|\bdraw a card/, 'draws cards', 3],
+  [/\bcreate/, 'makes tokens', 3],
+  [/\bloses? \w+ life|\bdeals? \d+ damage|\bdeals? damage|each opponent loses/, 'drains or damages', 3.5],
+  [/\badd \{|\badd (?:one|two|that much|an amount)/, 'makes mana', 3],
+  [/\+1\/\+1 counter|put [^.]*counter/, 'adds counters', 2.5],
+  [/\bsearch your library/, 'finds cards', 2.5],
+  [/\bgain(?:s)? (?:\d+|x|that much)? ?life/, 'gains life', 1.5],
+  [/\bscry|\bsurveil|\bmill/, 'filters cards', 1.2],
+  [/\bdestroy|\bexile target|\breturn target [^.]* to its owner's hand/, 'removes things', 2.5],
+  [/gain control of/, 'steals things', 3],
+  [/return [^.]{0,60}from (?:your|a) graveyard|put [^.]{0,60}from (?:your|a) graveyard/, 'brings cards back', 2.5],
+  [/\bcopy|\bcopies/, 'copies things', 3],
+  [/\buntap/, 'untaps things', 1.5],
+  [/\bdiscards?\b/, 'makes players discard', 2],
+  [/look at the top|reveal the top|exile the top/, 'digs for cards', 2.5],
+  [/gets? [+-]\d+\/[+-]\d+|gains? (?:flying|haste|trample|vigilance|lifelink|menace|deathtouch|indestructible|hexproof)/, 'boosts creatures', 1.5],
+  [/\bsacrifice/, 'forces sacrifices', 2],
+  [/\btap target|\bdoesn't untap|\bfreeze/, 'taps things down', 1.5],
+  [/\bgoad|\bmust attack|\battacks? each/, 'forces combat', 2],
+  [/monarch|initiative|\bconnive|\binvestigate|\bclue\b|\btreasure/, 'makes value tokens', 2.5],
+];
+function ixEffect(clause) { for (const [re, label, w] of IX_EFFECTS) if (re.test(clause)) return { label, w }; return { label: 'gets a bonus', w: 1.5 }; }
+
+const IX_LISTENERS = [
+  // [event key, regex capturing the filter phrase, plain-English "when"]
+  ['enters', /(?:whenever|when) (?:another |an? |one or more |each |one or more other |another nontoken )?([^,.;:]{0,60}?) enters?(?: the battlefield)?(?: under your control)?/, 'enters'],
+  ['dies', /(?:whenever|when) (?:another |an? |one or more |each |one or more other )?([^,.;:]{0,60}?) dies/, 'dies'],
+];
+// What makes the event happen again / twice, by event.
+// Scryfall Tagger function tags, refreshed weekly by the Rebuild Card Database workflow (splice-card-db.mjs rewrites the IX_TAGS_JSON line; keep it on ONE line).
+const IX_TAGS_JSON = {"blink":["abuelo, ancestral echo","acrobatic maneuver","aethergeode miner","aetherling","against all odds","airbender ascension","all-fates stalker","aminatou, the fateshifter","angel of condemnation","another round","anurid brushhopper","argent sphinx","astral drift","astral slide","baboon spirit","battle at the helvault","become anonymous","blizzard strix","blood for bones","blur","brago, king eternal","charming prince","cloudshift","conciliator's duelist","conjurer's closet","conqueror's galleon","cosima, god of the voyage","cosmic intervention","daydream","deadeye navigator","dimensional breach","disorder in the court","displace","displacer kitten","distinguished conjurer","djinn of the fountain","don & leo, problem solvers","eerie interlude","eldrazi confluence","eldrazi displacer","elrond, moon-reader","emiel the blessed","ennis, debate moderator","ephemerate","escape protocol","essence flux","estrid's invocation","eternal acrobat toast","explosive getaway","far traveler","felidar guardian","fleeting spirit","flicker","flicker of fate","flickerform","flickering hound","flickering spirit","flickerwisp","fortune, loyal steed","frenetic sliver","galepowder mage","gandalf, shadow's foe","getaway glamer","ghost council of orzhova","ghostly flicker","ghostway","gilraen, dúnedain protector","glimmerpoint stag","go ninja go","golden argosy","gossip's talent","guardian of ghirapur","hallowed respite","heart-shaped herb","hide on the ceiling","hikari, twilight guardian","icewind stalwart","identity thief","illusionist's stratagem","jeskai infiltrator","justiciar's portal","kaya, ghost assassin","kimoyo beads","koya, death from above","kykar, zephyr awakener","lae'zel's acrobatics","lake-town mariners","legion's initiative","liberate","lilysplash mentor","long river lurker","long road home","meandering towershell","meneldor, swift savior","mirror-mad phantasm","mistmeadow vanisher","mistmeadow witch","momentary blink","morningtide's light","mysterious limousine","mystifying maze","nahiri's resolve","nephalia smuggler","nezahal, primal tide","niko, light of hope","noctis, heir apparent","norin the wary","oath of teferi","obzedat, ghost council","oji, the exquisite blade","ojutai exemplars","otherworldly journey","parallax wave","parting gust","pegasus guardian","personify","phelia, exuberant shepherd","photon, lady of light","planar guide","planar incision","quantum entanglement","release to the wind","rescue from the underworld","restoration angel","roll-roll-roll-roll","roon of the hidden realm","ruin ghost","s.h.i.e.l.d. flying car","saltskitter","salvation swan","scrollshift","semester's end","sengir nosferatu","sentinel of the pearl trident","senu, keen-eyed protector","settle beyond reality","shifty doppelganger","shorecrasher elemental","silver surfer, cosmic voyager","siren's ruse","skybind","skycoach conductor","skyskipper duo","slip on the ring","sol'kanar the tainted","soulherder","spaceshift","splash portal","stenn, paranoid partisan","sudden disappearance","suspend","sword of hearth and home","tatsumasa, the dragon's fang","tawnos's coffin","teferi's time twist","teleportation circle","thassa, deep-dwelling","the eternal wanderer","the mighty thor, jane foster","the mind stone","the neutrinos","the princess takes flight","thieves' auction","touch the spirit realm","triad of fates","tunnel of love","turn to mist","twining twins","unyielding gatekeeper","vanish into memory","vault 13: dweller's journey","venser, the sojourner","vindictive triumph","vizier of deferment","voidwalk","voyager staff","waterbender's restoration","wiccan, rising magician","wispweaver angel","y'shtola rhul","yorion, sky nomad","zuko, conflicted"],"extra-combat":["aggravated assault","akki battle squad","all-out assault","anzrag, the quake-mole","aurelia, the warleader","balthier and fran","bloodthirster","breath of fury","bruce banner","bumi, unleashed","combat celebrant","desert were-worm","fear of missing out","finest hour","full throttle","fury of the horde","genji glove","godo, bandit warlord","great train heist","grim reaper's sprint","hellkite charger","hexplate wallbreaker","illusionist's gambit","karlach, fury of avernus","last night together","lightning runner","moraug, fury of akoum","najeela, the blade-blossom","overpowering attack","port razer","raiyuu, storm's edge","raph & leo, sibling rivals","raphael, tag team tough","relentless assault","response","savage beating","scourge of the throne","seize the day","swinging ship","take the bait","tifa, martial artist","waves of aggression","world at war","zariel, archduke of avernus","éomer, marshal of rohan"]};
+const IX_TAGS = {blink: new Set(IX_TAGS_JSON['blink'] || []), extraCombat: new Set(IX_TAGS_JSON['extra-combat'] || [])};
+const ixTagged = (set, c) => set.has(String(c.n || '').split('//')[0].trim().toLowerCase());
+function ixRepeaterKind(text, ev, f, tokensMade, subtypes) {
+  if (ev === 'enters') {
+    if (/exile (?:target |another |each |any number of |up to \w+ )?(?:other |nontoken |non-?\w+ )?(?:creatures?|permanents?|artifacts?|enchantments?)[^.]{0,40}you control[^]{0,170}?(?:return|put)[^]{0,90}?(?:to|onto) the battlefield/.test(text)) {
+      const okType = f.types.some(t => t === 'creature') || f.subs.length || f.kws.length ? /creature|permanent/.test(text) : f.types.some(t => new RegExp(t + '|permanent').test(text));
+      if (okType) return 'flickers them back in';
+    }
+    if (/return [^.]{0,70}card[^.]{0,70}from (?:your|a|any) graveyard to the battlefield/.test(text)) return 'returns them from the graveyard';
+    if (/put [^.]{0,60}(?:creature|permanent|artifact)[^.]{0,60}(?:from your hand|from your library|from your graveyard|card)[^.]{0,30}onto the battlefield/.test(text)) return 'puts them onto the battlefield';
+    if (/create (?:a |an )?(?:token that's a )?cop(?:y|ies) of (?:target|another|a|each)/.test(text)) return 'copies them';
+    if (tokensMade.some(t => ixTokenMatches(t, f, subtypes))) return 'makes matching tokens';
+  }
+  if (ev === 'dies') {
+    if (/sacrifice (?:a|an|another|any number of|x|up to)[^:.]{0,40}(?::|,|\.|$)/.test(text) && /(?:^|\n|\{[^}]*\}[^:]*:)\s*sacrifice|sacrifice [^:.]{0,40}:/.test(text)) return 'sacrifices things (an outlet)';
+    if (/destroy all|each creature gets -|all creatures get -/.test(text)) return 'wipes the board';
+    if (tokensMade.some(t => t.creature)) return 'makes more bodies to lose';
+  }
+  return null;
+}
+function ixMultiplierKind(text, ev, f) {
+  // only the sentence that says "triggers an additional time" says which event it doubles
+  const sentence = text.split(/[.\n]/).find(x => /additional time|triggers twice/.test(x));
+  if (!sentence) return null;
+  if (ev === 'enters') {                          // what has to enter? "a Wizard", "a land" are too narrow to double an unrelated creature trigger
+    const sub = /(?:^|if |whenever |when )(?:an? |one or more |another )?([a-z' ,-]+?) (?:entering|entered|enters|enter)\b/.exec(sentence);
+    if (sub && !/\b(?:permanent|creature|artifact)s?\b/.test(sub[1])) return null;
+    if (sub && /\bland\b|\bwizard\b|\bnontoken\b/.test(sub[1])) return null;
+  }
+  if (ev === 'enters' && /\benter/.test(sentence) && (f.self ? true : f.types.some(t => /creature|artifact/.test(t)) || f.subs.length || f.kws.length)) return /artifact or creature|creature|permanent/.test(sentence) ? 'makes it trigger twice' : null;
+  if (ev === 'dies' && /\bdy(?:ing)|\bdies\b/.test(sentence)) return 'makes it trigger twice';
+  return null;
+}
+
+function buildInteractionPackages(matchedCards, commanders) {
+  const cmdSet = new Set((commanders || []).map(n => String(n).toLowerCase()));
+  const all = matchedCards.map(m => ({ ...m, card: m.card, text: ixText(m.card), isCmd: cmdSet.has(String(m.card.n).toLowerCase()) }));
+  const nonland = all.filter(m => !/\bland\b/i.test(m.card.t || ''));
+  const nl = Math.max(1, nonland.reduce((s, m) => s + (m.qty || 1), 0));
+  const subtypes = new Set();
+  for (const m of all) { const t = String(m.card.t || ''), d = t.indexOf('—'); if (d >= 0) t.slice(d + 1).trim().split(/\s+/).forEach(w => { if (w && w !== '//' && /^[A-Z]/.test(w)) subtypes.add(w); }); }
+  const subs = [...subtypes];
+  for (const m of all) m.tokens = ixTokensMade(m.text);
+  const used = new Set();            // cards that take part in some package
+  const packages = [];
+  const groups = { enters: { members: [], repeaters: new Map(), multipliers: new Map() }, dies: { members: [], repeaters: new Map(), multipliers: new Map() } };
+
+  for (const p of all) {
+    for (const line of p.text.split('\n')) {
+      for (const [ev, re, whenWord] of IX_LISTENERS) {
+        const mm = re.exec(line);
+        if (!mm) continue;
+        const f = ixParseFilter(mm[1], subs);
+        if (!f) continue;
+        const clauseAfter = line.slice(mm.index + mm[0].length);
+        const eff = ixEffect(clauseAfter);
+        // objects: other cards in the deck that are, or make, what the trigger watches for
+        const objects = f.self ? [] : nonland.filter(o => o !== p && ixCardMatches(o.card, f));
+        const tokenMakers = f.self ? [] : nonland.filter(o => o !== p && o.tokens.some(t => ixTokenMatches(t, f, subs)) && !objects.includes(o));
+        const repeaters = [], multipliers = [];
+        for (const o of all) {
+          if (o === p) continue;
+          let rk = ixRepeaterKind(o.text, ev, f, o.tokens, subs);
+          if (!rk && ev === 'enters' && !f.self && ixTagged(IX_TAGS.blink, o.card) && /exile/.test(o.text) && /return/.test(o.text) && /you control|target creature|target permanent/.test(o.text)) rk = 'flickers permanents (Scryfall tag)';
+          if (rk) repeaters.push({ name: o.card.n, how: rk });
+          const mk = ixMultiplierKind(o.text, ev, f);
+          if (mk) multipliers.push({ name: o.card.n, how: mk });
+        }
+        const objCount = objects.reduce((s, o) => s + (o.qty || 1), 0);
+        if (!f.self && objCount + tokenMakers.length < 3 && !(repeaters.length && objCount >= 1)) continue;      // too thin to be a plan
+        if (f.self && !repeaters.length && !multipliers.length) continue;                                       // a plain "when ~ enters" is just the card doing its job
+        if (f.self) {                                                                                           // many such cards share the same helpers: one group, not one package each
+          const g = groups[ev]; g.members.push({ name: p.card.n, effect: eff.label, w: eff.w, isCmd: p.isCmd });
+          repeaters.forEach(r => g.repeaters.set(r.name, r)); multipliers.forEach(r => g.multipliers.set(r.name, r));
+          break;
+        }
+        const supply = f.self ? 0.35 : Math.min(1, (objCount + tokenMakers.length) / 8);
+        const repeatScore = Math.min(1, repeaters.length / 2), multScore = multipliers.length ? 1 : 0;
+        let score = eff.w * (0.5 * supply + 0.28 * repeatScore + 0.22 * multScore) * (1 + Math.min(0.5, (objCount / nl) * 1.2));
+        if (f.generic) score *= 0.8;                       // 'any creature' payoffs are common; a specific keyword/type is the plan
+        if (p.isCmd) score *= 1.5;
+        if (eff.w <= 1.5 && !p.isCmd) score *= 0.7;
+        packages.push({ kind: 'trigger', payoff: p.card.n, isCmd: p.isCmd, event: ev, filter: f, effect: eff.label, objects: objects.map(o => o.card.n), objCount, tokenMakers: tokenMakers.map(o => o.card.n), repeaters, multipliers, score });
+        break;
+      }
+    }
+    // Rule-changers and lords: "<creatures you control with defender / Elves> assign / get / have / can ..."
+    for (const line of p.text.split('\n')) {
+      const sm = /^((?:other |each |all |another )?[a-z' -]*?(?:creatures?|permanents?|artifacts?|[a-z]+s)(?: you control)?(?: with [a-z ]+?)?) (?:you control )?(assigns?|gets?|have|has|can|enters?)\b([^.]*)/.exec(line);
+      if (!sm || !/you control|with /.test(sm[1] + ' ' + line.slice(0, 80))) continue;
+      const f = ixParseFilter(sm[1].replace(/ you control/, ''), subs);
+      if (!f || f.self || (!f.kws.length && !f.subs.length)) continue;
+      if (/whenever|when |at the beginning/.test(line.slice(0, 12))) continue;
+      const objects = nonland.filter(o => o !== p && ixCardMatches(o.card, f));
+      const objCount = objects.reduce((s, o) => s + (o.qty || 1), 0);
+      if (objCount < 4) continue;
+      const effText = (() => { const t = (sm[2] + sm[3]).trim().replace(/\.$/, ''); return t.length <= 170 ? t : t.slice(0, 170).replace(/\s+\S*$/, '') + '\u2026'; })();
+      const accel = /attack/.test(effText) ? all.filter(o => o !== p && /(?:creatures?|permanents?)[^.]{0,30}(?:have|gain) haste|all creatures have haste|gain haste/.test(o.text)).map(o => ({ name: o.card.n, how: 'lets them attack the turn they arrive' })) : [];
+      if (/attack/.test(effText) && f.kws.length) all.filter(o => o !== p && new RegExp('creatures?[^.]{0,40}with ' + f.kws[0] + '[^.]{0,60}can attack').test(o.text)).forEach(o => accel.push({ name: o.card.n, how: 'also lets them attack (overlaps)' }));
+      const score = 2.5 * (0.6 * Math.min(1, objCount / 10) + 0.4 * (accel.length ? 1 : 0.3)) * (1 + Math.min(0.5, (objCount / nl) * 1.2)) * (p.isCmd ? 1.5 : 1);
+      packages.push({ kind: 'rule', payoff: p.card.n, isCmd: p.isCmd, filter: f, effect: effText, objects: objects.map(o => o.card.n), objCount, tokenMakers: [], repeaters: accel, multipliers: [], score });
+      break;
+    }
+  }
+  // More triggers, matched by what the deck holds rather than by a card's type line.
+  const hasType = (o, re) => re.test(String(o.card.t || '').split('—')[0]);
+  const SIMPLE = [
+    ['cast', /whenever you cast (?:a|an|your first|your second|another)? ?([^,.;:]*?)spell/, (m1) => { const t = m1.toLowerCase(); if (/\bnon/.test(t) && !/noncreature/.test(t)) return null; if (/\bwith\b|\bfrom\b|\bof\b|\bthat\b/.test(t)) return null;
+      const tests = [['creature', /creature/], ['artifact', /artifact/], ['enchantment', /enchantment/], ['instant or sorcery', /instant|sorcery/], ['planeswalker', /planeswalker/]];
+      if (/noncreature/.test(t)) return { phrase: 'you cast a noncreature spell', pred: (o) => !hasType(o, /creature/) };
+      for (const [lab, re] of tests) if (re.test(t)) return { phrase: 'you cast ' + (/^[aeiou]/.test(lab) ? 'an ' : 'a ') + lab + ' spell', pred: (o) => hasType(o, re) };
+      return t.trim() === '' ? { phrase: 'you cast a spell', pred: () => true } : null; }],
+    ['draw', /whenever you draw (?:a|your (?:first|second)) card/, () => ({ phrase: 'you draw a card', pred: (o) => classifyCard(o.card).draw })],
+    ['lifegain', /whenever you gain life/, () => ({ phrase: 'you gain life', pred: (o) => classifyCard(o.card).lifegain || /lifelink/.test(o.text) })],
+    ['sacrifice', /whenever you sacrifice (?:a|another|one or more) ([^,.;:]*)/, () => ({ phrase: 'you sacrifice something', pred: (o) => classifyCard(o.card).sacOutlet })],
+    ['tokens', /whenever you create (?:one or more |a )?(?:[a-z0-9\/ ]+ )?tokens?/, () => ({ phrase: 'you create a token', pred: (o) => o.tokens.length > 0 })],
+    ['dmg', /whenever (?:~|a creature you control|one or more creatures you control) deals? combat damage to (?:a player|an opponent)/, () => ({ phrase: 'your creatures connect', pred: (o) => hasType(o, /creature/) && (/flying|menace|trample|can't be blocked|shadow|fear|intimidate/.test(o.text)) })],
+  ];
+  for (const p of all) {
+    for (const line of p.text.split('\n')) {
+      for (const [ev, re, mk] of SIMPLE) {
+        const mm = re.exec(line); if (!mm) continue;
+        const spec = mk(mm[1] || ''); if (!spec) continue;
+        const eff = ixEffect(line.slice(mm.index + mm[0].length));
+        const objs = nonland.filter(o => o !== p && spec.pred(o));
+        const objCount = objs.reduce((a, o) => a + (o.qty || 1), 0);
+        if (objCount < (p.isCmd ? 4 : 7)) continue;
+        let score = eff.w * (0.55 * Math.min(1, objCount / 10)) * (1 + Math.min(0.5, (objCount / nl) * 1.2)) * 0.9;
+        if (p.isCmd) score *= 1.5;
+        packages.push({ kind: 'trigger', payoff: p.card.n, isCmd: p.isCmd, event: ev, phrase: spec.phrase, filter: { label: spec.phrase, generic: false }, effect: eff.label, objects: objs.map(o => o.card.n), objCount, tokenMakers: [], repeaters: [], multipliers: [], score });
+        break;
+      }
+    }
+  }
+  // A commander that attacks for value: what helps it attack, or attack again.
+  for (const p of all.filter(x => x.isCmd)) {
+    if (!/whenever ~ attacks|whenever (?:you attack|a creature you control attacks)/.test(p.text)) continue;
+    const eff = ixEffect(p.text.slice(p.text.search(/whenever (?:~|you|a creature you control) (?:attacks?)/)));
+    const helpers = all.filter(o => o !== p && (/additional combat phase|untap all creatures you control|(?:creatures?|permanents?)[^.]{0,30}(?:have|gain) haste|all creatures have haste/.test(o.text) || ixTagged(IX_TAGS.extraCombat, o.card))).map(o => ({ name: o.card.n, how: /additional combat/.test(o.text) ? 'extra combat' : 'helps it attack sooner' }));
+    if (!helpers.length) continue;
+    packages.push({ kind: 'trigger', payoff: p.card.n, isCmd: true, event: 'attack', phrase: '~ attacks'.replace('~', p.card.n.split(',')[0]), filter: { label: '', generic: false }, effect: eff.label, objects: [], objCount: 0, tokenMakers: [], repeaters: helpers, multipliers: [], score: eff.w * (0.3 + 0.35 * Math.min(1, helpers.length / 2)) * 1.5 });
+  }
+  for (const [ev, g] of Object.entries(groups)) {
+    if (g.members.length < 2 && !g.multipliers.size) continue;
+    const reps = [...g.repeaters.values()], mults = [...g.multipliers.values()];
+    const avgW = g.members.reduce((a, m) => a + m.w, 0) / Math.max(1, g.members.length);
+    const score = avgW * (0.4 * Math.min(1, g.members.length / 6) + 0.35 * Math.min(1, reps.length / 2) + 0.25 * (mults.length ? 1 : 0)) * (1 + Math.min(0.5, (g.members.length / nl) * 1.2)) * (g.members.some(m => m.isCmd) ? 1.5 : 1);
+    packages.push({ kind: 'group', event: ev, payoff: '__group_' + ev, isCmd: g.members.some(m => m.isCmd), filter: { label: '' }, effect: '', members: g.members, objects: [], objCount: 0, tokenMakers: [], repeaters: reps, multipliers: mults, score });
+  }
+  // Commanders that work in other ways: sacrifice outlets (need fodder) and cost reducers (need matching spells).
+  for (const p of all.filter(x => x.isCmd)) {
+    if (packages.some(k => k.payoff === p.card.n)) continue;
+    const sm = /(?:^|\n)([^\n]*?sacrifice (?:another |a |an )?(?:other )?(?:creature|permanent|artifact)[^\n:]{0,20}:\s*[^\n]*)/.exec(p.text);
+    if (sm) {
+      const eff = ixEffect(sm[1].slice(sm[1].indexOf(':') + 1));
+      const makers = nonland.filter(o => o !== p && (o.tokens.length || /creature/i.test(o.card.t || '') && /when [^,.]*enters/.test(o.text))).map(o => o.card.n);
+      const outlets = all.filter(o => o !== p && classifyCard(o.card).sacOutlet).map(o => ({ name: o.card.n, how: 'another way to sacrifice' }));
+      if (makers.length >= 3) packages.push({ kind: 'trigger', payoff: p.card.n, isCmd: true, event: 'fodder', head: `<strong>${ixLinkSlot(p.card.n)}</strong> turns spare creatures into value (${escapeHtml(eff.label)}) by sacrificing them.`, filter: { label: '', generic: false }, effect: eff.label, objects: makers, objCount: makers.length, tokenMakers: [], repeaters: outlets, multipliers: [], score: eff.w * (0.4 + 0.3 * Math.min(1, makers.length / 12)) * 1.5, fodderLabel: 'cards give it bodies to sacrifice' });
+      continue;
+    }
+    const cm = /(white|blue|black|red|green|artifact|creature|enchantment|noncreature|instant|sorcery|multicolored)?,?(?: and\/or | or | and )?([a-z]+)? ?spells you cast cost \{(\d)\} less/.exec(p.text);
+    if (cm) {
+      const words = ['white', 'blue', 'black', 'red', 'green', 'artifact', 'creature', 'enchantment', 'noncreature', 'instant', 'sorcery'].filter(w => new RegExp('\\b' + w + '\\b').test(p.text.split('spells you cast')[0]));
+      const COL = { white: 'W', blue: 'U', black: 'B', red: 'R', green: 'G' };
+      const objs = nonland.filter(o => o !== p && (!words.length || words.some(w => COL[w] ? (o.card.c || '').includes(COL[w]) : w === 'noncreature' ? !/creature/i.test(o.card.t || '') : new RegExp(w, 'i').test(o.card.t || ''))));
+      if (objs.length >= 8) packages.push({ kind: 'rule', payoff: p.card.n, isCmd: true, event: 'rule', head: `<strong>${ixLinkSlot(p.card.n)}</strong> makes ${escapeHtml(words.join(', ') || 'your')} spells cost less${/opponents cast cost/.test(p.text) ? ' and taxes your opponents' : ''}.`, filter: { label: '', generic: false }, effect: '', objects: objs.map(o => o.card.n), objCount: objs.length, tokenMakers: [], repeaters: [], multipliers: [], score: 3 * Math.min(1, objs.length / 25) * 1.5 + 0.5 });
+    }
+  }
+  // Payoffs that nearly every card feeds ("whenever a creature enters") are one shared pool, not separate plans.
+  {
+    const broad = packages.filter(k => k.kind === 'trigger' && !k.isCmd && k.objCount >= 0.4 * nl);
+    const byEv = {};
+    broad.forEach(k => { const key = k.event + '|' + String(k.phrase || (k.filter && k.filter.label) || '').replace(/^another /, 'a '); (byEv[key] = byEv[key] || []).push(k); });
+    const rules = {};
+    packages.filter(k => k.kind === 'rule' && !k.isCmd).forEach(k => { const key = (k.filter.label || '').replace(/^another /, 'a '); (rules[key] = rules[key] || []).push(k); });
+    for (const [key, arr] of Object.entries(rules)) {
+      if (arr.length < 2) continue;
+      arr.forEach(k => { const i = packages.indexOf(k); if (i >= 0) packages.splice(i, 1); });
+      packages.push({ kind: 'pool', rule: true, event: 'rule', payoff: '__rule_' + key, isCmd: false, phrase: key, filter: { label: key }, effect: '', members: arr.map(k => ({ name: k.payoff, effect: k.effect })), objects: [], objCount: arr[0].objCount, tokenMakers: [], repeaters: [], multipliers: [], score: Math.max(...arr.map(k => k.score)) * 0.9 + Math.min(0.6, arr.length * 0.08) });
+    }
+    for (const [key, arr] of Object.entries(byEv)) {
+      if (arr.length < 2) continue;
+      arr.forEach(k => { const i = packages.indexOf(k); if (i >= 0) packages.splice(i, 1); });
+      const reps = new Map(), mults = new Map();
+      arr.forEach(k => { k.repeaters.forEach(r => reps.set(r.name, r)); k.multipliers.forEach(r => mults.set(r.name, r)); });
+      const k0 = arr[0];
+      packages.push({ kind: 'pool', event: k0.event, payoff: '__pool_' + key, isCmd: false, phrase: k0.phrase || (k0.filter.label + ' ' + (k0.event === 'dies' ? 'dies' : 'enters')), filter: { label: '' }, effect: '', members: arr.map(k => ({ name: k.payoff, effect: k.effect })), objects: [], objCount: 0, tokenMakers: [], repeaters: [...reps.values()], multipliers: [...mults.values()], score: Math.max(...arr.map(k => k.score)) * 0.85 + Math.min(0.6, arr.length * 0.08) });
+    }
+  }
+  packages.sort((a, b) => b.score - a.score);
+  // keep one package per payoff card (its best), then the top few
+  const seen = new Set(), top = [];
+  for (const pk of packages) { const k = pk.payoff + '|' + pk.kind; if (seen.has(k)) continue; seen.add(k); top.push(pk); }
+  top.sort((a, b) => (b.isCmd ? 1 : 0) - (a.isCmd ? 1 : 0));      // commander's own packages lead (stable sort keeps score order inside each group)
+  const shown = top.slice(0, 5);
+  shown.forEach(pk => { (pk.members || []).forEach(m => used.add(m.name)); used.add(pk.payoff); pk.objects.forEach(n => used.add(n)); pk.tokenMakers.forEach(n => used.add(n)); pk.repeaters.forEach(r => used.add(r.name)); pk.multipliers.forEach(r => used.add(r.name)); });
+  // Cards with no link and no everyday job of their own: worth a second look (not an instruction to cut).
+  const jobFlags = ['ramp', 'fastMana', 'manaDork', 'manaRock', 'draw', 'removal', 'wipe', 'protection', 'counterMagic', 'tutor', 'reanimate', 'tokens', 'stax', 'sac', 'sacOutlet', 'extraTurn', 'discard', 'mld', 'costReducer', 'altWin', 'burnFace', 'drain', 'engine', 'landEngine', 'impulseDraw', 'manaMultiplier', 'extraLand', 'treasureRamp', 'ritual', 'lifegain', 'counters', 'artifactsMatter', 'spellslinger', 'graveyard', 'aristocrats', 'blink', 'landfall'];
+  const idle = nonland.filter(m => !m.isCmd && !used.has(m.card.n) && !jobFlags.some(k => classifyCard(m.card)[k]) && !m.card.g).map(m => m.card.n);
+  return { packages: shown, idle, nonlandCount: nl };
+}
+function ixPlural(l) {
+  const m = /^(.*?)( with .*)$/.exec(l); const h = m ? m[1] : l, t = m ? m[2] : '';
+  return (/s$/.test(h) ? h : h.replace(/y$/, 'ie') + 's').replace(/ieie/, 'ie') + t;
+}
+const ixLinkSlot = (n) => '\u0001' + n + '\u0002';
+function ixDescribePackage(pk, link) {
+  const L = (n) => link(n);
+  const names = (arr, k) => arr.slice(0, k).map(L).join(', ') + (arr.length > k ? ` +${arr.length - k} more` : '');
+  let head;
+  if (pk.head) head = pk.head.replace(/\u0001([^\u0002]*)\u0002/g, (m, n) => L(n));
+  else if (pk.kind === 'pool') {
+    const ms = pk.members;
+    if (pk.rule) head = `<strong>${ms.length} cards reward your ${ixPlural(pk.phrase.replace(/^an? /, ''))}</strong> (${ms.slice(0, 5).map(m => L(m.name) + (m.effect ? ' \u2013 ' + escapeHtml(m.effect.replace(/~/g, '').trim()) : '')).join(', ')}${ms.length > 5 ? ` +${ms.length - 5} more` : ''}). ${pk.objCount} cards in the deck count, so these stack.`;
+    else head = `<strong>${ms.length} cards pay off whenever ${escapeHtml(pk.phrase)}</strong> (${ms.slice(0, 5).map(m => L(m.name) + (m.effect ? ' \u2013 ' + escapeHtml(m.effect) : '')).join(', ')}${ms.length > 5 ? ` +${ms.length - 5} more` : ''}). Nearly every card in the deck feeds these, so they are steady value rather than a focused plan.`;
+  } else if (pk.kind === 'group') {
+    const ms = pk.members;
+    head = `<strong>${ms.length} cards do something ${pk.event === 'dies' ? 'when they die' : 'when they enter'}</strong> (${ms.slice(0, 4).map(m => L(m.name) + ' \u2013 ' + escapeHtml(m.effect)).join(', ')}${ms.length > 4 ? ` +${ms.length - 4} more` : ''}), so anything that ${pk.event === 'dies' ? 'repeats or doubles deaths' : 'brings them back in or doubles enter effects'} is worth extra here.`;
+  } else if (pk.kind === 'rule') head = `<strong>${L(pk.payoff)}</strong> changes how your ${ixPlural(pk.filter.label.replace(/^an? |^another /, ''))} work: ${escapeHtml(pk.effect.replace(/~/g, pk.payoff))}.`;
+  else if (pk.phrase) head = `<strong>${L(pk.payoff)}</strong> ${pk.effect} whenever ${escapeHtml(pk.phrase)}.`;
+  else if (pk.filter.self) head = `<strong>${L(pk.payoff)}</strong> ${pk.effect} when it ${pk.event === 'dies' ? 'dies' : 'enters'}.`;
+  else head = `<strong>${L(pk.payoff)}</strong> ${pk.effect} whenever ${escapeHtml(pk.filter.label)} ${pk.event === 'dies' ? 'dies' : 'enters'}.`;
+  const lines = [];
+  if (pk.objCount) lines.push(`<span style="color:var(--text-primary);">${pk.objCount} ${pk.fodderLabel ? escapeHtml(pk.fodderLabel) : 'card' + (pk.objCount === 1 ? '' : 's') + ' in the deck ' + (pk.kind === 'rule' && pk.head ? 'get the discount' : 'set it off')}</span> (${names(pk.objects, 4)}).`);
+  if (pk.tokenMakers.length) lines.push(`Token makers that also trigger it: ${names(pk.tokenMakers, 3)}.`);
+  const rep = pk.repeaters.map(r => `${L(r.name)} (${escapeHtml(r.how)})`);
+  if (rep.length) lines.push(`${pk.kind === 'rule' ? 'Helps it work faster' : 'Sets it off again'}: ${rep.slice(0, 4).join(', ')}${rep.length > 4 ? ` +${rep.length - 4} more` : ''}.`);
+  if (pk.multipliers.length) lines.push(`<span style="color:var(--gold);">Counts twice</span> with ${pk.multipliers.slice(0, 3).map(r => L(r.name)).join(', ')}.`);
+  return `<div style="margin-bottom:10px; padding-bottom:10px; border-bottom:1px dashed var(--line);">
+    <div style="font-size:14px; color:var(--text-primary);">${pk.isCmd ? '<span style="font-size:10.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--gold); border:1px solid var(--line-strong); border-radius:8px; padding:1px 7px; margin-right:6px; white-space:nowrap;">Commander</span>' : ''}${head}</div>
+    ${lines.map(x => `<div style="font-size:12.5px; color:var(--text-soft); margin-top:3px;">${x}</div>`).join('')}
+  </div>`;
+}
+
+// ---- "Cards you could add": searched on demand from the whole card database (nothing runs until the popup opens) ----
+let ixLastCtx = null;
+function buildInteractionSuggestions(ctx) {
+  const { matched, commanders, packages } = ctx;
+  const inDeck = new Set(matched.map(m => String(m.card.n).toLowerCase()));
+  let ident = '';
+  (commanders || []).forEach(n => { const c = matched.find(m => m.card.n === n) || null; const cc = c ? c.card : CARD_DB.find(x => x.n === n); if (cc) ident += cc.ci || ''; });
+  const allowed = new Set(ident.split(''));
+  const fits = (c) => !c.b && String(c.ci || '').split('').every(x => allowed.has(x)) && c.t && !/token|scheme|plane\b|vanguard|conspiracy/i.test(c.t) && !inDeck.has(String(c.n).toLowerCase());
+  const pool = CARD_DB.filter(fits);
+  const out = [];
+  for (const pk of packages) {
+    if (pk.kind !== 'trigger' || pk.phrase || pk.filter.self || !pk.filter.label || (pk.event !== 'enters' && pk.event !== 'dies')) continue;
+    const f = pk.filter, ev = pk.event;
+    const reps = [], mults = [], feeds = [];
+    for (const c of pool) {
+      const text = ixText(c);
+      const rk = ixRepeaterKind(text, ev, f, ixTokensMade(text), []) || (ev === 'enters' && ixTagged(IX_TAGS.blink, c) && /exile/.test(text) && /return/.test(text) && /you control|target creature|target permanent/.test(text) ? 'flickers permanents' : null);
+      if (rk && !/makes matching tokens/.test(rk)) { reps.push({ n: c.n, m: c.m || 0, why: rk, g: c.g }); continue; }
+      const mk = ixMultiplierKind(text, ev, f);
+      if (mk) { mults.push({ n: c.n, m: c.m || 0, why: mk, g: c.g }); continue; }
+      if (ixCardMatches(c, f) && /\b(?:when|whenever|at the beginning)\b/.test(text) && !/\bland\b/i.test(c.t) && (c.m || 0) <= 4) feeds.push({ n: c.n, m: c.m || 0, why: ixEffect(text.slice(Math.max(0, text.search(/\b(?:when|whenever|at the beginning)\b/)))).label, g: c.g });
+    }
+    const by = (a, b) => a.m - b.m || a.n.localeCompare(b.n);
+    const groups = [
+      { label: 'Set it off again', list: reps.sort(by).slice(0, 6) },
+      { label: 'Count it twice', list: mults.sort(by).slice(0, 6) },
+      { label: 'More cards that feed it', list: feeds.sort(by).slice(0, 6) },
+    ].filter(g => g.list.length);
+    const sig = JSON.stringify(groups.map(g => g.list.map(c => c.n)));
+    if (out.some(o => o.sig === sig)) continue;
+    if (groups.length) out.push({ sig, title: pk.payoff + (pk.isCmd ? ' (commander)' : ''), sub: `${f.label} ${ev === 'dies' ? 'dies' : 'enters'}`, groups });
+    if (out.length >= 3) break;
+  }
+  // The commander's rule or fodder packages: show what else would give it more to work with
+  return { items: out, identity: ident };
+}
+function ixShowSuggestions() {
+  if (!ixLastCtx) return;
+  let data; try { data = buildInteractionSuggestions(ixLastCtx); } catch (e) { data = { items: [] }; }
+  let ov = document.getElementById('ixSugOverlay'); if (ov) ov.remove();
+  ov = document.createElement('div'); ov.id = 'ixSugOverlay';
+  ov.style.cssText = 'position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.65); display:flex; align-items:flex-end; justify-content:center;';
+  const body = data.items.length ? data.items.map(it => `<div style="margin-bottom:14px;"><div style="font-size:14px; color:var(--text-primary);"><strong>${escapeHtml(it.title)}</strong> <span style="color:var(--text-soft); font-size:12px;">– whenever ${escapeHtml(it.sub)}</span></div>
+      ${it.groups.map(g => `<div style="margin-top:6px;"><div style="font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--gold);">${g.label}</div>
+        ${g.list.map(c => `<div style="font-size:13px; margin-top:2px;">${cardNameLink(c.n)}${c.g ? ' <span style="font-size:10.5px; color:var(--gold);">(Game Changer)</span>' : ''} <span style="color:var(--text-soft); font-size:12px;">– ${escapeHtml(c.why)}${c.m ? ', MV ' + c.m : ''}</span></div>`).join('')}</div>`).join('')}</div>`).join('')
+    : '<div style="color:var(--text-soft); font-size:13px;">No clear additions found for this deck\'s main interactions.</div>';
+  ov.innerHTML = `<div role="dialog" aria-label="Cards you could add" style="background:var(--bg-card, #14121a); border:1px solid var(--line-strong); border-radius:14px 14px 0 0; width:min(560px,100%); max-height:78vh; overflow:auto; padding:16px 16px 22px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;"><div style="font-family:'Cinzel',Georgia,serif; font-size:13px; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold);">Cards you could add</div><button type="button" id="ixSugClose" style="background:none; border:1px solid var(--line-strong); color:var(--text-primary); border-radius:8px; padding:4px 12px; cursor:pointer; text-transform:none; letter-spacing:normal;">Close</button></div>
+    ${body}
+    <div style="font-size:11.5px; color:var(--text-soft);">Searched from the full card list: inside your commander's colours, not banned, not already in the deck, ordered by mana value. Ideas, not instructions.</div></div>`;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.addEventListener('click', e => { if (e.target === ov) close(); });
+  document.getElementById('ixSugClose').addEventListener('click', close);
+}
+// ===== END INTERACTION PACKAGES =====
+
+function renderSynergyProfile(agg, archetypeMatch, matchedCards, commanderNames) {
   const panel = $('synergyPanel');
   const area = $('synergyArea');
   if (!panel || !area) return;
@@ -21448,6 +21861,22 @@ function renderSynergyProfile(agg, archetypeMatch) {
     }
   }
 
+  let pkgs = null;
+  try { if (matchedCards && matchedCards.length) pkgs = buildInteractionPackages(matchedCards, commanderNames || []); } catch (e) { pkgs = null; }
+  const hasPk = !!(pkgs && pkgs.packages && pkgs.packages.length);
+  ixLastCtx = hasPk ? { matched: matchedCards, commanders: commanderNames || [], packages: pkgs.packages } : null;
+  const pkHtml = hasPk ? `<div style="margin-bottom:14px;">
+      <div style="font-family:'Cinzel',Georgia,serif; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold); margin-bottom:8px; cursor:help; border-bottom:1px dotted var(--text-soft); display:inline-block;" title="Found by reading each card's rules text: what sets off a payoff, which cards in your 100 supply it, and which cards repeat or double it. Ranked by how many cards feed it and how much it repeats, with the commander weighted highest.">Key Interactions</div>
+      ${pkgs.packages.map(pk => ixDescribePackage(pk, cardNameLink)).join('')}
+      <div style="margin:2px 0 8px;"><button type="button" onclick="ixShowSuggestions()" style="background:none; border:1px solid var(--line-strong); color:var(--gold); border-radius:8px; padding:5px 12px; cursor:pointer; font-size:12px; text-transform:none; letter-spacing:normal;">Cards you could add ›</button></div>
+      <div style="font-size:11.5px; color:var(--text-soft);">Pilot: these are the things to find. Opponent: these are what to be wary of or answer first. Builder: cards that feed or repeat them are worth keeping.</div>
+    </div>` : '';
+  const idleHtml = (hasPk && pkgs.idle && pkgs.idle.length) ? `<div style="margin-bottom:14px;">
+      <div style="font-family:'Cinzel',Georgia,serif; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold); margin-bottom:6px;">Cards With No Clear Link</div>
+      <div>${pkgs.idle.slice(0, 12).map(n => `<span class="gc-chip">${cardNameLink(n)}</span>`).join(' ')}</div>
+      <div style="font-size:11.5px; color:var(--text-soft); margin-top:4px;">No link to the plan or commander was found in their text, and no clear job such as ramp, draw or removal. Worth a second look, though not a cut list; they may do something this reading cannot see.</div>
+    </div>` : '';
+  const moreWrap = (inner) => hasPk ? `<details style="margin-bottom:14px;"><summary style="cursor:pointer; color:var(--gold); font-size:12px;">More card links and engine cards</summary>${inner}</details>` : inner;
   area.innerHTML = `
     <div style="margin-bottom:12px;">
       <div style="font-family:'Cinzel',Georgia,serif; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold); margin-bottom:6px; cursor:help; border-bottom:1px dotted var(--text-soft); display:inline-block;" title="Cards that either ARE this type, or whose text is thematically about it — e.g. Artifacts Matter includes actual artifacts plus any card that cares about artifacts entering, being cast, etc. Broader than a strict type count on purpose.">Top Themes</div>
@@ -21459,17 +21888,18 @@ function renderSynergyProfile(agg, archetypeMatch) {
       <div class="stat"><span class="num">${agg.synergyTopClusterSize || 0}</span><span class="lbl" style="cursor:help; border-bottom:1px dotted var(--text-soft);" title="The largest group of cards all connected to each other via a detected interaction — how much of the deck reads as one interlocking machine versus separately-good cards.">Top cluster size</span></div>
       <div class="stat"><span class="num">${alignPct}%</span><span class="lbl" style="cursor:help; border-bottom:1px dotted var(--text-soft);" title="Percent of cards that specifically support your commander's own signals or themes.">Commander-aligned</span></div>
     </div>
-    <div style="margin-bottom:14px;">
+    ${pkHtml}${idleHtml}
+    ${moreWrap(`<div style="margin-bottom:14px;">
       <div style="font-family:'Cinzel',Georgia,serif; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold); margin-bottom:8px; cursor:help; border-bottom:1px dotted var(--text-soft); display:inline-block;" title="The highest-scoring card-to-card pairs in the deck: one card producing a resource the other consumes, a shared meaningful trigger, overlapping themes, or a known synergy pattern.">Strongest Interactions</div>
       ${edgesHtml}
-    </div>
+    </div>`)}
     ${knownSynergyHtml}
     ${staplesHtml}
-    ${engineChips ? `<div style="margin-bottom:14px;">
+    ${engineChips ? moreWrap(`<div style="margin-bottom:14px;">
       <div style="font-family:'Cinzel',Georgia,serif; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold); margin-bottom:6px; cursor:help; border-bottom:1px dotted var(--text-soft); display:inline-block;" title="Cards that provide repeatable value or 2+ meaningful interactions on their own — the individual pieces driving the Engine density stat above.">Engine Cards <span style="font-weight:400; text-transform:none; letter-spacing:normal; color:var(--text-soft);">(repeatable value or 2+ meaningful interactions)</span></div>
       <div>${engineChips}</div>
       ${engineLegend}
-    </div>` : ''}
+    </div>`) : ''}
     <div style="font-size:13px; color:var(--text-soft); margin-top:8px;">
       <strong style="color:var(--gold); cursor:help; border-bottom:1px dotted var(--text-soft);" title="Free = no mana cost to use. Cheap = 1-2 mana. Expensive = 3+ mana. Counts nonland interaction spells (removal, protection, counterspells, and similar) by their activation cost.">Interaction mix:</strong> ${escapeHtml(ix)}
       ${agg.freeInteractionCards && agg.freeInteractionCards.length ? `<br><span style="font-size:12px;">Free: ${[...new Set(agg.freeInteractionCards)].map(cardNameLink).join(', ')}</span>` : ''}
@@ -27276,6 +27706,11 @@ function pmDeckCardNames(listText) {
   });
   return out;
 }
+// Which site a linked deck came from, from its mirror id ("linked-moxfield-123" -> "Moxfield").
+function pmLinkedSite(docId) {
+  const m = String(docId || '').match(/^linked-([a-z]+)-/i);
+  return m ? (m[1].toLowerCase() === 'moxfield' ? 'Moxfield' : m[1].toLowerCase() === 'archidekt' ? 'Archidekt' : m[1]) : '';
+}
 function pmIsLinkedMirror(e) { return !!(e && typeof e === 'object' && typeof e.docId === 'string' && e.docId.indexOf('linked-') === 0); }
 function pmSameDeck(a, b) {
   const ca = searchNorm(a.commander || ''), cb = searchNorm(b.commander || '');
@@ -27289,6 +27724,7 @@ function pmSameDeck(a, b) {
 }
 // items: entry objects ({commander, list, docId, ownerUid?...}). Returns the list without duplicate mirrors.
 function pmDropLinkedDuplicates(items) {
+  items.forEach(e => { if (e && typeof e === 'object') delete e.linkedVia; });
   const byOwner = new Map();
   items.forEach(e => { if (e && typeof e === 'object') { const o = e.ownerUid || 'me'; if (!byOwner.has(o)) byOwner.set(o, []); byOwner.get(o).push(e); } });
   const drop = new Set();
@@ -27297,7 +27733,8 @@ function pmDropLinkedDuplicates(items) {
     if (!saved.length) return;
     group.filter(pmIsLinkedMirror).forEach(m => {
       const probe = { commander: m.commander, list: m.list };
-      if (saved.some(sv => pmSameDeck(probe, { commander: sv.commander, list: sv.list }))) drop.add(m);
+      const twin = saved.find(sv => pmSameDeck(probe, { commander: sv.commander, list: sv.list }));
+      if (twin) { drop.add(m); if (!twin.linkedVia) twin.linkedVia = pmLinkedSite(m.docId); }   // the kept deck remembers it is linked
     });
   });
   return items.filter(e => !drop.has(e));
@@ -28379,7 +28816,7 @@ function renderLoadDeckList() {
     return `<div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 0; border-bottom:1px solid var(--line);">
       <div data-load-deck-key="${escapeHtml(e.key)}" style="cursor:pointer; flex:1;">
         <div style="font-size:14px; color:var(--gold-bright); font-weight:600;">${e.commander ? cardNameLink(e.commander) : escapeHtml(e.key)}</div>
-        <div style="font-size:12px; color:var(--text-soft);">${escapeHtml(e.player || '')}${dateLabel ? ' · ' + dateLabel : ''}</div>
+        <div style="font-size:12px; color:var(--text-soft);">${escapeHtml(e.player || '')}${dateLabel ? ' · ' + dateLabel : ''}${(e.linkedVia || (typeof e.docId === 'string' && e.docId.indexOf('linked-') === 0 && pmLinkedSite(e.docId))) ? ` <span title="Linked to a deck on ${escapeHtml(e.linkedVia || pmLinkedSite(e.docId))} and kept in sync from My Profile" style="display:inline-block; margin-left:4px; padding:1px 8px; border:1px solid var(--line-strong); border-radius:10px; font-size:11px; color:var(--cyan); white-space:nowrap;">\u{1F517} ${escapeHtml(e.linkedVia || pmLinkedSite(e.docId))}</span>` : ''}</div>
       </div>
       <div style="display:flex; gap:6px;">${secretToggle}${deleteBtn}</div>
     </div>`;
