@@ -12,13 +12,19 @@
 // gzip magic bytes and decompressing when present fixes that regardless of
 // how this script gets invoked or whether Scryfall's serving format changes.
 //
-// Card tuple (10 fields):
+// Card tuple (13 fields):
 //   [name, typeLine, oracleText, manaCost, colorIdentity, manaValue, pips,
-//    rarity, producedMana, oneShotFlag]
+//    rarity, producedMana, oneShotFlag, power, toughness, notCommanderLegal]
 // The last two are what the Mana Base: Cost vs. Production panel needs:
 //   producedMana - colors of mana the card can make ("" if none), e.g. "WG"
 //   oneShotFlag  - 1 if that mana is one-time only (Dark Ritual, Lotus Petal),
 //                  so it's listed separately instead of counted as a source
+// The last three (added Oct 2026) are what the Key Interactions panel needs:
+//   power, toughness - printed values as text ("0", "4", "*", "1+*"); "" for non-creatures. Front face for
+//                      multi-face cards.
+//   notCommanderLegal - 1 if Scryfall lists the card as not_legal in Commander (Un-cards, joke and
+//                      playtest cards, Conspiracy, Schemes and similar), so suggestions never offer them.
+//
 // An earlier build left these out entirely and the panel read other fields
 // (mana value, rarity) in their place, which broke it. They are worked out
 // here from each card's rules text -- see the shared block below.
@@ -31,6 +37,9 @@ const MIN_PLAUSIBLE_CARD_COUNT = 5000;
 // the production logic has broken (the way the gzip bug once produced zero
 // cards) -- fail loudly rather than publish a database that empties the panel.
 const MIN_PLAUSIBLE_PRODUCER_COUNT = 800;
+// About 14,000 cards have a power; about 1,000+ are not Commander-legal. Far fewer means a field went missing.
+const MIN_PLAUSIBLE_POWER_COUNT = 5000;
+const MIN_PLAUSIBLE_NOT_LEGAL_COUNT = 300;
 
 // ===== BEGIN SHARED MANA-PRODUCTION LOGIC =====
 // This block is IDENTICAL in two places and must stay that way:
@@ -180,7 +189,10 @@ function cardToTuple(card) {
   const pips = encodePips(manaCost);
   const rarity = card.rarity || '';
   const { pm, rt } = manaProductionFor(card);
-  return [name, typeLine, oracleText, manaCost, colorIdentity, cmc, pips, rarity, pm, rt];
+  const power = String(card.power != null ? card.power : (face.power != null ? face.power : ''));
+  const toughness = String(card.toughness != null ? card.toughness : (face.toughness != null ? face.toughness : ''));
+  const notLegal = card.legalities && card.legalities.commander === 'not_legal' ? 1 : 0;
+  return [name, typeLine, oracleText, manaCost, colorIdentity, cmc, pips, rarity, pm, rt, power, toughness, notLegal];
 }
 
 function readInputAsText(path) {
@@ -224,13 +236,22 @@ function build(bulkFilePath, outPath) {
     throw new Error(`Only ${producerCount} cards were detected as mana producers, expected at least ${MIN_PLAUSIBLE_PRODUCER_COUNT}. Refusing to write output.`);
   }
 
+  const powerCount = cards.filter(t => t[10] !== '').length;
+  const notLegalCount = cards.filter(t => t[12] === 1).length;
+  if (powerCount < MIN_PLAUSIBLE_POWER_COUNT) {
+    throw new Error(`Only ${powerCount} cards have a power value, expected at least ${MIN_PLAUSIBLE_POWER_COUNT}. Refusing to write output.`);
+  }
+  if (notLegalCount < MIN_PLAUSIBLE_NOT_LEGAL_COUNT) {
+    throw new Error(`Only ${notLegalCount} cards are flagged not Commander-legal, expected at least ${MIN_PLAUSIBLE_NOT_LEGAL_COUNT}. Refusing to write output.`);
+  }
+
   const payload = { cards, gc, banned };
   const json = JSON.stringify(payload);
   const gzipped = gzipSync(Buffer.from(json, 'utf8'));
   const b64 = gzipped.toString('base64');
 
   writeFileSync(outPath, b64, 'utf8');
-  return { cardCount: cards.length, gcCount: gc.length, bannedCount: banned.length, producerCount, oneShotCount, b64Length: b64.length };
+  return { cardCount: cards.length, gcCount: gc.length, bannedCount: banned.length, producerCount, oneShotCount, powerCount, notLegalCount, b64Length: b64.length };
 }
 
 const [, , bulkFilePath, outPath] = process.argv;
