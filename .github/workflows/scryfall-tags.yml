@@ -1,0 +1,24 @@
+name: Scryfall Tags Build
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tags:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Fetch function tags
+        run: node .github/scripts/scryfall-tags.mjs
+      - name: Summary
+        run: |
+          ls -la scryfall-tags.json
+          node -e "const j=require('./scryfall-tags.json');for(const k in j)console.log(k,j[k].length)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scryfall-tags
+          path: scryfall-tags.json
