@@ -26265,10 +26265,10 @@ function generatePodSummary(decks, avgSpark, std, spread) {
 // themselves.
 async function getPlayerRawDecksForProfile(uid) {
   if (uid === (window.PodmatesCloud && window.PodmatesCloud.uid)) {
-    return Object.values(loadSavedDecks()).filter(d => (typeof d === 'object') && d.secret !== true);
+    return pmDropLinkedDuplicates(Object.values(loadSavedDecks()).filter(d => (typeof d === 'object') && d.secret !== true));
   }
   try {
-    return Object.values(await window.PodmatesCloud.loadPodmateDecks(uid));
+    return pmDropLinkedDuplicates(Object.values(await window.PodmatesCloud.loadPodmateDecks(uid)));
   } catch (e) {
     return [];
   }
@@ -27257,6 +27257,51 @@ $('modePodBtn').addEventListener('click', () => setMode('pod'));
 // locally if that fetch hasn't completed yet, matching "nothing saved
 // locally" as an actual guarantee, not just a default.
 let cloudDecksCache = {};
+
+// ---- One deck, one row -------------------------------------------------------------------------
+// Linking a deck from Archidekt/Moxfield keeps a hidden "mirror" copy (its id starts with "linked-") so
+// podmates can see it. If the same person then charts and saves that deck as well, the two are really
+// one deck and should be listed once: the charted-and-saved one. This hides the mirror in the lists
+// (Load Deck, Build Table, player profiles) when the SAME owner has a saved deck with the same commander
+// and mostly the same cards. Nothing is deleted: the link itself, its re-sync and the mirror all stay,
+// and if the saved deck is ever removed the linked one simply shows again.
+function pmDeckCardNames(listText) {
+  const out = new Set();
+  String(listText || '').split('\n').forEach(line => {
+    const m = line.match(/^\s*(?:\d+\s*x?\s+)?(.+?)\s*$/i);
+    if (!m) return;
+    let n = m[1].replace(/\s*[\(\[].*$/, '').replace(/\s*\*[A-Za-z]+\*\s*$/, '').replace(/^(commander|sideboard|maybeboard|deck|companion)\s*:?\s*$/i, '');
+    n = searchNorm(n);
+    if (n) out.add(n);
+  });
+  return out;
+}
+function pmIsLinkedMirror(e) { return !!(e && typeof e === 'object' && typeof e.docId === 'string' && e.docId.indexOf('linked-') === 0); }
+function pmSameDeck(a, b) {
+  const ca = searchNorm(a.commander || ''), cb = searchNorm(b.commander || '');
+  if (ca && cb && ca !== cb) return false;
+  if (!a._names) a._names = pmDeckCardNames(a.list);
+  if (!b._names) b._names = pmDeckCardNames(b.list);
+  const A = a._names, B = b._names;
+  if (!A.size || !B.size) return false;
+  let shared = 0; A.forEach(n => { if (B.has(n)) shared++; });
+  return shared / Math.min(A.size, B.size) >= ((ca && cb) ? 0.7 : 0.85);
+}
+// items: entry objects ({commander, list, docId, ownerUid?...}). Returns the list without duplicate mirrors.
+function pmDropLinkedDuplicates(items) {
+  const byOwner = new Map();
+  items.forEach(e => { if (e && typeof e === 'object') { const o = e.ownerUid || 'me'; if (!byOwner.has(o)) byOwner.set(o, []); byOwner.get(o).push(e); } });
+  const drop = new Set();
+  byOwner.forEach(group => {
+    const saved = group.filter(e => !pmIsLinkedMirror(e));
+    if (!saved.length) return;
+    group.filter(pmIsLinkedMirror).forEach(m => {
+      const probe = { commander: m.commander, list: m.list };
+      if (saved.some(sv => pmSameDeck(probe, { commander: sv.commander, list: sv.list }))) drop.add(m);
+    });
+  });
+  return items.filter(e => !drop.has(e));
+}
 
 function loadSavedDecks() {
   return cloudDecksCache;
@@ -28309,6 +28354,7 @@ function renderLoadDeckList() {
   // free-text "player" label the own-deck system uses) so it's always
   // clear whose deck is whose in the merged list.
   entries.push(...Object.entries(podmateDecksCache).map(([key, entry]) => ({ key, ...entry, player: entry.ownerName })));
+  entries = pmDropLinkedDuplicates(entries);   // a linked deck that was also charted and saved shows once
   if (loadDeckActivePlayer) entries = entries.filter(e => e.player === loadDeckActivePlayer);
   if (search) {
     entries = entries.filter(e =>
@@ -28560,6 +28606,10 @@ async function buildSavedDecksTable() {
   const decks = Object.assign({}, loadSavedDecks());
   for (const [key, entry] of Object.entries(podmateDecksCache)) {
     decks[key] = Object.assign({}, entry, { player: entry.ownerName });
+  }
+  {   // a linked deck that was also charted and saved is one deck: keep the saved one
+    const kept = new Set(pmDropLinkedDuplicates(Object.values(decks)));
+    for (const k of Object.keys(decks)) if (!kept.has(decks[k])) delete decks[k];
   }
   const keys = Object.keys(decks);
   if (keys.length === 0) {
@@ -29422,7 +29472,7 @@ setupIconTooltipsFor(document);
     const out = {};
     snap.forEach(docSnap => {
       const d = docSnap.data();
-      out[d.key] = { list: d.list, commander: d.commander, player: d.player, savedAt: d.savedAt, secret: false };
+      out[d.key] = { list: d.list, commander: d.commander, player: d.player, savedAt: d.savedAt, secret: false, docId: docSnap.id };
     });
     return out;
   }
