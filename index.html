@@ -21451,7 +21451,7 @@ const IX_EFFECTS = [
   [/\bgoad|\bmust attack|\battacks? each/, 'forces combat', 2],
   [/monarch|initiative|\bconnive|\binvestigate|\bclue\b|\btreasure/, 'makes value tokens', 2.5],
 ];
-function ixEffect(clause) { for (const [re, label, w] of IX_EFFECTS) if (re.test(clause)) return { label, w }; return { label: 'gets a bonus', w: 1.5 }; }
+function ixEffect(clause) { for (const [re, label, w] of IX_EFFECTS) if (re.test(clause)) return { label, w }; return { label: 'gets a bonus', w: 0.6, generic: true }; }
 
 const IX_LISTENERS = [
   // [event key, regex capturing the filter phrase, plain-English "when"]
@@ -21533,7 +21533,7 @@ function buildInteractionPackages(matchedCards, commanders) {
         if (!f.self && objCount + tokenMakers.length < 3 && !(repeaters.length && objCount >= 1)) continue;      // too thin to be a plan
         if (f.self && !repeaters.length && !multipliers.length) continue;                                       // a plain "when ~ enters" is just the card doing its job
         if (f.self) {                                                                                           // many such cards share the same helpers: one group, not one package each
-          const g = groups[ev]; g.members.push({ name: p.card.n, effect: eff.label, w: eff.w, isCmd: p.isCmd });
+          const g = groups[ev]; if (!eff.generic || p.isCmd) g.members.push({ name: p.card.n, effect: eff.label, w: eff.w, isCmd: p.isCmd });
           repeaters.forEach(r => g.repeaters.set(r.name, r)); multipliers.forEach(r => g.multipliers.set(r.name, r));
           break;
         }
@@ -21604,7 +21604,7 @@ function buildInteractionPackages(matchedCards, commanders) {
     packages.push({ kind: 'trigger', payoff: p.card.n, isCmd: true, event: 'attack', phrase: '~ attacks'.replace('~', p.card.n.split(',')[0]), filter: { label: '', generic: false }, effect: eff.label, objects: [], objCount: 0, tokenMakers: [], repeaters: helpers, multipliers: [], score: eff.w * (0.3 + 0.35 * Math.min(1, helpers.length / 2)) * 1.5 });
   }
   for (const [ev, g] of Object.entries(groups)) {
-    if (g.members.length < 2 && !g.multipliers.size) continue;
+    if (g.members.length < 4) continue;
     const reps = [...g.repeaters.values()], mults = [...g.multipliers.values()];
     const avgW = g.members.reduce((a, m) => a + m.w, 0) / Math.max(1, g.members.length);
     const score = avgW * (0.4 * Math.min(1, g.members.length / 6) + 0.35 * Math.min(1, reps.length / 2) + 0.25 * (mults.length ? 1 : 0)) * (1 + Math.min(0.5, (g.members.length / nl) * 1.2)) * (g.members.some(m => m.isCmd) ? 1.5 : 1);
@@ -21655,7 +21655,78 @@ function buildInteractionPackages(matchedCards, commanders) {
   const seen = new Set(), top = [];
   for (const pk of packages) { const k = pk.payoff + '|' + pk.kind; if (seen.has(k)) continue; seen.add(k); top.push(pk); }
   top.sort((a, b) => (b.isCmd ? 1 : 0) - (a.isCmd ? 1 : 0));      // commander's own packages lead (stable sort keeps score order inside each group)
-  const shown = top.slice(0, 5);
+  // Game plans read from the deck's make-up rather than from one trigger: ramp to the commander, a mana-sink commander, board resets.
+  const plans = [];
+  const safeNames = new Set();
+  const cmdAll = all.filter(x => x.isCmd);
+  const roleOf = (m) => ixRoles(m.text);
+  const flag = (m, k) => { try { return !!classifyCard(m.card)[k]; } catch (e) { return false; } };
+  const namesOf = (arr, k) => arr.slice(0, k).map(m => ixLinkSlot(m.card.n)).join(', ') + (arr.length > k ? ` +${arr.length - k} more` : '');
+  {
+    const pieces = nonland.filter(m => !m.isCmd && (flag(m, 'ramp') || roleOf(m).landRamp));
+    const rocks = pieces.filter(m => flag(m, 'manaRock') || flag(m, 'fastMana'));
+    const dorks = pieces.filter(m => flag(m, 'manaDork'));
+    const lands = pieces.filter(m => !rocks.includes(m) && !dorks.includes(m) && (roleOf(m).landRamp || /search your library[^.]*(?:basic )?land|put (?:a|that) land card onto the battlefield|additional land/.test(m.text)));
+    const dbl = nonland.filter(m => !m.isCmd && (flag(m, 'manaMultiplier') || /untap all lands you control/.test(m.text)));
+    const cmdc = cmdAll.length ? Math.max(...cmdAll.map(c => c.card.m || 0)) : 0;
+    if (cmdAll.length && ((cmdc >= 6 && pieces.length >= 16) || pieces.length >= 22)) {      // 16+ is roughly the top tenth of precons
+      const lines = [];
+      if (lands.length) lines.push(`Land fetch and extra land drops: ${namesOf(lands, 6)}.`);
+      if (rocks.length) lines.push(`Rocks and fast mana: ${namesOf(rocks, 5)}.`);
+      if (dorks.length) lines.push(`Mana creatures: ${namesOf(dorks, 5)}.`);
+      if (dbl.length) lines.push(`<span style="color:var(--gold);">Doublers and untappers</span> (the same lands pay twice): ${namesOf(dbl, 5)}.`);
+      const lf = nonland.filter(m => !m.isCmd && flag(m, 'landfall'));
+      if (lf.length) { lines.push(`Every extra land also triggers: ${namesOf(lf, 4)}.`); lf.forEach(m => used.add(m.card.n)); }
+      plans.push({ kind: 'plan', event: 'plan', payoff: '__plan_ramp', isCmd: true, head: `<strong>Ramp into ${ixLinkSlot(cmdAll[0].card.n)}</strong>: it costs ${cmdc}, and the deck has ${pieces.length} ramp pieces to reach it early.`, extraLines: lines, filter: { label: '' }, effect: '', objects: [], objCount: 0, tokenMakers: [], repeaters: [], multipliers: [], score: 99 });
+      pieces.concat(dbl).forEach(m => used.add(m.card.n));
+    }
+    // A commander that can spend spare mana on its own abilities
+    for (const c of cmdAll) {
+      const abil = [];
+      for (const line of String(c.card.o || '').split('\n')) { const am = /^((?:\{[^}]+\})+): ([^.\n]+)/.exec(line); if (am) abil.push({ cost: am[1].replace(/[{}]/g, ''), effect: am[2].replace(new RegExp(c.card.n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), c.card.n.split(',')[0]) }); }
+      if (abil.length >= 2 || (abil.length === 1 && cmdc >= 6)) {
+        const lines = [];
+        if (/enters[^.]*untap all lands you control/.test(c.text)) lines.push('When it enters it untaps all your lands, so the mana spent casting it can be spent again the same turn on these abilities.');
+        const untap = nonland.filter(m => !m.isCmd && IX_UNTAP_RE.test(m.text));
+        const doub = dbl.filter(m => !untap.includes(m));
+        if (untap.length) lines.push(`<span style="color:var(--gold);">Untappers</span> (a second full set of mana, usable on an opponent's turn since these abilities are instant speed): ${namesOf(untap, 4)}.`);
+        if (doub.length) lines.push(`Mana doublers multiply the uses: ${namesOf(doub, 4)}.`);
+        untap.forEach(m => used.add(m.card.n));
+        plans.push({ kind: 'plan', event: 'plan', payoff: '__plan_sink_' + c.card.n, isCmd: true, head: `<strong>${ixLinkSlot(c.card.n)}</strong> turns spare mana into effects: ${abil.map(a => escapeHtml(a.cost) + ' \u2013 ' + escapeHtml(a.effect)).join('; ')}.`, extraLines: lines, filter: { label: '' }, effect: '', objects: [], objCount: 0, tokenMakers: [], repeaters: [], multipliers: [], score: 98 });
+      }
+    }
+    const wipes = nonland.filter(m => !m.isCmd && (flag(m, 'wipe') || roleOf(m).wipeDamage || roleOf(m).wipeSac));
+    if (wipes.length >= 6) {                      // the typical precon has 2; 6+ is a deliberate plan
+      const safe = nonland.filter(m => !m.isCmd && !/counter on ~|~ has indestructible|~ is indestructible/.test(m.text) && /(?:permanents?|creatures?) you control[^.]*indestructible|target creature[^.]*indestructible|enchanted creature[^.]*indestructible|equipped creature[^.]*indestructible|gains? indestructible/.test(m.text));
+      const lines = [];
+      if (safe.length) lines.push(`To keep your own commander through them: ${namesOf(safe, 4)}.`);
+      plans.push({ kind: 'plan', event: 'plan', payoff: '__plan_wipes', isCmd: false, head: `<strong>${wipes.length} board wipes and sweepers</strong> (${namesOf(wipes, 6)}): the deck is built to reset the table and win from what is left.`, extraLines: lines, filter: { label: '' }, effect: '', objects: [], objCount: 0, tokenMakers: [], repeaters: [], multipliers: [], score: 97 });
+      wipes.concat(safe).forEach(m => { used.add(m.card.n); }); safe.forEach(m => safeNames.add(m.card.n));
+    }
+  }
+  // What helps this commander do its job: only exact, text-based links, each tied to something the commander really has.
+  for (const c of cmdAll) {
+    const lines = [], helpers = [];
+    const take = (arr, label, k = 5) => { if (!arr.length) return; lines.push(`${label}: ${namesOf(arr, k)}.`); arr.forEach(m => { used.add(m.card.n); helpers.push(m.card.n); }); };
+    const others = nonland.filter(m => !m.isCmd);
+    const cmdc = c.card.m || 0, ctext = c.text;
+    const hasActs = String(c.card.o || '').split('\n').some(l => /^(?:\{[^}]+\})+: /.test(l));
+    if (hasActs) take(others.filter(m => /abilities you activate[^.]*cost \{?\d\}? less|activated abilities[^.]*cost[^.]*less to activate/.test(m.text)), 'Cheaper abilities (more activations from the same mana)', 3);
+    if (/deals? (?:\d+|x) damage/.test(ctext)) take(others.filter(m => /double that damage|deals? double that|twice that much damage|noncombat damage[^.]*(?:double|twice)/.test(m.text)), 'Damage doublers (its damage, and any burn or sweepers that deal damage, count double)', 3);
+    {
+      const refl = others.filter(m => /whenever ~ is dealt damage[^.]*deals? that much damage|whenever ~ is dealt damage[^.]*that much damage to/.test(m.text));
+      const dmgSrc = others.filter(m => roleOf(m).wipeDamage || /deals? (?:\d+|x) damage to each (?:other )?(?:creature|opponent)/.test(m.text));
+      if (refl.length && (dmgSrc.length || /deals? (?:\d+|x) damage to (?:target|any)/.test(ctext))) {
+        refl.forEach(m => { used.add(m.card.n); helpers.push(m.card.n); });
+        lines.push(`<span style="color:var(--gold);">Damage reflectors</span> (take damage you deal yourself, then send the same amount at an opponent): ${namesOf(refl, 3)}${dmgSrc.length ? `; sources in the deck: ${namesOf(dmgSrc, 4)}` : ''}${/deals? (?:\d+|x) damage to (?:target|any)/.test(ctext) ? `, and its own damage` : ''}.`);
+      }
+    }
+    if (/gain \d+ life|you gain \w+ life/.test(ctext)) take(others.filter(m => /whenever you gain life/.test(m.text)), 'Pay off its life gain', 3);
+    if (!/\bhaste\b/.test(ctext) && cmdc >= 5) take(others.filter(m => (/\bhaste\b/.test(m.text) && /(?:equipped creature|creatures? you control|target creature|enchanted creature)[^.]*haste|haste[^.]*(?:to|on) (?:it|target)/.test(m.text)) || roleOf(m).hasteAll), 'Haste, so it can act the turn it lands', 4);
+    if (cmdc >= 5) take(others.filter(m => /(?:equipped|enchanted) creature (?:has|gets)[^.]*(?:hexproof|shroud|indestructible)|(?:permanents?|creatures?) you control (?:gain|have)[^.]*(?:hexproof|shroud|indestructible)|all creatures gain[^.]*(?:hexproof|indestructible)|target creature[^.]*(?:gains?|has)[^.]*(?:hexproof|indestructible|shroud)/.test(m.text) && !safeNames.has(m.card.n)), 'Protect it from removal', 5);
+    if (lines.length) plans.push({ kind: 'plan', event: 'plan', payoff: '__plan_help_' + c.card.n, isCmd: true, head: `<strong>What helps ${ixLinkSlot(c.card.n)} work</strong>`, extraLines: lines, filter: { label: '' }, effect: '', objects: [], objCount: 0, tokenMakers: [], repeaters: [], multipliers: [], score: 96 });
+  }
+  const shown = plans.concat(top.slice(0, 5));
   // Stat axis: when a card changes which stat deals combat damage, cards that raise that stat are finishers, and
   // cards that repeat the rule are backups if the commander is removed.
   const axisCards = all.filter(x => IX_AXIS_RE.test(x.text));
@@ -21690,7 +21761,7 @@ function buildInteractionPackages(matchedCards, commanders) {
     const st = ixStat(m.card); if (st) creatures.push({ p: st.p, t: st.t, q: m.qty || 1 });
   }
   for (const m of nonland) {
-    if (m.isCmd || used.has(m.card.n)) continue;
+    if (m.isCmd || used.has(m.card.n) || flag(m, 'ramp')) continue;
     let why = null;
     if (/total power \d+ or less/.test(m.text)) why = axis === 'toughness' ? 'keeps creatures up to a total power, sacrifices the rest, and your walls count for almost nothing under that limit, so it can wipe the other boards while sparing yours' : 'keeps creatures up to a total power and sacrifices the rest, so it is only one-sided if your creatures have low power';
     else if (/(?:power|toughness)(?: or (?:power|toughness))? \d+ or (?:less|greater)|(?:power|toughness) (?:less|greater) than/.test(m.text)) {
@@ -21716,7 +21787,7 @@ function buildInteractionPackages(matchedCards, commanders) {
     }
     if (why) { conditional.push({ name: m.card.n, why }); used.add(m.card.n); }
   }
-  const idle = nonland.filter(m => !m.isCmd && !used.has(m.card.n) && !jobFlags.some(k => classifyCard(m.card)[k]) && !m.card.g).map(m => m.card.n);
+  const idle = nonland.filter(m => !m.isCmd && !used.has(m.card.n) && !jobFlags.some(k => classifyCard(m.card)[k]) && !Object.keys(ixRoles(m.text)).length && !m.card.g).map(m => m.card.n);
   return { packages: shown, idle, conditional, axis, nonlandCount: nl };
 }
 function ixPlural(l) {
@@ -21745,6 +21816,18 @@ function ixStat(c) {
   const p = parseInt(c.pw, 10), t = parseInt(c.tg, 10);
   return { p: isNaN(p) ? null : p, t: isNaN(t) ? null : t };
 }
+// Extra jobs a card can have, read from its text. Display-only: never feeds the scores.
+function ixRoles(text) {
+  const r = {};
+  if (/search your library for [^.]{0,50}(?:lands?|forests?|plains|islands?|swamps?|mountains?)[^.]{0,50}cards?[^.]{0,60}onto the battlefield/.test(text)) r.landRamp = true;
+  if (/deals? (?:x|\d+) damage to each (?:non\w+ )?creature/.test(text)) r.wipeDamage = true;
+  if (/each player sacrifices (?:that many|all|a number|x) |sacrifices all other (?:nonland )?permanents/.test(text)) r.wipeSac = true;
+  if (/gain control of (?:all|each|target) creatures?[^.]{0,60}until end of turn/.test(text)) r.threaten = true;
+  if (/creatures you control have haste/.test(text)) r.hasteAll = true;
+  return r;
+}
+const IX_UNTAP_RE = /untap all (?:lands|permanents)[^.]*(?:end step|untap step|each other player)|at the beginning of your end step, untap all (?:lands|permanents)|during each other player's untap step, untap all/;
+const IX_MANA_DOUBLE_RE = /whenever you tap (?:a|an|another) [a-z ]*(?:land|permanent|creature|artifact)[^.]* for mana, add|if you tap a (?:land|permanent)[^.]*for mana, it produces|(?:lands?|permanents?) you control[^.]*(?:tap|tapped)[^.]*for mana[^.]*(?:additional|twice|one mana of any type that)/;
 const ixLinkSlot = (n) => '\u0001' + n + '\u0002';
 function ixDescribePackage(pk, link) {
   const L = (n) => link(n);
@@ -21762,7 +21845,7 @@ function ixDescribePackage(pk, link) {
   else if (pk.phrase) head = `<strong>${L(pk.payoff)}</strong> ${pk.effect} whenever ${escapeHtml(pk.phrase)}.`;
   else if (pk.filter.self) head = `<strong>${L(pk.payoff)}</strong> ${pk.effect} when it ${pk.event === 'dies' ? 'dies' : 'enters'}.`;
   else head = `<strong>${L(pk.payoff)}</strong> ${pk.effect} whenever ${escapeHtml(pk.filter.label)} ${pk.event === 'dies' ? 'dies' : 'enters'}.`;
-  const lines = [];
+  const lines = (pk.extraLines || []).map(x => x.replace(/\u0001([^\u0002]*)\u0002/g, (m, n) => L(n)));
   if (pk.objCount) lines.push(`<span style="color:var(--text-primary);">${pk.objCount} ${pk.fodderLabel ? escapeHtml(pk.fodderLabel) : 'card' + (pk.objCount === 1 ? '' : 's') + ' in the deck ' + (pk.kind === 'rule' && pk.head ? 'get the discount' : 'set it off')}</span> (${names(pk.objects, 4)}).`);
   if (pk.tokenMakers.length) lines.push(`Token makers that also trigger it: ${names(pk.tokenMakers, 3)}.`);
   const rep = pk.repeaters.map(r => `${L(r.name)} (${escapeHtml(r.how)})`);
@@ -21824,6 +21907,18 @@ function buildInteractionSuggestions(ctx) {
     }
     const groups = [{ label: 'Repeat the rule', list: back.sort(by2).slice(0, 5) }, { label: 'Toughness finishers', list: fin.sort((a, b) => (b.bonus - a.bonus) || by2(a, b)).slice(0, 5) }].filter(g => g.list.length);
     if (groups.length) out.push({ title: 'The toughness rule', sub: 'toughness deals combat damage', groups });
+  }
+  const sink = (packages || []).find(k => String(k.payoff).startsWith('__plan_sink_'));
+  if (sink && out.length < 4) {
+    const un = [], db = [];
+    for (const c of pool) {
+      if ((c.m || 0) > 6 || /\bland\b/i.test(c.t)) continue;
+      const text = ixText(c);
+      if (IX_UNTAP_RE.test(text)) un.push({ n: c.n, m: c.m || 0, why: 'untaps your mana again', g: c.g });
+      else if (IX_MANA_DOUBLE_RE.test(text)) db.push({ n: c.n, m: c.m || 0, why: 'doubles the mana you tap', g: c.g });
+    }
+    const groups = [{ label: 'Untap your mana again', list: un.sort(by2).slice(0, 5) }, { label: 'Double your mana', list: db.sort(by2).slice(0, 5) }].filter(g => g.list.length);
+    if (groups.length) out.push({ title: 'Spare mana', sub: 'your commander spends it on abilities', groups });
   }
   const fod = (packages || []).find(k => k.event === 'fodder');
   if (fod && out.length < 4) {
