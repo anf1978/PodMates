@@ -21469,7 +21469,7 @@ function ixRepeaterKind(text, ev, f, tokensMade, subtypes) {
       const okType = f.types.some(t => t === 'creature') || f.subs.length || f.kws.length ? /creature|permanent/.test(text) : f.types.some(t => new RegExp(t + '|permanent').test(text));
       if (okType) return 'flickers them back in';
     }
-    if (/return [^.]{0,70}card[^.]{0,70}from (?:your|a|any) graveyard to the battlefield/.test(text)) return 'returns them from the graveyard';
+    if (/return [^.]{0,70}cards?[^.]{0,70}from (?:your|a|any|all|each) graveyards? to the battlefield/.test(text)) return 'returns them from the graveyard';
     if (/put [^.]{0,60}(?:creature|permanent|artifact)[^.]{0,60}(?:from your hand|from your library|from your graveyard|card)[^.]{0,30}onto the battlefield/.test(text)) return 'puts them onto the battlefield';
     if (/create (?:a |an )?(?:token that's a )?cop(?:y|ies) of (?:target|another|a|each)/.test(text)) return 'copies them';
     if (tokensMade.some(t => ixTokenMatches(t, f, subtypes))) return 'makes matching tokens';
@@ -21566,7 +21566,7 @@ function buildInteractionPackages(matchedCards, commanders) {
     }
   }
   // More triggers, matched by what the deck holds rather than by a card's type line.
-  const hasType = (o, re) => re.test(String(o.card.t || '').split('—')[0]);
+  const hasType = (o, re) => re.test(String(o.card.t || '').split('—')[0].toLowerCase());
   const SIMPLE = [
     ['cast', /whenever you cast (?:a|an|your first|your second|another)? ?([^,.;:]*?)spell/, (m1) => { const t = m1.toLowerCase(); if (/\bnon/.test(t) && !/noncreature/.test(t)) return null; if (/\bwith\b|\bfrom\b|\bof\b|\bthat\b/.test(t)) return null;
       const tests = [['creature', /creature/], ['artifact', /artifact/], ['enchantment', /enchantment/], ['instant or sorcery', /instant|sorcery/], ['planeswalker', /planeswalker/]];
@@ -21633,7 +21633,7 @@ function buildInteractionPackages(matchedCards, commanders) {
   {
     const broad = packages.filter(k => k.kind === 'trigger' && !k.isCmd && k.objCount >= 0.4 * nl);
     const byEv = {};
-    broad.forEach(k => { const key = k.event + '|' + String(k.phrase || (k.filter && k.filter.label) || '').replace(/^another /, 'a '); (byEv[key] = byEv[key] || []).push(k); });
+    broad.forEach(k => { const key = k.event + '|' + String(k.phrase || (k.filter && k.filter.label) || '').replace(/^(?:another|an?) /, '').replace(/^you cast (?:another|an?) /, 'you cast ').replace(/^(another|an?) /, ''); (byEv[key] = byEv[key] || []).push(k); });
     const rules = {};
     packages.filter(k => k.kind === 'rule' && !k.isCmd).forEach(k => { const key = (k.filter.label || '').replace(/^another /, 'a '); (rules[key] = rules[key] || []).push(k); });
     for (const [key, arr] of Object.entries(rules)) {
@@ -21725,6 +21725,26 @@ function buildInteractionPackages(matchedCards, commanders) {
     if (!/\bhaste\b/.test(ctext) && cmdc >= 5) take(others.filter(m => (/\bhaste\b/.test(m.text) && /(?:equipped creature|creatures? you control|target creature|enchanted creature)[^.]*haste|haste[^.]*(?:to|on) (?:it|target)/.test(m.text)) || roleOf(m).hasteAll), 'Haste, so it can act the turn it lands', 4);
     if (cmdc >= 5) take(others.filter(m => /(?:equipped|enchanted) creature (?:has|gets)[^.]*(?:hexproof|shroud|indestructible)|(?:permanents?|creatures?) you control (?:gain|have)[^.]*(?:hexproof|shroud|indestructible)|all creatures gain[^.]*(?:hexproof|indestructible)|target creature[^.]*(?:gains?|has)[^.]*(?:hexproof|indestructible|shroud)/.test(m.text) && !safeNames.has(m.card.n)), 'Protect it from removal', 5);
     if (lines.length) plans.push({ kind: 'plan', event: 'plan', payoff: '__plan_help_' + c.card.n, isCmd: true, head: `<strong>What helps ${ixLinkSlot(c.card.n)} work</strong>`, extraLines: lines, filter: { label: '' }, effect: '', objects: [], objCount: 0, tokenMakers: [], repeaters: [], multipliers: [], score: 96 });
+  }
+  {   // Aura stacking: many Auras onto one creature, a one-shot plan
+    const auras = nonland.filter(m => !m.isCmd && /\baura\b/i.test(String(m.card.t || '').split('\u2014').slice(1).join(' ')));
+    if (auras.length >= 8) {
+      const scale = auras.filter(m => /for each (?:other )?(?:artifact and\/or )?(?:enchantment|aura)|\+1\/\+1 for each/.test(m.text));
+      const evade = auras.filter(m => !scale.includes(m) && /umbra armor|can't be blocked|as though it weren't blocked|hexproof|shroud|indestructible|first strike|trample|haste/.test(m.text));
+      const back = nonland.filter(m => !m.isCmd && (roleOf(m).massReturn || /aura card[^.]*from your graveyard|return [^.]*aura|when this aura is put into a graveyard[^.]*return/.test(m.text)));
+      const lines = [];
+      if (scale.length) lines.push(`<span style="color:var(--gold);">Grow with your enchantments</span>: ${namesOf(scale, 4)}.`);
+      if (evade.length) lines.push(`Evasion and staying power: ${namesOf(evade, 5)}.`);
+      if (back.length) lines.push(`Bring Auras back: ${namesOf(back, 4)}.`);
+      plans.push({ kind: 'plan', event: 'plan', payoff: '__plan_auras', isCmd: false, head: `<strong>${auras.length} Auras</strong> stack onto one creature, so a single hit can be lethal.`, extraLines: lines, filter: { label: '' }, effect: '', objects: [], objCount: 0, tokenMakers: [], repeaters: [], multipliers: [], score: 95 });
+      auras.concat(back).forEach(m => used.add(m.card.n));
+    }
+    const GRANTS = /(?:equipped|enchanted) creature (?:has|gets)[^.]*(?:hexproof|shroud|indestructible)|(?:permanents?|creatures?|enchantments?|other [a-z]+) you control (?:gain|have)[^.]*(?:hexproof|shroud|indestructible)|all creatures gain[^.]*(?:hexproof|indestructible)|target [a-z ]*(?:gains?|has)[^.]*(?:hexproof|indestructible|shroud)|counter target|can't be countered|phase out/;
+    const prot = nonland.filter(m => !m.isCmd && flag(m, 'protection') && (!/\bcreature\b/i.test(String(m.card.t || '').split('\u2014')[0]) || GRANTS.test(m.text)));
+    if (prot.length >= 7) {                     // about 2% of precons reach 7
+      plans.push({ kind: 'plan', event: 'plan', payoff: '__plan_protect', isCmd: false, head: `<strong>${prot.length} protection pieces</strong> (${namesOf(prot, 6)}): the deck is built to keep its engine alive while it works.`, extraLines: [], filter: { label: '' }, effect: '', objects: [], objCount: 0, tokenMakers: [], repeaters: [], multipliers: [], score: 94 });
+      prot.forEach(m => used.add(m.card.n));
+    }
   }
   const shown = plans.concat(top.slice(0, 5));
   // Stat axis: when a card changes which stat deals combat damage, cards that raise that stat are finishers, and
@@ -21824,6 +21844,8 @@ function ixRoles(text) {
   if (/each player sacrifices (?:that many|all|a number|x) |sacrifices all other (?:nonland )?permanents/.test(text)) r.wipeSac = true;
   if (/gain control of (?:all|each|target) creatures?[^.]{0,60}until end of turn/.test(text)) r.threaten = true;
   if (/creatures you control have haste/.test(text)) r.hasteAll = true;
+  if (/enchanted creature (?:gets|has|can|gains)|enchanted creature'?s? controller/.test(text)) r.aura = true;
+  if (/return all (?:artifact|enchantment|creature|permanent)[^.]{0,40}cards? from (?:all|your|each) graveyards? to the battlefield/.test(text)) r.massReturn = true;
   return r;
 }
 const IX_UNTAP_RE = /untap all (?:lands|permanents)[^.]*(?:end step|untap step|each other player)|at the beginning of your end step, untap all (?:lands|permanents)|during each other player's untap step, untap all/;
