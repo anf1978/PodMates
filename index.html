@@ -2180,6 +2180,98 @@ function matchSpellbookCombos(namesInDeck) {
   return out;
 }
 
+
+// ---- "One card away" combos (display only: never feeds a score) ------------
+// For every combo (curated or Spellbook) where the deck holds all the pieces but ONE, group by that
+// missing card, so the user sees "add X and you complete N lines". The missing card must be usable in
+// Commander, inside the commander's colours and not already in the deck.
+var COMBO_DB_MAP = null;
+function comboCardByName(n) {
+  if (!COMBO_DB_MAP && typeof CARD_DB !== 'undefined') { COMBO_DB_MAP = new Map(); for (const c of CARD_DB) if (!COMBO_DB_MAP.has(c.n)) COMBO_DB_MAP.set(c.n, c); }
+  return COMBO_DB_MAP ? COMBO_DB_MAP.get(n) : null;
+}
+function comboNearMisses(namesInDeck, commanders, identity) {
+  const groups = new Map();
+  const okMissing = (name) => {
+    if (namesInDeck.has(name)) return false;
+    const c = comboCardByName(name); if (!c) return false;
+    if (typeof ixUsable === 'function' && !ixUsable(c)) return false;
+    return !identity || String(c.ci || '').split('').every(x => identity.has(x));
+  };
+  const add = (missing, line) => {
+    let g = groups.get(missing);
+    if (!g) { const c = comboCardByName(missing); g = { missing, mv: c ? (c.m || 0) : 0, lines: [], best: -1e9 }; groups.set(missing, g); }
+    g.lines.push(line); if (line.rank > g.best) g.best = line.rank;
+  };
+  if (typeof SPELLBOOK_INDEX !== 'undefined' && SPELLBOOK_INDEX) {
+    const { snap, nameIdx, byCard } = SPELLBOOK_INDEX;
+    const hits = new Map();
+    namesInDeck.forEach(name => {
+      const ci = nameIdx.get(name);
+      if (ci === undefined || !byCard[ci]) return;
+      for (const k of byCard[ci]) hits.set(k, (hits.get(k) || 0) + 1);
+    });
+    const completeKeys = new Set(), near = [];
+    hits.forEach((cnt, k) => {
+      const r = snap.c[k], len = r[0].length;
+      if (cnt === len) completeKeys.add(r[0].slice().sort((a, b) => a - b).join(','));
+      else if (cnt === len - 1) near.push(r);
+    });
+    for (const r of near) {
+      const held = r[0].filter(i => namesInDeck.has(snap.n[i])).sort((a, b) => a - b);
+      const missIdx = r[0].find(i => !namesInDeck.has(snap.n[i]));
+      const missing = snap.n[missIdx];
+      if (!okMissing(missing)) continue;
+      // skip a row that only extends a combo the deck already has complete
+      let ext = false;
+      const m = held.length;
+      for (let mask = 1; mask < (1 << m) && !ext; mask++) {
+        let c = 0, key = [];
+        for (let b = 0; b < m; b++) if (mask & (1 << b)) { c++; key.push(held[b]); }
+        if (c >= 2 && completeKeys.has(key.join(','))) ext = true;
+      }
+      if (ext) continue;
+      const cls = r[1] & 3, inf = (r[1] & 4) !== 0, heldNames = held.map(i => snap.n[i]);
+      const cmdr = heldNames.some(n => (commanders || []).includes(n));
+      add(missing, { held: heldNames, outcome: snap.o[r[2]] || null, win: cls === 2, inf, len: r[0].length, cmdr, source: 'spellbook',
+        rank: cls * 100 - r[0].length * 12 + (heldNames.length >= 2 ? 20 : 0) + (cmdr ? 15 : 0) + r[3] * 0.5 + (inf ? 4 : 0) });
+    }
+  }
+  for (const combo of HARD_COMBOS) {
+    if (combo.s.length < 2) continue;
+    const unmatched = combo.s.filter(slot => !slot.some(n => namesInDeck.has(n)));
+    if (unmatched.length !== 1) continue;
+    const held = combo.s.filter(slot => slot.some(n => namesInDeck.has(n))).map(slot => slot.find(n => namesInDeck.has(n)));
+    const cmdr = held.some(n => (commanders || []).includes(n));
+    const inf = combo.t === 'infinite_combo';
+    for (const alt of unmatched[0]) {
+      if (!okMissing(alt)) continue;
+      add(alt, { held, outcome: combo.o || null, win: true, inf, len: combo.s.length, cmdr, source: 'curated',
+        rank: 200 - combo.s.length * 12 + (held.length >= 2 ? 20 : 0) + (cmdr ? 15 : 0) + 40 + (inf ? 4 : 0) });
+    }
+  }
+  const out = [];
+  groups.forEach(g => {
+    g.lines.sort((a, b) => b.rank - a.rank);
+    const keep = [];
+    for (const l of g.lines) {
+      if (keep.length >= 3) break;
+      if (keep.some(k => (k.held.length === l.held.length && l.held.every(n => k.held.includes(n))) || k.outcome === l.outcome && l.held.filter(n => k.held.includes(n)).length >= Math.min(l.held.length, k.held.length))) continue;
+      keep.push(l);
+    }
+    out.push({ missing: g.missing, mv: g.mv, count: g.lines.length, lines: keep, best: g.best });
+  });
+  out.sort((a, b) => b.best - a.best);
+  // a single held card should not fill the list: at most 2 groups per lone held card
+  const lone = new Map(), res = [];
+  for (const g of out) {
+    const key = g.lines[0].held.length === 1 ? g.lines[0].held[0] : null;
+    if (key) { const n = lone.get(key) || 0; if (n >= 2) continue; lone.set(key, n + 1); }
+    res.push(g);
+  }
+  return res.slice(0, 8);
+}
+
 function describeCombo(combo) {
   if (combo.o) {
     const cardList = combo.s.map(slot => slot.join(' / ')).join(' + ');
@@ -3447,6 +3539,14 @@ function analyzeDeck(matchedCards, commanders = []) {
       });
     }
   }
+
+  // One-card-away combos (display only; never feeds a score).
+  agg.comboNear = [];
+  try {
+    let identStr = '';
+    (commanders || []).forEach(n => { const cc = nameToCard.get(n) || resolveCommanderName(n, matchedCards); if (cc) identStr += cc.ci || ''; });
+    agg.comboNear = comboNearMisses(namesInDeck, commanders || [], (commanders || []).length ? new Set(identStr.split('')) : null);
+  } catch (e) { agg.comboNear = []; }
 
   // Resilience locks are deliberately kept separate from win-condition
   // combo scoring -- a lock makes a board nearly impossible to interact
@@ -21004,10 +21104,12 @@ function renderBracket(bracket, agg) {
   }
   if (agg && agg.detectedCombos.length > 0) {
     const comboDetails = agg.detectedComboDetails || [];
-    const comboLines = agg.detectedCombos.map((text, i) =>
-      linkifyKnownCardNames(escapeHtml(text), (comboDetails[i] || {}).cards)
+    window.__comboAgg = agg;
+    const comboLines = agg.detectedCombos.slice(0, 3).map((text, i) =>
+      '<div style="margin-top:3px;">' + linkifyKnownCardNames(escapeHtml(text), (comboDetails[i] || {}).cards) + '</div>'
     );
-    html += `<div class="detail" style="margin-top:6px; font-size:13px;"><strong>Combos that win or warp the game:</strong> ${comboLines.join('; ')}</div>`;
+    const nWinC = comboDetails.filter(d => d.comboClass !== 'warp').length, nNearC = (agg.comboNear || []).length;
+    html += `<div class="detail" style="margin-top:6px; font-size:13px;"><strong>Combos that win or warp the game:</strong> ${agg.detectedCombos.length} line${agg.detectedCombos.length === 1 ? '' : 's'} (${nWinC} win${nWinC === 1 ? '' : 's'}${agg.detectedCombos.length - nWinC ? ', ' + (agg.detectedCombos.length - nWinC) + ' warp' : ''})${comboLines.join('')}${agg.detectedCombos.length > 3 ? '<div style="margin-top:3px; color:var(--text-soft);">and ' + (agg.detectedCombos.length - 3) + ' more</div>' : ''}<div style="margin-top:6px;"><button type="button" onclick="openCombosPopup()" style="background:none; border:1px solid var(--gold); color:var(--gold); border-radius:8px; padding:5px 12px; cursor:pointer; font-size:12.5px;">How these combos work${nNearC ? ' \u00b7 ' + nNearC + ' one card away' : ''}</button></div></div>`;
     const sbShown = comboDetails.filter(d => d.source === 'spellbook').length;
     const sbMore = (agg.spellbookMatched || 0) - sbShown;
     html += `<div class="detail" style="margin-top:4px; font-size:11.5px; color:var(--text-dim);">From PodMates' own combo list plus a built-in copy of Commander Spellbook${SPELLBOOK_INDEX && SPELLBOOK_INDEX.snap.date ? ' (snapshot of ' + escapeHtml(String(SPELLBOOK_INDEX.snap.date).slice(0, 10)) + ')' : ''}. Only lines that win the game or warp it (infinite damage or mana, extra turns, locks) count; a line that just adds cards to a smaller combo is not listed again.` +
@@ -22296,6 +22398,167 @@ function ixShowSuggestions() {
   document.getElementById('ixSugClose').addEventListener('click', close);
 }
 // ===== END INTERACTION PACKAGES =====
+// ===== COMBOS POPUP (display only) =====
+// Hand-written step-by-step text for well-known lines. A key is a list of card names that must ALL be in
+// the combo; a name containing " / " means any one of those. Anything without an entry gets a plain-English
+// template chosen from its outcome label (comboHow).
+const COMBO_STEPS = [
+  { k: ["Thassa's Oracle", "Demonic Consultation"], t: "Cast Demonic Consultation naming a card that is not in your library. It exiles your whole library. Then cast Thassa's Oracle: with an empty library its enter trigger wins you the game." },
+  { k: ["Thassa's Oracle", "Tainted Pact"], t: "Cast Tainted Pact. It exiles cards until it finds a repeated name, so in a singleton deck it exiles the whole library (basic lands can stop it early). Then cast Thassa's Oracle with an empty library and win." },
+  { k: ["Isochron Scepter", "Dramatic Reversal"], t: "Imprint Dramatic Reversal on Isochron Scepter. Pay {2} and tap the Scepter to copy Reversal: it untaps all your nonland permanents, including the Scepter and your mana rocks. If your rocks make 3 or more mana in total, every loop is a net gain." },
+  { k: ["Kiki-Jiki, Mirror Breaker", "Zealous Conscripts"], t: "Tap Kiki-Jiki to copy Zealous Conscripts. The copy's enter trigger takes control of a permanent and untaps it, so aim it at Kiki-Jiki and untap him. Repeat for as many hasty Conscripts as you like." },
+  { k: ["Kiki-Jiki, Mirror Breaker", "Pestermite / Deceiver Exarch"], t: "Tap Kiki-Jiki to copy Pestermite (or Deceiver Exarch). The copy's enter trigger untaps Kiki-Jiki, so you can copy again, as often as you like, and each copy has haste." },
+  { k: ["Splinter Twin", "Pestermite / Deceiver Exarch"], t: "Enchant Pestermite (or Deceiver Exarch) with Splinter Twin. Tap it to make a hasty token copy. The copy's enter trigger untaps the original, so repeat for as many hasty copies as you want." },
+  { k: ["Heliod, Sun-Crowned", "Walking Ballista"], t: "Pay {1}{W} to give Walking Ballista lifelink. Remove a counter to ping: lifelink gains you 1 life, and Heliod puts a counter back on the Ballista. Every loop deals 1 damage at no cost, so point it at the opponents." },
+  { k: ["Basalt Monolith", "Rings of Brighthearth"], t: "Tap Basalt Monolith for {C}{C}{C}, then activate its {3} untap. Rings of Brighthearth copies that ability (pay {1}), so each copy untaps the Monolith again while you tap it in between. You end each loop with more mana than you started." },
+  { k: ["Basalt Monolith", "Forsaken Monument"], t: "Forsaken Monument adds an extra {C} whenever you tap something for {C}, so Basalt Monolith taps for six. Pay {3} to untap it and repeat: a net gain of {C}{C}{C} each loop." },
+  { k: ["Power Artifact", "Basalt Monolith / Grim Monolith"], t: "Power Artifact makes the Monolith's {3} untap cost {1}. It taps for {C}{C}{C}, so each loop pays {1} and returns three: a net gain of two colourless mana every time." },
+  { k: ["Deadeye Navigator", "Peregrine Drake / Palinchron / Great Whale"], t: "Pair Deadeye Navigator with the creature. Pay {1}{U} to blink it: its enter trigger untaps lands (five for Peregrine Drake, seven for Palinchron or Great Whale), which refunds more than the blink cost. Repeat for as much mana as you want." },
+  { k: ["Palinchron", "Phantasmal Image"], t: "Cast Phantasmal Image as a copy of Palinchron to untap seven lands. Pay {2}{U}{U} to return the copy to your hand, recast Image for {1}{U}, and untap seven lands again. With 7 or more lands every loop nets mana." },
+  { k: ["Food Chain", "Squee, the Immortal"], t: "Cast Squee, then exile it with Food Chain: you get four mana plus one extra, usable on creature spells. Recast Squee from exile with that mana (it costs four) and keep the extra {1}. Each loop gains one mana for creature spells." },
+  { k: ["Sanguine Bond", "Exquisite Blood"], t: "Any life loss starts it. Exquisite Blood gains you life whenever an opponent loses life, and Sanguine Bond makes an opponent lose life whenever you gain it. They feed each other until the opponent is dead." },
+  { k: ["Sanguine Bond", "Blood Tribute"], t: "Cast Blood Tribute kicked (tap an untapped Vampire). The opponent loses half their life and you gain the same amount, which Sanguine Bond turns into the same loss again. That is usually enough to finish them." },
+  { k: ["Krenko, Mob Boss", "Intruder Alarm"], t: "Tap Krenko to make Goblins equal to the Goblins you control. Each one entering triggers Intruder Alarm, which untaps every creature including Krenko. Repeat: your Goblins double each time." },
+  { k: ["Earthcraft", "Squirrel Nest"], t: "Squirrel Nest on a basic land makes a Squirrel each time you tap that land. Tap a Squirrel for Earthcraft to untap the land, then tap the land for another Squirrel. That makes as many Squirrels as you want." },
+  { k: ["Sprout Swarm", "Mana Echoes"], t: "Cast Sprout Swarm with buyback, using convoke. Each Saproling that enters triggers Mana Echoes for {C} per creature that shares a type, which pays for the buyback again with mana to spare." },
+  { k: ["Duskmantle Guildmage", "Mindcrank"], t: "Duskmantle Guildmage makes an opponent lose 1 life whenever a card goes to their graveyard, and Mindcrank mills them whenever they lose life. The two trigger each other until their library is gone." },
+  { k: ["Stuffy Doll", "Guilty Conscience"], t: "Put Guilty Conscience on Stuffy Doll. When the Doll is dealt damage, it deals that much to the chosen player and Guilty Conscience deals that much to the Doll again. Ping the Doll once and the damage keeps repeating." },
+  { k: ["Rest in Peace", "Helm of Obedience"], t: "Activate Helm of Obedience with X=1. It mills the target opponent until a creature card hits their graveyard, but Rest in Peace exiles every card instead, so it never stops and their whole library is exiled." },
+  { k: ["Leyline of the Void", "Helm of Obedience"], t: "Activate Helm of Obedience with X=1. It mills until a creature card goes to the graveyard, but Leyline of the Void exiles every card instead, so the opponent's whole library is exiled." },
+  { k: ["Mikaeus, the Unhallowed", "Triskelion"], t: "Mikaeus gives Triskelion undying. Spend all three counters pinging Triskelion itself until it dies. It returns with a +1/+1 counter plus its three enter counters, so it ends with more counters than it spent. Each loop gives free damage." },
+  { k: ["Godo, Bandit Warlord", "Helm of the Host"], t: "Equip Helm of the Host to Godo. Every combat, Helm makes a hasty, non-legendary copy of Godo. Godo's attack trigger adds another combat phase, which starts another copy, so combat never ends." },
+  { k: ["Pitiless Plunderer", "Ashnod's Altar", "Reassembling Skeleton"], t: "Sacrifice Reassembling Skeleton to Ashnod's Altar for {C}{C}, and Pitiless Plunderer makes a Treasure. Pay {1}{B} to bring the Skeleton back. Each loop nets one mana and a Treasure." },
+];
+
+function comboStepsFor(cards) {
+  for (const e of COMBO_STEPS) {
+    if (e.k.every(req => req.split(' / ').some(n => cards.includes(n)))) return e.t;
+  }
+  return null;
+}
+function comboHow(outcome, win) {
+  const o = String(outcome || '').toLowerCase();
+  let t;
+  if (/\bmana\b|treasure/.test(o) && !/damage|drain/.test(o)) t = "Every trip round this loop makes more mana than it costs, so you can repeat it as often as you like. Keep the surplus for a payoff: a mana sink, a big draw spell, or damage to finish the game.";
+  else if (/\bturns?\b/.test(o)) t = "The pieces let you take another turn again and again. Stop when you have what you need, or pair it with a way to win during those turns.";
+  else if (/combat/.test(o)) t = "The loop gives you extra combat phases or attacks without limit, so any hasty creature can attack again and again.";
+  else if (/damage|lifeloss|life loss|drain|kill|loses|lose all/.test(o)) t = "Each pass round the loop deals damage or drains life, with no limit on how often it repeats. Point it at the opponents until they are out.";
+  else if (/draw|mill|library|deck-out/.test(o)) t = "Each pass draws or mills cards without limit. Check your own library size first: stop before you deck yourself, or aim it at an opponent.";
+  else if (/lock|prevent|stop/.test(o)) t = "Together these pieces stop opponents from doing something important, and it is hard to undo once it is set up.";
+  else if (/large|infinite power|big/.test(o)) t = "One creature grows without limit until end of turn. It wins through any blockers if it has evasion or trample, and it needs protecting from removal.";
+  else if (/life/.test(o)) t = "You can gain or lose life without limit. On its own that does not kill: pair it with something that turns life into damage, or use it to stay alive.";
+  else if (/token|creature|saproling|bird|squirrel|goblin|zombie|spirit|elemental/.test(o)) t = "Each pass makes another creature or token. The kill comes from using them: haste, a sacrifice outlet with a drain, or a mass pump.";
+  else if (/etb|enter|leave|death|gravestorm|untap|trigger|sacrifice|reanimat/.test(o)) t = "The loop resets an enter-the-battlefield or death trigger over and over, so whatever those triggers do happens as many times as you want.";
+  else t = "These cards combine into a repeatable effect, described by the result above.";
+  return t + (win ? " This line can finish the game by itself." : " This line breaks the game open but usually needs a payoff to finish.");
+}
+function comboRole(name, isCmdr) {
+  if (isCmdr) return 'Your commander';
+  const c = comboCardByName(name);
+  const t = String((c && c.o) || '').toLowerCase().replace(/\([^)]*\)/g, ' ');
+  if (!c) return '';
+  if (/untap (?:target|up to|all|another|that|each|it)/.test(t)) return 'Untaps things';
+  if (/(?:^|\n|[.:]\s*)[^.\n]*sacrifice (?:a|an|another|one or more|any number of)[^.\n:]*:/.test(t)) return 'Sacrifice outlet';
+  if (/\{t\}[^.\n]*:\s*add\b|add (?:one|two|three|x)? ?(?:mana|\{)/.test(t)) return 'Makes mana';
+  if (/copy (?:target|that|it|each|another)|create a (?:token )?copy/.test(t)) return 'Copies things';
+  if (/exile (?:target|another|up to)[^.]*(?:then )?return|flicker|blink/.test(t)) return 'Blinks creatures';
+  if (/create[^.]*tokens?/.test(t)) return 'Makes tokens';
+  if (/extra turn|additional combat/.test(t)) return 'Extra turn or combat';
+  if (/(?:deals?|dealt) (?:\d+|x|that much)[^.]*damage|loses? (?:\d+|x|that much|half)[^.]*life|each opponent loses/.test(t)) return 'Damage or drain';
+  if (/gain[^.]*life/.test(t)) return 'Gains life';
+  if (/\bdraws?\b|draw (?:a|two|three|x|that many)/.test(t)) return 'Draws cards';
+  if (/mills?\b|put[^.]*into (?:their|your|its owner's) graveyard/.test(t)) return 'Mills';
+  if (/\+1\/\+1 counter/.test(t)) return 'Counters';
+  if (/enters/.test(t)) return 'Enter trigger';
+  return /creature/i.test(String(c.t || '')) ? 'Creature piece' : 'Combo piece';
+}
+function comboNiceOutcome(o) {
+  const s = String(o || 'combo effect').trim();
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+function comboChips(names, cmdrs, missing) {
+  const chip = (n, kind) => {
+    const c = kind === 'miss'
+      ? 'border:1.5px dashed var(--gold); background:rgba(201,162,75,0.08);'
+      : 'border:1px solid rgba(61,143,138,0.55); background:rgba(61,143,138,0.14);';
+    return `<span style="display:inline-block; ${c} border-radius:7px; padding:2px 8px; margin:2px 4px 2px 0; font-size:12.5px;">${kind === 'miss' ? '<span style="color:var(--gold); font-weight:700;">+ </span>' : ''}${cardNameLink(n)}${cmdrs.includes(n) ? ' <span style="color:var(--gold);" title="Your commander">★</span>' : ''}</span>`;
+  };
+  return names.map(n => chip(n, 'have')).join('') + (missing ? chip(missing, 'miss') : '');
+}
+function comboTag(text, kind) {
+  const col = kind === 'win' ? 'background:var(--gold); color:#1a1208;' : kind === 'warp' ? 'background:#3d8f8a; color:#06201f;' : 'background:transparent; border:1px solid var(--line-strong); color:var(--text-soft);';
+  return `<span style="display:inline-block; ${col} font-size:10px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; border-radius:5px; padding:1px 6px; margin-right:5px;">${text}</span>`;
+}
+function comboDetailsBlock(cards, outcome, win, cmdrs, extra) {
+  const steps = comboStepsFor(cards);
+  const roles = cards.map(n => `<div style="font-size:12.5px; margin-top:2px;">${cardNameLink(n)} <span style="color:var(--text-soft);">– ${escapeHtml(comboRole(n, cmdrs.includes(n)))}</span></div>`).join('');
+  return `<div style="margin-top:8px; padding:8px 10px; background:rgba(255,255,255,0.04); border-radius:8px; font-size:13px; line-height:1.45;">
+    <div style="font-size:10px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-soft);">How it works</div>
+    <div style="margin-top:3px;">${escapeHtml(steps || comboHow(outcome, win))}</div>
+    ${steps ? '' : '<div style="margin-top:4px; font-size:11.5px; color:var(--text-soft);">General description for this kind of line. Read each card for exact costs and timing.</div>'}
+    <div style="margin-top:8px; font-size:10px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-soft);">Each piece</div>${roles}${extra || ''}</div>`;
+}
+function comboCardHtml(d, text, turn) {
+  const cards = (d.matchedNames && d.matchedNames.length) ? d.matchedNames : d.cards;
+  const cmdrs = d.commanderPiece ? cards.filter(n => (window.__comboAgg && (window.__comboAgg.commanders || []).includes(n))) : [];
+  const win = d.comboClass !== 'warp';
+  const outcome = d.outcome || (String(text).match(/\(([^)]*)\)\s*$/) || [])[1] || null;
+  const tags = comboTag(win ? 'Wins' : 'Warps', win ? 'win' : 'warp') + comboTag(cards.length + ' cards', 'plain') + (d.infinite ? comboTag('Infinite', 'plain') : '');
+  const edge = win ? 'var(--gold)' : '#3d8f8a';
+  const extra = turn ? `<div style="margin-top:8px; font-size:12.5px; color:var(--text-soft);">Pieces could all be on the table around turn ${turn}.</div>` : '';
+  return `<details style="margin-top:8px; border-left:4px solid ${edge}; background:rgba(255,255,255,0.03); border-radius:3px 8px 8px 3px; padding:8px 10px;">
+    <summary style="cursor:pointer; list-style:none; outline:none;">
+      <div>${tags}</div>
+      <div style="margin-top:4px;">${comboChips(cards, cmdrs)}</div>
+      <div style="font-size:13px; margin-top:2px;"><span style="color:var(--text-soft);">Result:</span> <strong>${escapeHtml(comboNiceOutcome(outcome))}</strong> <span style="color:var(--text-soft); font-size:12px;">· tap for how it works</span></div>
+    </summary>${comboDetailsBlock(cards, outcome, win, cmdrs, extra)}</details>`;
+}
+function openCombosPopup() {
+  const agg = window.__comboAgg; if (!agg) return;
+  let ov = document.getElementById('comboOverlay'); if (ov) ov.remove();
+  ov = document.createElement('div'); ov.id = 'comboOverlay';
+  ov.style.cssText = 'position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.65); display:flex; align-items:flex-end; justify-content:center;';
+  const details = agg.detectedComboDetails || [], texts = agg.detectedCombos || [];
+  let curve = null; try { curve = computeManaCurve(agg); } catch (e) {}
+  const merged = new Map();
+  details.forEach((d, i) => {
+    const cs = (d.matchedNames && d.matchedNames.length) ? d.matchedNames : d.cards;
+    const key = cs.slice().sort().join('|');
+    const o = merged.get(key);
+    if (!o) merged.set(key, { d: Object.assign({}, d), text: texts[i] });
+    else if (d.outcome && o.d.outcome && !o.d.outcome.includes(d.outcome)) o.d.outcome = o.d.outcome + ' and ' + d.outcome;
+  });
+  const items = Array.from(merged.values()).sort((a, b) => ((b.d.comboClass !== 'warp') - (a.d.comboClass !== 'warp')) || (a.d.pieceCount || a.d.cards.length) - (b.d.pieceCount || b.d.cards.length));
+  const nWin = items.filter(x => x.d.comboClass !== 'warp').length, nWarp = items.length - nWin;
+  const have = items.length ? items.map(x => { let turn = null; try { turn = curve ? earliestComboTurn(x.d, curve) : null; } catch (e) {} return comboCardHtml(x.d, x.text, turn); }).join('')
+    : '<div style="color:var(--text-soft); font-size:13px; margin-top:6px;">No complete combo found in this list.</div>';
+  const near = agg.comboNear || [];
+  const nearHtml = near.length ? near.map(g => `<div style="margin-top:10px; border:1.5px dashed var(--gold); border-radius:10px; padding:8px 10px;">
+      <div style="font-size:14px;"><span style="color:var(--gold); font-weight:700;">+ </span><strong>${cardNameLink(g.missing)}</strong> <span style="color:var(--text-soft); font-size:12px;">MV ${g.mv} · completes ${g.count} line${g.count === 1 ? '' : 's'}</span></div>
+      ${g.lines.map(l => `<details style="margin-top:6px;"><summary style="cursor:pointer; list-style:none; outline:none;">
+          <div>${comboTag(l.win ? 'Wins' : 'Warps', l.win ? 'win' : 'warp')}${l.inf ? comboTag('Infinite', 'plain') : ''}</div>
+          <div style="margin-top:3px;">${comboChips(l.held, agg.commanders || [], g.missing)}</div>
+          <div style="font-size:12.5px;"><span style="color:var(--text-soft);">Result:</span> <strong>${escapeHtml(comboNiceOutcome(l.outcome))}</strong> <span style="color:var(--text-soft); font-size:12px;">· how it works</span></div>
+        </summary>${comboDetailsBlock(l.held.concat([g.missing]), l.outcome, l.win, (agg.commanders || []).filter(n => l.held.includes(n)), '')}</details>`).join('')}
+    </div>`).join('')
+    : '<div style="color:var(--text-soft); font-size:13px; margin-top:6px;">Nothing close right now: no combo is one legal card away in your commander’s colours.</div>';
+  const head = (txt, sub) => `<div style="margin-top:16px; font-size:11px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--gold);">${txt}</div><div style="font-size:12px; color:var(--text-soft); margin-top:1px;">${sub}</div>`;
+  ov.innerHTML = `<div role="dialog" aria-label="Combos" style="background:var(--bg-card, #14121a); border:1px solid var(--line-strong); border-radius:14px 14px 0 0; width:min(560px,100%); max-height:calc(82vh / var(--pm-zoom, 1)); overflow:auto; padding:16px 16px 22px;">
+    <style>#comboOverlay summary::-webkit-details-marker{display:none}</style>
+    <div style="display:flex; justify-content:space-between; align-items:center;"><div style="font-family:'Cinzel',Georgia,serif; font-size:13px; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold);">Combos</div><button type="button" id="comboClose" style="background:none; border:1px solid var(--line-strong); color:var(--text-primary); border-radius:8px; padding:4px 12px; cursor:pointer; text-transform:none; letter-spacing:normal;">Close</button></div>
+    <div style="font-size:12px; color:var(--text-soft); margin-top:6px;">${comboTag('Wins', 'win')} finishes the game on its own. ${comboTag('Warps', 'warp')} breaks the game open but needs a payoff. Solid chips are in your deck, dashed ones are missing.</div>
+    ${head('In your deck · ' + nWin + ' win' + (nWin === 1 ? '' : 's') + (nWarp ? ', ' + nWarp + ' warp' + (nWarp === 1 ? '' : 's') : ''), (agg.spellbookMatched || 0) > items.filter(x => x.d.source === 'spellbook').length ? 'The strongest lines. More overlapping lines also match; only these are scored.' : 'Every line we found.')}
+    ${have}
+    ${head('One card away', 'Add one card and a combo is complete. Inside your commander’s colours and legal to play.')}
+    ${nearHtml}
+    <div style="font-size:11.5px; color:var(--text-soft); margin-top:14px;">Lines come from PodMates’ own list and a built-in copy of Commander Spellbook${SPELLBOOK_INDEX && SPELLBOOK_INDEX.snap.date ? ' (snapshot of ' + escapeHtml(String(SPELLBOOK_INDEX.snap.date).slice(0, 10)) + ')' : ''}. This is explanation, not scoring: the scores are unchanged.</div></div>`;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.addEventListener('click', e => { if (e.target === ov) close(); });
+  document.getElementById('comboClose').addEventListener('click', close);
+}
+// ===== END COMBOS POPUP =====
+
 
 function renderSynergyProfile(agg, archetypeMatch, matchedCards, commanderNames) {
   const panel = $('synergyPanel');
