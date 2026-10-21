@@ -422,6 +422,7 @@
   .cc-tile .cc-ink{color:#1a1208;} .cc-tile.cc-l2 .cc-ink{color:#fff;} .cc-tile.cc-l0 .cc-ink{color:#c9bfae;}
   .cc-key{display:grid; grid-template-columns:34px 1fr; gap:6px 10px; align-items:center; font-size:13px; margin:6px 0;}
   .cc-key .cc-tile{width:30px; cursor:default;}
+  .cc-caption{font-size:12.5px; color:var(--text-soft); min-height:2.6em; margin:2px 0 6px; line-height:1.3;}
   .cc-keybtn{background:none; border:1px solid var(--line); color:var(--gold); border-radius:12px; font-size:12px; padding:3px 10px; cursor:pointer; margin-top:2px;}
   .cc-legend{display:flex; flex-wrap:wrap; gap:4px 12px; font-size:11px; color:var(--text-soft); margin-bottom:12px;}
   .cc-legend i{display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px; vertical-align:-1px; border:1px solid var(--line);}
@@ -1515,9 +1516,6 @@ One card per line. Formats like &quot;1x Sol Ring&quot;, plain names, or Moxfiel
       </label>
       <button id="loadDeckBtn" class="icon-btn ghost" data-tooltip="Load a Deck" aria-label="Load a Deck">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-      </button>
-      <button id="scanCardsBtn" class="icon-btn ghost" data-tooltip="Scan Cards from Photo" aria-label="Scan Cards from Photo">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
       </button>
     </div>
     <p style="font-size:12.5px; color:var(--text-soft); margin:8px 0 0;">Every saved deck needs a unique name — defaults to Commander (Player), but edit it freely to tell apart two builds of the same commander</p>
@@ -20262,6 +20260,29 @@ function extractImageUrlForRequestedName(card, requestedName, size) {
   return null;
 }
 
+// For a genuinely two-sided card (transform / modal DFC: each face has its own
+// image), returns [thisFaceUrl, otherFaceUrl]. Single-image cards (split,
+// adventure, flip) return other = null, so they never get a flip button.
+function extractFacePair(card, requestedName, size) {
+  size = size || 'normal';
+  const url = extractImageUrlForRequestedName(card, requestedName, size);
+  let other = null;
+  if (!card.image_uris && Array.isArray(card.card_faces) && card.card_faces.length === 2 && card.card_faces.every(f => f && f.image_uris)) {
+    const reqLower = normalizeCardNameForLookup(requestedName);
+    let pi = card.card_faces.findIndex(f => normalizeCardNameForLookup(f.name) === reqLower);
+    if (pi < 0) pi = 0;
+    const o = card.card_faces[1 - pi].image_uris;
+    other = o[size] || o.normal || null;
+  }
+  return [url, other];
+}
+const cardOtherFaceCache = new Map(); // 'name|size' -> url of the other face, if two-sided
+function flipBtnHtml(otherUrl, big) {
+  if (!otherUrl) return '';
+  return big
+    ? `<div style="margin-top:10px;"><button type="button" class="ghost" data-flip-btn data-alt="${escapeHtml(otherUrl)}">Flip card \u27F2</button></div>`
+    : `<button type="button" data-flip-btn data-alt="${escapeHtml(otherUrl)}" aria-label="Flip card" title="Flip card" style="position:absolute; bottom:4px; left:4px; background:rgba(15,12,10,0.88); color:var(--gold-bright); border:1px solid var(--gold); border-radius:12px; font-size:13px; line-height:1; padding:4px 8px; cursor:pointer;">\u27F2</button>`;
+}
 async function fetchCardImageUrl(cardName, size) {
   size = size || 'normal'; // small | normal | large | art_crop | png
   const cacheKey = cardName + '|' + size;
@@ -20283,7 +20304,9 @@ async function fetchCardImageUrl(cardName, size) {
       card = await lookup(cardName.split('//')[0].trim());
     }
     if (!card) { cardImageCache.set(cacheKey, null); return null; }
-    const url = extractImageUrlForRequestedName(card, cardName, size);
+    const pair = extractFacePair(card, cardName, size);
+    const url = pair[0];
+    cardOtherFaceCache.set(cacheKey, pair[1]);
     cardImageCache.set(cacheKey, url);
     return url;
   } catch (e) {
@@ -20319,7 +20342,8 @@ async function renderCommanderHero(commanders) {
     if (!slot) return;
     if (!url) { slot.style.display = 'none'; return; } // fails quietly -- a missing image is never worth blocking or cluttering the report
     slot.style.display = 'block';
-    slot.innerHTML = `<img src="${escapeHtml(url)}" alt="${escapeHtml(toShow[i])}" loading="lazy" style="width:100%; height:100%; object-fit:cover; display:block;">`;
+    slot.style.position = 'relative';
+    slot.innerHTML = `<img src="${escapeHtml(url)}" alt="${escapeHtml(toShow[i])}" loading="lazy" style="width:100%; height:100%; object-fit:cover; display:block;">` + flipBtnHtml(cardOtherFaceCache.get(toShow[i] + '|normal'), false);
   });
 }
 
@@ -20371,6 +20395,7 @@ async function fetchCardImagesBatch(cardNames, size) {
   size = size || 'normal';
   const uniqueOriginal = [...new Set(cardNames)];
   const rawMap = new Map(); // normalized name -> url
+  const otherMap = new Map(); // normalized name -> url of the other face (two-sided cards only)
 
   async function attempt(names) {
     const chunks = [];
@@ -20392,8 +20417,9 @@ async function fetchCardImagesBatch(cardNames, size) {
             normalizeCardNameForLookup(c.name) === reqLower ||
             (Array.isArray(c.card_faces) && c.card_faces.some(f => normalizeCardNameForLookup(f.name) === reqLower))
           );
-          const url = match ? extractImageUrlForRequestedName(match, reqName, size) : null;
-          if (url) rawMap.set(reqLower, url);
+          const pair = match ? extractFacePair(match, reqName, size) : [null, null];
+          const url = pair[0];
+          if (url) { rawMap.set(reqLower, url); if (pair[1]) otherMap.set(reqLower, pair[1]); }
           else failed.push(reqName);
         });
       } catch (e) {
@@ -20413,26 +20439,26 @@ async function fetchCardImagesBatch(cardNames, size) {
     await attempt(fronts);
     frontFaceCandidates.forEach((full, i) => {
       const frontKey = normalizeCardNameForLookup(fronts[i]);
-      if (rawMap.has(frontKey)) rawMap.set(normalizeCardNameForLookup(full), rawMap.get(frontKey));
+      if (rawMap.has(frontKey)) { rawMap.set(normalizeCardNameForLookup(full), rawMap.get(frontKey)); if (otherMap.has(frontKey)) otherMap.set(normalizeCardNameForLookup(full), otherMap.get(frontKey)); }
       else genuinelyMissing.push(full);
     });
   }
 
-  const urlMap = { get(name) { return rawMap.get(normalizeCardNameForLookup(name)); } };
+  const urlMap = { get(name) { return rawMap.get(normalizeCardNameForLookup(name)); }, getOther(name) { return otherMap.get(normalizeCardNameForLookup(name)); } };
   return { urlMap, notFound: genuinelyMissing };
 }
 
 // Shared by showDeckViewerModal and showTypeCardsModal -- one consistent
 // card-tile appearance (art, quantity badge, or a named placeholder when
 // art couldn't be found) wherever a grid of cards gets shown.
-function cardGridTileHtml(name, qty, url) {
+function cardGridTileHtml(name, qty, url, otherUrl) {
   if (!url) {
     return `<div style="aspect-ratio:0.717; background:var(--bg-slot, var(--bg-main)); border:1.5px solid var(--line); display:flex; align-items:center; justify-content:center; padding:6px; text-align:center;">
       <span style="font-size:11px; color:var(--text-soft);">${escapeHtml(name)}</span>
     </div>`;
   }
   return `<div style="position:relative;">
-    <img src="${escapeHtml(url)}" alt="${escapeHtml(name)}" loading="lazy" title="${escapeHtml(name)}" style="width:100%; display:block; border:1.5px solid var(--line); border-radius:0;">
+    ${flipBtnHtml(otherUrl, false)}<img src="${escapeHtml(url)}" alt="${escapeHtml(name)}" loading="lazy" title="${escapeHtml(name)}" style="width:100%; display:block; border:1.5px solid var(--line); border-radius:0;">
     ${qty > 1 ? `<span style="position:absolute; top:4px; right:4px; background:rgba(15,12,10,0.85); color:var(--gold-bright); font-size:11px; font-weight:700; padding:2px 6px; border:1px solid var(--gold);">×${qty}</span>` : ''}
   </div>`;
 }
@@ -20488,7 +20514,7 @@ async function showDeckViewerModal(decklistText, commanderStr) {
       const cardsHtml = cards.map(card => {
         const qty = totalsByKey.get(card.n);
         const url = urlMap.get(card.n);
-        return cardGridTileHtml(card.n, qty, url);
+        return cardGridTileHtml(card.n, qty, url, urlMap.getOther(card.n));
       }).join('');
       return `
         <div style="margin-bottom:20px;">
@@ -20536,7 +20562,7 @@ async function showTypeCardsModal(typeName) {
 
   const { urlMap, notFound } = await fetchCardImagesBatch(names);
   const totalCount = [...totalsByKey.values()].reduce((sum, n) => sum + n, 0);
-  const cardsHtml = names.map(name => cardGridTileHtml(name, totalsByKey.get(name), urlMap.get(name))).join('');
+  const cardsHtml = names.map(name => cardGridTileHtml(name, totalsByKey.get(name), urlMap.get(name), urlMap.getOther(name))).join('');
 
   modal.innerHTML = `
     <button class="tad-close" id="tadCloseBtn">Close ×</button>
@@ -22341,12 +22367,18 @@ function renderCommanderCentrality(agg, matched, commanders, winCons, archetypeM
     <div style="font-size:13px; color:var(--text-soft);">${escapeHtml(r.blurb)}</div>
     <ul class="cc-reasons">${reasons}</ul>
     ${notes}
-    <div class="cc-grid">${tiles}</div>
+    <div class="cc-grid" id="ccGrid">${tiles}</div><div class="cc-caption" id="ccCaption" aria-live="polite">Touch a square to see what it is.</div>
     <div class="cc-legend">${legend}</div><button type="button" class="cc-keybtn" id="ccKeyBtn">Symbol key</button>
     <div class="cc-bars-title">Commander support vs. a typical ${r.baselineLabel ? escapeHtml(r.baselineLabel) + ' ' : ''}deck</div>
     ${bars}
     <div style="font-size:11.5px; color:var(--text-dim); margin-top:2px;">White tick = typical ${r.baselineLabel ? escapeHtml(r.baselineLabel) + ' ' : ''}precon baseline deck${r.baselineLabel ? ` (from ${r.baselineN} decks)` : ''}. Gold bar = this deck runs more than that.</div>`;
   const kb = $('ccKeyBtn'); if (kb) kb.onclick = showCentralityKey;
+  const grid = $('ccGrid'), cap = $('ccCaption');
+  if (grid && cap) {
+    const show = e => { const el = e.target.closest && e.target.closest('.cc-tile'); if (el && el.title) cap.textContent = el.title; };
+    grid.addEventListener('pointerdown', show);
+    grid.addEventListener('pointerover', e => { if (e.pointerType === 'mouse') show(e); });
+  }
   panel.style.display = 'block';
 }
 
@@ -25701,7 +25733,7 @@ async function showSingleCardArtModal(name) {
   const artArea = document.getElementById('singleCardArtArea');
   if (!artArea) return; // popup was already closed before the fetch resolved
   if (!url) { artArea.textContent = 'Could not find art for this card.'; return; }
-  artArea.innerHTML = `<img src="${escapeHtml(url)}" alt="${escapeHtml(name)}" style="max-width:100%; border:2px solid var(--line-strong); border-radius:0;">`;
+  artArea.innerHTML = `<img src="${escapeHtml(url)}" alt="${escapeHtml(name)}" style="max-width:100%; border:2px solid var(--line-strong); border-radius:0;">` + flipBtnHtml(cardOtherFaceCache.get(name + '|normal'), true);
 }
 
 function buildSparkExplainerHtml() {
@@ -25776,6 +25808,13 @@ document.addEventListener('click', (e) => {
   const target = e.target && e.target.closest ? e.target.closest('[data-explain]') : null;
   if (target) {
     showExplainer(target.getAttribute('data-explain'));
+    return;
+  }
+  const flipTarget = e.target && e.target.closest ? e.target.closest('[data-flip-btn]') : null;
+  if (flipTarget) {
+    let host = flipTarget.parentElement, img = null;
+    while (host && !(img = host.querySelector('img'))) host = host.parentElement;
+    if (img) { const cur = img.getAttribute('src'); img.setAttribute('src', flipTarget.dataset.alt); flipTarget.dataset.alt = cur; }
     return;
   }
   const gcTarget = e.target && e.target.closest ? e.target.closest('[data-gc-card]') : null;
@@ -26222,6 +26261,7 @@ function showScanCardsModal() {
   modal.innerHTML = `
     <button class="tad-close" id="tadCloseBtn">Close ×</button>
     <h2 style="margin-bottom:10px;">Scan Cards from Photo</h2>
+    <p style="font-size:12px; color:var(--text-soft); margin:-4px 0 10px;">Cards you tick are added to your Deck Crafter list.</p>
     <div style="font-size:13px; color:var(--text-soft); line-height:1.5; margin-bottom:14px;">
       <p style="margin:0 0 8px;">This reads card <strong>names only</strong> from a photo — it can't read quantities, so add basics or extra copies yourself afterward.</p>
       <p style="margin:0 0 8px;"><strong>For best results:</strong></p>
@@ -26241,13 +26281,13 @@ function showScanCardsModal() {
     <div id="scanCardsStatus" style="font-size:12.5px; color:var(--text-soft); margin-bottom:10px;"></div>
     <div id="scanCardsResultsArea"></div>
     <div id="scanCardsActionRow" style="margin-top:14px; display:none;">
-      <button id="scanCardsAddToDeckBtn">Add Checked Cards to Decklist</button>
+      <button id="scanCardsAddToDeckBtn">Add Checked Cards to Deck Crafter</button>
     </div>
   `;
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
-  document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
+  document.getElementById('tadCloseBtn').addEventListener('click', openDeckBuilderOverlay);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) openDeckBuilderOverlay(); });
   document.getElementById('scanCardsAddPhotoBtn').addEventListener('click', () => {
     $('scanCardsFileInput').click();
   });
@@ -26321,7 +26361,7 @@ function getScanCardsSortedNames() {
 // is small enough that re-parsing it is effectively free.
 function getNamesAlreadyInDecklist() {
   const ta = $('decklistInput');
-  const names = new Set();
+  const names = new Set(Object.keys(deckBuilderCards || {}));
   if (!ta || !ta.value.trim()) return names;
   const { entries } = parseDecklist(ta.value);
   for (const entry of entries) {
@@ -26381,16 +26421,23 @@ function renderScanCardsResults() {
 }
 
 function addCheckedScannedCardsToDecklist() {
-  const chosen = scanCardsResults.filter(r => r.checked).map(r => r.card.n);
+  const chosen = [...new Set(scanCardsResults.filter(r => r.checked).map(r => r.card))];
   if (!chosen.length) return;
-  const unique = [...new Set(chosen)];
-  const ta = $('decklistInput');
-  if (!ta) return;
-  const existing = ta.value.trim();
-  const additions = unique.map(n => `1 ${n}`).join('\n');
-  ta.value = existing ? existing + '\n' + additions : additions;
-  closeTryADeckModal();
-  setDeckMgmtStatus(`Added ${unique.length} scanned card(s) to your decklist. Review before charting.`);
+  const BL = window.PM_LIMITS;
+  const cmdCard = deckBuilderCommanderName ? indexes.byExactName.get(deckBuilderCommanderName.toLowerCase()) : null;
+  let added = 0, offColour = 0, full = 0;
+  for (const card of chosen) {
+    if (deckBuilderFilterByIdentity && cmdCard && !cardFitsCommanderIdentity(card, cmdCard)) { offColour++; continue; }
+    if (!deckBuilderCards[card.n] && Object.keys(deckBuilderCards).length >= BL.builderMaxCards) { full++; continue; }
+    deckBuilderCards[card.n] = Math.min((deckBuilderCards[card.n] || 0) + 1, BL.builderMaxQty);
+    added++;
+  }
+  saveDeckBuilderDraft();
+  openDeckBuilderOverlay();
+  let msg = `Added ${added} scanned card${added === 1 ? '' : 's'} to your deck.`;
+  if (offColour) msg += ` ${offColour} skipped (outside ${deckBuilderCommanderName}'s colours).`;
+  if (full) msg += ` ${full} skipped (deck is full).`;
+  showToast(msg);
 }
 
 // ---- Export for Archidekt/Moxfield -----------------------------------
@@ -26460,7 +26507,6 @@ function showExportDeckModal() {
 }
 
 $('exportDeckBtn').addEventListener('click', showExportDeckModal);
-$('scanCardsBtn').addEventListener('click', showScanCardsModal);
 $('scanCardsFileInput').addEventListener('change', (e) => {
   handleScanCardsFileSelected(e.target.files);
   e.target.value = ''; // allow re-selecting the same file(s) again later
@@ -28488,6 +28534,7 @@ function openDeckBuilderOverlay() {
         <span>Only show cards that fit <span id="dbIdentityName" style="color:var(--gold);"></span>'s colors (plus colorless)</span>
       </label>
       <div id="dbCardResults"></div>
+      <button type="button" id="dbScanBtn" class="ghost" style="margin-top:8px; font-size:12.5px;">\uD83D\uDCF7 Scan cards from a photo</button>
     </div>
     <div style="font-size:11.5px; color:var(--text-soft); margin-bottom:6px;">Your deck (<span id="dbCardCount">0</span> cards)</div>
     <div id="dbDeckList" style="max-height:220px; overflow-y:auto; border:1px solid var(--line); border-radius:4px; padding:8px; margin-bottom:14px;"></div>
@@ -28545,6 +28592,12 @@ function openDeckBuilderOverlay() {
     if (!deckBuilderFilterByIdentity || !deckBuilderCommanderName) return null;
     const cmdCard = indexes.byExactName.get(deckBuilderCommanderName.toLowerCase());
     return cmdCard ? { commanderCard: cmdCard } : null;
+  });
+  const scanBtn = document.getElementById('dbScanBtn');
+  if (scanBtn) scanBtn.addEventListener('click', () => {
+    const pf = document.getElementById('dbPlayerInput'); if (pf) deckBuilderPlayerName = pf.value;
+    saveDeckBuilderDraft();
+    showScanCardsModal();
   });
   const identityToggle = document.getElementById('dbIdentityToggle');
   if (identityToggle) identityToggle.addEventListener('change', () => {
