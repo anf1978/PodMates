@@ -12,9 +12,10 @@
 // gzip magic bytes and decompressing when present fixes that regardless of
 // how this script gets invoked or whether Scryfall's serving format changes.
 //
-// Card tuple (13 fields):
+// Card tuple (16 fields):
 //   [name, typeLine, oracleText, manaCost, colorIdentity, manaValue, pips,
-//    rarity, producedMana, oneShotFlag, power, toughness, notCommanderLegal]
+//    rarity, producedMana, oneShotFlag, power, toughness, notCommanderLegal,
+//    loyalty, backOracleText, backTypeLine]
 // The last two are what the Mana Base: Cost vs. Production panel needs:
 //   producedMana - colors of mana the card can make ("" if none), e.g. "WG"
 //   oneShotFlag  - 1 if that mana is one-time only (Dark Ritual, Lotus Petal),
@@ -24,6 +25,11 @@
 //                      multi-face cards.
 //   notCommanderLegal - 1 if Scryfall lists the card as not_legal in Commander (Un-cards, joke and
 //                      playtest cards, Conspiracy, Schemes and similar), so suggestions never offer them.
+//
+// The last three (added Oct 2026) are what the Planeswalker plan and two-faced cards need:
+//   loyalty        - starting loyalty as text ("4", "X"); "" for anything that is not a planeswalker. Front face.
+//   backOracleText - rules text of the second face of a two-faced card ("" otherwise), so the back side can be read.
+//   backTypeLine   - type line of that second face ("" otherwise).
 //
 // An earlier build left these out entirely and the panel read other fields
 // (mana value, rarity) in their place, which broke it. They are worked out
@@ -40,6 +46,9 @@ const MIN_PLAUSIBLE_PRODUCER_COUNT = 800;
 // About 14,000 cards have a power; about 1,000+ are not Commander-legal. Far fewer means a field went missing.
 const MIN_PLAUSIBLE_POWER_COUNT = 5000;
 const MIN_PLAUSIBLE_NOT_LEGAL_COUNT = 300;
+// About 700+ planeswalkers carry a loyalty and about 2,000 two-faced cards carry a back face.
+const MIN_PLAUSIBLE_LOYALTY_COUNT = 300;
+const MIN_PLAUSIBLE_BACK_FACE_COUNT = 800;
 
 // ===== BEGIN SHARED MANA-PRODUCTION LOGIC =====
 // This block is IDENTICAL in two places and must stay that way:
@@ -192,7 +201,11 @@ function cardToTuple(card) {
   const power = String(card.power != null ? card.power : (face.power != null ? face.power : ''));
   const toughness = String(card.toughness != null ? card.toughness : (face.toughness != null ? face.toughness : ''));
   const notLegal = card.legalities && card.legalities.commander === 'not_legal' ? 1 : 0;
-  return [name, typeLine, oracleText, manaCost, colorIdentity, cmc, pips, rarity, pm, rt, power, toughness, notLegal];
+  const loyalty = String(card.loyalty != null ? card.loyalty : (face.loyalty != null ? face.loyalty : ''));
+  const back = (card.card_faces && card.card_faces.length > 1) ? card.card_faces[1] : null;
+  const backText = back ? (back.oracle_text || '') : '';
+  const backType = back ? (back.type_line || '') : '';
+  return [name, typeLine, oracleText, manaCost, colorIdentity, cmc, pips, rarity, pm, rt, power, toughness, notLegal, loyalty, backText, backType];
 }
 
 function readInputAsText(path) {
@@ -245,13 +258,22 @@ function build(bulkFilePath, outPath) {
     throw new Error(`Only ${notLegalCount} cards are flagged not Commander-legal, expected at least ${MIN_PLAUSIBLE_NOT_LEGAL_COUNT}. Refusing to write output.`);
   }
 
+  const loyaltyCount = cards.filter(t => t[13] !== '').length;
+  const backFaceCount = cards.filter(t => t[14] !== '').length;
+  if (loyaltyCount < MIN_PLAUSIBLE_LOYALTY_COUNT) {
+    throw new Error(`Only ${loyaltyCount} cards have a loyalty value, expected at least ${MIN_PLAUSIBLE_LOYALTY_COUNT}. Refusing to write output.`);
+  }
+  if (backFaceCount < MIN_PLAUSIBLE_BACK_FACE_COUNT) {
+    throw new Error(`Only ${backFaceCount} cards have a back-face text, expected at least ${MIN_PLAUSIBLE_BACK_FACE_COUNT}. Refusing to write output.`);
+  }
+
   const payload = { cards, gc, banned };
   const json = JSON.stringify(payload);
   const gzipped = gzipSync(Buffer.from(json, 'utf8'));
   const b64 = gzipped.toString('base64');
 
   writeFileSync(outPath, b64, 'utf8');
-  return { cardCount: cards.length, gcCount: gc.length, bannedCount: banned.length, producerCount, oneShotCount, powerCount, notLegalCount, b64Length: b64.length };
+  return { cardCount: cards.length, gcCount: gc.length, bannedCount: banned.length, producerCount, oneShotCount, powerCount, notLegalCount, loyaltyCount, backFaceCount, b64Length: b64.length };
 }
 
 const [, , bulkFilePath, outPath] = process.argv;
