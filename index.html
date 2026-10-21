@@ -22269,9 +22269,22 @@ function ixShowSuggestions() {
   let ov = document.getElementById('ixSugOverlay'); if (ov) ov.remove();
   ov = document.createElement('div'); ov.id = 'ixSugOverlay';
   ov.style.cssText = 'position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.65); display:flex; align-items:flex-end; justify-content:center;';
-  const body = data.items.length ? data.items.map(it => `<div style="margin-bottom:14px;"><div style="font-size:14px; color:var(--text-primary);"><strong>${escapeHtml(it.title)}</strong> <span style="color:var(--text-soft); font-size:12px;">– whenever ${escapeHtml(it.sub)}</span></div>
-      ${it.groups.map(g => `<div style="margin-top:6px;"><div style="font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--gold);">${g.label}</div>
-        ${g.list.map(c => `<div style="font-size:13px; margin-top:2px;">${cardNameLink(c.n)}${c.g ? ' <span style="font-size:10.5px; color:var(--gold);">(Game Changer)</span>' : ''} <span style="color:var(--text-soft); font-size:12px;">– ${escapeHtml(c.why)}${c.m ? ', MV ' + c.m : ''}</span></div>`).join('')}</div>`).join('')}</div>`).join('')
+  const inDeckNames = new Set(((ixLastCtx && ixLastCtx.matched) || []).map(m => String(m.card.n).toLowerCase()));
+  const body = data.items.length ? data.items.map(it => {
+    const isCard = inDeckNames.has(String(it.title).replace(/ \(commander\)$/, '').toLowerCase());
+    const tag = isCard ? 'In your deck' : 'Your deck\u2019s plan';
+    const sub = isCard ? 'whenever ' + it.sub : it.sub;
+    return `<div style="margin-bottom:18px;">
+      <div style="background:rgba(61,143,138,0.16); border-left:4px solid #3d8f8a; border-radius:3px; padding:8px 12px;">
+        <div style="font-size:10px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-soft);">${tag}</div>
+        <div style="font-size:15px; font-weight:700; color:var(--text-primary); margin-top:1px;">${escapeHtml(it.title)}</div>
+        <div style="color:var(--text-soft); font-size:12px;">${escapeHtml(sub)}</div>
+      </div>
+      <div style="margin:6px 0 0 14px; padding-left:12px; border-left:2px solid var(--line);">
+      ${it.groups.map(g => `<div style="margin-top:8px;"><div style="font-size:11px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:var(--gold);">Add: ${g.label}</div>
+        ${g.list.map(c => `<div style="font-size:13px; margin-top:4px; display:flex; gap:8px; align-items:baseline;"><span aria-hidden="true" style="flex:none; width:16px; height:16px; border-radius:50%; background:var(--gold); color:#1a1208; font-weight:700; font-size:13px; line-height:16px; text-align:center;">+</span><span>${cardNameLink(c.n)}${c.g ? ' <span style="font-size:10.5px; color:var(--gold);">(Game Changer)</span>' : ''} <span style="color:var(--text-soft); font-size:12px;">\u2013 ${escapeHtml(c.why)}${c.m ? ', MV ' + c.m : ''}</span></span></div>`).join('')}</div>`).join('')}
+      </div></div>`;
+  }).join('')
     : '<div style="color:var(--text-soft); font-size:13px;">No clear additions found for this deck\'s main interactions.</div>';
   ov.innerHTML = `<div role="dialog" aria-label="Cards you could add" style="background:var(--bg-card, #14121a); border:1px solid var(--line-strong); border-radius:14px 14px 0 0; width:min(560px,100%); max-height:calc(78vh / var(--pm-zoom, 1)); overflow:auto; padding:16px 16px 22px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;"><div style="font-family:'Cinzel',Georgia,serif; font-size:13px; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold);">Cards you could add</div><button type="button" id="ixSugClose" style="background:none; border:1px solid var(--line-strong); color:var(--text-primary); border-radius:8px; padding:4px 12px; cursor:pointer; text-transform:none; letter-spacing:normal;">Close</button></div>
