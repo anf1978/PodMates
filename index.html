@@ -21468,12 +21468,13 @@ function ixHasKeyword(card, kw) {
   const own = new RegExp('(^|\\n)(?:[a-z\' ]+, )*' + kw + '(?:,|\\n|$| \\(|\\s\\{|\\s\\d)', 'i');
   return own.test(String(card.o || '').replace(/\([^)]*\)/g, ''));
 }
+const IX_LAND_SUBS = new Set(['Desert', 'Forest', 'Plains', 'Island', 'Swamp', 'Mountain', 'Gate', 'Cave', 'Town', 'Locus', 'Lair']);
 function ixParseFilter(phrase, subtypes) {
   const p = String(phrase || '').toLowerCase().trim();
   if (!p || /opponent/.test(p)) return null;
   if (p === '~') return { self: true, types: [], kws: [], subs: [], token: null, other: false, label: 'itself' };
   const f = { self: false, types: [], kws: [], subs: [], token: null, other: /\b(?:another|other)\b/.test(p), label: '' };
-  ['creature', 'artifact', 'enchantment', 'planeswalker'].forEach(t => { if (new RegExp('\\b' + t + 's?\\b').test(p)) f.types.push(t); });
+  ['creature', 'artifact', 'enchantment', 'planeswalker', 'land'].forEach(t => { if (new RegExp('\\b' + t + 's?\\b').test(p)) f.types.push(t); });
   CENTRALITY_KEYWORDS.forEach(k => { if (new RegExp('\\bwith ' + k + '\\b|\\b' + k + ' (?:creature|permanent)').test(p)) f.kws.push(k); });
   if (/\bnontoken\b/.test(p)) f.token = false; else if (/\btokens?\b/.test(p)) f.token = true;
   subtypes.forEach(s => { if (centralityPluralForms(s).some(w => new RegExp('\\b' + w + '\\b').test(p))) f.subs.push(s); });
@@ -21481,6 +21482,7 @@ function ixParseFilter(phrase, subtypes) {
   { let rest = p; CENTRALITY_KEYWORDS.forEach(k => { rest = rest.replace(new RegExp('with ' + k + '\\b', 'g'), ''); });
     if (/\bwith\b|\bthat\b|\bof\b|\bwhose\b|\bnamed\b|\bdifferent\b|\bfirst\b|\bsecond\b/.test(rest)) return null; }   // "power 3 or greater", "of that type": not understood, so not claimed
   if (!f.types.length && !f.kws.length && !f.subs.length && f.token === null) return null;
+  if (!f.types.length && f.subs.length && f.subs.every(x => IX_LAND_SUBS.has(x))) f.types = ['land'];      // "a Desert enters" is about lands, not creatures
   if (!f.types.length && (f.subs.length || f.kws.length)) f.types = ['creature'];
   const bits = [];
   if (f.kws.length) bits.push(f.types[0] === 'creature' ? 'creature with ' + f.kws.join(' and ') : f.types.join('/') + ' with ' + f.kws.join(' and '));
@@ -21551,6 +21553,12 @@ const IX_TAGS_JSON = {"blink":["abuelo, ancestral echo","acrobatic maneuver","ae
 const IX_TAGS = {blink: new Set(IX_TAGS_JSON['blink'] || []), extraCombat: new Set(IX_TAGS_JSON['extra-combat'] || [])};
 const ixTagged = (set, c) => set.has(String(c.n || '').split('//')[0].trim().toLowerCase());
 function ixRepeaterKind(text, ev, f, tokensMade, subtypes) {
+  if (ev === 'enters' && f.types.includes('land')) {
+    if (/(?:play|may play) (?:desert )?lands? (?:cards? )?from your graveyard|return (?:up to \w+ |target |all )?(?:target )?land cards? from your graveyard/.test(text)) return 'replays lands from the graveyard';
+    const subHit = !f.subs.length || f.subs.some(x => text.includes(x.toLowerCase()));      // a plain ramp spell only feeds a "Desert enters" trigger if it names Deserts
+    if (subHit && /(?:search your library for|put) [^.]{0,70}lands?[^.]{0,80}onto the battlefield/.test(text)) return 'puts more lands onto the battlefield';
+    if (!f.subs.length && /play an additional land|additional land/.test(text)) return 'gives extra land drops';
+  }
   if (ev === 'enters') {
     if (/exile (?:target |another |each |any number of |up to \w+ )?(?:other |nontoken |non-?\w+ )?(?:creatures?|permanents?|artifacts?|enchantments?)[^.]{0,40}you control[^]{0,170}?(?:return|put)[^]{0,90}?(?:to|onto) the battlefield/.test(text)) {
       const okType = f.types.some(t => t === 'creature') || f.subs.length || f.kws.length ? /creature|permanent/.test(text) : f.types.some(t => new RegExp(t + '|permanent').test(text));
@@ -21568,10 +21576,13 @@ function ixRepeaterKind(text, ev, f, tokensMade, subtypes) {
   }
   return null;
 }
-function ixMultiplierKind(text, ev, f) {
+function ixMultiplierKind(text, ev, f, p) {
+  if (p && p.tokens && p.tokens.length && /twice that many (?:of those )?(?:creature )?tokens/.test(text)) return 'doubles the tokens it makes';
   // only the sentence that says "triggers an additional time" says which event it doubles
   const sentence = text.split(/[.\n]/).find(x => /additional time|triggers twice/.test(x));
   if (!sentence) return null;
+  if (/triggered ability of a legendary creature you control/.test(sentence)) return (p && /legendary creature/i.test(String(p.card.t || '').split('—')[0])) ? 'makes it trigger twice (legendary creature)' : null;
+  if (/\bland\b/.test(sentence) && /entering|enters/.test(sentence)) return f.types.includes('land') ? 'makes it trigger twice' : null;
   if (ev === 'enters') {                          // what has to enter? "a Wizard", "a land" are too narrow to double an unrelated creature trigger
     const sub = /(?:^|if |whenever |when )(?:an? |one or more |another )?([a-z' ,-]+?) (?:entering|entered|enters|enter)\b/.exec(sentence);
     if (sub && !/\b(?:permanent|creature|artifact)s?\b/.test(sub[1])) return null;
@@ -21695,6 +21706,69 @@ function ixWalkerPlans(all, nonland, used) {
   walkers.concat(doublers, doubleNow, prolif, prolifBoost, feeders, freeCtr, again, copiers, protect, finders, payoffs).forEach(m => used.add(m.card.n));
   return plans;
 }
+// ---- Lands and go-wide plans: read from the deck's make-up, like the planeswalker plan ----
+const IXL = {
+  landfall: /landfall|(?:whenever|when) (?:a|another|one or more) (?:basic )?lands? (?:you control )?enters?/,
+  gy: /(?:whenever|when) (?:one or more |a |an )?(?:land|desert)[a-z ]*? (?:cards? )?(?:you control )?(?:is |are )?put into (?:a|your) graveyard|this land is put into a graveyard/,
+  feed: /sacrifice (?:a|an|any number of|x|up to \w+|two|three) lands?\b|\bsacrifice ~[^.]*:|, sacrifice ~|put the chosen cards into your graveyard|discard a land/,
+  replay: /(?:play|may play) (?:desert )?lands? (?:cards? )?from your graveyard|return (?:up to \w+ |target |all )?(?:target )?land cards? from your graveyard|land card from your graveyard/,
+  ramp: /play an additional land|additional land|(?:search your library for|put) [^.]{0,70}lands?[^.]{0,80}onto the battlefield/,
+  doubler: /land entering causes a triggered ability[^.]*additional time/,
+  animate: /all lands are \d\/\d creatures|lands you control (?:are|become) [^.]*creatures/,
+};
+const IXG = {
+  anthem: /creature tokens you control get|(?<!land )(?:other )?creatures you control (?:each )?get \+\d\/\+\d|each (?:other )?creature you control gets \+\d\/\+\d/,
+  haste: /creatures you control have haste|all creatures have haste/,
+  finisher: /creatures you control (?:gain|get)[^.]*\+x\/\+x|creatures you control get \+x\/\+x|each creature you control gets \+x\/\+x/,
+  doubler: /twice that many (?:of those )?tokens|twice that many creature tokens/,
+};
+const IXL_MIN = 6, IXG_MIN = 16, IXG_SHELL_MIN = 9;      // payoffs for the lands plan; token makers for the go-wide plan, alone or with a go-wide shell (all rare among the 159 precons)
+function ixThemePlans(all, nonland, used) {
+  const plans = [];
+  const nm = (arr, k) => arr.slice(0, k).map(m => ixLinkSlot(m.card.n)).join(', ') + (arr.length > k ? ' +' + (arr.length - k) + ' more' : '');
+  const pick = (arr, re, skipCmd) => arr.filter(m => re.test(m.text) && !(skipCmd && m.isCmd));
+  const mk = (payoff, isCmd, head, lines) => plans.push({ kind: 'plan', event: 'plan', payoff, isCmd, head, extraLines: lines, filter: { label: '' }, effect: '', objects: [], objCount: 0, tokenMakers: [], repeaters: [], multipliers: [], members: [], score: 99 });
+  // Lands as the engine
+  {
+    const landfall = pick(all, IXL.landfall, true), gy = pick(all, IXL.gy, true);
+    const payoffs = landfall.concat(gy.filter(m => !landfall.includes(m)));
+    const feed = pick(all, IXL.feed, true).filter(m => !payoffs.includes(m) || /sacrifice/.test(m.text));
+    const replay = pick(all, IXL.replay, false);
+    const ramp = pick(nonland, IXL.ramp, true).filter(m => !replay.includes(m));
+    const dbl = pick(all, IXL.doubler, false);
+    const animate = pick(all, IXL.animate, false);
+    if (payoffs.length >= IXL_MIN && feed.length + replay.length >= 3) {
+      const lines = [];
+      if (landfall.length) lines.push('Pay off a land entering: ' + nm(landfall, 5) + '.');
+      if (gy.length) lines.push('Pay off a land going to the graveyard: ' + nm(gy, 5) + '. Each land can pay twice: once when it is played and once when it is lost.');
+      if (feed.length) lines.push('Put lands in the graveyard on purpose: ' + nm(feed, 5) + '.');
+      if (replay.length) lines.push('<span style="color:var(--gold);">Play them again</span>: ' + nm(replay, 5) + '.');
+      if (dbl.length) lines.push('<span style="color:var(--gold);">Landfall twice</span>: ' + nm(dbl, 2) + ' makes every land drop trigger an extra time.');
+      if (ramp.length) lines.push(ramp.length + ' ways to put extra lands onto the battlefield (' + nm(ramp, 4) + ').');
+      if (animate.length) lines.push('Lands become creatures: ' + nm(animate, 2) + '. Every land is then a body, and a target.');
+      mk('__plan_lands', false, '<strong>Lands are the engine</strong>: ' + payoffs.length + ' cards pay off lands entering or leaving, with ' + (feed.length + replay.length) + ' ways to lose and replay them.', lines);
+      payoffs.concat(feed, replay, ramp, dbl, animate).forEach(m => used.add(m.card.n));
+    }
+  }
+  // Go wide
+  {
+    const makers = nonland.filter(m => m.tokens.some(t => t.creature));
+    const anthem = pick(nonland, IXG.anthem, true), haste = nonland.filter(m => !m.isCmd && (IXG.haste.test(m.text) || ixRoles(m.text).hasteAll));
+    const fin = pick(nonland, IXG.finisher, true), dbl = pick(nonland, IXG.doubler, true);
+    const shell = [anthem, haste, fin, dbl].filter(a => a.length).length;      // how many of the four go-wide helpers the deck has
+    if (makers.length >= IXG_MIN || (makers.length >= IXG_SHELL_MIN && shell >= 3)) {
+      const lines = [];
+      if (dbl.length) lines.push('<span style="color:var(--gold);">Twice the tokens</span>: ' + nm(dbl, 3) + '.');
+      if (anthem.length) lines.push('Make every body bigger: ' + nm(anthem, 4) + '.');
+      if (haste.length) lines.push('Give them haste: ' + nm(haste, 3) + ', so new tokens can attack the turn they appear.');
+      if (fin.length) lines.push('<span style="color:var(--gold);">Finishers</span> that count your bodies: ' + nm(fin, 3) + '.');
+      lines.push('Token makers: ' + nm(makers, 6) + '.');
+      mk('__plan_wide', false, '<strong>' + makers.length + ' cards make creature tokens</strong>: the deck goes wide.', lines);
+      makers.concat(anthem, haste, fin, dbl).forEach(m => used.add(m.card.n));
+    }
+  }
+  return plans;
+}
 function buildInteractionPackages(matchedCards, commanders) {
   const cmdSet = new Set((commanders || []).map(n => String(n).toLowerCase()));
   const all = matchedCards.map(m => ({ ...m, card: m.card, text: ixText(m.card), isCmd: cmdSet.has(String(m.card.n).toLowerCase()) }));
@@ -21719,7 +21793,7 @@ function buildInteractionPackages(matchedCards, commanders) {
         const clauseAfter = line.slice(mm.index + mm[0].length);
         const eff = ixEffect(clauseAfter);
         // objects: other cards in the deck that are, or make, what the trigger watches for
-        const objects = f.self ? [] : nonland.filter(o => o !== p && ixCardMatches(o.card, f));
+        const objects = f.self ? [] : (f.types.includes('land') ? all : nonland).filter(o => o !== p && ixCardMatches(o.card, f));
         const tokenMakers = f.self ? [] : nonland.filter(o => o !== p && o.tokens.some(t => ixTokenMatches(t, f, subs)) && !objects.includes(o));
         const repeaters = [], multipliers = [];
         for (const o of all) {
@@ -21727,7 +21801,7 @@ function buildInteractionPackages(matchedCards, commanders) {
           let rk = ixRepeaterKind(o.text, ev, f, o.tokens, subs);
           if (!rk && ev === 'enters' && !f.self && ixTagged(IX_TAGS.blink, o.card) && /exile/.test(o.text) && /return/.test(o.text) && /you control|target creature|target permanent/.test(o.text)) rk = 'flickers permanents (Scryfall tag)';
           if (rk) repeaters.push({ name: o.card.n, how: rk });
-          const mk = ixMultiplierKind(o.text, ev, f);
+          const mk = ixMultiplierKind(o.text, ev, f, p);
           if (mk) multipliers.push({ name: o.card.n, how: mk });
         }
         const objCount = objects.reduce((s, o) => s + (o.qty || 1), 0);
@@ -21951,6 +22025,7 @@ function buildInteractionPackages(matchedCards, commanders) {
     }
   }
   try { ixWalkerPlans(all, nonland, used).forEach(p => plans.push(p)); } catch (e) { console.error(e); }
+  try { ixThemePlans(all, nonland, used).forEach(p => plans.push(p)); } catch (e) { console.error(e); }
   const shown = plans.concat(top.slice(0, 5));
   // Stat axis: when a card changes which stat deals combat damage, cards that raise that stat are finishers, and
   // cards that repeat the rule are backups if the commander is removed.
@@ -22012,7 +22087,7 @@ function buildInteractionPackages(matchedCards, commanders) {
     }
     if (why) { conditional.push({ name: m.card.n, why }); used.add(m.card.n); }
   }
-  const idle = nonland.filter(m => !m.isCmd && !used.has(m.card.n) && !jobFlags.some(k => classifyCard(m.card)[k]) && !Object.keys(ixRoles(m.text)).length && !m.card.g).map(m => m.card.n);
+  const idle = nonland.filter(m => !m.isCmd && !used.has(m.card.n) && !jobFlags.some(k => classifyCard(m.card)[k]) && !Object.keys(ixRoles(m.text)).length && !m.card.g && !/reveal the top (?:two|three|four|five|six|seven|x|\d+) cards of your library[^]{0,160}?(?:into your hand|from among them)/.test(m.text)).map(m => m.card.n);      // dig spells count as card selection
   return { packages: shown, idle, conditional, axis, nonlandCount: nl };
 }
 function ixPlural(l) {
@@ -22048,7 +22123,7 @@ function ixRoles(text) {
   if (/deals? (?:x|\d+) damage to each (?:non\w+ )?creature/.test(text)) r.wipeDamage = true;
   if (/each player sacrifices (?:that many|all|a number|x) |sacrifices all other (?:nonland )?permanents/.test(text)) r.wipeSac = true;
   if (/gain control of (?:all|each|target) creatures?[^.]{0,60}until end of turn/.test(text)) r.threaten = true;
-  if (/creatures you control have haste/.test(text)) r.hasteAll = true;
+  if (/creatures you control have haste|all creatures have haste/.test(text)) r.hasteAll = true;
   if (/enchanted creature (?:gets|has|can|gains)|enchanted creature'?s? controller/.test(text)) r.aura = true;
   if (/return all (?:artifact|enchantment|creature|permanent)[^.]{0,40}cards? from (?:all|your|each) graveyards? to the battlefield/.test(text)) r.massReturn = true;
   return r;
@@ -22064,7 +22139,7 @@ function ixDescribePackage(pk, link) {
   else if (pk.kind === 'pool') {
     const ms = pk.members;
     if (pk.rule) head = `<strong>${ms.length} cards reward your ${ixPlural(pk.phrase.replace(/^an? /, ''))}</strong> (${ms.slice(0, 5).map(m => L(m.name) + (m.effect ? ' \u2013 ' + escapeHtml(m.effect.replace(/~/g, '').trim()) : '')).join(', ')}${ms.length > 5 ? ` +${ms.length - 5} more` : ''}). ${pk.objCount} cards in the deck count, so these stack.`;
-    else head = `<strong>${ms.length} cards pay off whenever ${escapeHtml(pk.phrase)}</strong> (${ms.slice(0, 5).map(m => L(m.name) + (m.effect ? ' \u2013 ' + escapeHtml(m.effect) : '')).join(', ')}${ms.length > 5 ? ` +${ms.length - 5} more` : ''}). Nearly every card in the deck feeds these, so they are steady value rather than a focused plan.`;
+    else head = `<strong>${ms.length} cards pay off whenever ${escapeHtml(pk.phrase)}</strong> (${ms.slice(0, 5).map(m => L(m.name) + (m.effect ? ' \u2013 ' + escapeHtml(m.effect) : '')).join(', ')}${ms.length > 5 ? ` +${ms.length - 5} more` : ''}). ${/\bland\b/.test(pk.phrase) ? 'Every land drop sets these off, so extra land drops and replayed lands pay several times.' : 'Nearly every card in the deck feeds these, so they are steady value rather than a focused plan.'}`;
   } else if (pk.kind === 'group') {
     const ms = pk.members;
     head = `<strong>${ms.length} cards do something ${pk.event === 'dies' ? 'when they die' : 'when they enter'}</strong> (${ms.slice(0, 4).map(m => L(m.name) + ' \u2013 ' + escapeHtml(m.effect)).join(', ')}${ms.length > 4 ? ` +${ms.length - 4} more` : ''}), so anything that ${pk.event === 'dies' ? 'repeats or doubles deaths' : 'brings them back in or doubles enter effects'} is worth extra here.`;
@@ -22080,7 +22155,7 @@ function ixDescribePackage(pk, link) {
   if (pk.statLine) lines.push(escapeHtml(pk.statLine));
   if (pk.finishers && pk.finishers.length) lines.push(`<span style="color:var(--gold);">Finishers</span> (the rule turns toughness into damage, so each point of toughness is a point of damage): ${pk.finishers.slice(0, 5).map(r => L(r.name)).join(', ')}${pk.finishers.length > 5 ? ` +${pk.finishers.length - 5} more` : ''}.`);
   if (pk.backups && pk.backups.length) lines.push(`<span style="color:var(--gold);">Backup</span> if the commander is removed: ${pk.backups.map(r => L(r.name)).join(', ')} gives the same rule.`);
-  if (pk.multipliers.length) lines.push(`<span style="color:var(--gold);">Counts twice</span> with ${pk.multipliers.slice(0, 3).map(r => L(r.name)).join(', ')}.`);
+  if (pk.multipliers.length) lines.push(`<span style="color:var(--gold);">Counts twice</span> with ${pk.multipliers.slice(0, 4).map(r => L(r.name)).join(', ')}.`);
   return `<div style="margin-bottom:10px; padding-bottom:10px; border-bottom:1px dashed var(--line);">
     <div style="font-size:14px; color:var(--text-primary);">${pk.isCmd ? '<span style="font-size:10.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--gold); border:1px solid var(--line-strong); border-radius:8px; padding:1px 7px; margin-right:6px; white-space:nowrap;">Commander</span>' : ''}${head}</div>
     ${lines.map(x => `<div style="font-size:12.5px; color:var(--text-soft); margin-top:3px;">${x}</div>`).join('')}
