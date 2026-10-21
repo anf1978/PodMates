@@ -435,6 +435,9 @@
   .axis-label{font-size:16px; fill:var(--text-primary); font-weight:600;}
   .axis-value{font-size:31.5px; fill:var(--gold-bright); font-weight:700;}
   .axis-percentile{font-size:12.5px; fill:var(--text-soft); font-weight:400; letter-spacing:0.02em;}
+  .chart-scores{display:grid; grid-template-columns:1fr auto auto; gap:4px 14px; width:100%; max-width:420px; margin:4px auto 6px; font-size:14px; align-items:baseline;}
+  .chart-scores strong{font-size:16px; text-align:right;}
+  @media (min-width:700px){ html[data-pm-text="1"] .chart-scores{display:none;} }
   .grid-ring{fill:none; stroke:rgba(var(--glow-a-rgb),0.16); stroke-width:1;}
   .grid-spoke{stroke:rgba(var(--glow-a-rgb),0.16); stroke-width:1;}
   .deck-shape{fill:rgba(var(--glow-a-rgb),0.26); stroke:var(--gold-bright); stroke-width:2.5; stroke-linejoin:round;}
@@ -1216,8 +1219,9 @@ footer::after { content: ' ◆'; color: var(--cyan); font-style: normal; }
     var el = document.documentElement;
     if (id === '1') el.style.removeProperty('zoom'); else el.style.zoom = id;
     el.setAttribute('data-pm-text', id);
+    el.style.setProperty('--pm-zoom', id);
     current = id;
-    if (!silent) { try { localStorage.setItem(KEY, id); } catch (e) { /* private mode: applies for this visit only */ } }
+    if (!silent) { try { localStorage.setItem(KEY, id); } catch (e) { /* private mode: applies for this visit only */ } try { window.dispatchEvent(new Event('pm-text-change')); } catch (e) { /* no listeners needed */ } }
     return id;
   }
   window.PMText = { sizes: SIZES, apply: apply, saved: saved, current: function () { return current; } };
@@ -20843,6 +20847,14 @@ function ordinalSuffix(n) {
   }
 }
 
+let currentTierDiscrepancy = null;
+// Re-draw the radial when the text size changes or the phone turns, so its labels are re-fitted.
+(function () {
+  let lastW = 0, timer = null;
+  const redo = () => { try { if (typeof currentScores !== 'undefined' && currentScores && currentAgg) renderChart(currentScores, currentCommandSpark, currentAgg, currentTierDiscrepancy); } catch (e) { /* the chart stays as it was */ } };
+  window.addEventListener('pm-text-change', () => setTimeout(redo, 50));
+  window.addEventListener('resize', () => { clearTimeout(timer); timer = setTimeout(() => { const w = (document.getElementById('chartArea') || {}).clientWidth || 0; if (Math.abs(w - lastW) > 20) { lastW = w; redo(); } }, 250); });
+})();
 function renderChart(scores, commandSpark, agg, tierDiscrepancy) {
   currentAgg = agg || null;
   currentScores = scores || null;
@@ -20853,10 +20865,23 @@ function renderChart(scores, commandSpark, agg, tierDiscrepancy) {
   // and desktop without needing separate narrow-screen logic or truncated labels.
   const width = 680, height = 560;
   const cx = width / 2, cy = height / 2;
-  const radius = 150;
+  // On a phone the viewBox is shrunk to about half size, which made the labels about 6-7 px on screen.
+  // Size the text from the width the chart really gets, so it is readable without zooming, and
+  // list the scores again as plain text underneath (that list grows with the Text size setting).
+  const boxW = Math.min(560, ($('chartArea') && $('chartArea').clientWidth) || Math.min(window.innerWidth - 40, 560));
+  const narrow = boxW < 480;
+  const uu = width / Math.max(boxW, 200);                   // viewBox units per screen pixel
+  const radius = narrow ? 118 : 150;
   const levels = 5;
   const n = AXES.length;
   const labelFrac = 1.2;
+  const longest = Math.max(...AXES.map(a => String(a.label).length + 2));
+  const roomUnits = cx - (radius * labelFrac * 0.95) - 6;     // horizontal room beside the widest side labels
+  const fsName = narrow ? Math.min(13.5 * uu, roomUnits / (longest * 0.6)) : 16;
+  const fsVal = narrow ? Math.min(19 * uu, fsName * 1.5) : 31.5;
+  const fsPct = narrow ? Math.min(12 * uu, fsName * 0.9) : 12.5;
+  const zoomF = (window.PMText ? parseFloat(window.PMText.current()) : 1) || 1;
+  const hideVals = narrow && zoomF > 1;                    // with larger text the plain list below carries the numbers
 
   function angleFor(i) { return (Math.PI * 2 * i / n) - Math.PI / 2; }
   function pointAt(i, frac) {
@@ -20887,11 +20912,13 @@ function renderChart(scores, commandSpark, agg, tierDiscrepancy) {
     // center keep the original downward stack, which was already clear of
     // the shape on that side.
     const stackDir = sinA >= 0 ? 1 : -1;
-    svg += `<text class="axis-label axis-label-clickable" data-explain="${AXES[i].key}" x="${lx}" y="${ly}" text-anchor="${anchor}" dominant-baseline="middle">${AXES[i].label} ⓘ</text>`;
-    svg += `<text class="axis-value" x="${lx}" y="${ly + stackDir * 30}" text-anchor="${anchor}">${scores[AXES[i].key].toFixed(1)}</text>`;
+    svg += `<text class="axis-label axis-label-clickable" data-explain="${AXES[i].key}" x="${lx}" y="${ly}" text-anchor="${anchor}" dominant-baseline="middle"${narrow ? ` style="font-size:${fsName.toFixed(1)}px"` : ''}>${AXES[i].label} ⓘ</text>`;
+    const valY = narrow ? (stackDir > 0 ? ly + fsName * 0.65 + fsVal * 0.85 : ly - fsName * 0.75) : ly + stackDir * 30;
+    const pctY = narrow ? (stackDir > 0 ? valY + fsPct * 1.3 : valY - fsVal * 0.9 - fsPct * 0.1) : ly + stackDir * 52;
+    if (!hideVals) svg += `<text class="axis-value" x="${lx}" y="${valY}" text-anchor="${anchor}"${narrow ? ` style="font-size:${fsVal.toFixed(1)}px"` : ''}>${scores[AXES[i].key].toFixed(1)}</text>`;
     const pct = computeAxisPercentile(AXES[i].key, scores[AXES[i].key]);
-    if (pct !== null) {
-      svg += `<text class="axis-percentile" x="${lx}" y="${ly + stackDir * 52}" text-anchor="${anchor}">${ordinalSuffix(pct)} pct.</text>`;
+    if (pct !== null && !hideVals) {
+      svg += `<text class="axis-percentile" x="${lx}" y="${pctY}" text-anchor="${anchor}"${narrow ? ` style="font-size:${fsPct.toFixed(1)}px"` : ''}>${ordinalSuffix(pct)} pct.</text>`;
     }
   }
 
@@ -20907,6 +20934,8 @@ function renderChart(scores, commandSpark, agg, tierDiscrepancy) {
 
   svg += '</svg>';
 
+  const scoreRows = AXES.map(a => { const v = scores[a.key]; const pc = computeAxisPercentile(a.key, v); return `<span>${escapeHtml(a.label)}</span><strong style="color:var(--gold-bright);">${v.toFixed(1)}</strong><span style="color:var(--text-soft);">${pc !== null ? ordinalSuffix(pc) + ' pct.' : ''}</span>`; }).join('');
+  const scoreList = `<div class="chart-scores" aria-label="Scores as text">${scoreRows}</div>`;
   const sparkPct = computeSparkPercentile(commandSpark);
   const sparkHtml = `<div class="command-spark" data-explain="commandSpark" title="What is Spark?"><div class="spark-main"><span class="lbl">Spark</span><span class="num">${commandSpark.toFixed(1)}</span>${explainerBtn('commandSpark')}</div><span class="spark-percentile">Table-alignment signal · ${ordinalSuffix(sparkPct)} percentile of the PodMates reference set</span></div>`;
   const discBadge = tierDiscrepancy ? (() => {
@@ -20919,7 +20948,8 @@ function renderChart(scores, commandSpark, agg, tierDiscrepancy) {
 
   const benchCaption = `<div class="chart-caption">Percentiles compare against the PodMates reference set (${referenceSetSummary()}), not all Commander decks. Higher tiers are included so tuned and competitive decks are not all squeezed into the top few percent.</div>`;
   const impactBtn = agg ? `<div class="chart-caption"><button type="button" class="ghost" id="impactCardsBtn" style="font-size:12px; padding:3px 10px;">Impact cards…</button> <span style="font-size:11.5px; color:var(--text-dim);">${impactCardsInDeck(agg).length} of ${DEFAULT_IMPACT_CARDS.length} default impact cards in this deck</span></div><div id="podViewLine"></div>` : '';
-  $('chartArea').innerHTML = svg + sparkHtml + discBadge + benchCaption + impactBtn;
+  currentTierDiscrepancy = tierDiscrepancy || null;
+  $('chartArea').innerHTML = svg + scoreList + sparkHtml + discBadge + benchCaption + impactBtn;
   const impactBtnEl = document.getElementById('impactCardsBtn');
   if (impactBtnEl) impactBtnEl.addEventListener('click', openImpactCardsModal);
   if (agg) refreshPodView();
@@ -21841,18 +21871,18 @@ const IX_TEAM_AXIS = /(?:each|all|every) creature(?:s)?(?: you control)? (?:assi
 // Usable as a suggestion: legal in Commander. A database built before the legality flag existed falls back to spotting joke and special-format cards by their text.
 function ixUsable(c) {
   if (c.b) return false;
-  if (c.x !== undefined) return !c.x;
+  if (c.x === true) return false;
   const t = String(c.t || ''), o = String(c.o || '');
   if (/\b(?:stickers?|attraction|contraption|scheme|plane|phenomenon|vanguard|conspiracy|hero|dungeon|emblem|token)\b/i.test(t)) return false;
   if (/\{TK\}|\{\u00BD\}|\{\u221E\}|\{100\}|\{1000000\}|\bunfinity\b|\bsticker|\battraction\b|\bcontraption\b|\bplaytest\b|\bflip a coin\b|\bheads\b|\bsilver\b/i.test(o)) return false;
-  if (/^(?:special|bonus)$/.test(c.r)) return false;
+  if (c.x === undefined && /^(?:special|bonus)$/.test(c.r)) return false;
   return true;
 }
 // Printed power and toughness as numbers (null when unknown or "*"); null for the whole card when the database has no stats.
 function ixStat(c) {
   if (c.pw === undefined || c.pw === '' || c.tg === undefined) return null;
-  const p = parseInt(c.pw, 10), t = parseInt(c.tg, 10);
-  return { p: isNaN(p) ? null : p, t: isNaN(t) ? null : t };
+  const p = /^\d+$/.test(c.pw) ? parseInt(c.pw, 10) : null, t = /^\d+$/.test(c.tg) ? parseInt(c.tg, 10) : null;      // "*", "1+*", "+2" and similar are unknown, not guessed
+  return { p, t };
 }
 // Extra jobs a card can have, read from its text. Display-only: never feeds the scores.
 function ixRoles(text) {
@@ -21981,7 +22011,7 @@ function ixShowSuggestions() {
       ${it.groups.map(g => `<div style="margin-top:6px;"><div style="font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--gold);">${g.label}</div>
         ${g.list.map(c => `<div style="font-size:13px; margin-top:2px;">${cardNameLink(c.n)}${c.g ? ' <span style="font-size:10.5px; color:var(--gold);">(Game Changer)</span>' : ''} <span style="color:var(--text-soft); font-size:12px;">– ${escapeHtml(c.why)}${c.m ? ', MV ' + c.m : ''}</span></div>`).join('')}</div>`).join('')}</div>`).join('')
     : '<div style="color:var(--text-soft); font-size:13px;">No clear additions found for this deck\'s main interactions.</div>';
-  ov.innerHTML = `<div role="dialog" aria-label="Cards you could add" style="background:var(--bg-card, #14121a); border:1px solid var(--line-strong); border-radius:14px 14px 0 0; width:min(560px,100%); max-height:78vh; overflow:auto; padding:16px 16px 22px;">
+  ov.innerHTML = `<div role="dialog" aria-label="Cards you could add" style="background:var(--bg-card, #14121a); border:1px solid var(--line-strong); border-radius:14px 14px 0 0; width:min(560px,100%); max-height:calc(78vh / var(--pm-zoom, 1)); overflow:auto; padding:16px 16px 22px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;"><div style="font-family:'Cinzel',Georgia,serif; font-size:13px; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold);">Cards you could add</div><button type="button" id="ixSugClose" style="background:none; border:1px solid var(--line-strong); color:var(--text-primary); border-radius:8px; padding:4px 12px; cursor:pointer; text-transform:none; letter-spacing:normal;">Close</button></div>
     ${body}
     <div style="font-size:11.5px; color:var(--text-soft);">Searched from the full card list: inside your commander's colours, not banned, not already in the deck, ordered by mana value. Ideas, not instructions.</div></div>`;
@@ -25707,7 +25737,7 @@ function injectTryADeckStyles() {
       align-items:center; justify-content:center; z-index:1000; padding:20px;}
     .tad-modal{background:linear-gradient(135deg, var(--bg-panel-raised), var(--bg-panel));
       border:1px solid var(--gold); border-radius:6px; max-width:640px; width:100%;
-      max-height:85vh; overflow-y:auto; padding:22px 24px; box-shadow:0 10px 40px rgba(0,0,0,0.6);}
+      max-height:calc(85vh / var(--pm-zoom, 1)); overflow-y:auto; padding:22px 24px; box-shadow:0 10px 40px rgba(0,0,0,0.6);}
     .tad-modal h2{color:var(--gold); font-family:'Cinzel', Georgia, serif; font-size:19px;
       margin:0 0 6px; letter-spacing:0.03em;}
     .tad-modal .tad-sub{color:var(--text-soft); font-size:13px; margin:0 0 16px; font-style:italic; line-height:1.4;}
@@ -28973,7 +29003,7 @@ async function showLoadDeckModal(target) {
     `<h2 style="margin-bottom:10px;">Load a Deck${titleSuffix}</h2>` +
     `<input type="text" id="loadDeckSearch" placeholder="Search by commander or player…" style="width:100%; box-sizing:border-box; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px; margin-bottom:10px;">` +
     `<div id="loadDeckPlayerChips" style="margin-bottom:8px;"></div>` +
-    `<div id="loadDeckListArea" style="max-height:50vh; overflow-y:auto;"><div style="color:var(--text-soft); font-size:13px; padding:10px 0;">Loading…</div></div>`;
+    `<div id="loadDeckListArea" style="max-height:calc(50vh / var(--pm-zoom, 1)); overflow-y:auto;"><div style="color:var(--text-soft); font-size:13px; padding:10px 0;">Loading…</div></div>`;
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
