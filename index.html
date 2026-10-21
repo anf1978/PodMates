@@ -1205,6 +1205,24 @@ footer::after { content: ' ◆'; color: var(--cyan); font-style: normal; }
   window.PMTheme = { themes: T, names: NAME, build: build, apply: apply, saved: saved, current: function () { return current; }, audit: audit, find: find };
   try { apply(saved(), true); } catch (e) { /* the stylesheet defaults stand */ }
 })();
+// Text size: the whole page is scaled (like browser zoom, but remembered and set inside the app). Per device.
+(function () {
+  var KEY = 'pm-text-scale';
+  var SIZES = [{ id: '1', label: 'Normal', pct: 100 }, { id: '1.15', label: 'Large', pct: 115 }, { id: '1.3', label: 'Larger', pct: 130 }, { id: '1.5', label: 'Largest', pct: 150 }];
+  function saved() { try { var v = localStorage.getItem(KEY); return SIZES.some(function (z) { return z.id === v; }) ? v : '1'; } catch (e) { return '1'; } }
+  var current = '1';
+  function apply(id, silent) {
+    if (!SIZES.some(function (z) { return z.id === id; })) id = '1';
+    var el = document.documentElement;
+    if (id === '1') el.style.removeProperty('zoom'); else el.style.zoom = id;
+    el.setAttribute('data-pm-text', id);
+    current = id;
+    if (!silent) { try { localStorage.setItem(KEY, id); } catch (e) { /* private mode: applies for this visit only */ } }
+    return id;
+  }
+  window.PMText = { sizes: SIZES, apply: apply, saved: saved, current: function () { return current; } };
+  try { apply(saved(), true); } catch (e) { /* normal size stands */ }
+})();
 </script>
 
 <!-- ============================================================
@@ -23688,7 +23706,11 @@ function renderDisplaySettings(container) {
   const cur = window.PMTheme.current();
   const groups = [['Classic', 'Classic'], ['Guild', 'Guilds — two colours'], ['Triome', 'Triomes — three colours'], ['Four colours', 'Four colours'], ['Five colours', 'Five colours']];
   const curT = window.PMTheme.find(cur);
-  container.innerHTML = `<p style="font-size:12px; color:var(--text-soft); margin:0 0 10px;">Pick a colour scheme for the whole app. It is saved on this device only. Now: <b style="color:var(--text-primary);">${escapeHtml(curT ? curT.name : 'Classic PodMates')}</b></p>` +
+  const curSize = window.PMText ? window.PMText.current() : '1';
+  const sizeRow = window.PMText ? `<div style="font-size:12px; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-soft); margin:0 0 6px;">Text size</div>
+    <div role="radiogroup" aria-label="Text size" style="display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:8px; margin-bottom:6px;">${window.PMText.sizes.map(z => `<button type="button" role="radio" aria-checked="${z.id === curSize}" class="pm-size-btn" data-size="${z.id}" style="min-height:44px; padding:6px 4px; border-radius:8px; cursor:pointer; text-transform:none; letter-spacing:normal; line-height:1.1; border:1px solid ${z.id === curSize ? 'var(--gold)' : 'var(--line-strong)'}; background:${z.id === curSize ? 'var(--bg-panel-raised)' : 'transparent'}; color:var(--text-primary);"><span style="font-size:${Math.round(13 * z.pct / 100)}px; display:block;">Aa</span><span style="font-size:10.5px; color:var(--text-soft);">${z.label}</span></button>`).join('')}</div>
+    <p style="font-size:12px; color:var(--text-soft); margin:0 0 14px;">Makes everything bigger, like zooming in. Saved on this device only.</p>` : '';
+  container.innerHTML = sizeRow + `<p style="font-size:12px; color:var(--text-soft); margin:0 0 10px;">Pick a colour scheme for the whole app. It is saved on this device only. Now: <b style="color:var(--text-primary);">${escapeHtml(curT ? curT.name : 'Classic PodMates')}</b></p>` +
     groups.map(([k, label]) => {
       const list = window.PMTheme.themes.filter(t => t.kind === k);
       if (!list.length) return '';
@@ -23701,7 +23723,11 @@ function renderDisplaySettings(container) {
     renderDisplaySettings(container);
     const t = window.PMTheme.find(id); if (t) showToast(`${t.name} colours applied.`);
   };
-  container.onclick = (e) => choose(e.target.closest && e.target.closest('.pm-theme-tile'));
+  container.onclick = (e) => {
+    const sb = e.target.closest && e.target.closest('.pm-size-btn');
+    if (sb && window.PMText) { window.PMText.apply(sb.getAttribute('data-size')); renderDisplaySettings(container); const z = window.PMText.sizes.find(x => x.id === window.PMText.current()); if (z) showToast(`Text size: ${z.label}.`); return; }
+    choose(e.target.closest && e.target.closest('.pm-theme-tile'));
+  };
   container.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { const el = e.target.closest && e.target.closest('.pm-theme-tile'); if (el) { e.preventDefault(); choose(el); } } };
 }
 
