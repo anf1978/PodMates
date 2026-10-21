@@ -416,6 +416,13 @@
   .cc-tile.cc-l2{background:#8a6d2a; border-color:#8a6d2a;}
   .cc-tile.cc-l3{background:var(--gold-bright); border-color:var(--gold-bright);}
   .cc-tile.cc-l4{background:var(--gold-bright); border:2px solid #fff;}
+  .cc-tile{display:flex; align-items:center; justify-content:center; padding:0; overflow:hidden;}
+  .cc-tile svg{width:72%; height:72%; display:block; pointer-events:none;}
+  .cc-tile.cc-l0 svg{opacity:.8;}
+  .cc-tile .cc-ink{color:#1a1208;} .cc-tile.cc-l2 .cc-ink{color:#fff;} .cc-tile.cc-l0 .cc-ink{color:#c9bfae;}
+  .cc-key{display:grid; grid-template-columns:34px 1fr; gap:6px 10px; align-items:center; font-size:13px; margin:6px 0;}
+  .cc-key .cc-tile{width:30px; cursor:default;}
+  .cc-keybtn{background:none; border:1px solid var(--line); color:var(--gold); border-radius:12px; font-size:12px; padding:3px 10px; cursor:pointer; margin-top:2px;}
   .cc-legend{display:flex; flex-wrap:wrap; gap:4px 12px; font-size:11px; color:var(--text-soft); margin-bottom:12px;}
   .cc-legend i{display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px; vertical-align:-1px; border:1px solid var(--line);}
   .cc-bars-title{font-family:'Cinzel',Georgia,serif; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold); margin:4px 0 6px;}
@@ -3015,7 +3022,7 @@ function computeCommanderCentrality(agg, matchedCards, commanderNames, winCons, 
     else if (linked.has(name) && !feeding.kwFed.has(name)) { level = 2; why = 'Synergizes with your commander'; }
     else if (feeding.fed.has(name)) { level = 2; why = 'Matches what your commander cares about' + (feeding.byTerm.get(name) ? ' (' + feeding.byTerm.get(name) + ')' : ''); }
     else if (supportAny.has(name)) { level = 1; const kinds = Object.keys(sets).filter(k => sets[k].has(name)).map(k => CENTRALITY_SUPPORT_LABELS[k].toLowerCase()); why = 'Supports it (' + kinds.join(', ') + ')'; }
-    for (let i = 0; i < qty; i++) tiles.push({ name, level, why, land: /\bland\b/i.test(m.card.t || '') });
+    for (let i = 0; i < qty; i++) tiles.push({ name, level, why, land: /\bland\b/i.test(m.card.t || ''), t: m.card.t || '', pm: m.card.pm || '' });
   }
   tiles.sort((a, b) => b.level - a.level || (a.land - b.land) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 
@@ -22232,6 +22239,73 @@ function renderCommanderTrackRecord(tierRecords, discrepancy) {
 // ---- Commander Centrality panel ------------------------------------------
 let currentCentrality = null;
 
+const CC_ICONS = {
+  creature: '<path d="M5 19l3-3M7 13l4 4M8 16L19 5l1 1L9 17z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+  instant: '<path d="M13 2L5 13h6l-1 9 9-12h-6z" fill="currentColor"/>',
+  sorcery: '<path d="M12 2c1 4 5 6 5 11a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-4-1-6 1-10z" fill="currentColor"/>',
+  artifact: '<circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
+  enchantment: '<path d="M12 3l2.6 6 6.4.6-4.8 4.3 1.5 6.3L12 16.8 6.3 20.2l1.5-6.3L3 9.6 9.4 9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>',
+  planeswalker: '<path d="M12 2.5l7 9.5-7 9.5L5 12z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M12 8v8" stroke="currentColor" stroke-width="2"/>',
+  land: '<path d="M2 20l6.5-11 4 6.5L16 10l6 10z" fill="currentColor"/>',
+  battle: '<path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/>'
+};
+const CC_KIND_NAMES = { creature: 'Creature', instant: 'Instant', sorcery: 'Sorcery', artifact: 'Artifact', enchantment: 'Enchantment', planeswalker: 'Planeswalker', land: 'Land (no coloured mana)', battle: 'Battle' };
+const CC_MANA = { W: ['#f4ecc8', 'White'], U: ['#4aa3e8', 'Blue'], B: ['#3a2f45', 'Black'], R: ['#e0533c', 'Red'], G: ['#3f9a4a', 'Green'], C: ['#a8a8a8', 'Colourless'] };
+function ccKind(t) {
+  t = String(t || '').split('//')[0].split('—')[0];
+  if (/Creature/.test(t)) return 'creature'; if (/Planeswalker/.test(t)) return 'planeswalker';
+  if (/Land/.test(t)) return 'land'; if (/Battle/.test(t)) return 'battle';
+  if (/Artifact/.test(t)) return 'artifact'; if (/Enchantment/.test(t)) return 'enchantment';
+  if (/Instant/.test(t)) return 'instant'; if (/Sorcery/.test(t)) return 'sorcery';
+  return null;
+}
+function ccPips(pm) {
+  const a = [...new Set(String(pm).toUpperCase().split('').filter(c => CC_MANA[c]))];
+  const n = a.length; if (!n) return '';
+  const stroke = 'stroke="rgba(255,255,255,.8)" stroke-width="1.2"';
+  if (n >= 5) {
+    const ring = ['W', 'U', 'B', 'R', 'G'].map((c, i) => {
+      const a0 = -Math.PI / 2 + i * 2 * Math.PI / 5, a1 = a0 + 2 * Math.PI / 5;
+      const x0 = 12 + 9 * Math.cos(a0), y0 = 12 + 9 * Math.sin(a0), x1 = 12 + 9 * Math.cos(a1), y1 = 12 + 9 * Math.sin(a1);
+      return '<path d="M12 12L' + x0.toFixed(1) + ' ' + y0.toFixed(1) + 'A9 9 0 0 1 ' + x1.toFixed(1) + ' ' + y1.toFixed(1) + 'Z" fill="' + CC_MANA[c][0] + '"/>';
+    }).join('');
+    return ring + '<circle cx="12" cy="12" r="9" fill="none" ' + stroke + '/>';
+  }
+  const pos = n === 1 ? [[12, 12, 8]] : n === 2 ? [[7.5, 12, 6.2], [16.5, 12, 6.2]] : n === 3 ? [[12, 7, 5.2], [7, 16, 5.2], [17, 16, 5.2]] : [[7, 7, 5], [17, 7, 5], [7, 17, 5], [17, 17, 5]];
+  let out = a.map((c, i) => '<circle cx="' + pos[i][0] + '" cy="' + pos[i][1] + '" r="' + pos[i][2] + '" fill="' + CC_MANA[c][0] + '" ' + stroke + '/>').join('');
+  if (n === 1) { // letter keeps red/green distinguishable without colour
+    const dark = (a[0] === 'B' || a[0] === 'U' || a[0] === 'R' || a[0] === 'G');
+    out += '<text x="12" y="16.2" text-anchor="middle" font-size="11" font-weight="700" font-family="sans-serif" fill="' + (dark ? '#fff' : '#3a2f45') + '">' + a[0] + '</text>';
+  }
+  return out;
+}
+function ccTileInner(t) {
+  const k = ccKind(t.t); if (!k) return '';
+  let inner = CC_ICONS[k], cls = 'cc-ink';
+  if (k === 'land') { const p = ccPips(t.pm); if (p) { inner = p; cls = ''; } }
+  return '<svg viewBox="0 0 24 24" class="' + cls + '" aria-hidden="true">' + inner + '</svg>';
+}
+function ccTileLabel(t) {
+  const k = ccKind(t.t); if (!k) return '';
+  if (k === 'land') { const a = [...new Set(String(t.pm || '').toUpperCase().split('').filter(c => CC_MANA[c]))]; return a.length ? 'Land, makes ' + a.map(c => CC_MANA[c][1].toLowerCase()).join('/') : 'Land'; }
+  return CC_KIND_NAMES[k];
+}
+function showCentralityKey() {
+  const row = (tile, text) => '<div class="cc-tile cc-l0" style="aspect-ratio:1/1;">' + tile + '</div><div>' + text + '</div>';
+  const ico = k => '<svg viewBox="0 0 24 24" class="cc-ink" aria-hidden="true">' + CC_ICONS[k] + '</svg>';
+  const types = ['creature', 'instant', 'sorcery', 'artifact', 'enchantment', 'planeswalker', 'land', 'battle'].map(k => row(ico(k), CC_KIND_NAMES[k])).join('');
+  const lv = [['cc-l4', 'Commander'], ['cc-l3', 'Essential'], ['cc-l2', 'Linked'], ['cc-l1', 'Support'], ['cc-l0', 'Independent']]
+    .map(([k, l]) => '<div class="cc-tile ' + k + '" style="aspect-ratio:1/1;"></div><div>' + l + '</div>').join('');
+  const mana = ['W', 'U', 'B', 'R', 'G', 'C'].map(c => row('<svg viewBox="0 0 24 24" aria-hidden="true">' + (c === 'C' ? '<circle cx="12" cy="12" r="8" fill="#a8a8a8" stroke="rgba(255,255,255,.8)" stroke-width="1.2"/>' : ccPips(c)) + '</svg>', CC_MANA[c][1])).join('');
+  const multi = row('<svg viewBox="0 0 24 24" aria-hidden="true">' + ccPips('WG') + '</svg>', 'Two or more dots: a land that makes several colours') +
+    row('<svg viewBox="0 0 24 24" aria-hidden="true">' + ccPips('WUBRG') + '</svg>', 'Five-colour wheel: makes any colour');
+  const h = t => '<div style="font-family:Cinzel,Georgia,serif; font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--gold); margin:12px 0 4px;">' + t + '</div>';
+  showInfoModal('<h2 style="margin-bottom:6px;">Grid symbols</h2>',
+    '<div style="font-size:13px; color:var(--text-soft);">The <strong>background colour</strong> shows how the card relates to the commander. The <strong>symbol</strong> shows what the card is.</div>' +
+    h('Background (role)') + '<div class="cc-key">' + lv + '</div>' + h('Card type') + '<div class="cc-key">' + types + '</div>' +
+    h('Land colours') + '<div class="cc-key">' + mana + multi + '</div>' +
+    '<div style="font-size:12px; color:var(--text-dim); margin-top:8px;">Lands that make no coloured mana show the mountain symbol. Hold or tap a square for the card name, type and role.</div>');
+}
 function renderCommanderCentrality(agg, matched, commanders, winCons, archetypeMatch) {
   const panel = $('centralityPanel'), area = $('centralityArea');
   if (!panel || !area) return;
@@ -22245,7 +22319,7 @@ function renderCommanderCentrality(agg, matched, commanders, winCons, archetypeM
   const reasons = r.reasons.map(x => `<li>${escapeHtml(x)}</li>`).join('');
   const notes = r.notes.map(x => `<div class="cc-note">${escapeHtml(x)}</div>`).join('');
   const tiles = r.tiles.slice(0, 110).map(t =>
-    `<span class="card-name-link cc-tile cc-l${t.level}" data-card-name="${escapeHtml(t.name)}" title="${escapeHtml(t.name + (t.why ? ' — ' + t.why : ''))}"></span>`
+    `<span class="card-name-link cc-tile cc-l${t.level}" data-card-name="${escapeHtml(t.name)}" title="${escapeHtml(t.name + (ccTileLabel(t) ? ' (' + ccTileLabel(t) + ')' : '') + (t.why ? ' — ' + t.why : ''))}">${ccTileInner(t)}</span>`
   ).join('');
   const legendItems = [['cc-l4', 'Commander'], ['cc-l3', 'Essential'], ['cc-l2', 'Linked'], ['cc-l1', 'Support'], ['cc-l0', 'Independent']];
   const legendSwatch = { 'cc-l4': 'background:var(--gold-bright); border:2px solid #fff;', 'cc-l3': 'background:var(--gold-bright);', 'cc-l2': 'background:#8a6d2a;', 'cc-l1': 'background:#3d8f8a;', 'cc-l0': 'background:var(--bg-panel-raised);' };
@@ -22268,10 +22342,11 @@ function renderCommanderCentrality(agg, matched, commanders, winCons, archetypeM
     <ul class="cc-reasons">${reasons}</ul>
     ${notes}
     <div class="cc-grid">${tiles}</div>
-    <div class="cc-legend">${legend}</div>
+    <div class="cc-legend">${legend}</div><button type="button" class="cc-keybtn" id="ccKeyBtn">Symbol key</button>
     <div class="cc-bars-title">Commander support vs. a typical ${r.baselineLabel ? escapeHtml(r.baselineLabel) + ' ' : ''}deck</div>
     ${bars}
     <div style="font-size:11.5px; color:var(--text-dim); margin-top:2px;">White tick = typical ${r.baselineLabel ? escapeHtml(r.baselineLabel) + ' ' : ''}precon baseline deck${r.baselineLabel ? ` (from ${r.baselineN} decks)` : ''}. Gold bar = this deck runs more than that.</div>`;
+  const kb = $('ccKeyBtn'); if (kb) kb.onclick = showCentralityKey;
   panel.style.display = 'block';
 }
 
@@ -22290,7 +22365,7 @@ function buildCentralityExplainerHtml() {
   const rules = COMMANDER_RULES.map(x => `<li style="margin-bottom:4px;">${escapeHtml(x.rule)}</li>`).join('');
   return `<div style="font-size:13.5px; color:var(--text-primary); line-height:1.5;">` +
     `<div>Centrality shows how much this deck is <strong>built around its commander</strong>, as opposed to simply being led by it. Two things feed it: what the commander does for the deck, and how much the builder has invested in keeping it around. A deck full of ways to protect, recur, tutor for and cheapen its commander is telling you what its builder thinks the deck is about.</div>` +
-    sec('How to read the grid', `Each square is one card in the deck. The gold square with the white border is the commander. <strong>Bright gold</strong> cards are essential: part of a combo with it, or with no other synergy partner in the deck. <strong>Dim gold</strong> cards are linked: they synergize with it or match what its ability cares about. <strong>Teal</strong> cards are support (protection, recursion, tutors, cost reducers, equipment). Dark squares would work the same without it. Tap a square to see the card.`) +
+    sec('How to read the grid', `Each square is one card in the deck. The gold square with the white border is the commander. <strong>Bright gold</strong> cards are essential: part of a combo with it, or with no other synergy partner in the deck. <strong>Dim gold</strong> cards are linked: they synergize with it or match what its ability cares about. <strong>Teal</strong> cards are support (protection, recursion, tutors, cost reducers, equipment). Dark squares would work the same without it. Tap a square to see the card. The symbol inside each square shows the card type, and lands show the colours of mana they make. Tap <strong>Symbol key</strong> under the grid for the full list.`) +
     sec('How it is calculated', `Five signals, each 0–100, combined by weight.${table}`) +
     sec('What each signal means', `<strong>Plan involvement</strong>: how many of the deck's detected combos include the commander. <strong>Synergy reliance</strong>: if you removed the commander from the deck's synergy web, how much of it would fall apart. <strong>Deck alignment</strong>: how much of the deck matches what the commander's ability cares about (artifacts, a creature type, counters...), compared with a typical deck. <strong>Ability type</strong>: a repeating effect counts for more than a one-time enters-the-battlefield effect. <strong>Builder investment</strong>: support cards beyond what a typical precon of the same archetype runs (a Voltron deck is expected to carry more protection than a Spellslinger deck), so generic protection like Swiftfoot Boots doesn't inflate it.`) +
     sec('What it does not tell you', `It does not say the deck is good or bad, or that the commander is easy to answer. A high reading is a fair question for the table: "if this commander is dealt with, what does the deck do?" Bands were re-checked on Oct 12, 2026 against all 209 PodMates benchmark decks with combo detection switched on: the 159 precons and curated decks split about 25% Self-sufficient, 42% Supported, 23% Reliant and 10% All-in, so the cut-offs held. Tuned and competitive decks read lower (about 40% Self-sufficient), because they run several combo routes and the commander is only part of them. The plan signal only counts when combos are detected, and it measures the share of those combos that include the commander.`) +
