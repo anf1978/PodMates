@@ -24967,6 +24967,14 @@ function renderProfileModal(modal, myDecks, opts) {
     <div id="profileSyncStatus" style="font-size:12.5px; margin-bottom:12px;"></div>
     <div id="profileLinkedDecks" style="margin-bottom:10px;"></div>
     ${isWelcome ? `<p style="text-align:center; margin-top:10px;"><a href="#" id="profileSkipLink" style="font-size:12.5px; color:var(--text-soft); text-decoration:underline;">Skip for now</a></p>` : `
+    <details id="profileTableDetails" style="margin-top:16px; padding-top:14px; border-top:1px solid var(--line);">
+      <summary style="cursor:pointer; color:var(--gold); font-weight:600; font-size:13px;">My decks table &mdash; compare every deck's scores</summary>
+      <div style="margin-top:12px;">
+        <button id="profileBuildTableBtn" class="ghost" style="margin-bottom:8px;">Build my decks table</button>
+        <div id="profileTableStatus" class="status" style="min-height:16px;"></div>
+        <div id="profileTableArea" style="margin-top:8px;"></div>
+      </div>
+    </details>
     <details id="profileDisplayDetails" style="margin-top:16px; padding-top:14px; border-top:1px solid var(--line);">
       <summary style="cursor:pointer; color:var(--gold); font-weight:600; font-size:13px;">Display settings &mdash; colour themes</summary>
       <div id="profileDisplayArea" style="margin-top:12px;"></div>
@@ -24990,6 +24998,21 @@ function renderProfileModal(modal, myDecks, opts) {
   const skipLink = document.getElementById('profileSkipLink');
   if (skipLink) skipLink.addEventListener('click', (e) => { e.preventDefault(); closeTryADeckModal(); });
 
+  const buildMineBtn = document.getElementById('profileBuildTableBtn');
+  if (buildMineBtn) buildMineBtn.addEventListener('click', async () => {
+    const st = document.getElementById('profileTableStatus');
+    if (!dbReady) { st.textContent = 'Card database still loading — try again in a moment.'; st.className = 'status err'; return; }
+    st.textContent = 'Analysing your decks\u2026'; st.className = 'status';
+    try { await refreshCloudDecksCache(); } catch (e) { /* use what is cached */ }
+    const own = loadSavedDecks(), kept = new Set(pmDropLinkedDuplicates(Object.values(own)));
+    const mine = {}; for (const k of Object.keys(own)) if (kept.has(own[k])) mine[k] = own[k];
+    if (!Object.keys(mine).length) { st.textContent = 'No saved decks yet.'; return; }
+    await new Promise(r => setTimeout(r, 30));
+    const { rows, failed } = pmAnalyzeDeckRows(mine);
+    PM_TABLES.mine = { rows, chain: PM_TABLE_DEFAULT_CHAIN(), touched: false, area: document.getElementById('profileTableArea') };
+    st.textContent = `Built table for ${rows.length} deck(s)` + (failed ? ` \u2014 ${failed} couldn't be parsed and were skipped.` : '.');
+    pmRenderDecksTable('mine');
+  });
   const displayDetails = document.getElementById('profileDisplayDetails');
   if (displayDetails) {
     const fill = () => renderDisplaySettings(document.getElementById('profileDisplayArea'));
@@ -28819,6 +28842,14 @@ async function renderPlayerProfileContent(container, uid, displayName, podId) {
   container.innerHTML = `<p style="text-align:center; color:var(--text-soft); font-size:13px;">Loading profile…</p>`;
   const rawDecks = await getPlayerRawDecksForProfile(uid);
   const analyzed = analyzeDecksForProfile(rawDecks);
+  // Decks charted = decks saved. On your own profile that includes secret ones (only you see that note); on a podmate's it is what they share.
+  let chartedCount = rawDecks.length, chartedNote = '';
+  if (uid === (window.PodmatesCloud && window.PodmatesCloud.uid)) {
+    const all = pmDropLinkedDuplicates(Object.values(loadSavedDecks()).filter(d => typeof d === 'object'));
+    chartedCount = all.length;
+    const hidden = all.filter(d => d.secret === true).length;
+    if (hidden) chartedNote = ` (${hidden} secret)`;
+  }
   if (!analyzed.length) {
     container.innerHTML = `<h2 style="margin-bottom:8px;">${escapeHtml(displayName)}</h2><p style="font-size:13px; color:var(--text-soft);">No saved decks yet to build a profile from.</p>`;
     return;
@@ -28860,6 +28891,7 @@ async function renderPlayerProfileContent(container, uid, displayName, podId) {
       ${artUrl ? `<img src="${escapeHtml(artUrl)}" alt="${escapeHtml(headerCommander)}" style="max-width:100%; max-height:260px; border:2px solid var(--line-strong); margin-bottom:8px;">` : ''}
       <div style="font-family:'Cinzel',Georgia,serif; font-size:16px;">${escapeHtml(displayName)}</div>
       <div style="font-size:12.5px; margin-top:2px;">${artUrl ? escapeHtml(headerCommander) : cardNameLink(headerCommander)}</div>
+      <div style="font-size:12px; color:var(--text-soft); margin-top:5px;"><strong style="color:var(--gold); font-size:14px;">${chartedCount}</strong> deck${chartedCount === 1 ? '' : 's'} charted${chartedNote}</div>
     </div>
     ${vibeTrait ? `<div class="panel" style="text-align:center; padding:10px; margin-bottom:16px;">
       <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold);">Player Type</div>
@@ -29067,6 +29099,8 @@ async function renderPodProfileContent(container, pod) {
   const colorBreakdown = computeProfileColorBreakdown(analyzed);
   const typeBreakdown = computeProfileTypeBreakdown(analyzed);
   const vibeTrait = computeProfileVibeTrait(analyzed);
+  const byOwner = {}; rawDecks.forEach(d => { const n = d._ownerName || 'Podmate'; byOwner[n] = (byOwner[n] || 0) + 1; });
+  const perPlayerCounts = Object.entries(byOwner).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([n, c]) => `${escapeHtml(n)} ${c}`).join(' \u00b7 ');
 
   const colorRows = colorBreakdown.map(c => {
     const bg = (MANA_COLOR_STYLE[c.color] || {}).bg || '#888';
@@ -29089,7 +29123,8 @@ async function renderPodProfileContent(container, pod) {
   container.innerHTML = `
     <div style="text-align:center; margin-bottom:14px;">
       <div style="font-family:'Cinzel',Georgia,serif; font-size:17px;">${escapeHtml(pod.name)}</div>
-      <div style="font-size:12px; color:var(--text-soft); margin-top:2px;">${analyzed.length} deck${analyzed.length === 1 ? '' : 's'} across the pod</div>
+      <div style="font-size:12px; color:var(--text-soft); margin-top:2px;"><strong style="color:var(--gold); font-size:14px;">${rawDecks.length}</strong> deck${rawDecks.length === 1 ? '' : 's'} charted across the pod</div>
+      ${perPlayerCounts ? `<div style="font-size:11.5px; color:var(--text-soft); margin-top:3px;">${perPlayerCounts}</div>` : ''}
     </div>
     ${vibeTrait ? `<div class="panel" style="text-align:center; padding:10px; margin-bottom:16px;">
       <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold);">Pod Type</div>
@@ -31005,32 +31040,11 @@ async function restoreMyDataBackup(jsonText) {
 
 
 let savedDecksTableData = null;
-let savedDecksTableSort = { key: 'commandSpark', dir: 'desc' };
+const PM_TABLES = {};   // tableId -> { rows, chain, touched, area }: each table keeps its own sort chain
+const PM_TABLE_DEFAULT_CHAIN = () => [{ key: 'commandSpark', dir: 'desc' }];
 
-async function buildSavedDecksTable() {
-  const statusEl = $('savedDecksTableStatus');
-  if (!dbReady) {
-    if (statusEl) { statusEl.textContent = 'Card database still loading — try again in a moment.'; statusEl.className = 'status err'; }
-    return;
-  }
-  if (statusEl) { statusEl.textContent = 'Gathering decks…'; statusEl.className = 'status'; }
-  await refreshPodmateDecksCache();
-  const decks = Object.assign({}, loadSavedDecks());
-  for (const [key, entry] of Object.entries(podmateDecksCache)) {
-    decks[key] = Object.assign({}, entry, { player: entry.ownerName });
-  }
-  {   // a linked deck that was also charted and saved is one deck: keep the saved one
-    const kept = new Set(pmDropLinkedDuplicates(Object.values(decks)));
-    for (const k of Object.keys(decks)) if (!kept.has(decks[k])) delete decks[k];
-  }
+function pmAnalyzeDeckRows(decks) {
   const keys = Object.keys(decks);
-  if (keys.length === 0) {
-    if (statusEl) { statusEl.textContent = 'No saved decks yet — save one from the main tab first.'; statusEl.className = 'status err'; }
-    $('savedDecksTableArea').innerHTML = '';
-    return;
-  }
-  if (statusEl) { statusEl.textContent = `Analyzing ${keys.length} saved deck(s)…`; statusEl.className = 'status'; }
-
   const rows = [];
   let failed = 0;
   for (const key of keys) {
@@ -31057,7 +31071,36 @@ async function buildSavedDecksTable() {
       bracket: result.bracket.bracket,
     });
   }
+  return { rows, failed };
+}
+
+async function buildSavedDecksTable() {
+  const statusEl = $('savedDecksTableStatus');
+  if (!dbReady) {
+    if (statusEl) { statusEl.textContent = 'Card database still loading — try again in a moment.'; statusEl.className = 'status err'; }
+    return;
+  }
+  if (statusEl) { statusEl.textContent = 'Gathering decks…'; statusEl.className = 'status'; }
+  await refreshPodmateDecksCache();
+  const decks = Object.assign({}, loadSavedDecks());
+  for (const [key, entry] of Object.entries(podmateDecksCache)) {
+    decks[key] = Object.assign({}, entry, { player: entry.ownerName });
+  }
+  {   // a linked deck that was also charted and saved is one deck: keep the saved one
+    const kept = new Set(pmDropLinkedDuplicates(Object.values(decks)));
+    for (const k of Object.keys(decks)) if (!kept.has(decks[k])) delete decks[k];
+  }
+  const keys = Object.keys(decks);
+  if (keys.length === 0) {
+    if (statusEl) { statusEl.textContent = 'No saved decks yet — save one from the main tab first.'; statusEl.className = 'status err'; }
+    $('savedDecksTableArea').innerHTML = '';
+    return;
+  }
+  if (statusEl) { statusEl.textContent = `Analyzing ${keys.length} saved deck(s)…`; statusEl.className = 'status'; }
+
+  const { rows, failed } = pmAnalyzeDeckRows(decks);
   savedDecksTableData = rows;
+  PM_TABLES.saved = { rows, chain: PM_TABLE_DEFAULT_CHAIN(), touched: false, area: $('savedDecksTableArea') };
   if (statusEl) {
     statusEl.textContent = failed
       ? `Built table for ${rows.length} deck(s) — ${failed} couldn't be parsed and were skipped.`
@@ -31082,25 +31125,29 @@ const SAVED_DECKS_TABLE_COLUMNS = [
   { key: 'bracket', label: 'Bracket', numeric: false },
 ];
 
-function renderSavedDecksTable() {
-  const area = $('savedDecksTableArea');
-  if (!area) return;
-  if (!savedDecksTableData || savedDecksTableData.length === 0) { area.innerHTML = ''; return; }
+function renderSavedDecksTable() { pmRenderDecksTable('saved'); }
 
-  const { key: sortKey, dir } = savedDecksTableSort;
-  const sorted = [...savedDecksTableData].sort((a, b) => {
-    const av = a[sortKey], bv = b[sortKey];
-    let cmp;
-    if (typeof av === 'number' && typeof bv === 'number') cmp = av - bv;
-    else cmp = String(av).localeCompare(String(bv));
-    return dir === 'asc' ? cmp : -cmp;
+// One table renderer for the Build Table tab and My Profile. Sorting is a chain, like a spreadsheet: tap a column to add it as the next
+// sort level (the first tap replaces the default sort), tap a column already in the chain to flip its direction, Clear starts over.
+function pmRenderDecksTable(tid) {
+  const t = PM_TABLES[tid];
+  if (!t || !t.area) return;
+  const area = t.area;
+  if (!t.rows || t.rows.length === 0) { area.innerHTML = ''; return; }
+  const chain = t.chain;
+  const sorted = [...t.rows].sort((a, b) => {
+    for (const { key, dir } of chain) {
+      const av = a[key], bv = b[key];
+      const cmp = (typeof av === 'number' && typeof bv === 'number') ? av - bv : String(av).localeCompare(String(bv));
+      if (cmp) return dir === 'asc' ? cmp : -cmp;
+    }
+    return 0;
   });
-
   const headerHtml = SAVED_DECKS_TABLE_COLUMNS.map(col => {
-    const arrow = sortKey === col.key ? (dir === 'asc' ? ' \u25b2' : ' \u25bc') : '';
-    return `<th data-sort-key="${col.key}" style="cursor:pointer; padding:8px 10px; text-align:${col.numeric ? 'right' : 'left'}; white-space:nowrap; color:var(--gold); border-bottom:1px solid var(--line-strong); font-size:12.5px; text-transform:uppercase; letter-spacing:0.04em;">${escapeHtml(col.label)}${arrow}</th>`;
+    const at = chain.findIndex(c => c.key === col.key);
+    const arrow = at >= 0 ? (chain[at].dir === 'asc' ? ' ▲' : ' ▼') + (chain.length > 1 ? `<sup style="font-size:9px;"> ${at + 1}</sup>` : '') : '';
+    return `<th data-sort-key="${col.key}" data-tid="${tid}" style="cursor:pointer; padding:8px 10px; text-align:${col.numeric ? 'right' : 'left'}; white-space:nowrap; color:var(--gold); border-bottom:1px solid var(--line-strong); font-size:12.5px;">${col.label}${arrow}</th>`;
   }).join('');
-
   const rowsHtml = sorted.map(r => {
     return `<tr>` + SAVED_DECKS_TABLE_COLUMNS.map(col => {
       const val = r[col.key];
@@ -31108,22 +31155,37 @@ function renderSavedDecksTable() {
       return `<td style="padding:7px 10px; text-align:${col.numeric ? 'right' : 'left'}; border-bottom:1px solid var(--line); font-size:13px; color:${col.numeric ? 'var(--text-primary)' : 'var(--text-soft)'}; white-space:nowrap;">${display}</td>`;
     }).join('') + `</tr>`;
   }).join('');
-
-  area.innerHTML = `<table style="border-collapse:collapse; width:100%; min-width:760px;"><thead><tr>${headerHtml}</tr></thead><tbody>${rowsHtml}</tbody></table>` +
+  const labelOf = k => (SAVED_DECKS_TABLE_COLUMNS.find(c => c.key === k) || {}).label || k;
+  const chainLine = `<div style="margin-bottom:6px; font-size:12.5px; color:var(--text-soft);">Sorted by: ${chain.map(c => `<strong style="color:var(--text-primary);">${escapeHtml(labelOf(c.key))}</strong> ${c.dir === 'asc' ? '▲' : '▼'}`).join(' → ')}`
+    + ` &nbsp;<button type="button" class="ghost" data-sort-clear="${tid}" style="padding:2px 8px; font-size:11.5px;">Clear</button>`
+    + `<span style="display:block; font-size:11.5px; margin-top:2px;">Tap more columns to sort within ties, like a spreadsheet. Tap a sorted column again to flip it.</span></div>`;
+  area.innerHTML = chainLine + `<div style="overflow-x:auto;"><table style="border-collapse:collapse; width:100%; min-width:760px;"><thead><tr>${headerHtml}</tr></thead><tbody>${rowsHtml}</tbody></table></div>` +
     `<div style="margin-top:8px; font-size:12.5px; color:var(--text-soft); line-height:1.5;">Precon %, Tuned % and cEDH % show where each deck's Spark sits within the PodMates reference decks of that tier: the share of those decks it scores above (${escapeHtml(referenceSetSummary())}). A deck at 50% in a tier is level with that tier's middle deck.</div>`;
 }
 
 document.addEventListener('click', (e) => {
+  const clr = e.target && e.target.closest ? e.target.closest('[data-sort-clear]') : null;
+  if (clr) {
+    const t = PM_TABLES[clr.getAttribute('data-sort-clear')];
+    if (t) { t.chain = PM_TABLE_DEFAULT_CHAIN(); t.touched = false; pmRenderDecksTable(clr.getAttribute('data-sort-clear')); }
+    return;
+  }
   const th = e.target && e.target.closest ? e.target.closest('[data-sort-key]') : null;
   if (th) {
+    const tid = th.getAttribute('data-tid') || 'saved', t = PM_TABLES[tid];
+    if (!t) return;
     const key = th.getAttribute('data-sort-key');
-    if (savedDecksTableSort.key === key) {
-      savedDecksTableSort.dir = savedDecksTableSort.dir === 'asc' ? 'desc' : 'asc';
+    const at = t.chain.findIndex(c => c.key === key);
+    if (at >= 0 && t.touched) {
+      t.chain[at].dir = t.chain[at].dir === 'asc' ? 'desc' : 'asc';
+    } else if (at >= 0) {
+      t.chain[at].dir = t.chain[at].dir === 'asc' ? 'desc' : 'asc'; t.touched = true;
     } else {
       const col = SAVED_DECKS_TABLE_COLUMNS.find(c => c.key === key);
-      savedDecksTableSort = { key, dir: col && col.numeric ? 'desc' : 'asc' };
+      const entry = { key, dir: col && col.numeric ? 'desc' : 'asc' };
+      if (!t.touched) { t.chain = [entry]; t.touched = true; } else t.chain.push(entry);
     }
-    renderSavedDecksTable();
+    pmRenderDecksTable(tid);
   }
 });
 
