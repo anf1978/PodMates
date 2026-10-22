@@ -29830,11 +29830,14 @@ function getCurrentlyViewedDeckAsBuilder() {
   };
 }
 
-function openDeckBuilderOverlay() {
+// opts.blank: open completely empty (used by Start New). Without it, an empty builder falls back to whatever is loaded in Deck Chart.
+function openDeckBuilderOverlay(opts) {
   if (!dbReady) { showToast('Card database still loading — try again in a moment.'); return; }
   const draft = loadDeckBuilderDraft();
   const restoredDraft = !!(draft && draft.cards && Object.keys(draft.cards).length);
-  const currentDeck = getCurrentlyViewedDeckAsBuilder();
+  const blank = !!(opts && opts.blank);
+  // Start New must really start empty: with the draft just cleared, the old fallback re-filled the builder from Deck Chart.
+  const currentDeck = blank ? null : getCurrentlyViewedDeckAsBuilder();
   // An unfinished draft always wins by default -- never silently discard
   // real work just because something else happens to be loaded in Deck
   // Chart. But when there IS something there too, it's offered as an
@@ -29925,7 +29928,8 @@ function openDeckBuilderOverlay() {
   if (startNewBtn) startNewBtn.addEventListener('click', () => {
     showActionConfirmModal('Start a new deck? This clears everything currently in the builder — there\u2019s no way back to it after this.', 'Start New', () => {
       clearDeckBuilderDraft();
-      openDeckBuilderOverlay();
+      deckBuilderCards = {}; deckBuilderCommanderName = null; // also wipe the in-memory copy, not just the saved draft
+      openDeckBuilderOverlay({ blank: true });
     }, () => openDeckBuilderOverlay());
   });
 
