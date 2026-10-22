@@ -24965,7 +24965,10 @@ function renderProfileModal(modal, myDecks, opts) {
       <button id="profileAddDeckBtn" class="ghost has-tooltip" data-tooltip="Creates a deck that stays synced with Archidekt/Moxfield going forward. For a one-time import instead, use Import Deck on the Deck Chart tab." style="white-space:nowrap;">Add Deck</button>
     </div>
     <div id="profileSyncStatus" style="font-size:12.5px; margin-bottom:12px;"></div>
-    <div id="profileLinkedDecks" style="margin-bottom:10px;"></div>
+    <details id="profileDeckListDetails" ${isWelcome ? 'open' : ''} style="margin-bottom:10px;">
+      <summary style="cursor:pointer; color:var(--gold); font-weight:600; font-size:13px;">Show my decks <span id="profileDeckCount" style="color:var(--text-soft); font-weight:400;"></span></summary>
+      <div id="profileLinkedDecks" style="margin-top:8px;"></div>
+    </details>
     ${isWelcome ? `<p style="text-align:center; margin-top:10px;"><a href="#" id="profileSkipLink" style="font-size:12.5px; color:var(--text-soft); text-decoration:underline;">Skip for now</a></p>` : `
     <details id="profileTableDetails" style="margin-top:16px; padding-top:14px; border-top:1px solid var(--line);">
       <summary style="cursor:pointer; color:var(--gold); font-weight:600; font-size:13px;">My decks table &mdash; compare every deck's scores</summary>
@@ -25277,6 +25280,8 @@ function renderMyDecksList(modal, myDecks, isWelcome) {
   const container = el || document.getElementById('profileLinkedDecks');
   if (!container) return;
 
+  const cnt = document.getElementById('profileDeckCount');
+  if (cnt) cnt.textContent = `(${myDecks.length})`;
   if (!myDecks.length) {
     container.innerHTML = `<div style="font-size:13px; color:var(--text-soft);">No decks saved yet — use "Save Deck" on the Chart Deck page, or add a link above.</div>`;
     return;
@@ -28909,8 +28914,10 @@ async function renderPlayerProfileContent(container, uid, displayName, podId) {
         <div style="margin-top:10px;">${typeRows}</div>
       </div>
     </div>
-    <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold); margin-bottom:8px;">Archetypes</div>
-    <table style="width:100%; border-collapse:collapse;"><tbody>${archetypeRows}</tbody></table>
+    <details>
+      <summary style="cursor:pointer; font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold);">Show archetypes <span style="color:var(--text-soft); text-transform:none; letter-spacing:0;">(${archetypeTable.length})</span></summary>
+      <table style="width:100%; border-collapse:collapse; margin-top:8px;"><tbody>${archetypeRows}</tbody></table>
+    </details>
   `;
 }
 
