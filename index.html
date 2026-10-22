@@ -21701,6 +21701,134 @@ function ixThinSpots(roles) {
   if (!roles) return [];
   return IX_THIN_FLOORS.filter(r => typeof roles[r.key] === 'number' && roles[r.key] < r.floor).map(r => ({ key: r.key, label: r.label, floor: r.floor, lists: r.lists, have: roles[r.key] }));
 }
+// A thin-spot suggestion must really do the job for an ordinary deck: removal that hits a creature or other permanent, ramp that works without conditions, draw that adds cards.
+function ixThinFits(key, c) {
+  const t = ixText({ n: c.n, o: String(c.o || '') + (c.ob ? '\n' + c.ob : '') });
+  if (key === 'removal') return /\b(?:destroy|exile) (?:up to \w+ )?(?:target|another target|each|all) (?:attacking |nonland |nonblack |nonartifact |tapped |nontoken |opponent's )?(?:creature|permanent|planeswalker)|deals? (?:\d+|x) damage to (?:any target|target creature)|target creature gets -|return target (?:nonland )?(?:creature|permanent)[^.]* to its owner's hand|put target creature[^.]*(?:on top of|into) its owner's library/.test(t);
+  if (key === 'ramp') return !/tap an untapped|doesn't untap|\bimprint\b|spend this mana only|only to cast|sacrifice (?:this|~)[^.]*add/.test(t);
+  if (key === 'draw') return !/draw a card at the beginning of the next|draw a card unless|put [^.]*on top of (?:its owner's|your) library|whenever you cast (?:a |an )?(?:creature |noncreature )?spell|whenever one or more tokens|sacrifice (?:a|another) creature:/.test(t) && !((c.m || 0) <= 1 && /instant|sorcery/i.test(String(c.t)));      // conditional engines and one-for-one cantrips do not fix a card-draw gap
+  return true;
+}
+// ===== NEW DIMENSION (display only) =====
+// Directions the deck is already leaning toward. Three kinds, always tied to named cards in the deck:
+//   "Feed what you make": plenty of one half of a pair (token makers) and almost none of the other (ways to use tokens).
+//   "Build it into a plan": the other half is there but thin, one or two more pieces make a real plan.
+//   "Commander pivot": the commander pays off one half but the deck has few of the other half.
+// Nothing here changes a score or a classification.
+const IXD_CHEAP = 6;
+function ixdTyp(c) { return String(c.t || '').split('—')[0].toLowerCase(); }
+function ixdSide(name, verb, test, cands, min, max, one) { return { name, verb, test, cands, min, max: max === undefined ? 3 : max, one: one || name }; }
+function ixdPl(side, n) { return n + ' ' + (n === 1 ? side.one : side.name); }
+const IXD = (() => {
+  const blinkF = () => { try { return ixParseFilter('a creature', []); } catch (e) { return null; } };
+  const counterMake = /(?:put|puts|enters with|gets?|distribute)[^.]{0,60}\+1\/\+1 counters?/;
+  const tokenMade = (t) => ixTokensMade(t).some(k => k.creature);
+  const sacOutlet = /sacrifice (?:a|an|another|any number of|up to \w+)[^:.]{0,40}:/;
+  const deathPay = /whenever (?:~ or )?(?:another |a |one or more )?(?:nontoken )?creatures? (?:you control )?(?:and\/or [^.]{0,40})?dies[^.]*(?:each opponent loses|loses? \d+ life|deals? \d+ damage|draw|create|put|gain)|whenever you sacrifice (?:a|another)/;
+  const reanim = /return [^.]{0,70}(?:creature|permanent) cards?[^.]{0,70}from (?:your|a|any) graveyards? to the battlefield|put [^.]{0,60}creature card[^.]{0,60}from (?:your|a|any) graveyards? onto the battlefield/;
+  const selfMill = /\bmill (?:\w+ )?cards?\b|\bsurveil\b|discard (?:a|one|two|up to \w+) cards?[^.]{0,40}(?:then|,) draw|draw (?:a|two|three) cards?[^.]{0,40}then discard/;
+  const tokenPay = [
+    [/(?:^|[.,:;\n]\s*|\b(?:and|then|have|gain|until|if|where) )(?:other )?creatures you control get \+\d+\/\+\d+/, 'boosts your whole team'],      // not "Merfolk creatures you control get ..."
+    [/twice that many (?:of those )?(?:creature )?tokens|if an effect would create one or more tokens[^.]*instead/, 'doubles the tokens you make'],
+    [/(?:for each|equal to the number of) (?:other )?creatures? you control[^.]{0,60}(?:damage|life|draw)|(?:damage|life|draw)[^.]{0,60}(?:for each|equal to the number of) (?:other )?creatures? you control/, 'scales with how many creatures you have'],
+    [/whenever (?:one or more )?(?:other )?(?:creature )?tokens? (?:you control )?(?:enters?|are created|you control)/, 'rewards every token'],
+  ];
+  const artPay = [
+    [/(?:for each|equal to the number of) artifacts? you control|artifacts you control (?:get|have)/, 'scales with your artifacts'],
+    [/whenever (?:an?|one or more) (?:nontoken )?artifacts?[^.]{0,30}(?:enters?|you control)|whenever you (?:cast an artifact|sacrifice an artifact)|whenever (?:a|one or more) treasures?/, 'pays you each time an artifact arrives'],
+  ];
+  const cntPay = [
+    [/twice that many[^.]{0,40}counters|double the number of[^.]{0,40}counters|put (?:that many )?(?:an )?additional[^.]{0,30}counters?/, 'doubles your counters'],
+    [/\bproliferate\b/, 'adds a counter of every kind you have'],
+    [/(?:for each|number of) \+1\/\+1 counters? (?:on|among)|creatures you control with \+1\/\+1 counters|whenever (?:you put|one or more \+1\/\+1 counters)/, 'pays off your counters'],
+  ];
+  const onePay = (arr) => (t) => arr.some(a => a[0].test(t));
+  return [
+    { id: 'tokens', label: 'Your tokens', make: ixdSide('token makers', 'make tokens', (t) => tokenMade(t), [[(t, c) => tokenMade(t) && (c.m || 0) <= 3 && /\bwhen(?:ever)?\b[^.]*\benters\b|^create|\{t\}|at the beginning/.test(t), 'makes more bodies']], 8),
+      pay: ixdSide('ways to use them', 'use tokens', onePay(tokenPay), tokenPay, 0, 3, 'way to use them'), mk: 'Put your tokens to work', mk2: 'More token makers', cmd: 'rewards a big board' },
+    { id: 'artifacts', label: 'Your artifacts', make: ixdSide('artifacts and treasure makers', 'make artifacts', (t, c) => (/artifact/.test(ixdTyp(c)) && !/land/.test(ixdTyp(c)) && !/\badd (?:\{|one|two|three|that)/.test(t)) || /create[^.]{0,40}\btreasure\b/.test(t), [[(t, c) => /create[^.]{0,40}\btreasure\b/.test(t) && (c.m || 0) <= 3, 'makes Treasure']], 16),
+      pay: ixdSide('artifact payoffs', 'reward artifacts', onePay(artPay), artPay, 0, 3, 'artifact payoff'), mk: 'Reward your artifacts', mk2: 'Cheap artifact makers', cmd: 'rewards artifacts' },
+    { id: 'counters', label: 'Your +1/+1 counters', make: ixdSide('counter sources', 'add counters', (t) => counterMake.test(t), [[(t, c) => counterMake.test(t) && (c.m || 0) <= 3 && /\bwhen(?:ever)?\b|\{t\}|at the beginning/.test(t), 'puts counters on creatures']], 8),
+      pay: ixdSide('counter payoffs', 'multiply counters', onePay(cntPay), cntPay, 0, 3, 'counter payoff'), mk: 'Multiply the counters', mk2: 'More counter sources', cmd: 'cares about counters' },
+    { id: 'sac', label: 'Sacrifice', make: ixdSide('bodies to sacrifice', 'make fodder', (t, c) => tokenMade(t) || (/creature/.test(ixdTyp(c)) && /\bwhen ~ dies\b/.test(t)), [[(t, c) => tokenMade(t) && (c.m || 0) <= 3 && /\bwhen(?:ever)?\b[^.]*\benters\b|^create|\{t\}|at the beginning/.test(t), 'makes bodies to sacrifice']], 8),
+      pay: ixdSide('sacrifice outlets and death payoffs', 'cash in sacrifices', (t) => sacOutlet.test(t) || deathPay.test(t), [[(t) => sacOutlet.test(t) && /sacrifice (?:a|an|another)[^:.]{0,30}creature/.test(t), 'a way to sacrifice your own creatures'], [(t) => deathPay.test(t) && !/sacrifice a creature:/.test(t), 'drains or draws when your creatures die']], 0, 2, 'sacrifice outlet or death payoff'), mk: 'Cash in the sacrifices', mk2: 'Bodies to sacrifice', cmd: 'rewards creatures dying' },
+    { id: 'gy', label: 'Your graveyard', make: ixdSide('ways to fill the graveyard', 'fill the graveyard', (t) => selfMill.test(t), [[(t, c) => selfMill.test(t) && (c.m || 0) <= 3, 'puts cards in the graveyard']], 6),
+      pay: ixdSide('reanimation spells', 'bring creatures back', (t) => reanim.test(t), [[(t) => reanim.test(t), 'returns creatures from the graveyard to the battlefield']], 3, 1, 'reanimation spell'), mk: 'Bring them back', mk2: 'Fill the graveyard', cmd: 'rewards a full graveyard', reverse: true },
+    { id: 'life', label: 'Your lifegain', make: ixdSide('lifegain sources', 'gain life', (t) => /gain (?:\d+|x|that much) life|lifelink|gains? life equal/.test(t), [[(t, c) => /gain (?:\d+|x|that much) life|lifelink/.test(t) && (c.m || 0) <= 3, 'gains life']], 10),
+      pay: ixdSide('lifegain payoffs', 'reward lifegain', (t) => /whenever you gain life|for each (?:1 )?life you gained|life you gained this turn|if you gained life/.test(t), [[(t) => /whenever you gain life|for each (?:1 )?life you gained|life you gained this turn|if you gained life/.test(t), 'pays you for gaining life']], 0, 3, 'lifegain payoff'), mk: 'Pay off the lifegain', mk2: 'More lifegain', cmd: 'rewards lifegain' },
+    { id: 'spells', label: 'Your spells', make: ixdSide('instants and sorceries', 'cast spells', (t, c) => /instant|sorcery/.test(ixdTyp(c)), [], 26),
+      pay: ixdSide('spell payoffs', 'reward spells', (t) => /whenever you cast (?:an? |your (?:first|second) )?(?:instant|sorcery|noncreature)|\bmagecraft\b|whenever you cast (?:or copy )?an instant or sorcery/.test(t), [[(t) => /whenever you cast (?:an? |your (?:first|second) )?(?:instant|sorcery|noncreature)|whenever you cast (?:or copy )?an instant or sorcery/.test(t), 'pays you each time you cast a spell']], 0, 3, 'spell payoff'), mk: 'Reward every spell', cmd: 'rewards casting spells' },
+    { id: 'land', label: 'Your land ramp', make: ixdSide('land ramp cards', 'put lands onto the battlefield', (t) => /search your library for[^.]{0,60}\bland\b[^.]{0,80}onto the battlefield|put (?:a|up to \w+) lands?[^.]{0,40}onto the battlefield|additional land|play lands from/.test(t), [[(t, c) => /search your library for[^.]{0,60}\bland\b[^.]{0,80}onto the battlefield|additional land/.test(t) && (c.m || 0) <= 4, 'puts more lands onto the battlefield']], 9),
+      pay: ixdSide('landfall payoffs', 'reward lands', (t) => /\blandfall\b|whenever (?:a|another|one or more) lands? (?:you control )?enters?/.test(t), [[(t, c) => /\blandfall\b|whenever (?:a|another|one or more) lands? (?:you control )?enters?/.test(t) && !/\bland\b/.test(ixdTyp(c)), 'pays you for every land']], 0, 3, 'landfall payoff'), mk: 'Pay off the lands', cmd: 'rewards lands' },
+    { id: 'blink', label: 'Your enter-the-battlefield creatures', make: ixdSide('enter-the-battlefield creatures', 'trigger when they enter', (t, c) => /creature/.test(ixdTyp(c)) && /\bwhen ~ enters\b/.test(t), [], 12),
+      pay: ixdSide('blink effects', 'flicker creatures', (t, c) => { const f = blinkF(); return !!f && ixBlinkFits(c, t, f); }, [[(t, c) => { const f = blinkF(); return !!f && ixBlinkFits(c, t, f) && (c.m || 0) <= 4; }, 'flickers a creature so it enters again']], 0, 2, 'blink effect'), mk: 'Use them twice', cmd: 'rewards creatures entering' },
+  ];
+})();
+function ixdCount(matched, side) {
+  const names = [];
+  for (const m of matched) { const c = m.card; try { if (side.test(ixText(c), c)) names.push(c.n); } catch (e) {} }
+  return names;
+}
+function ixdCands(pool, side, deckSet) {
+  const out = [];
+  for (const c of pool) {
+    if ((c.m || 0) > IXD_CHEAP || /\bland\b/.test(ixdTyp(c)) || deckSet.has(String(c.n).toLowerCase()) || !knowCard(c.n)) continue;      // only cards the community lists recognise
+    const t = ixText({ n: c.n, o: String(c.o || '') + (c.ob ? '\n' + c.ob : '') });
+    for (const [re, why] of side.cands) {
+      let ok = false; try { ok = typeof re === 'function' ? re(t, c) : re.test(t); } catch (e) {}
+      if (ok) { out.push({ n: c.n, m: c.m || 0, why, g: c.g }); break; }
+    }
+  }
+  return out;
+}
+function ixNewDimensions(matched, commanders, pool) {
+  const found = [];
+  const deckSet = new Set(matched.map(m => String(m.card.n).toLowerCase()));
+  const cmdCards = (commanders || []).map(n => (matched.find(m => m.card.n === n) || {}).card).filter(Boolean);
+  const by = (a, b) => (knowQ(b.n) - knowQ(a.n)) || a.m - b.m || a.n.localeCompare(b.n);
+  const eg = (arr) => arr.slice(0, 3).join(', ');
+  for (const d of IXD) {
+    const mk = ixdCount(matched, d.make), pa = ixdCount(matched, d.pay);
+    const sides = [[d.make, mk, d.pay, pa, d.mk, false], [d.pay, pa, d.make, mk, d.mk2, true]];
+    let made = null;
+    // forward: lots of the maker side, few of the payoff side
+    if (mk.length >= d.make.min && d.pay.cands.length) {
+      if (pa.length <= 1) made = { tag: 'Feed what you make', side: d.pay, label: d.mk, sub: 'you run ' + mk.length + ' ' + d.make.name + ' (' + eg(mk) + ') but ' + (pa.length ? 'only ' + ixdPl(d.pay, pa.length) : 'no ' + d.pay.name) };
+      else if (pa.length <= d.pay.max) made = { tag: 'Build it into a plan', side: d.pay, label: d.mk, sub: mk.length + ' ' + d.make.name + ' and ' + ixdPl(d.pay, pa.length) + ' (' + eg(pa) + '): a couple more would make it a real plan' };
+    }
+    // reverse: lots of the payoff side (reanimation) and few of the enablers
+    if (!made && d.reverse && pa.length >= d.pay.min && mk.length <= 1 && d.make.cands.length) made = { tag: 'Feed what you make', side: d.make, label: d.mk2, sub: 'you run ' + pa.length + ' ' + d.pay.name + ' (' + eg(pa) + ') but ' + (mk.length ? 'only ' + mk.length : 'no') + ' ' + d.make.name };
+    // commander pivot: the commander is a payoff but the deck lacks the maker side
+    if (!made && d.make.cands.length && cmdCards.length && mk.length < Math.ceil(d.make.min / 2) && cmdCards.some(c => { try { return d.pay.test(ixText(c), c) && !d.make.test(ixText(c), c); } catch (e) { return false; } })) {
+      made = { tag: 'Commander pivot', side: d.make, label: d.mk2 || 'Feed it', sub: (cmdCards.find(c => { try { return d.pay.test(ixText(c), c); } catch (e) { return false; } }) || {}).n + ' ' + d.cmd + ', but the deck has ' + (mk.length ? 'only ' + mk.length : 'no') + ' ' + d.make.name };
+    }
+    if (!made) continue;
+    const list = ixdCands(pool, made.side, deckSet).sort(by).slice(0, 5);
+    if (list.length < 2) continue;
+    found.push({ score: (made.tag === 'Commander pivot' ? 0.5 : 1) * Math.max(mk.length / (d.make.min || 1), 1), item: { title: d.label, sub: made.sub, tag: made.tag, dim: true, groups: [{ label: made.label, list }] } });
+  }
+  // tribal: a creature type with plenty of members and no lord
+  try {
+    const counts = new Map();
+    for (const m of matched) { const t = String(m.card.t || ''); if (!/creature/i.test(t.split('—')[0]) || t.indexOf('—') < 0) continue; for (const s of t.split('—')[1].trim().split(/\s+/)) if (s && s !== 'Human') counts.set(s, (counts.get(s) || 0) + 1); }
+    const top = Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0];
+    const tribe = !top ? '' : (/(?:fe?)$/.test(top[0]) ? top[0].replace(/fe?$/, 'ves') : /y$/.test(top[0]) ? top[0].replace(/y$/, 'ies') : /(?:s|x|ch|sh)$/.test(top[0]) ? top[0] + 'es' : top[0] + 's');
+    if (top && top[1] >= 12) {
+      const forms = centralityPluralForms(top[0]).map(w => w.toLowerCase()).join('|');
+      const lordRe = new RegExp('(?:other )?(?:' + forms + ') you control (?:get|have|gain)|(?:each|every|another) (?:' + forms + ')[^.]{0,40}(?:get|gets|have)');
+      const lords = matched.filter(m => lordRe.test(ixText(m.card))).map(m => m.card.n);
+      if (lords.length <= 1) {
+        const list = [];
+        for (const c of pool) { if ((c.m || 0) > IXD_CHEAP || deckSet.has(String(c.n).toLowerCase()) || /\bland\b/.test(ixdTyp(c)) || !knowCard(c.n)) continue; const t = ixText(c); if (lordRe.test(t)) list.push({ n: c.n, m: c.m || 0, why: 'boosts or rewards your ' + tribe, g: c.g }); }
+        list.sort(by);
+        if (list.length >= 2) found.push({ score: top[1] / 12, item: { title: 'Your ' + tribe, sub: 'you run ' + top[1] + ' ' + tribe + ' but ' + (lords.length ? 'only ' + lords.length + ' lord' : 'no lords'), tag: 'Feed what you make', dim: true, groups: [{ label: 'Lords and tribal payoffs', list: list.slice(0, 5) }] } });
+      }
+    }
+  } catch (e) {}
+  found.sort((a, b) => b.score - a.score);
+  return found.slice(0, 2).map(f => f.item);
+}
+// ===== END NEW DIMENSION =====
 function ixThinSuggestions(roles, pool) {
   const out = [];
   try {
@@ -21715,6 +21843,7 @@ function ixThinSuggestions(roles, pool) {
         for (const e of k[1]) if (idxs.indexOf(e[0]) >= 0 && !e[2] && e[1] >= 2) { const p = (e[3] || 99) / (KNOW_JSON.lists[e[0]][1] || 1); if (!best || p < best.p) best = { p, e }; }
         if (!best) continue;
         const c = poolMap.get(name.toLowerCase()); if (!c) continue;
+        if (!ixThinFits(th.key, c)) continue;
         cand.push({ n: c.n, m: c.m || 0, p: best.p, why: k[3] === best.e[0] && k[2] ? k[2] : 'ranked #' + (best.e[3] || '?') + ' on its best-of list', g: c.g });
       }
       if (!cand.length) continue;
@@ -21732,27 +21861,62 @@ function knowBadge(name) {
 }
 
 const ixTagged = (set, c) => set.has(String(c.n || '').split('//')[0].trim().toLowerCase());
+// Which card words can a filter's event involve? "a Desert" -> land, "a Vehicle" -> artifact, "an Elf" -> creature, "a token" -> creature. Used to keep every repeater/doubler honest.
+const IX_NONCREATURE_SUBS = { vehicle: 'artifact', equipment: 'artifact', treasure: 'artifact', clue: 'artifact', food: 'artifact', blood: 'artifact', map: 'artifact', powerstone: 'artifact', junk: 'artifact', gold: 'artifact', incubator: 'artifact', aura: 'enchantment', saga: 'enchantment', class: 'enchantment', shrine: 'enchantment', role: 'enchantment', curse: 'enchantment' };
+function ixNouns(f) {
+  const n = new Set(['permanent']);
+  if (f.token === true) { n.add('creature'); n.add('token'); return n; }
+  const subs = (f.subs || []).map(x => String(x).toLowerCase());
+  if (subs.length && subs.every(x => IX_NONCREATURE_SUBS[x])) { subs.forEach(x => n.add(IX_NONCREATURE_SUBS[x])); return n; }
+  if (subs.length && subs.every(x => IX_LAND_SUBS.has(x.charAt(0).toUpperCase() + x.slice(1)))) { n.add('land'); return n; }
+  (f.types || []).forEach(t => n.add(t));
+  if ((f.subs && f.subs.length) || (f.kws && f.kws.length)) n.add('creature');
+  return n;
+}
+function ixNounOk(snip, f) {
+  if (f.self) return true;
+  let t = String(snip);
+  const nn = ixNouns(f);
+  if (nn.has('land') && nn.size <= 2) t = t.replace(/\bnon-?land\s+\w+/g, 'nx');            // "nonland permanent" cannot reach a land
+  t = t.replace(/\bnon-?(?:land|creature|artifact|token)\b/g, 'nx');
+  return [...nn].some(w => new RegExp('\\b' + w + 's?\\b').test(t));
+}
+// A card Scryfall tags as a blinker only counts when its exile-and-return can reach what the trigger is about (never a creature-only blinker for a land trigger, and never for tokens, which cease to exist).
+function ixOneShotReturn(text) { return /sacrifice (?:this|~)[^.]{0,20}[:.]|is put into a graveyard|leaves the battlefield[^.]{0,60}return|\bbanishing\b/.test(text); }      // the return only happens once, when the card is sacrificed or lost
+function ixHurtsOnlyYou(clause) { return /damage to you\b/.test(clause) && !/\bany target|target (?:creature|player|opponent)|each opponent|each creature|each player|\bdraws?\b|\bcreate/.test(clause); }
+function ixBlinkFits(card, text, f) {
+  if (!ixTagged(IX_TAGS.blink, card) || f.token === true || ixOneShotReturn(text) || /\bharness\b/.test(text)) return false;
+  const i = text.indexOf('exile');
+  if (i < 0 || !/return/.test(text) || !/you control|target creature|target permanent/.test(text)) return false;
+  return ixNounOk(text.slice(i, i + 110), f);
+}
 function ixRepeaterKind(text, ev, f, tokensMade, subtypes) {
-  if (ev === 'enters' && f.types.includes('land')) {
-    if (/(?:play|may play) (?:desert )?lands? (?:cards? )?from your graveyard|return (?:up to \w+ |target |all )?(?:target )?land cards? from your graveyard/.test(text)) return 'replays lands from the graveyard';
+  const landF = f.types.includes('land') && !f.types.includes('creature');
+  if (ev === 'enters' && landF) {
     const subHit = !f.subs.length || f.subs.some(x => text.includes(x.toLowerCase()));      // a plain ramp spell only feeds a "Desert enters" trigger if it names Deserts
+    if (subHit && /(?:play|may play) (?:desert )?lands? (?:cards? )?from your graveyard|return (?:up to \w+ |target |all )?(?:target )?land cards? from your graveyard to the battlefield/.test(text)) return 'replays lands from the graveyard';
     if (subHit && /(?:search your library for|put) [^.]{0,70}lands?[^.]{0,80}onto the battlefield/.test(text)) return 'puts more lands onto the battlefield';
     if (!f.subs.length && /play an additional land|additional land/.test(text)) return 'gives extra land drops';
   }
   if (ev === 'enters') {
-    if (/exile (?:target |another |each |any number of |up to \w+ )?(?:other |nontoken |non-?\w+ )?(?:creatures?|permanents?|artifacts?|enchantments?)[^.]{0,40}you control[^]{0,170}?(?:return|put)[^]{0,90}?(?:to|onto) the battlefield/.test(text)) {
-      const okType = f.types.some(t => t === 'creature') || f.subs.length || f.kws.length ? /creature|permanent/.test(text) : f.types.some(t => new RegExp(t + '|permanent').test(text));
-      if (okType) return 'flickers them back in';
+    let m;
+    if (!landF && f.token !== true && (m = /exile (?:target |another |each |any number of |up to \w+ )?(?:other |nontoken |non-?\w+ )?(?:creatures?|permanents?|artifacts?|enchantments?)[^.]{0,40}you control[^]{0,170}?(?:return|put)[^]{0,90}?(?:to|onto) the battlefield/.exec(text)) && ixNounOk(m[0], f) && !ixOneShotReturn(text)) return 'flickers them back in';
+    if (landF && (m = /exile (?:target |another |each |any number of |up to \w+ )?(?:other )?(?:lands?|permanents?)[^.]{0,40}you control[^]{0,170}?(?:return|put)[^]{0,90}?(?:to|onto) the battlefield/.exec(text.replace(/\bnonland\b/g, 'nx')))) return 'flickers them back in';
+    const restricted = (f.subs.length || f.kws.length) && !landF;                      // "any creature" reanimation is not a plan for "Elves" or "creatures with flying"
+    if (!landF && f.token !== true && !restricted) {
+      if ((m = /return [^.]{0,70}cards?[^.]{0,70}from (?:your|a|any|all|each) graveyards? to the battlefield/.exec(text)) && !/card named/.test(m[0]) && ixNounOk(m[0], f) && !ixOneShotReturn(text)) return 'returns them from the graveyard';
+      if ((m = /put [^.]{0,60}(?:creature|permanent|artifact)[^.]{0,60}(?:from your hand|from your library|from your graveyard|card)[^.]{0,30}onto the battlefield/.exec(text)) && ixNounOk(m[0], f) && !ixOneShotReturn(text)) return 'puts them onto the battlefield';
     }
-    if (/return [^.]{0,70}cards?[^.]{0,70}from (?:your|a|any|all|each) graveyards? to the battlefield/.test(text)) return 'returns them from the graveyard';
-    if (/put [^.]{0,60}(?:creature|permanent|artifact)[^.]{0,60}(?:from your hand|from your library|from your graveyard|card)[^.]{0,30}onto the battlefield/.test(text)) return 'puts them onto the battlefield';
-    if (/create (?:a |an )?(?:token that's a )?cop(?:y|ies) of (?:target|another|a|each)/.test(text)) return 'copies them';
+    if (!landF && (m = /create (?:a |an )?(?:token that's a )?cop(?:y|ies) of (?:target|another|a|each) ((?:\w+ )?\w+)/.exec(text)) && (/\btoken/.test(m[1]) ? f.token === true : ixNounOk(m[1], f))) return 'copies them';
     if (tokensMade.some(t => ixTokenMatches(t, f, subtypes))) return 'makes matching tokens';
   }
   if (ev === 'dies') {
-    if (/sacrifice (?:a|an|another|any number of|x|up to)[^:.]{0,40}(?::|,|\.|$)/.test(text) && /(?:^|\n|\{[^}]*\}[^:]*:)\s*sacrifice|sacrifice [^:.]{0,40}:/.test(text)) return 'sacrifices things (an outlet)';
-    if (/destroy all|each creature gets -|all creatures get -/.test(text)) return 'wipes the board';
-    if (tokensMade.some(t => t.creature)) return 'makes more bodies to lose';
+    let m;
+    if (/sacrifice (?:a|an|another|any number of|x|up to)[^:.]{0,40}(?::|,|\.|$)/.test(text) && /(?:^|\n|\{[^}]*\}[^:]*:)\s*sacrifice|sacrifice [^:.]{0,40}:/.test(text)) {
+      const w = /sacrifice (?:another |an? |any number of |up to \w+ |x )?(?:other |nontoken )?([a-z]+)/.exec(text);
+      if (!w || (/^(?:creature|artifact|permanent|enchantment|land|planeswalker)s?$/.test(w[1]) && ixNounOk(w[1], f))) return 'sacrifices things (an outlet)';      // "Sacrifice a Treasure" is not a way to kill your creatures
+    }
+    if ((m = /destroy all[^.]{0,40}|each creature gets -[^.]{0,20}|all creatures get -[^.]{0,20}/.exec(text)) && ixNounOk(m[0] + ' creature', f)) return 'wipes the board';
   }
   return null;
 }
@@ -21761,6 +21925,7 @@ function ixMultiplierKind(text, ev, f, p) {
   // only the sentence that says "triggers an additional time" says which event it doubles
   const sentence = text.split(/[.\n]/).find(x => /additional time|triggers twice/.test(x));
   if (!sentence) return null;
+  if (/\blegendary\b/.test(sentence) && !/legendary creature you control/.test(sentence)) return (f.types.includes('artifact') && /\bartifact\b/.test(sentence) && !f.subs.length) ? 'makes it trigger twice' : null;      // only legendary permanents (or artifacts) are doubled
   if (/triggered ability of a legendary creature you control/.test(sentence)) return (p && /legendary creature/i.test(String(p.card.t || '').split('—')[0])) ? 'makes it trigger twice (legendary creature)' : null;
   if (/\bland\b/.test(sentence) && /entering|enters/.test(sentence)) return f.types.includes('land') ? 'makes it trigger twice' : null;
   if (ev === 'enters') {                          // what has to enter? "a Wizard", "a land" are too narrow to double an unrelated creature trigger
@@ -21768,8 +21933,8 @@ function ixMultiplierKind(text, ev, f, p) {
     if (sub && !/\b(?:permanent|creature|artifact)s?\b/.test(sub[1])) return null;
     if (sub && /\bland\b|\bwizard\b|\bnontoken\b/.test(sub[1])) return null;
   }
-  if (ev === 'enters' && /\benter/.test(sentence) && (f.self ? true : f.types.some(t => /creature|artifact/.test(t)) || f.subs.length || f.kws.length)) return /artifact or creature|creature|permanent/.test(sentence) ? 'makes it trigger twice' : null;
-  if (ev === 'dies' && /\bdy(?:ing)|\bdies\b/.test(sentence)) return 'makes it trigger twice';
+  if (ev === 'enters' && /\benter/.test(sentence) && (f.self ? true : f.types.some(t => /creature|artifact/.test(t)) || f.subs.length || f.kws.length)) return ixNounOk(sentence, f) && /artifact or creature|creature|permanent/.test(sentence) ? 'makes it trigger twice' : null;
+  if (ev === 'dies' && /\bdy(?:ing)|\bdies\b/.test(sentence)) return ixNounOk(sentence, f) ? 'makes it trigger twice' : null;
   return null;
 }
 
@@ -21979,7 +22144,7 @@ function buildInteractionPackages(matchedCards, commanders) {
         for (const o of all) {
           if (o === p) continue;
           let rk = ixRepeaterKind(o.text, ev, f, o.tokens, subs);
-          if (!rk && ev === 'enters' && !f.self && ixTagged(IX_TAGS.blink, o.card) && /exile/.test(o.text) && /return/.test(o.text) && /you control|target creature|target permanent/.test(o.text)) rk = 'flickers permanents (Scryfall tag)';
+          if (!rk && ev === 'enters' && !f.self && ixBlinkFits(o.card, o.text, f)) rk = 'flickers permanents (Scryfall tag)';
           if (rk) repeaters.push({ name: o.card.n, how: rk });
           const mk = ixMultiplierKind(o.text, ev, f, p);
           if (mk) multipliers.push({ name: o.card.n, how: mk });
@@ -22355,16 +22520,20 @@ function buildInteractionSuggestions(ctx) {
   const out = [];
   for (const pk of packages) {
     if (pk.kind !== 'trigger' || pk.phrase || pk.filter.self || !pk.filter.label || (pk.event !== 'enters' && pk.event !== 'dies')) continue;
+    if (!pk.filter.types.length && !pk.filter.subs.length && !pk.filter.kws.length && pk.filter.token !== true) continue;      // a filter we could not read ("a nontoken ...") is not claimed
     if (/planeswalker/.test(pk.filter.label) && packages.some(k => k.payoff === '__plan_walkers')) continue;      // the Super Friends group below covers walkers
     const f = pk.filter, ev = pk.event;
     const reps = [], mults = [], feeds = [];
+    const landF = f.types.includes('land') && !f.types.includes('creature');
     for (const c of pool) {
       const text = ixText(c);
-      const rk = ixRepeaterKind(text, ev, f, ixTokensMade(text), []) || (ev === 'enters' && ixTagged(IX_TAGS.blink, c) && /exile/.test(text) && /return/.test(text) && /you control|target creature|target permanent/.test(text) ? 'flickers permanents' : null);
+      if (/\bplaneswalker\b/i.test(String(c.t).split('\u2014')[0]) || /\bharness\b/.test(text) || (!landF && /\bland\b/i.test(String(c.t).split('\u2014')[0]))) continue;      // loyalty ultimates, 7-mana harness costs and one-shot lands are not reliable repeaters
+      const rk = ixRepeaterKind(text, ev, f, ixTokensMade(text), []) || (ev === 'enters' && ixBlinkFits(c, text, f) ? 'flickers permanents' : null);
       if (rk && !/makes matching tokens/.test(rk)) { reps.push({ n: c.n, m: c.m || 0, why: rk, g: c.g }); continue; }
       const mk = ixMultiplierKind(text, ev, f);
       if (mk) { mults.push({ n: c.n, m: c.m || 0, why: mk, g: c.g }); continue; }
-      if (!f.generic && ixCardMatches(c, f) && /\b(?:when|whenever|at the beginning)\b/.test(text) && !/\bland\b/i.test(c.t) && (c.m || 0) <= 4) { const ef = ixEffect(text.slice(Math.max(0, text.search(/\b(?:when|whenever|at the beginning)\b/)))); feeds.push({ n: c.n, m: c.m || 0, w: ef.w, why: ef.label, g: c.g }); }
+      const ownEv = ev === 'enters' ? /\b(?:when|whenever) (?:this|~)[^.,]{0,40}\benters\b/ : /\b(?:when|whenever) (?:this|~)[^.,]{0,40}\bdies\b/;
+      if (!f.generic && ixCardMatches(c, f) && ownEv.test(text) && !ixHurtsOnlyYou(text.slice(Math.max(0, text.search(ownEv)))) && !/\bland\b/i.test(c.t) && (c.m || 0) <= 4) { const ef = ixEffect(text.slice(Math.max(0, text.search(ownEv)))); feeds.push({ n: c.n, m: c.m || 0, w: ef.w, why: ef.label, g: c.g }); }
     }
     const by = (a, b) => (knowQ(b.n) - knowQ(a.n)) || a.m - b.m || a.n.localeCompare(b.n);
     const groups = [
@@ -22443,7 +22612,16 @@ function buildInteractionSuggestions(ctx) {
   }
   try { for (const th of ixThinSuggestions(ctx.roles, pool)) out.push(th); } catch (e) {}
   try { for (const th of knowThemeSuggestions(matched, pool)) if (out.length < 8) out.push(th); } catch (e) {}
-  return { items: out, identity: ident };
+  try { for (const nd of ixNewDimensions(matched, commanders, pool)) out.push(nd); } catch (e) {}
+  // A card is shown once: its first (most specific) appearance wins, so the same card is never listed under several headings.
+  const shownOnce = new Set();
+  const items = [];
+  for (const it of out) {
+    const groups = [];
+    for (const g of it.groups) { const list = g.list.filter(c => !shownOnce.has(c.n)); list.forEach(c => shownOnce.add(c.n)); if (list.length) groups.push(Object.assign({}, g, { list })); }
+    if (groups.length) items.push(Object.assign({}, it, { groups }));
+  }
+  return { items, identity: ident };
 }
 function ixShowSuggestions() {
   if (!ixLastCtx) return;
@@ -22452,12 +22630,14 @@ function ixShowSuggestions() {
   ov = document.createElement('div'); ov.id = 'ixSugOverlay';
   ov.style.cssText = 'position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.65); display:flex; align-items:flex-end; justify-content:center;';
   const inDeckNames = new Set(((ixLastCtx && ixLastCtx.matched) || []).map(m => String(m.card.n).toLowerCase()));
-  const body = data.items.length ? data.items.map(it => {
+  const body = data.items.length ? data.items.map((it, ix) => {
     const isCard = inDeckNames.has(String(it.title).replace(/ \(commander\)$/, '').toLowerCase());
     const tag = it.tag || (isCard ? 'In your deck' : 'Your deck\u2019s plan');
     const sub = isCard ? 'whenever ' + it.sub : it.sub;
-    return `<div style="margin-bottom:18px;">
-      <div style="background:rgba(61,143,138,0.16); border-left:4px solid #3d8f8a; border-radius:3px; padding:8px 12px;">
+    const dimHead = (it.dim && !data.items.slice(0, ix).some(x => x.dim)) ? `<div style="margin:26px 0 12px; padding-top:14px; border-top:2px solid #8a6cd6;"><div style="font-family:'Cinzel',Georgia,serif; font-size:13px; letter-spacing:0.08em; text-transform:uppercase; color:#b79cf5;">New dimension</div><div style="color:var(--text-soft); font-size:12px; margin-top:2px;">Directions your deck is already leaning toward. Optional: these add a new angle rather than fix something.</div></div>` : '';
+    const bandBg = it.dim ? 'rgba(138,108,214,0.16)' : 'rgba(61,143,138,0.16)', bandLine = it.dim ? '#8a6cd6' : '#3d8f8a';
+    return dimHead + `<div style="margin-bottom:18px;">
+      <div style="background:${bandBg}; border-left:4px solid ${bandLine}; border-radius:3px; padding:8px 12px;">
         <div style="font-size:10px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-soft);">${tag}</div>
         <div style="font-size:15px; font-weight:700; color:var(--text-primary); margin-top:1px;">${escapeHtml(it.title)}</div>
         <div style="color:var(--text-soft); font-size:12px;">${escapeHtml(sub)}</div>
