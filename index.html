@@ -2943,7 +2943,31 @@ const CENTRALITY_MECHANICS = {
 // nonland cards). A term only counts when THIS deck leans into it noticeably
 // harder than that, so "has some artifacts" does not read as "built around
 // an artifact commander". Creature-type terms default to 0.10.
-const CENTRALITY_TERM_BASELINE = { 'X spells': 0.03, 'artifacts': 0.169, 'enchantments': 0.083, 'instants': 0.113, 'sorceries': 0.143, 'planeswalkers': 0.02, 'equipments': 0.016, 'auras': 0.01, 'vehicles': 0.01, 'sagas': 0.01,
+// Card properties a commander can reward ("noncreature spells", "multicolored", "kicked", "cast from exile"...).
+// base = about the 75th-percentile share of a precon's nonland cards (measured over the 159), so a deck only counts as leaning
+// into the property when it is clearly above a typical deck. cmd reads the commander's text; test reads a card; pay and cost read other cards' text.
+const PROP_COLORS = (c) => { const s = new Set(); String(c.c || '').replace(/\{([^}]+)\}/g, (m, x) => { x.split('/').forEach(q => { if (/^[WUBRG]$/.test(q)) s.add(q); }); return m; }); return s; };
+const IXPROP = [
+  { key: 'noncreature', label: 'noncreature spells', base: 0.60, cmd: /noncreature (?:spell|permanent|card)/, test: c => !/\bcreature\b/i.test(String(c.t || '').split('//')[0]),
+    pay: /whenever you cast (?:a |an )?noncreature spell|noncreature spells you cast(?! cost)/, cost: /noncreature spells you cast[^.]*cost[^.]*less/, top: false,
+    head: 'the deck is mostly spells rather than creatures.' },
+  { key: 'creature', label: 'creature spells', base: 0.53, cmd: /creature spells?\b/, test: c => /\bcreature\b/i.test(String(c.t || '').split('//')[0]),
+    pay: /whenever you cast (?:a |an )?(?:[a-z-]+ )?creature spell|creature spells you cast(?! cost)/, cost: /(?<!non)creature spells you cast[^.]*cost[^.]*less/, top: false,
+    head: 'the deck is built on casting creatures.' },
+  { key: 'multicolor', label: 'multicolored cards', base: 0.22, cmd: /multicolou?red/, test: c => PROP_COLORS(c).size >= 2,
+    pay: /^(?![\s\S]*(?:target multicolou?red|protection from multicolou?red))[\s\S]*(?:whenever you cast (?:a |an )?multicolou?red|multicolou?red (?:spells|creatures|permanents) you (?:cast|control)|cast a multicolou?red spell)/, cost: /multicolou?red spells you cast[^.]*cost[^.]*less/, top: true,
+    head: 'two or more colours in the mana cost.' },
+  { key: 'kicker', label: 'kicker cards', base: 0.02, cmd: /\bkick(?:ed|er)\b|multikicker/, test: c => /\bkicker\b|multikicker|\bkicked\b/i.test(String(c.o || '')),
+    pay: /whenever you (?:cast|kick) a kicked spell|whenever you kick|spells? you cast with kicker|kicked spells? you/, cost: /kicker costs?[^.]*less/, top: true,
+    head: 'spells with a kicker cost.' },
+  { key: 'exile', label: 'cast-from-exile cards', base: 0.07, cmd: /from exile|exiled (?:card|with|this way)|(?:cast|play)[^.]*\bexiled\b/, test: c => /exile[^.]*\byou may (?:play|cast)|you may (?:play|cast)[^.]*(?:from|exiled)|cast[^.]*from exile|exiled with|foretell|\bsuspend\b|\bplot\b|\badventure\b/i.test(String(c.o || '')),
+    pay: /whenever you cast (?:a |an )?(?:[a-z-]+ )?spell from exile|spells? you cast from exile|(?:first|each) spell you cast from exile/, cost: /from exile[^.]*cost[^.]*less/, top: true,
+    head: 'cards you exile and then cast, or that cast from exile.' },
+  { key: 'cycling', label: 'cycling cards', base: 0.02, cmd: /\bcycl(?:e|ing|ed)\b/, test: c => /\bcycling\b/i.test(String(c.o || '')),
+    pay: /whenever you cycle/, cost: /cycling costs?[^.]*less/, top: true,
+    head: 'cards with cycling.' },
+];
+const CENTRALITY_TERM_BASELINE = { 'X spells': 0.03, 'legendary cards': 0.12, 'historic cards': 0.30, 'noncreature spells': 0.60, 'creature spells': 0.53, 'multicolored cards': 0.22, 'kicker cards': 0.02, 'cast-from-exile cards': 0.07, 'cycling cards': 0.02, 'artifacts': 0.169, 'enchantments': 0.083, 'instants': 0.113, 'sorceries': 0.143, 'planeswalkers': 0.02, 'equipments': 0.016, 'auras': 0.01, 'vehicles': 0.01, 'sagas': 0.01,
   'counters': 0.097, 'tokens': 0.159, 'the graveyard': 0.103, 'sacrifice': 0.10, 'lifegain': 0.049, 'discard': 0.033, 'copying': 0.033, 'lands': 0.033 };
 // Keywords a commander can care about (e.g. "creatures with defender"), and how common each is in a typical
 // precon (75th-percentile share of its nonland cards), so only a deck that leans into one counts it as a theme.
@@ -2982,6 +3006,11 @@ function centralityFedCards(cmdCards, matchedCards, cmdSet) {
   // in their mana cost are fed by it, as are cards that themselves reward X spells (Unbound Flourishing, Zaxara...).
   const xRe = /\{x\} in (?:its|their|the) (?:mana|activation) costs?|(?:spells?|abilit(?:y|ies)) with \{x\}|\bx spells?\b|\bwith x in (?:its|their) (?:mana|activation) cost/i;
   if (xRe.test(cmdText)) terms.push({ label: 'X spells', xspell: true, test: c => /\{X\}/.test(String(c.c || '')) || /\{x\} in (?:its|their) (?:mana|activation) cost|spells? with \{x\}/i.test(String(c.o || '').replace(/\([^)]*\)/g, '')) });
+  // Legendary matters: a commander that rewards legendary spells, creatures or lands. Fed cards carry the Legendary supertype.
+  if (/\blegendary\b|\blegend rule\b/.test(cmdText)) terms.push({ label: 'legendary cards', link: true, test: c => /\blegendary\b/i.test(String(c.t || '').split('//')[0]) });
+  // Historic matters: artifacts, legendaries and Sagas (Jhoira, Weatherlight Captain; Teshar...).
+  if (/\bhistoric\b/.test(cmdText)) terms.push({ label: 'historic cards', link: true, test: c => /\b(?:legendary|artifact|saga)\b/i.test(String(c.t || '').split('//')[0]) });
+  for (const p of IXPROP) if (p.cmd.test(cmdText)) terms.push({ label: p.label, link: true, test: p.test });
   // Keywords the commander cares about: "creatures you control with defender", "other flying creatures",
   // "whenever a creature with haste ...". Only a keyword the commander is ABOUT counts -- its own keyword
   // line ("Flying, vigilance") or granting one ("have flying") does not. A card carries the keyword when it
@@ -2998,7 +3027,7 @@ function centralityFedCards(cmdCards, matchedCards, cmdSet) {
     const base = CENTRALITY_TERM_BASELINE[term.label] !== undefined ? CENTRALITY_TERM_BASELINE[term.label] : (term.kw ? (CENTRALITY_KEYWORD_BASELINE[term.kw] || 0.02) : 0.10);
     const lean = pool.length ? hits.length / pool.length - base : 0;
     if (hits.length >= 5 && lean >= 0.08) {
-      hits.forEach(c => { fed.add(c.n); if (!byTerm.has(c.n)) byTerm.set(c.n, term.label); if (term.kw || term.xspell) kwFed.add(c.n); }); // kwFed: linked to the commander in this reading only, and still work alone
+      hits.forEach(c => { fed.add(c.n); if (!byTerm.has(c.n)) byTerm.set(c.n, term.label); if (term.kw || term.xspell || term.link) kwFed.add(c.n); }); // kwFed: linked to the commander in this reading only, and still work alone
       if (!used.some(u => u.toLowerCase() === term.label.toLowerCase())) used.push(term.label); leans.push(lean);
     }
   }
@@ -3038,7 +3067,7 @@ function computeCommanderCentrality(agg, matchedCards, commanderNames, winCons, 
   // had no links at all. Cards carrying a keyword the commander is about are linked to it here (this reading only).
   const feedingEarly = centralityFedCards(cmdCards, matchedCards, cmdSet);
   const edges = (agg.synergyEdges || []).slice();
-  for (const n of feedingEarly.kwFed) edges.push({ a: [...cmdSet][0], b: n, score: 3, reasons: [feedingEarly.xFed && feedingEarly.xFed.has(n) ? 'an X spell the commander copies' : 'carries a keyword the commander rewards'] });
+  for (const n of feedingEarly.kwFed) edges.push({ a: [...cmdSet][0], b: n, score: 3, reasons: [feedingEarly.xFed && feedingEarly.xFed.has(n) ? 'an X spell the commander copies' : feedingEarly.byTerm.get(n) === 'legendary cards' ? 'a legendary card the commander rewards' : feedingEarly.byTerm.get(n) === 'historic cards' ? 'a historic card the commander rewards' : IXPROP.some(p => p.label === feedingEarly.byTerm.get(n)) ? 'one of the ' + feedingEarly.byTerm.get(n) + ' the commander rewards' : 'carries a keyword the commander rewards'] });
   const adj = new Map();
   const link = (a, b) => { if (!adj.has(a)) adj.set(a, new Set()); adj.get(a).add(b); };
   for (const e of edges) { link(e.a, e.b); link(e.b, e.a); }
@@ -22077,6 +22106,15 @@ const IXX = {
   doubler: /(?:spells?|abilit(?:y|ies)) with \{x\}[^.]*(?:copy|twice|double)|(?:copy|double)[^.]*(?:spells?|abilit(?:y|ies)) with \{x\}|double the value of x|value of x[^.]*(?:twice|double)/,
   copySpell: /(?<!or )\bcopy (?:target|that|it|each|a|an|the) [^.]*(?:instant|sorcery|spell)(?![^.]*wasn't cast)/,
 };
+const IXLG = {
+  payoff: /legendary (?:creature|spell|permanent|land|card|artifact)s?[^.]*(?:enters?|you cast|you control|cast)|(?:cast|play|whenever)[^.]*legendary (?:spell|creature|permanent|land)|number of legendary|for each legendary/,
+  legendRule: /legend rule/,
+  cost: /legendary (?:spells?|creatures?|permanents?)[^.]*cost[^.]*less|legendary[^.]*spells? you cast cost/,
+  tutor: /search your library for (?:a|an|up to \w+) legendary/,
+};
+const IXH = { payoff: /\bhistoric\b/, cost: /historic[^.]*cost[^.]*less|cost[^.]*less[^.]*historic/ };
+const IXH_MIN = 18;    // historic nonland cards (artifacts, legendaries, Sagas) for the plan to show; the median precon has 30%, the 90th percentile 63%
+const IXLG_MIN = 14;    // legendary nonland cards for the plan to show (the 90th-percentile precon has about 24%)
 const IXX_MIN = 8;      // X spells for the plan to show (the median precon has about 1, the 90th percentile about 4)
 const IXL_MIN = 6, IXG_MIN = 16, IXG_SHELL_MIN = 9;      // payoffs for the lands plan; token makers for the go-wide plan, alone or with a go-wide shell (all rare among the 159 precons)
 function ixThemePlans(all, nonland, used, commanders) {
@@ -22105,6 +22143,58 @@ function ixThemePlans(all, nonland, used, commanders) {
       mk('__plan_lands', false, '<strong>Lands are the engine</strong>: ' + payoffs.length + ' cards pay off lands entering or leaving, with ' + (feed.length + replay.length) + ' ways to lose and replay them.', lines);
       payoffs.concat(feed, replay, ramp, dbl, animate).forEach(m => used.add(m.card.n));
     }
+  }
+  // Historic matters as the plan
+  {
+    const isHis = (m) => /\b(?:legendary|artifact|saga)\b/i.test(String(m.card.t || '').split('//')[0]);
+    const his = nonland.filter(m => !m.isCmd && isHis(m));
+    const cmdH = all.filter(m => m.isCmd && IXH.payoff.test(m.text)).concat((commanders || []).map(n => CARD_DB.find(c => c.n === n)).filter(c => c && !all.some(m => m.card.n === c.n) && IXH.payoff.test(ixText(c))).map(c => ({ card: c, text: ixText(c), isCmd: true })));
+    const nlq = nonland.reduce((a, m) => a + (m.qty || 1), 0) || 1;
+    if ((his.length >= IXH_MIN && his.length / nlq >= 0.5) || (cmdH.length && his.length >= 14 && his.length / nlq >= 0.4)) {
+      const pay = nonland.filter(m => !m.isCmd && IXH.payoff.test(m.text));
+      const red = pay.filter(m => IXH.cost.test(m.text));
+      const lines = [];
+      if (cmdH.length) lines.push(ixLinkSlot(cmdH[0].card.n) + ' rewards casting historic spells (artifacts, legendary cards and Sagas).');
+      if (pay.length) lines.push('Cards that reward historic spells: ' + nm(pay, 4) + '.');
+      if (red.length) lines.push('Cheaper historic spells: ' + nm(red, 3) + '.');
+      lines.push('Historic cards: ' + nm(his, 6) + '.');
+      mk('__plan_historic', false, '<strong>' + his.length + ' historic cards</strong> (artifacts, legendaries and Sagas): the deck casts them in bulk.', lines);
+      his.concat(pay).forEach(m => used.add(m.card.n));
+    }
+  }
+  // Legendary matters as the plan
+  {
+    const isLeg = (m) => /\blegendary\b/i.test(String(m.card.t || '').split('//')[0]);
+    const legs = nonland.filter(m => !m.isCmd && isLeg(m));
+    const cmdLg = all.filter(m => m.isCmd && /\blegendary\b/.test(m.text)).concat((commanders || []).map(n => CARD_DB.find(c => c.n === n)).filter(c => c && !all.some(m => m.card.n === c.n) && /\blegendary\b/.test(ixText(c))).map(c => ({ card: c, text: ixText(c), isCmd: true })));
+    const nlq = nonland.reduce((a, m) => a + (m.qty || 1), 0) || 1;
+    const histPlan = plans.some(p => p.payoff === '__plan_historic');      // legends are part of historic, so that plan already covers them
+    if (!(histPlan && !cmdLg.length) && (legs.length >= IXLG_MIN && legs.length / nlq >= 0.25 || (cmdLg.length && legs.length >= 10))) {
+      const pay = nonland.filter(m => !m.isCmd && IXLG.payoff.test(m.text) && !/enchanted creature/.test(m.text));
+      const rule = nonland.filter(m => !m.isCmd && IXLG.legendRule.test(m.text));
+      const lines = [];
+      if (cmdLg.length) lines.push(ixLinkSlot(cmdLg[0].card.n) + ' pays you for casting legendary spells.');
+      if (pay.length) lines.push('Cards that reward legendary permanents: ' + nm(pay, 4) + '.');
+      if (rule.length) lines.push('Keep duplicates alive: ' + nm(rule, 3) + '.');
+      lines.push('Legendary cards: ' + nm(legs, 6) + '.');
+      mk('__plan_legend', false, '<strong>' + legs.length + ' legendary cards</strong>: the deck is built around legends.', lines);
+      legs.concat(pay, rule).forEach(m => used.add(m.card.n));
+    }
+  }
+  // Generic property plans (noncreature, multicolored, kicker, cast from exile, cycling...): shown when the commander rewards the property and the deck leans into it
+  for (const p of IXPROP) {
+    const cmdP = all.filter(m => m.isCmd && p.cmd.test(m.text)).concat((commanders || []).map(n => CARD_DB.find(c => c.n === n)).filter(c => c && !all.some(m => m.card.n === c.n) && p.cmd.test(ixText(c))).map(c => ({ card: c, text: ixText(c), isCmd: true })));
+    if (!cmdP.length) continue;
+    const hits = nonland.filter(m => !m.isCmd && p.test(m.card));
+    const nlq = nonland.length || 1;
+    if (hits.length < 5 || hits.length / nlq < p.base + 0.08) continue;
+    const pay = nonland.filter(m => !m.isCmd && p.pay.test(m.text)), red = nonland.filter(m => !m.isCmd && p.cost.test(m.text));
+    const lines = [ixLinkSlot(cmdP[0].card.n) + ' rewards ' + p.label + '.'];
+    if (pay.length) lines.push('Cards that reward them: ' + nm(pay, 4) + '.');
+    if (red.length) lines.push('Cheaper ones: ' + nm(red, 3) + '.');
+    lines.push(p.label.charAt(0).toUpperCase() + p.label.slice(1) + ': ' + nm(hits, 6) + '.');
+    mk('__plan_prop_' + p.key, false, '<strong>' + hits.length + ' ' + p.label + '</strong>: ' + p.head, lines);
+    hits.concat(pay, red).forEach(m => used.add(m.card.n));
   }
   // X spells as the plan
   {
@@ -22601,6 +22691,53 @@ function buildInteractionSuggestions(ctx) {
     }
     const groups = [{ label: 'Untap your mana again', list: un.sort(by2).slice(0, 5) }, { label: 'Double your mana', list: db.sort(by2).slice(0, 5) }].filter(g => g.list.length);
     if (groups.length) out.push({ title: 'Spare mana', sub: 'your commander spends it on abilities', groups });
+  }
+  if ((packages || []).some(k => k.payoff === '__plan_historic') && out.length < 6) {
+    const gh = { cost: [], pay: [] };
+    for (const c of pool) {
+      if ((c.m || 0) > 6 || /\bland\b/i.test(c.t)) continue;
+      const t = ixText(c);
+      if (!IXH.payoff.test(t)) continue;
+      if (IXH.cost.test(t)) gh.cost.push({ n: c.n, m: c.m || 0, why: 'makes historic spells cheaper', g: c.g });
+      else gh.pay.push({ n: c.n, m: c.m || 0, why: 'rewards casting historic spells', g: c.g });
+    }
+    const groups = [{ label: 'Cheaper historic spells', list: gh.cost.sort(by2).slice(0, 5) }, { label: 'Rewards historic spells', list: gh.pay.sort(by2).slice(0, 6) }].filter(x => x.list.length);
+    if (groups.length) out.push({ title: 'Historic matters', sub: 'artifacts, legendaries and Sagas', groups });
+  }
+  if ((packages || []).some(k => k.payoff === '__plan_legend') && out.length < 6) {
+    const gl = { pay: [], rule: [], cost: [], find: [] };
+    for (const c of pool) {
+      if ((c.m || 0) > 6 || /\bland\b/i.test(c.t)) continue;
+      const t = ixText(c), isLeg = /\blegendary\b/i.test(String(c.t || '').split('//')[0]);
+      if (IXLG.legendRule.test(t)) gl.rule.push({ n: c.n, m: c.m || 0, why: 'lets you run duplicate legends', g: c.g });
+      else if (IXLG.cost.test(t)) gl.cost.push({ n: c.n, m: c.m || 0, why: 'makes your legendary spells cheaper', g: c.g });
+      else if (IXLG.tutor.test(t)) gl.find.push({ n: c.n, m: c.m || 0, why: 'finds a legendary card', g: c.g });
+      else if (IXLG.payoff.test(t) && !/enchanted creature|target legendary|legendary creatures? (?:your opponents|an opponent)/.test(t) && (!isLeg || knowQ(c.n) > 0)) gl.pay.push({ n: c.n, m: c.m || 0, why: 'rewards legendary cards', g: c.g });
+    }
+    const groups = [
+      { label: 'Cheaper legends', list: gl.cost.sort(by2).slice(0, 5) },
+      { label: 'Find a legend', list: gl.find.sort(by2).slice(0, 5) },
+      { label: 'Duplicate legends', list: gl.rule.sort(by2).slice(0, 4) },
+      { label: 'Rewards legendary cards', list: gl.pay.sort(by2).slice(0, 6) },
+    ].filter(x => x.list.length);
+    if (groups.length) out.push({ title: 'Legendary matters', sub: 'a deck full of legends', groups });
+  }
+  for (const p of IXPROP) {
+    if (!(packages || []).some(k => k.payoff === '__plan_prop_' + p.key) || out.length >= 6) continue;
+    const g = { pay: [], cost: [], top: [] };
+    for (const c of pool) {
+      if ((c.m || 0) > 6 || /\bland\b/i.test(c.t)) continue;
+      const t = ixText(c);
+      if (p.cost.test(t)) g.cost.push({ n: c.n, m: c.m || 0, why: 'makes them cheaper', g: c.g });
+      else if (p.pay.test(t) && !(p.test(c) && knowQ(c.n) <= 0)) g.pay.push({ n: c.n, m: c.m || 0, why: 'rewards ' + p.label, g: c.g });
+      else if (p.top && p.test(c) && knowQ(c.n) > 0 && (c.m || 0) <= 5) g.top.push({ n: c.n, m: c.m || 0, why: 'a top-rated ' + p.label.replace(/s$/, ''), g: c.g });
+    }
+    const groups = [
+      { label: 'Cheaper ' + p.label, list: g.cost.sort(by2).slice(0, 4) },
+      { label: 'Rewards ' + p.label, list: g.pay.sort(by2).slice(0, 6) },
+      { label: 'Top-rated ' + p.label, list: g.top.sort(by2).slice(0, 5) },
+    ].filter(x => x.list.length);
+    if (groups.length) out.push({ title: p.label.charAt(0).toUpperCase() + p.label.slice(1) + ' matter', sub: 'your commander rewards them', groups });
   }
   if ((packages || []).some(k => k.payoff === '__plan_x') && out.length < 6) {
     const gx = { dbl: [], cp: [], mana: [], more: [] };
@@ -27771,7 +27908,7 @@ function addCheckedScannedCardsToDecklist() {
   const chosen = [...new Set(scanCardsResults.filter(r => r.checked).map(r => r.card))];
   if (!chosen.length) return;
   const BL = window.PM_LIMITS;
-  const cmdCard = deckBuilderCommanderName ? indexes.byExactName.get(deckBuilderCommanderName.toLowerCase()) : null;
+  const cmdCard = deckBuilderCommanderName ? dbIdentityCard() : null;
   let added = 0, offColour = 0, full = 0;
   for (const card of chosen) {
     if (deckBuilderFilterByIdentity && cmdCard && !cardFitsCommanderIdentity(card, cmdCard)) { offColour++; continue; }
@@ -29779,6 +29916,16 @@ function cardFitsCommanderIdentity(card, commanderCard) {
   return (card.ci || '').split('').every(c => commanderColors.has(c));
 }
 
+// A deck can have two commanders (Partner, Friends forever, Choose a Background, Doctor's companion). They are kept as ONE string,
+// "First / Second", which is exactly how the commander box on the main page takes a pair, so saving and charting need no special case.
+let dbAddingPartner = false;
+function dbCmdNames() { return String(deckBuilderCommanderName || '').split(/(?<!\/) \/ (?!\/)/).map(x => x.trim()).filter(Boolean); }
+function dbIdentityCard() {
+  const names = dbCmdNames(); if (!names.length) return null;
+  const cs = new Set(); let any = false;
+  names.forEach(n => { const c = indexes.byExactName.get(n.toLowerCase()); if (c) { any = true; (c.ci || '').split('').forEach(x => cs.add(x)); } });
+  return any ? { ci: [...cs].join('') } : null;
+}
 let deckBuilderCards = {}; // { "Card Name": qty }
 let deckBuilderCommanderName = null;
 let deckBuilderPlayerName = '';
@@ -29858,7 +30005,8 @@ function openDeckBuilderOverlay(opts) {
     deckBuilderPlayerName = ((($('playerInput') || {}).value || '').trim());
   }
   // a commander already chosen (e.g. in a saved draft) belongs in the list too
-  if (deckBuilderCommanderName && !deckBuilderCards[deckBuilderCommanderName]) deckBuilderCards[deckBuilderCommanderName] = 1;
+  dbAddingPartner = false;
+  dbCmdNames().forEach(n => { if (!deckBuilderCards[n]) deckBuilderCards[n] = 1; });
   injectTryADeckStyles();
   closeTryADeckModal();
   const overlay = document.createElement('div');
@@ -29928,7 +30076,7 @@ function openDeckBuilderOverlay(opts) {
   if (startNewBtn) startNewBtn.addEventListener('click', () => {
     showActionConfirmModal('Start a new deck? This clears everything currently in the builder — there\u2019s no way back to it after this.', 'Start New', () => {
       clearDeckBuilderDraft();
-      deckBuilderCards = {}; deckBuilderCommanderName = null; // also wipe the in-memory copy, not just the saved draft
+      dbAddingPartner = false; deckBuilderCards = {}; deckBuilderCommanderName = null; // also wipe the in-memory copy, not just the saved draft
       openDeckBuilderOverlay({ blank: true });
     }, () => openDeckBuilderOverlay());
   });
@@ -29936,10 +30084,10 @@ function openDeckBuilderOverlay(opts) {
   renderDeckBuilderCommander();
   renderDeckBuilderList();
   wireDeckBuilderSearch('dbCommanderSearch', 'dbCommanderResults', (card) => {
-    setDeckBuilderCommander(card.n);
+    if (dbAddingPartner && dbCmdNames().length) addDeckBuilderPartner(card.n); else setDeckBuilderCommander(card.n);
     const cardBoxNow = document.getElementById('dbCardSearch');
     if (cardBoxNow && cardBoxNow.value.trim().length >= 2) cardBoxNow.dispatchEvent(new Event('input'));
-  }, () => ({ preferCommanders: true }), { flash: (c) => '\u2713 ' + escapeHtml(c.n) + ' set as commander and added to your deck', emptyMsg: () => '' });
+  }, () => ({ preferCommanders: true }), { flash: (c) => '\u2713 ' + escapeHtml(c.n) + (dbAddingPartner ? ' added as your second commander' : ' set as commander and added to your deck'), emptyMsg: () => '' });
   wireDeckBuilderSearch('dbCardSearch', 'dbCardResults', (card) => {
     const BL = window.PM_LIMITS;
     if (!deckBuilderCards[card.n] && Object.keys(deckBuilderCards).length >= BL.builderMaxCards) {
@@ -29950,7 +30098,7 @@ function openDeckBuilderOverlay(opts) {
     renderDeckBuilderList();
   }, () => {
     if (!deckBuilderFilterByIdentity || !deckBuilderCommanderName) return null;
-    const cmdCard = indexes.byExactName.get(deckBuilderCommanderName.toLowerCase());
+    const cmdCard = dbIdentityCard();
     return cmdCard ? { commanderCard: cmdCard } : null;
   });
   // The card list is a scroll box inside a scrolling pop-up. On some phones it stayed dead to touch
@@ -30020,33 +30168,67 @@ function openDeckBuilderOverlay(opts) {
 // Setting a commander also puts that card in the deck list (a commander is part of the 100), and
 // changing or clearing it takes the old one out again so the list never holds a stale commander.
 function setDeckBuilderCommander(newName) {
-  const old = deckBuilderCommanderName;
-  if (old && old !== newName && deckBuilderCards[old] === 1) delete deckBuilderCards[old];
+  dbCmdNames().forEach(o => { if (o !== newName && deckBuilderCards[o] === 1) delete deckBuilderCards[o]; });
+  dbAddingPartner = false;
   deckBuilderCommanderName = newName || null;
   if (newName && !deckBuilderCards[newName]) deckBuilderCards[newName] = 1;
   renderDeckBuilderCommander();
   renderDeckBuilderList();   // also saves the draft and flags any off-colour cards
 }
+// Second commander (partner, Friends forever, Background, Doctor's companion). Replaces any existing second one.
+function addDeckBuilderPartner(name) {
+  const names = dbCmdNames(); if (!names.length || !name || name === names[0]) return;
+  if (names[1] && names[1] !== name && deckBuilderCards[names[1]] === 1) delete deckBuilderCards[names[1]];
+  deckBuilderCommanderName = names[0] + ' / ' + name;
+  if (!deckBuilderCards[name]) deckBuilderCards[name] = 1;
+  dbAddingPartner = false;
+  renderDeckBuilderCommander();
+  renderDeckBuilderList();
+}
+function removeDeckBuilderCommander(idx) {
+  const names = dbCmdNames(), gone = names[idx]; if (!gone) return;
+  if (deckBuilderCards[gone] === 1) delete deckBuilderCards[gone];
+  names.splice(idx, 1);
+  deckBuilderCommanderName = names.length ? names.join(' / ') : null;
+  dbAddingPartner = false;
+  renderDeckBuilderCommander();
+  renderDeckBuilderList();
+}
 
 function renderDeckBuilderCommander() {
   const el = document.getElementById('dbCommanderDisplay');
   if (!el) return;
+  const names = dbCmdNames();
   // The color-identity filter only makes sense once a commander is set.
   const idRow = document.getElementById('dbIdentityRow');
   if (idRow) {
-    idRow.style.display = deckBuilderCommanderName ? 'flex' : 'none';
+    idRow.style.display = names.length ? 'flex' : 'none';
     const nameEl = document.getElementById('dbIdentityName');
-    if (nameEl) nameEl.textContent = deckBuilderCommanderName || '';
+    if (nameEl) nameEl.textContent = names.join(' + ');
     const toggleEl = document.getElementById('dbIdentityToggle');
     if (toggleEl) toggleEl.checked = deckBuilderFilterByIdentity;
   }
-  if (!deckBuilderCommanderName) {
+  const box = document.getElementById('dbCommanderSearch');
+  if (box) box.placeholder = dbAddingPartner ? 'Search for the partner or Background…' : (names.length ? 'Search to replace the commander…' : 'Search for a commander…');
+  if (!names.length) {
     el.innerHTML = `<span style="font-size:13px; color:var(--text-soft); font-style:italic;">No commander set yet</span>`;
     return;
   }
-  el.innerHTML = `<span style="font-size:13.5px; color:var(--gold);">${escapeHtml(deckBuilderCommanderName)}</span> <button type="button" class="ghost" id="dbCommanderClearBtn" style="padding:2px 8px; font-size:11px; margin-left:6px;">Change</button>`;
-  const clearBtn = document.getElementById('dbCommanderClearBtn');
-  if (clearBtn) clearBtn.addEventListener('click', () => { setDeckBuilderCommander(null); });
+  const partnerRe = /\bpartner\b|\bfriends forever\b|\bchoose a background\b|\bdoctor's companion\b|\bbackground\b/i;
+  const cards = names.map(n => indexes.byExactName.get(n.toLowerCase()));
+  const canPair = names.length < 2 && cards.some(c => c && partnerRe.test(String((c.o || '')) + ' ' + String(c.t || '')));
+  let note = '';
+  const txt = c => String((c && c.o) || ''), typ = c => String((c && c.t) || '');
+  const pairOk = names.length < 2 || cards.some(c => !c)
+    || cards.every(c => /\bpartner\b/i.test(txt(c))) || cards.every(c => /friends forever/i.test(txt(c)))
+    || (cards.some(c => /choose a background/i.test(txt(c))) && cards.some(c => /\bbackground\b/i.test(typ(c))))
+    || (cards.some(c => /doctor's companion/i.test(txt(c))) && cards.some(c => /\bdoctor\b/i.test(typ(c))));
+  if (names.length === 2 && !pairOk) note = `<div style="font-size:11.5px; color:var(--danger); margin-top:4px;">That pair isn\u2019t a legal commander pairing (both need Partner, both need Friends forever, a Background goes with Choose a Background, or a Doctor with Doctor\u2019s companion).</div>`;
+  el.innerHTML = names.map((n, i) => `<div style="margin-bottom:3px;"><span style="font-size:13.5px; color:var(--gold);">${escapeHtml(n)}</span> <button type="button" class="ghost" data-dbcmd-rm="${i}" style="padding:2px 8px; font-size:11px; margin-left:6px;">${names.length > 1 ? 'Remove' : 'Change'}</button></div>`).join('')
+    + (canPair ? `<button type="button" class="ghost" id="dbAddPartnerBtn" style="padding:3px 10px; font-size:12px; margin-top:4px;">${dbAddingPartner ? 'Cancel second commander' : '+ Add a partner or Background'}</button>` : '') + note;
+  el.querySelectorAll('[data-dbcmd-rm]').forEach(b => b.addEventListener('click', () => removeDeckBuilderCommander(+b.getAttribute('data-dbcmd-rm'))));
+  const addBtn = document.getElementById('dbAddPartnerBtn');
+  if (addBtn) addBtn.addEventListener('click', () => { dbAddingPartner = !dbAddingPartner; renderDeckBuilderCommander(); const b = document.getElementById('dbCommanderSearch'); if (dbAddingPartner && b) b.focus(); });
 }
 
 // ---- One look and one behaviour for every card search box ---------------------------------
@@ -30199,7 +30381,7 @@ function renderDeckBuilderList() {
     listEl.innerHTML = `<p style="font-size:12.5px; color:var(--text-soft); margin:0; text-align:center;">No cards added yet.</p>`;
     return;
   }
-  const commanderCard = deckBuilderCommanderName ? indexes.byExactName.get(deckBuilderCommanderName.toLowerCase()) : null;
+  const commanderCard = deckBuilderCommanderName ? dbIdentityCard() : null;
   listEl.innerHTML = names.map(name => {
     const card = indexes.byExactName.get(name.toLowerCase());
     const fits = card ? cardFitsCommanderIdentity(card, commanderCard) : true;
