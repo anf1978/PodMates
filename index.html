@@ -338,7 +338,7 @@
   /* PriceScry sits above the normal pop-up layer, so any pop-up opened from inside it (trade form, confirmations) must sit above PriceScry */
   #pricescryOverlay ~ .tad-overlay{z-index:1600;}
   .ps-wrap{max-width:720px; margin:0 auto; padding:14px 16px 32px;}
-  .ps-head{display:flex; align-items:center; gap:10px; margin-bottom:6px;}
+  .ps-head{display:flex; align-items:center; gap:10px; margin-bottom:6px; position:sticky; top:0; z-index:20; background:var(--bg-main); padding:8px 0; box-shadow:0 0 0 6px var(--bg-main);}
   .ps-title{flex:1; font-family:'Cinzel','Trajan Pro',Georgia,serif; font-size:24px; font-weight:700; color:var(--gold-bright);}
   .ps-asof{font-size:11.5px; color:var(--text-dim); margin-bottom:10px; min-height:14px;}
 
@@ -22649,7 +22649,7 @@ function ixShowSuggestions() {
   }).join('')
     : '<div style="color:var(--text-soft); font-size:13px;">No clear additions found for this deck\'s main interactions.</div>';
   ov.innerHTML = `<div role="dialog" aria-label="Cards you could add" style="background:var(--bg-card, #14121a); border:1px solid var(--line-strong); border-radius:14px 14px 0 0; width:min(560px,100%); max-height:calc(78vh / var(--pm-zoom, 1)); overflow:auto; padding:16px 16px 22px;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;"><div style="font-family:'Cinzel',Georgia,serif; font-size:13px; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold);">Cards you could add</div><button type="button" id="ixSugClose" style="background:none; border:1px solid var(--line-strong); color:var(--text-primary); border-radius:8px; padding:4px 12px; cursor:pointer; text-transform:none; letter-spacing:normal;">Close</button></div>
+    <div style="display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; z-index:5; background:var(--bg-card, #14121a); margin:-16px -16px 10px; padding:14px 16px 10px; border-bottom:1px solid var(--line);"><div style="font-family:'Cinzel',Georgia,serif; font-size:13px; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold);">Cards you could add</div><button type="button" id="ixSugClose" style="background:none; border:1px solid var(--line-strong); color:var(--text-primary); border-radius:8px; padding:4px 12px; cursor:pointer; text-transform:none; letter-spacing:normal;">Close</button></div>
     ${body}
     <div style="font-size:11.5px; color:var(--text-soft);">Searched from the full card list: inside your commander's colours, not banned, not already in the deck. Cards that rank high on community best-of lists come first (\u2605), then cheaper cards. Ideas, not instructions.</div></div>`;
   document.body.appendChild(ov);
@@ -22805,7 +22805,7 @@ function openCombosPopup() {
   const head = (txt, sub) => `<div style="margin-top:16px; font-size:11px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--gold);">${txt}</div><div style="font-size:12px; color:var(--text-soft); margin-top:1px;">${sub}</div>`;
   ov.innerHTML = `<div role="dialog" aria-label="Combos" style="background:var(--bg-card, #14121a); border:1px solid var(--line-strong); border-radius:14px 14px 0 0; width:min(560px,100%); max-height:calc(82vh / var(--pm-zoom, 1)); overflow:auto; padding:16px 16px 22px;">
     <style>#comboOverlay summary::-webkit-details-marker{display:none}</style>
-    <div style="display:flex; justify-content:space-between; align-items:center;"><div style="font-family:'Cinzel',Georgia,serif; font-size:13px; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold);">Combos</div><button type="button" id="comboClose" style="background:none; border:1px solid var(--line-strong); color:var(--text-primary); border-radius:8px; padding:4px 12px; cursor:pointer; text-transform:none; letter-spacing:normal;">Close</button></div>
+    <div style="display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; z-index:5; background:var(--bg-card, #14121a); margin:-16px -16px 10px; padding:14px 16px 10px; border-bottom:1px solid var(--line);"><div style="font-family:'Cinzel',Georgia,serif; font-size:13px; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold);">Combos</div><button type="button" id="comboClose" style="background:none; border:1px solid var(--line-strong); color:var(--text-primary); border-radius:8px; padding:4px 12px; cursor:pointer; text-transform:none; letter-spacing:normal;">Close</button></div>
     <div style="font-size:12px; color:var(--text-soft); margin-top:6px;">${comboTag('Wins', 'win')} finishes the game on its own. ${comboTag('Warps', 'warp')} breaks the game open but needs a payoff. Solid chips are in your deck, dashed ones are missing.</div>
     ${head('In your deck · ' + nWin + ' win' + (nWin === 1 ? '' : 's') + (nWarp ? ', ' + nWarp + ' warp' + (nWarp === 1 ? '' : 's') : ''), (agg.spellbookMatched || 0) > items.filter(x => x.d.source === 'spellbook').length ? 'The strongest lines. More overlapping lines also match; only these are scored.' : 'Every line we found.')}
     ${have}
@@ -23827,6 +23827,25 @@ async function pricescryTryPassword(value) {
 }
 
 // ---- the PriceScry screen -----------------------------------------------------
+// Safety net: a scrolling popup that has no Close of its own gets a pinned one.
+(function pmStickyCloseNet() {
+  const ensure = (modal) => {
+    try {
+      if (!modal || modal.querySelector('.tad-close')) return;
+      if (Array.from(modal.querySelectorAll('button')).some(b => /^\s*(?:close|done|back)\b/i.test(b.textContent || ''))) return;
+      if (modal.scrollHeight <= modal.clientHeight + 4) return;
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'tad-close'; b.textContent = 'Close \u00d7';
+      b.addEventListener('click', () => { if (typeof closeTryADeckModal === 'function') closeTryADeckModal(); else { const o = modal.closest('.tad-overlay'); if (o) o.remove(); } });
+      modal.insertBefore(b, modal.firstChild);
+    } catch (e) {}
+  };
+  const watch = (overlay) => {
+    const modal = overlay.querySelector('.tad-modal'); if (!modal || modal._pmWatch) return; modal._pmWatch = true;
+    new MutationObserver(() => ensure(modal)).observe(modal, { childList: true });
+    setTimeout(() => ensure(modal), 0); setTimeout(() => ensure(modal), 600);
+  };
+  try { new MutationObserver(muts => { for (const m of muts) m.addedNodes.forEach(n => { if (n.nodeType === 1 && n.classList && n.classList.contains('tad-overlay')) watch(n); }); }).observe(document.body, { childList: true }); } catch (e) {}
+})();
 function closePriceScry() {
   const o = document.getElementById('pricescryOverlay');
   if (o) o.remove();
@@ -26723,7 +26742,8 @@ function injectTryADeckStyles() {
     .tad-option .tad-tagline{color:var(--text-primary); font-size:12.5px; line-height:1.4;}
     .tad-option .tad-commander{color:var(--text-soft); font-size:11.5px; margin-top:6px; font-style:italic;}
     .tad-close{background:transparent; border:1px solid var(--line); color:var(--text-soft);
-      float:right; cursor:pointer; padding:4px 10px; border-radius:3px; font-size:12.5px; font-family:inherit;}
+      float:right; cursor:pointer; padding:7px 14px; border-radius:3px; font-size:13px; font-family:inherit;
+      position:sticky; top:0; z-index:30; background:var(--bg-panel-raised); box-shadow:0 0 0 5px var(--bg-panel-raised);}      /* pinned: always in reach however far the popup is scrolled */
     .tad-close:hover{border-color:var(--gold); color:var(--gold); background:var(--bg-main);}
     @keyframes tad-pulse{
       0%, 100% { box-shadow:0 0 0 0 rgba(var(--gold-rgb),0.65); }
@@ -30889,6 +30909,155 @@ setupIconTooltipsFor(document);
      identity instead of linking, since linking only makes sense for
      turning "this session" into an account, not for returning to one that
      already exists on record. -->
+<script id="notif-script">
+// ===== NOTIFICATIONS INBOX (in-app only) =====
+// Each pod keeps a small activity feed (pods/{id}/activity). Your bell merges the feeds of your pods, hides your own
+// actions and anything addressed to someone else, and counts what is new since you last opened it. Preferences and the
+// "last seen" time live on this device. Nothing here sends an email or a push alert.
+(function () {
+  const TYPES = {
+    deck:       { label: 'A podmate charts a new deck',        tag: 'Deck',       text: (n, s) => n + ' charted a new deck' + (s ? ': ' + s : '') },
+    gathering:  { label: 'A gathering is set up',               tag: 'Gathering',  text: (n, s) => n + ' invited the pod to a gathering' + (s ? ': ' + s : '') },
+    live:       { label: 'A gathering goes live',               tag: 'Live',       text: (n, s) => n + ' started the gathering' + (s ? ' "' + s + '"' : '') + ' — it is live now' },
+    nomination: { label: 'Someone nominates an Impact card',    tag: 'Nomination', text: (n, s) => n + ' nominated ' + (s || 'a card') + ' as an Impact card' },
+    joined:     { label: 'Someone joins a pod',                 tag: 'Joined',     text: (n, s) => n + ' joined ' + (s || 'the pod') },
+  };
+  const TAG_COLOR = { deck: '#3d8f8a', gathering: '#d9a62e', live: '#d9603e', nomination: '#8a6cd6', joined: '#7aa35a' };
+  const DAY = 86400000;
+  let cloud = null, uid = null, pods = [], feeds = new Map(), unsubs = [], seenAt = 0, prefs = { types: {}, muted: {} }, started = false;
+
+  const lsGet = (k) => { try { return window.localStorage.getItem(k); } catch (e) { return null; } };
+  const lsSet = (k, v) => { try { window.localStorage.setItem(k, v); } catch (e) {} };
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  function loadState() {
+    const s = lsGet('pm_notif_seen_' + uid);
+    if (s === null) { seenAt = Date.now(); lsSet('pm_notif_seen_' + uid, String(seenAt)); }      // first run: history starts now, no flood
+    else seenAt = Number(s) || 0;
+    try { const p = JSON.parse(lsGet('pm_notif_prefs_' + uid) || 'null'); if (p && typeof p === 'object') prefs = { types: p.types || {}, muted: p.muted || {} }; } catch (e) {}
+  }
+  const savePrefs = () => lsSet('pm_notif_prefs_' + uid, JSON.stringify(prefs));
+  const markSeen = () => { seenAt = Date.now(); lsSet('pm_notif_seen_' + uid, String(seenAt)); };
+
+  function visible() {
+    const out = [], now = Date.now();
+    feeds.forEach((list, podId) => {
+      if (prefs.muted[podId]) return;
+      for (const it of list) {
+        if (!it || !TYPES[it.type] || it.by === uid) continue;
+        if (Array.isArray(it.to) && it.to.length && it.to.indexOf(uid) < 0) continue;
+        if (prefs.types[it.type] === false) continue;
+        if (!it.createdAt || now - it.createdAt > 30 * DAY) continue;
+        out.push(it);
+      }
+    });
+    return out.sort((a, b) => b.createdAt - a.createdAt);
+  }
+  const unreadCount = () => visible().filter(i => i.createdAt > seenAt).length;
+  function ago(ts) {
+    const m = Math.max(0, Math.round((Date.now() - ts) / 60000));
+    if (m < 1) return 'just now'; if (m < 60) return m + ' min ago';
+    const h = Math.round(m / 60); if (h < 24) return h + ' h ago';
+    const d = Math.round(h / 24); return d + (d === 1 ? ' day ago' : ' days ago');
+  }
+  function podName(id) { const p = pods.find(x => x.id === id); return p ? (p.name || 'Pod') : 'Pod'; }
+
+  function updateBadge() {
+    const btn = document.getElementById('pmBellBtn'), badge = document.getElementById('pmBellBadge');
+    if (!btn || !badge) return;
+    const n = unreadCount();
+    badge.textContent = n > 9 ? '9+' : String(n);
+    badge.style.display = n ? 'inline-block' : 'none';
+    btn.setAttribute('aria-label', n ? 'Notifications, ' + n + ' new' : 'Notifications');
+  }
+  function stop() { unsubs.forEach(u => { try { u(); } catch (e) {} }); unsubs = []; feeds = new Map(); }
+  async function start() {
+    stop();
+    const btn = document.getElementById('pmBellBtn');
+    const user = cloud && cloud.user;
+    if (!user || user.isAnonymous) { if (btn) btn.style.display = 'none'; uid = null; return; }
+    uid = user.uid; loadState();
+    if (btn) btn.style.display = 'inline-flex';
+    try { pods = await cloud.loadMyPods(); } catch (e) { pods = []; }
+    for (const p of pods) {
+      try { unsubs.push(cloud.watchActivity(p.id, (list) => { feeds.set(p.id, list); updateBadge(); refreshOpen(); })); } catch (e) {}
+    }
+    updateBadge();
+  }
+  let restartTimer = null;
+  const restartSoon = () => { clearTimeout(restartTimer); restartTimer = setTimeout(() => start().catch(() => {}), 600); };
+
+  // ---- the popup ----
+  let openSince = 0;
+  function bodyHtml() {
+    const items = visible();
+    const rows = items.length ? items.map((it, i) => {
+      const t = TYPES[it.type], fresh = it.createdAt > openSince;
+      return '<button type="button" data-n="' + i + '" style="display:flex; gap:10px; width:100%; text-align:left; align-items:flex-start; background:' + (fresh ? 'rgba(217,166,46,0.10)' : 'transparent') + '; border:0; border-bottom:1px solid var(--line); padding:10px 4px; color:var(--text-primary); cursor:pointer; font-family:inherit; text-transform:none; letter-spacing:normal; font-weight:400;">'
+        + '<span style="flex:none; margin-top:3px; width:9px; height:9px; border-radius:50%; background:' + (fresh ? TAG_COLOR[it.type] : 'transparent') + '; border:1px solid ' + TAG_COLOR[it.type] + ';"></span>'
+        + '<span style="flex:1; min-width:0;"><span style="display:block; font-size:13.5px; line-height:1.35;">' + esc(t.text(it.byName || 'Someone', it.subject)) + '</span>'
+        + '<span style="display:block; font-size:11.5px; color:var(--text-soft); margin-top:2px;"><span style="color:' + TAG_COLOR[it.type] + '; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; font-size:10.5px;">' + t.tag + '</span> · ' + esc(podName(it.podId)) + ' · ' + ago(it.createdAt) + '</span></span></button>';
+    }).join('') : '<p style="color:var(--text-soft); font-size:13px; margin:14px 0;">Nothing new yet. When someone in your pods charts a deck or sets up a gathering, it will show up here.</p>';
+    const typeBoxes = Object.keys(TYPES).map(k => '<label style="display:flex; gap:8px; align-items:center; font-size:13px; margin:6px 0;"><input type="checkbox" data-type="' + k + '"' + (prefs.types[k] === false ? '' : ' checked') + '> ' + esc(TYPES[k].label) + '</label>').join('');
+    const podBoxes = pods.length ? pods.map(p => '<label style="display:flex; gap:8px; align-items:center; font-size:13px; margin:6px 0;"><input type="checkbox" data-mute="' + esc(p.id) + '"' + (prefs.muted[p.id] ? ' checked' : '') + '> Mute ' + esc(p.name || 'Pod') + '</label>').join('') : '';
+    return '<div id="pmNotifList">' + rows + '</div>'
+      + '<details style="margin-top:14px;"><summary style="cursor:pointer; font-size:12px; letter-spacing:0.06em; text-transform:uppercase; color:var(--gold);">What to tell me about</summary><div style="margin-top:6px;">' + typeBoxes + podBoxes
+      + '<div style="font-size:11.5px; color:var(--text-soft); margin-top:8px;">These settings are saved on this device. You never get notified about your own actions.</div></div></details>';
+  }
+  function wire(modal) {
+    modal.querySelectorAll('[data-n]').forEach(b => b.addEventListener('click', () => {
+      const it = visible()[Number(b.getAttribute('data-n'))]; if (!it) return;
+      closeTryADeckModal();
+      const pod = pods.find(p => p.id === it.podId);
+      if (pod && typeof openPodDetailOverlay === 'function') { try { openPodDetailOverlay(pod, pods); } catch (e) {} }
+    }));
+    modal.querySelectorAll('[data-type]').forEach(c => c.addEventListener('change', () => { prefs.types[c.getAttribute('data-type')] = c.checked; savePrefs(); updateBadge(); renderList(modal); }));
+    modal.querySelectorAll('[data-mute]').forEach(c => c.addEventListener('change', () => { prefs.muted[c.getAttribute('data-mute')] = c.checked; savePrefs(); updateBadge(); renderList(modal); }));
+  }
+  function renderList(modal) {
+    const list = modal.querySelector('#pmNotifList'); if (!list) return;
+    const open = modal.querySelector('details') && modal.querySelector('details').open;
+    modal.querySelector('#pmNotifBody').innerHTML = bodyHtml();
+    const d = modal.querySelector('details'); if (d && open) d.open = true;
+    wire(modal);
+  }
+  function refreshOpen() { const m = document.querySelector('#tadOverlay .pm-notif-modal'); if (m) renderList(m); }
+  async function openInbox() {
+    if (typeof injectTryADeckStyles === 'function') injectTryADeckStyles();
+    if (typeof closeTryADeckModal === 'function') closeTryADeckModal();
+    const overlay = document.createElement('div'); overlay.className = 'tad-overlay'; overlay.id = 'tadOverlay';
+    const modal = document.createElement('div'); modal.className = 'tad-modal pm-notif-modal'; modal.style.maxWidth = '460px';
+    overlay.appendChild(modal); document.body.appendChild(overlay);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
+    openSince = seenAt;
+    modal.innerHTML = '<button class="tad-close" id="tadCloseBtn">Close ×</button><h2 style="margin-bottom:10px;">Notifications</h2><div id="pmNotifBody">' + bodyHtml() + '</div>';
+    document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
+    wire(modal);
+    markSeen(); updateBadge();
+    start().catch(() => {});            // pick up pods joined since the last start
+  }
+  function init() {
+    if (started) return; started = true;
+    cloud = window.PodmatesCloud; if (!cloud) return;
+    const bar = document.getElementById('authBar');
+    if (bar && !document.getElementById('pmBellBtn')) {
+      const b = document.createElement('button'); b.id = 'pmBellBtn'; b.type = 'button'; b.className = 'ghost'; b.setAttribute('aria-label', 'Notifications');
+      b.style.cssText = 'display:none; align-items:center; gap:4px; padding:4px 10px; font-size:12px; position:relative;';
+      b.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span id="pmBellBadge" style="display:none; background:#d9603e; color:#fff; border-radius:9px; padding:0 6px; font-size:11px; font-weight:700; line-height:16px;"></span>';
+      bar.insertBefore(b, bar.firstChild);
+      b.addEventListener('click', openInbox);
+    }
+    // joining, creating, leaving or deleting a pod changes whose feeds we watch
+    ['createPod', 'joinPodByInviteCode', 'leavePod', 'deletePod', 'removePodMember'].forEach(fn => {
+      const orig = cloud[fn]; if (typeof orig !== 'function') return;
+      cloud[fn] = async function () { const r = await orig.apply(this, arguments); restartSoon(); return r; };
+    });
+    cloud.onAuthChange(() => restartSoon());
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) updateBadge(); });
+  }
+  if (window.PodmatesCloud) init(); else window.addEventListener('podmates-cloud-init', init, { once: true });
+  window.pmNotif = { open: openInbox, restart: start, unread: unreadCount };
+})();
+</script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
   import {
@@ -30898,7 +31067,7 @@ setupIconTooltipsFor(document);
   } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
   import {
     getFirestore, doc, setDoc, updateDoc, getDoc, getDocs, deleteDoc, collection, serverTimestamp,
-    query, where, arrayUnion, arrayRemove, getCountFromServer, onSnapshot, deleteField,
+    query, where, arrayUnion, arrayRemove, getCountFromServer, onSnapshot, deleteField, orderBy, limit,
   } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -31074,6 +31243,32 @@ setupIconTooltipsFor(document);
   // --- Firestore deck storage (unchanged from before, keyed off whoever
   // is currently signed in -- anonymous or real) ----------------------
 
+  // ---- Activity feed (feeds the in-app notification bell) -------------------------------------
+  // One small record per event, written into each pod the actor belongs to (or a given pod). Best effort: a failure here
+  // must never get in the way of the action that triggered it.
+  async function activityPodIds() {
+    try { const s = await getDoc(doc(db, 'users', currentUser.uid)); return s.exists() ? (s.data().podIds || []).slice(0, 40) : []; } catch (e) { return []; }
+  }
+  async function cloudLogActivity(type, subject, opts) {
+    try {
+      if (!currentUser) return;
+      const o = opts || {};
+      const podIds = o.podIds || await activityPodIds();
+      const byName = clampText(currentUser.displayName || currentUser.email || 'Someone', 80);
+      for (const podId of podIds) {
+        const data = { type, by: currentUser.uid, byName, subject: clampText(String(subject || ''), 160), createdAt: Date.now() };
+        if (o.ref) data.ref = clampText(String(o.ref), 80);
+        if (o.to && o.to.length) data.to = o.to.slice(0, 12);
+        await setDoc(doc(collection(db, 'pods', podId, 'activity')), data).catch(() => {});
+      }
+    } catch (e) {}
+  }
+  function cloudWatchActivity(podId, cb) {
+    if (!currentUser) return () => {};
+    const q = query(collection(db, 'pods', podId, 'activity'), orderBy('createdAt', 'desc'), limit(30));
+    return onSnapshot(q, snap => { const out = []; snap.forEach(d => out.push({ id: d.id, podId, ...d.data() })); cb(out); }, () => cb([]));
+  }
+
   async function cloudSaveDeck(key, entry, docIdOverride) {
     if (!currentUser) throw new Error('Not signed in yet');
     if (!key) throw new Error('Cannot save a deck with no name.');
@@ -31087,7 +31282,8 @@ setupIconTooltipsFor(document);
     const ref = doc(db, 'users', currentUser.uid, 'decks', safeDocId(docIdOverride || key));
     // A cap on how many decks one account can hold. Overwriting an existing
     // deck never counts against it -- only creating a new one does.
-    if (L.maxSavedDecks && !(await docExistsSafe(ref))) {
+    const deckExisted = await docExistsSafe(ref);
+    if (L.maxSavedDecks && !deckExisted) {
       const have = await countDocs(collection(db, 'users', currentUser.uid, 'decks'));
       if (have >= L.maxSavedDecks) throw new Error(`You've reached the limit of ${L.maxSavedDecks} saved decks. Delete one you no longer use to make room.`);
     }
@@ -31098,6 +31294,7 @@ setupIconTooltipsFor(document);
       secret: entry.secret === true,
       updatedAt: serverTimestamp(),
     });
+    if (!deckExisted && entry.secret !== true) cloudLogActivity('deck', entry.deckName || key);
   }
 
   async function cloudSetDeckSecret(key, secret) {
@@ -31437,6 +31634,7 @@ setupIconTooltipsFor(document);
       createdAt: Date.now(),
       updatedAt: serverTimestamp(),
     });
+    cloudLogActivity('gathering', (title || '').trim() || 'Untitled Gathering', { podIds: [podId], ref: ref.id });
     return ref.id;
   }
 
@@ -31548,6 +31746,7 @@ setupIconTooltipsFor(document);
     await setDoc(doc(db, 'pods', podId, 'gatherings', gatheringId), {
       status: 'live', goLiveAt: Date.now(), updatedAt: serverTimestamp(),
     }, { merge: true });
+    getDoc(doc(db, 'pods', podId, 'gatherings', gatheringId)).then(g => cloudLogActivity('live', (g.data() || {}).title || 'Gathering', { podIds: [podId], ref: gatheringId })).catch(() => {});
   }
 
   async function cloudEndGathering(podId, gatheringId) {
@@ -31805,6 +32004,7 @@ setupIconTooltipsFor(document);
       role: 'member',
       joinedAt: Date.now(),
     });
+    cloudLogActivity('joined', podData.name || 'the pod', { podIds: [podId] });
     return { ok: true, podId, podName: podData.name };
   }
 
@@ -32057,6 +32257,7 @@ setupIconTooltipsFor(document);
     if (!podId) throw new Error('No pod selected');
     if (!/^[a-z0-9_]{1,80}$/.test(key)) throw new Error('That card name cannot be used as a list key.');
     await setDoc(doc(db, 'pods', podId, 'impactNominations', key), { card: clampText(entry.card, 200), note: clampText(entry.note || '', 200).trim(), by: currentUser.uid, byName: impactWho(), at: Date.now() });
+    getDoc(doc(db, 'pods', podId)).then(p => { const d = p.data() || {}; const to = [d.leaderId].concat(d.coLeaderIds || []).filter(u => u && u !== currentUser.uid); if (to.length) return cloudLogActivity('nomination', entry.card, { podIds: [podId], to }); }).catch(() => {});
   }
   async function cloudWithdrawNomination(podId, key) {
     if (!currentUser) throw new Error('Not signed in yet');
@@ -32101,6 +32302,7 @@ setupIconTooltipsFor(document);
     loadImpactSettings: cloudLoadImpactSettings, setImpactChange: cloudSetImpactChange,
     setImpactReason: cloudSetImpactReason, resetImpactSettings: cloudResetImpactSettings,
     setImpactDismiss: cloudSetImpactDismiss, clearImpactDismissed: cloudClearImpactDismissed,
+    watchActivity: cloudWatchActivity,
     loadNominations: cloudLoadNominations, nominateImpact: cloudNominateImpact, withdrawNomination: cloudWithdrawNomination,
   };
 
