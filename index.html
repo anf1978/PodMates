@@ -2943,7 +2943,7 @@ const CENTRALITY_MECHANICS = {
 // nonland cards). A term only counts when THIS deck leans into it noticeably
 // harder than that, so "has some artifacts" does not read as "built around
 // an artifact commander". Creature-type terms default to 0.10.
-const CENTRALITY_TERM_BASELINE = { 'artifacts': 0.169, 'enchantments': 0.083, 'instants': 0.113, 'sorceries': 0.143, 'planeswalkers': 0.02, 'equipments': 0.016, 'auras': 0.01, 'vehicles': 0.01, 'sagas': 0.01,
+const CENTRALITY_TERM_BASELINE = { 'X spells': 0.03, 'artifacts': 0.169, 'enchantments': 0.083, 'instants': 0.113, 'sorceries': 0.143, 'planeswalkers': 0.02, 'equipments': 0.016, 'auras': 0.01, 'vehicles': 0.01, 'sagas': 0.01,
   'counters': 0.097, 'tokens': 0.159, 'the graveyard': 0.103, 'sacrifice': 0.10, 'lifegain': 0.049, 'discard': 0.033, 'copying': 0.033, 'lands': 0.033 };
 // Keywords a commander can care about (e.g. "creatures with defender"), and how common each is in a typical
 // precon (75th-percentile share of its nonland cards), so only a deck that leans into one counts it as a theme.
@@ -2978,6 +2978,10 @@ function centralityFedCards(cmdCards, matchedCards, cmdSet) {
   for (const [label, re] of Object.entries(CENTRALITY_MECHANICS)) {
     if (re.test(cmdText)) terms.push({ label, test: c => re.test(String(c.o || '')) });
   }
+  // X spells: a commander that copies, doubles or rewards spells and abilities with {X} in the cost. Cards with {X}
+  // in their mana cost are fed by it, as are cards that themselves reward X spells (Unbound Flourishing, Zaxara...).
+  const xRe = /\{x\} in (?:its|their|the) (?:mana|activation) costs?|(?:spells?|abilit(?:y|ies)) with \{x\}|\bx spells?\b|\bwith x in (?:its|their) (?:mana|activation) cost/i;
+  if (xRe.test(cmdText)) terms.push({ label: 'X spells', xspell: true, test: c => /\{X\}/.test(String(c.c || '')) || /\{x\} in (?:its|their) (?:mana|activation) cost|spells? with \{x\}/i.test(String(c.o || '').replace(/\([^)]*\)/g, '')) });
   // Keywords the commander cares about: "creatures you control with defender", "other flying creatures",
   // "whenever a creature with haste ...". Only a keyword the commander is ABOUT counts -- its own keyword
   // line ("Flying, vigilance") or granting one ("have flying") does not. A card carries the keyword when it
@@ -2994,13 +2998,13 @@ function centralityFedCards(cmdCards, matchedCards, cmdSet) {
     const base = CENTRALITY_TERM_BASELINE[term.label] !== undefined ? CENTRALITY_TERM_BASELINE[term.label] : (term.kw ? (CENTRALITY_KEYWORD_BASELINE[term.kw] || 0.02) : 0.10);
     const lean = pool.length ? hits.length / pool.length - base : 0;
     if (hits.length >= 5 && lean >= 0.08) {
-      hits.forEach(c => { fed.add(c.n); if (!byTerm.has(c.n)) byTerm.set(c.n, term.label); if (term.kw) kwFed.add(c.n); });
+      hits.forEach(c => { fed.add(c.n); if (!byTerm.has(c.n)) byTerm.set(c.n, term.label); if (term.kw || term.xspell) kwFed.add(c.n); }); // kwFed: linked to the commander in this reading only, and still work alone
       if (!used.some(u => u.toLowerCase() === term.label.toLowerCase())) used.push(term.label); leans.push(lean);
     }
   }
   const maxLean = leans.length ? Math.max(...leans) : 0;
   const lean = maxLean + 0.5 * (leans.reduce((a, b) => a + b, 0) - maxLean);
-  return { fed, used, poolSize: pool.length, lean, byTerm, kwFed };
+  return { fed, used, poolSize: pool.length, lean, byTerm, kwFed, xFed: new Set([...byTerm].filter(([, l]) => l === 'X spells').map(([n]) => n)) };
 }
 
 function computeCommanderCentrality(agg, matchedCards, commanderNames, winCons, archetype) {
@@ -3034,7 +3038,7 @@ function computeCommanderCentrality(agg, matchedCards, commanderNames, winCons, 
   // had no links at all. Cards carrying a keyword the commander is about are linked to it here (this reading only).
   const feedingEarly = centralityFedCards(cmdCards, matchedCards, cmdSet);
   const edges = (agg.synergyEdges || []).slice();
-  for (const n of feedingEarly.kwFed) edges.push({ a: [...cmdSet][0], b: n, score: 3, reasons: ['carries a keyword the commander rewards'] });
+  for (const n of feedingEarly.kwFed) edges.push({ a: [...cmdSet][0], b: n, score: 3, reasons: [feedingEarly.xFed && feedingEarly.xFed.has(n) ? 'an X spell the commander copies' : 'carries a keyword the commander rewards'] });
   const adj = new Map();
   const link = (a, b) => { if (!adj.has(a)) adj.set(a, new Set()); adj.get(a).add(b); };
   for (const e of edges) { link(e.a, e.b); link(e.b, e.a); }
@@ -22067,8 +22071,15 @@ const IXG = {
   finisher: /creatures you control (?:gain|get)[^.]*\+x\/\+x|creatures you control get \+x\/\+x|each creature you control gets \+x\/\+x/,
   doubler: /twice that many (?:of those )?tokens|twice that many creature tokens/,
 };
+// X spells: cards with {X} in the mana cost, and what copies or doubles them.
+const IXX = {
+  cmdCopies: /\{x\} in (?:its|their|the) (?:mana|activation) costs?|(?:spells?|abilit(?:y|ies)) with \{x\}|\bx spells?\b/,
+  doubler: /(?:spells?|abilit(?:y|ies)) with \{x\}[^.]*(?:copy|twice|double)|(?:copy|double)[^.]*(?:spells?|abilit(?:y|ies)) with \{x\}|double the value of x|value of x[^.]*(?:twice|double)/,
+  copySpell: /(?<!or )\bcopy (?:target|that|it|each|a|an|the) [^.]*(?:instant|sorcery|spell)(?![^.]*wasn't cast)/,
+};
+const IXX_MIN = 8;      // X spells for the plan to show (the median precon has about 1, the 90th percentile about 4)
 const IXL_MIN = 6, IXG_MIN = 16, IXG_SHELL_MIN = 9;      // payoffs for the lands plan; token makers for the go-wide plan, alone or with a go-wide shell (all rare among the 159 precons)
-function ixThemePlans(all, nonland, used) {
+function ixThemePlans(all, nonland, used, commanders) {
   const plans = [];
   const nm = (arr, k) => arr.slice(0, k).map(m => ixLinkSlot(m.card.n)).join(', ') + (arr.length > k ? ' +' + (arr.length - k) + ' more' : '');
   const pick = (arr, re, skipCmd) => arr.filter(m => re.test(m.text) && !(skipCmd && m.isCmd));
@@ -22093,6 +22104,24 @@ function ixThemePlans(all, nonland, used) {
       if (animate.length) lines.push('Lands become creatures: ' + nm(animate, 2) + '. Every land is then a body, and a target.');
       mk('__plan_lands', false, '<strong>Lands are the engine</strong>: ' + payoffs.length + ' cards pay off lands entering or leaving, with ' + (feed.length + replay.length) + ' ways to lose and replay them.', lines);
       payoffs.concat(feed, replay, ramp, dbl, animate).forEach(m => used.add(m.card.n));
+    }
+  }
+  // X spells as the plan
+  {
+    const hasX = (m) => /\{X\}/.test(String(m.card.c || ''));
+    const xs = nonland.filter(m => !m.isCmd && hasX(m));
+    // The commander may not be among the matched cards (it can be typed in its own box), so it is also looked up by name.
+    const cmdX = all.filter(m => m.isCmd && IXX.cmdCopies.test(m.text)).concat((commanders || []).map(n => CARD_DB.find(c => c.n === n)).filter(c => c && !all.some(m => m.card.n === c.n) && IXX.cmdCopies.test(ixText(c))).map(c => ({ card: c, text: ixText(c), isCmd: true })));
+    if (xs.length >= IXX_MIN || (cmdX.length && xs.length >= 5)) {
+      const dbl = nonland.filter(m => !m.isCmd && !hasX(m) && IXX.doubler.test(m.text));
+      const cp = nonland.filter(m => !m.isCmd && !hasX(m) && !dbl.includes(m) && IXX.copySpell.test(m.text));
+      const lines = [];
+      if (cmdX.length) lines.push(ixLinkSlot(cmdX[0].card.n) + ' copies the next X spell or ability you use, so each one counts twice.');
+      if (dbl.length) lines.push('<span style="color:var(--gold);">Double or copy X</span>: ' + nm(dbl, 3) + '.');
+      if (cp.length) lines.push('Copy a spell: ' + nm(cp, 4) + '.');
+      lines.push('X spells: ' + nm(xs, 6) + '. The more mana you can put into X, the more each copy is worth.');
+      mk('__plan_x', false, '<strong>' + xs.length + ' X spells</strong>: the deck turns spare mana into big, scalable effects.' + (cmdX.length ? ' Your commander rewards exactly this.' : ''), lines);
+      xs.concat(dbl, cp).forEach(m => used.add(m.card.n));
     }
   }
   // Go wide
@@ -22370,7 +22399,7 @@ function buildInteractionPackages(matchedCards, commanders) {
     }
   }
   try { ixWalkerPlans(all, nonland, used).forEach(p => plans.push(p)); } catch (e) { console.error(e); }
-  try { ixThemePlans(all, nonland, used).forEach(p => plans.push(p)); } catch (e) { console.error(e); }
+  try { ixThemePlans(all, nonland, used, commanders).forEach(p => plans.push(p)); } catch (e) { console.error(e); }
   const shown = plans.concat(top.slice(0, 5));
   // Stat axis: when a card changes which stat deals combat damage, cards that raise that stat are finishers, and
   // cards that repeat the rule are backups if the commander is removed.
@@ -22515,7 +22544,8 @@ function buildInteractionSuggestions(ctx) {
   let ident = '';
   (commanders || []).forEach(n => { const c = matched.find(m => m.card.n === n) || null; const cc = c ? c.card : CARD_DB.find(x => x.n === n); if (cc) ident += cc.ci || ''; });
   const allowed = new Set(ident.split(''));
-  const fits = (c) => ixUsable(c) && String(c.ci || '').split('').every(x => allowed.has(x)) && c.t && !inDeck.has(String(c.n).toLowerCase());
+  const cmdLower = new Set((commanders || []).map(n => String(n).toLowerCase()));
+  const fits = (c) => ixUsable(c) && String(c.ci || '').split('').every(x => allowed.has(x)) && c.t && !inDeck.has(String(c.n).toLowerCase()) && !cmdLower.has(String(c.n).toLowerCase());
   const pool = CARD_DB.filter(fits);
   const out = [];
   for (const pk of packages) {
@@ -22571,6 +22601,24 @@ function buildInteractionSuggestions(ctx) {
     }
     const groups = [{ label: 'Untap your mana again', list: un.sort(by2).slice(0, 5) }, { label: 'Double your mana', list: db.sort(by2).slice(0, 5) }].filter(g => g.list.length);
     if (groups.length) out.push({ title: 'Spare mana', sub: 'your commander spends it on abilities', groups });
+  }
+  if ((packages || []).some(k => k.payoff === '__plan_x') && out.length < 6) {
+    const gx = { dbl: [], cp: [], mana: [], more: [] };
+    for (const c of pool) {
+      if ((c.m || 0) > 6 || /\bland\b/i.test(c.t)) continue;
+      const t = ixText(c), isX = /\{X\}/.test(String(c.c || ''));
+      if (!isX && IXX.doubler.test(t)) gx.dbl.push({ n: c.n, m: c.m || 0, why: 'copies or doubles your X spells', g: c.g });
+      else if (!isX && IXX.copySpell.test(t) && !/targets only|creature spell you control, except/.test(t) && (c.m || 0) <= 5) gx.cp.push({ n: c.n, m: c.m || 0, why: 'copies a spell, so an X spell counts again', g: c.g });
+      else if (!isX && (IX_UNTAP_RE.test(t) || /add (?:an )?additional|twice (?:that much|as much)|double the (?:amount of )?mana|one mana of any type that (?:land|permanent) produced/.test(t))) gx.mana.push({ n: c.n, m: c.m || 0, why: 'more mana to pour into X', g: c.g });
+      else if (isX && knowQ(c.n) > 0) gx.more.push({ n: c.n, m: c.m || 0, why: 'another X spell to copy', g: c.g });
+    }
+    const groups = [
+      { label: 'Copy or double X', list: gx.dbl.sort(by2).slice(0, 5) },
+      { label: 'Copy a spell', list: gx.cp.sort(by2).slice(0, 5) },
+      { label: 'More mana for X', list: gx.mana.sort(by2).slice(0, 5) },
+      { label: 'Top-rated X spells', list: gx.more.sort(by2).slice(0, 6) },
+    ].filter(x => x.list.length);
+    if (groups.length) out.push({ title: 'X spells', sub: 'a deck full of {X} costs', groups });
   }
   if ((packages || []).some(k => k.payoff === '__plan_walkers') && out.length < 6) {
     const ft = (c) => ixText({ n: c.n, o: String(c.o || '') + (c.ob ? '\n' + c.ob : '') });
