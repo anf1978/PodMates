@@ -2963,11 +2963,15 @@ const IXPROP = [
   { key: 'exile', label: 'cast-from-exile cards', base: 0.07, cmd: /from exile|exiled (?:card|with|this way)|(?:cast|play)[^.]*\bexiled\b/, test: c => /exile[^.]*\byou may (?:play|cast)|you may (?:play|cast)[^.]*(?:from|exiled)|cast[^.]*from exile|exiled with|foretell|\bsuspend\b|\bplot\b|\badventure\b/i.test(String(c.o || '')),
     pay: /whenever you cast (?:a |an )?(?:[a-z-]+ )?spell from exile|spells? you cast from exile|(?:first|each) spell you cast from exile/, cost: /from exile[^.]*cost[^.]*less/, top: true,
     head: 'cards you exile and then cast, or that cast from exile.' },
+  { key: 'mill', label: 'mill cards', base: 0.03, cmd: /\bmills?\b|\bmilled\b/, test: c => /\bmills?\b|put the top [^.]*cards? of (?:their|target (?:player|opponent)'s|each (?:player|opponent)'s)? ?library into (?:their|its owner's|your) graveyard/i.test(String(c.o || '')),
+    pay: /whenever (?:you|a player|an opponent|one or more)[^.]*\bmills?\b|(?:would|if) [^.]*\bmills?\b[^.]*(?:twice|instead|that many)|(?:cards?|creatures?) (?:is|are) put into (?:a|an opponent's|your|their) graveyard from (?:a |your |their )?librar/, cost: /(?!)/, top: true,
+    half: /half (?:of )?(?:their|his or her|that player's|target (?:player|opponent)'s|each (?:player|opponent)'s|your) library|half (?:of )?(?:the )?cards in (?:their|your) library/, doubles: /\bmills? (?:twice|double)|twice that many|double that many|two times that many/,
+    head: 'cards that mill, built around emptying libraries.' },
   { key: 'cycling', label: 'cycling cards', base: 0.02, cmd: /\bcycl(?:e|ing|ed)\b/, test: c => /\bcycling\b/i.test(String(c.o || '')),
     pay: /whenever you cycle/, cost: /cycling costs?[^.]*less/, top: true,
     head: 'cards with cycling.' },
 ];
-const CENTRALITY_TERM_BASELINE = { 'X spells': 0.03, 'legendary cards': 0.12, 'historic cards': 0.30, 'noncreature spells': 0.60, 'creature spells': 0.53, 'multicolored cards': 0.22, 'kicker cards': 0.02, 'cast-from-exile cards': 0.07, 'cycling cards': 0.02, 'artifacts': 0.169, 'enchantments': 0.083, 'instants': 0.113, 'sorceries': 0.143, 'planeswalkers': 0.02, 'equipments': 0.016, 'auras': 0.01, 'vehicles': 0.01, 'sagas': 0.01,
+const CENTRALITY_TERM_BASELINE = { 'X spells': 0.03, 'legendary cards': 0.12, 'historic cards': 0.30, 'noncreature spells': 0.60, 'creature spells': 0.53, 'multicolored cards': 0.22, 'kicker cards': 0.02, 'cast-from-exile cards': 0.07, 'cycling cards': 0.02, 'mill cards': 0.03, 'artifacts': 0.169, 'enchantments': 0.083, 'instants': 0.113, 'sorceries': 0.143, 'planeswalkers': 0.02, 'equipments': 0.016, 'auras': 0.01, 'vehicles': 0.01, 'sagas': 0.01,
   'counters': 0.097, 'tokens': 0.159, 'the graveyard': 0.103, 'sacrifice': 0.10, 'lifegain': 0.049, 'discard': 0.033, 'copying': 0.033, 'lands': 0.033 };
 // Keywords a commander can care about (e.g. "creatures with defender"), and how common each is in a typical
 // precon (75th-percentile share of its nonland cards), so only a deck that leans into one counts it as a theme.
@@ -22192,6 +22196,13 @@ function ixThemePlans(all, nonland, used, commanders) {
     const lines = [ixLinkSlot(cmdP[0].card.n) + ' rewards ' + p.label + '.'];
     if (pay.length) lines.push('Cards that reward them: ' + nm(pay, 4) + '.');
     if (red.length) lines.push('Cheaper ones: ' + nm(red, 3) + '.');
+    if (p.half) {
+      const halves = nonland.filter(m => !m.isCmd && p.half.test(m.text));
+      if (halves.length) {
+        const dbl = p.doubles && p.doubles.test(cmdP[0].text);
+        lines.push('<span style="color:var(--gold);">Mill half a library</span>: ' + nm(halves, 6) + '.' + (dbl ? ' With ' + ixLinkSlot(cmdP[0].card.n) + ' doubling the mill, each of these empties a whole library, so they are your finishers.' : ''));
+      }
+    }
     lines.push(p.label.charAt(0).toUpperCase() + p.label.slice(1) + ': ' + nm(hits, 6) + '.');
     mk('__plan_prop_' + p.key, false, '<strong>' + hits.length + ' ' + p.label + '</strong>: ' + p.head, lines);
     hits.concat(pay, red).forEach(m => used.add(m.card.n));
@@ -22724,15 +22735,17 @@ function buildInteractionSuggestions(ctx) {
   }
   for (const p of IXPROP) {
     if (!(packages || []).some(k => k.payoff === '__plan_prop_' + p.key) || out.length >= 6) continue;
-    const g = { pay: [], cost: [], top: [] };
+    const g = { pay: [], cost: [], top: [], half: [] };
     for (const c of pool) {
       if ((c.m || 0) > 6 || /\bland\b/i.test(c.t)) continue;
       const t = ixText(c);
-      if (p.cost.test(t)) g.cost.push({ n: c.n, m: c.m || 0, why: 'makes them cheaper', g: c.g });
+      if (p.half && p.half.test(t)) g.half.push({ n: c.n, m: c.m || 0, why: 'mills half a library (all of it with a doubler)', g: c.g });
+      else if (p.cost.test(t)) g.cost.push({ n: c.n, m: c.m || 0, why: 'makes them cheaper', g: c.g });
       else if (p.pay.test(t) && !(p.test(c) && knowQ(c.n) <= 0)) g.pay.push({ n: c.n, m: c.m || 0, why: 'rewards ' + p.label, g: c.g });
       else if (p.top && p.test(c) && knowQ(c.n) > 0 && (c.m || 0) <= 5) g.top.push({ n: c.n, m: c.m || 0, why: 'a top-rated ' + p.label.replace(/s$/, ''), g: c.g });
     }
     const groups = [
+      { label: 'Mill half a library', list: g.half.sort(by2).slice(0, 5) },
       { label: 'Cheaper ' + p.label, list: g.cost.sort(by2).slice(0, 4) },
       { label: 'Rewards ' + p.label, list: g.pay.sort(by2).slice(0, 6) },
       { label: 'Top-rated ' + p.label, list: g.top.sort(by2).slice(0, 5) },
@@ -23778,7 +23791,7 @@ function renderAuthModal(modal, errorMsg) {
     renderAuthModal(modal, result.ok ? null : result.error);
     if (result.ok) {
       const el = document.getElementById('authFormFields');
-      if (el) el.insertAdjacentHTML('afterbegin', `<div class="status" style="margin-bottom:10px;">If ${escapeHtml(email)} has a PodMates account, a reset link is on its way. It can take a few minutes, so check spam too. If nothing arrives, you probably signed up with a different address: try another one, or "Continue with Google".</div>`);
+      if (el) el.insertAdjacentHTML('afterbegin', `<div class="status" style="margin-bottom:10px;">If ${escapeHtml(email)} has a PodMates account, a reset link is on its way. It can take a few minutes, so check spam too. If nothing arrives, you probably signed up with a different address: try another one, or "Continue with Google". The link works once and lasts about an hour, and only the newest email counts, so open it straight away and don\u2019t ask for a second one. If it says "expired", copy the link from the email into a private window instead of clicking it.</div>`);
     }
   });
   document.getElementById('authSubmitBtn').addEventListener('click', async () => {
@@ -25114,7 +25127,7 @@ function renderProfileSignInBox() {
     resetBtn.disabled = true; status.textContent = 'Sending…'; status.className = 'status';
     const result = await window.PodmatesCloud.resetPassword(u.email);
     resetBtn.disabled = false;
-    status.textContent = result.ok ? `Reset link sent to ${u.email}. It can take a few minutes; check spam too.` : (result.error || 'Could not send the email.');
+    status.textContent = result.ok ? `Reset link sent to ${u.email}. It can take a few minutes; check spam too. It works once, lasts about an hour, and only the newest email counts.` : (result.error || 'Could not send the email.');
     status.className = result.ok ? 'status' : 'status err';
   });
 }
