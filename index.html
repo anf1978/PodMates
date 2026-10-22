@@ -25299,21 +25299,8 @@ async function renderMyPodsLanding(container, pods) {
   // page is next reopened. The listeners stop as soon as the page is left.
   const liveArea = document.getElementById('myPodsLiveGatheringArea');
   const myUid = window.PodmatesCloud.uid;
-  const paintLive = (all) => {
-      if (!liveArea) return; // landing page may have been navigated away from already
-      const live = all.filter(g => Object.values(g.seats || {}).some(s => s && s.uid === myUid));
-      if (!live.length) { liveArea.innerHTML = ''; return; }
-      liveArea.innerHTML = live.map(g => `
-        <button type="button" data-join-gathering="${escapeHtml(g.podId)}|${escapeHtml(g.id)}" style="width:100%; margin-bottom:10px; background:var(--leaf); border-color:var(--leaf);">Join Gathering — ${escapeHtml(g.title)} (${escapeHtml(g.podName)})</button>
-      `).join('');
-      liveArea.querySelectorAll('[data-join-gathering]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const [podId, gatheringId] = btn.getAttribute('data-join-gathering').split('|');
-          openLiveGatheringOverlay(podId, gatheringId);
-        });
-      });
-  };
-  Promise.all(pods.map(p => window.PodmatesCloud.loadLiveGatherings(p.id).then(gs => gs.map(g => ({ ...g, podId: p.id, podName: p.name }))).catch(() => [])))
+  const paintLive = (all) => paintOpenGatherings(liveArea, all, myUid);
+  Promise.all(pods.map(p => window.PodmatesCloud.loadOpenGatherings(p.id).then(gs => gs.map(g => ({ ...g, podId: p.id, podName: p.name }))).catch(() => [])))
     .then(results => paintLive(results.flat()));
   startLiveInviteWatch(pods, liveArea, paintLive);
 }
@@ -25329,11 +25316,11 @@ function stopLiveInviteWatch() {
 }
 function startLiveInviteWatch(pods, liveArea, paint) {
   stopLiveInviteWatch();
-  if (!liveArea || !pods || !pods.length || !window.PodmatesCloud || typeof window.PodmatesCloud.watchLiveGatherings !== 'function') return;
+  if (!liveArea || !pods || !pods.length || !window.PodmatesCloud || typeof window.PodmatesCloud.watchOpenGatherings !== 'function') return;
   const byPod = {};
   for (const p of pods) {
     try {
-      liveInviteUnsubs.push(window.PodmatesCloud.watchLiveGatherings(p.id, (gs) => {
+      liveInviteUnsubs.push(window.PodmatesCloud.watchOpenGatherings(p.id, (gs) => {
         if (!document.body.contains(liveArea)) { stopLiveInviteWatch(); return; } // page was left
         byPod[p.id] = gs.map(g => ({ ...g, podId: p.id, podName: p.name }));
         paint(Object.values(byPod).flat());
@@ -25430,20 +25417,94 @@ function runSampleGathering() {
   renderBattleControls();
 }
 
+// ===== GATHERING HELPERS (guest seats, waiting state, invites) =====
+const GATHERING_KEYS = ['0', '1', '2', '3', '4', '5'];
+const GATHERING_INPUT_CSS = 'background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13px; box-sizing:border-box;';
+const gatheringRsvpOf = (s) => (s && s.rsvp) || 'accepted'; // older gatherings have no reply field: treat as in
+function gatheringWhenText(g) {
+  const bits = [];
+  if (g && g.whenDate) {
+    const p = String(g.whenDate).split('-').map(Number);
+    let d = null;
+    if (p.length === 3 && p[0]) d = new Date(p[0], p[1] - 1, p[2]);
+    bits.push(d && !isNaN(d) ? d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : String(g.whenDate));
+  }
+  if (g && g.whenTime) bits.push(String(g.whenTime));
+  if (g && g.place) bits.push(String(g.place));
+  return bits.join(' · ');
+}
+// A waiting gathering fades from the landing page a day after its date, or after a week if it never had a date.
+function gatheringIsStale(g) {
+  if (!g || g.status !== 'proposed') return false;
+  const now = Date.now();
+  if (g.whenDate) {
+    const p = String(g.whenDate).split('-').map(Number);
+    if (p.length === 3 && p[0]) return now > new Date(p[0], p[1] - 1, p[2]).getTime() + 2 * 86400000;
+  }
+  return now - (g.createdAt || now) > 7 * 86400000;
+}
+function gatheringCopyText(text, okMsg) {
+  const done = () => showToast(okMsg || 'Copied.');
+  const fallback = () => {
+    try { const t = document.createElement('textarea'); t.value = text; t.style.position = 'fixed'; t.style.opacity = '0'; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); done(); }
+    catch (e) { showToast('Could not copy automatically.'); }
+  };
+  try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback); else fallback(); } catch (e) { fallback(); }
+}
+function gatheringInviteMessage(title, g, hostName) {
+  const when = gatheringWhenText(g);
+  return `${hostName} has invited you to "${title}"${when ? ' — ' + when : ''}. Open PodMates and look for the invite on My Pods to accept or decline: ${location.origin}${location.pathname}`;
+}
+// Add-a-player control used by both trays: pod members, or a named guest.
+function gatheringAddSelectHtml(k, availableMembers, label) {
+  return `<div data-add-wrap style="margin-top:6px;"><select data-add-seat="${k}" style="width:100%; ${GATHERING_INPUT_CSS} padding:7px 9px; font-size:12.5px;">
+    <option value="">${label || '+ Add a player…'}</option>
+    ${availableMembers.map(m => `<option value="${escapeHtml(m.uid)}">${escapeHtml(m.displayLabel || m.displayName || 'Podmate')}</option>`).join('')}
+    <option value="__guest__">+ Add a guest (no account)…</option>
+  </select></div>`;
+}
+function gatheringNewGuestSeat(name, idx) {
+  return { uid: 'guest:' + Date.now().toString(36) + idx, displayName: String(name).trim().slice(0, 40), guest: true, deck: null, rsvp: 'accepted' };
+}
+function wireGatheringAddControls(root, availableMembers, onAdd) {
+  root.querySelectorAll('[data-add-seat]').forEach(sel => {
+    sel.addEventListener('change', async () => {
+      const v = sel.value; if (!v) return;
+      const k = sel.getAttribute('data-add-seat');
+      if (v === '__guest__') {
+        const wrap = sel.closest('[data-add-wrap]');
+        wrap.innerHTML = `<div class="row" style="gap:6px;"><input type="text" data-gname maxlength="40" placeholder="Guest's name" style="flex:1; ${GATHERING_INPUT_CSS} padding:7px 9px;"><button type="button" data-gadd style="font-size:12px;">Add guest</button><button type="button" class="ghost" data-gcancel style="font-size:12px;">×</button></div>`;
+        const inp = wrap.querySelector('[data-gname]'); inp.focus();
+        const go = async () => { const nm = inp.value.trim(); if (!nm) { inp.focus(); return; } await onAdd(k, gatheringNewGuestSeat(nm, k)); };
+        wrap.querySelector('[data-gadd]').addEventListener('click', go);
+        inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+        wrap.querySelector('[data-gcancel]').addEventListener('click', () => { wrap.outerHTML = gatheringAddSelectHtml(k, availableMembers); wireGatheringAddControls(root, availableMembers, onAdd); });
+        return;
+      }
+      const m = availableMembers.find(x => x.uid === v);
+      await onAdd(k, { uid: v, displayName: (m && (m.displayLabel || m.displayName)) || 'Podmate', deck: null });
+    });
+  });
+}
+// A podmate answers an invite. The host is told through the bell.
+async function gatheringRsvp(podId, g, answer) {
+  const myUid = window.PodmatesCloud.uid;
+  const k = GATHERING_KEYS.find(x => g.seats && g.seats[x] && g.seats[x].uid === myUid);
+  if (k == null) throw new Error('You are not seated at this gathering.');
+  await window.PodmatesCloud.setSeatRsvp(podId, g.id, k, answer);
+  await window.PodmatesCloud.notify('rsvp', (answer === 'accepted' ? 'accepted ' : "can't make ") + '"' + (g.title || 'the gathering') + '"', podId, g.id, [g.hostUid]);
+}
+
 async function openHostGatheringOverlay(pod, members) {
   injectTryADeckStyles();
   closeTryADeckModal();
   const myUid = window.PodmatesCloud.uid;
   const me = members.find(m => m.uid === myUid);
   const myName = (me && me.displayName) || window.PodmatesCloud.user.displayName || 'Host';
-  const seatAssignments = [myUid, null, null, null, null, null]; // index 0 is always the host
+  // Each entry is null (empty), a podmate's uid, or { guest: 'Name' } for a named guest seat. Index 0 is always the host.
+  const seatAssignments = [myUid, null, null, null, null, null];
 
-  // Table Formations now store just WHO sits where, not decks -- decks
-  // are always chosen fresh when a Gathering goes live (per the OurPod
-  // panel's own explainer: "who's bringing what gets chosen fresh each
-  // time"). This replaces the old paste-6-decks-and-save flow, which
-  // saved full decklists that immediately went stale the moment anyone
-  // updated a deck.
+  // Saved lineups store WHO sits where, never decks; decks are chosen fresh each time.
   let savedLineups = {};
   try { savedLineups = await window.PodmatesCloud.loadAllTableFormations(pod.id); } catch (e) { /* fine -- just nothing to offer */ }
 
@@ -25453,27 +25514,39 @@ async function openHostGatheringOverlay(pod, members) {
   const modal = document.createElement('div');
   modal.className = 'tad-modal';
   const lineupNames = Object.keys(savedLineups).sort();
+  const lbl = 'font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold); display:block; margin-bottom:6px;';
   modal.innerHTML = `
     <button class="tad-close" id="tadCloseBtn">Close ×</button>
     <h2 style="margin-bottom:10px;">Host a Gathering</h2>
     ${lineupNames.length ? `
     <div class="row" style="margin-bottom:14px; gap:8px;">
-      <select id="loadLineupSelect" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13px;">
+      <select id="loadLineupSelect" style="flex:1; ${GATHERING_INPUT_CSS}">
         <option value="">— Load a saved lineup —</option>
         ${lineupNames.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('')}
       </select>
       <button id="loadLineupBtn" class="ghost" style="white-space:nowrap;">Load</button>
     </div>` : ''}
-    <div style="margin-bottom:16px;">
-      <label style="font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold); display:block; margin-bottom:6px;">Name the Gathering</label>
-      <input id="gatheringTitleInput" type="text" placeholder="e.g. Friday Night Bash" style="width:100%; box-sizing:border-box; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
+    <div style="margin-bottom:14px;">
+      <label style="${lbl}">Name the Gathering</label>
+      <input id="gatheringTitleInput" type="text" maxlength="80" placeholder="e.g. Friday Night Bash" style="width:100%; ${GATHERING_INPUT_CSS}">
     </div>
+    <div style="margin-bottom:16px;">
+      <label style="${lbl}">When and where <span style="text-transform:none; letter-spacing:0; color:var(--text-soft);">(optional)</span></label>
+      <div class="row" style="gap:8px; margin-bottom:8px;">
+        <input id="gatheringDateInput" type="date" style="flex:1; min-width:0; ${GATHERING_INPUT_CSS}">
+        <input id="gatheringTimeInput" type="time" style="flex:1; min-width:0; ${GATHERING_INPUT_CSS}">
+      </div>
+      <input id="gatheringPlaceInput" type="text" maxlength="120" placeholder="Where? (e.g. Archer's place)" style="width:100%; ${GATHERING_INPUT_CSS}">
+    </div>
+    <label style="${lbl}">Seats</label>
     <div id="hostSeatsArea" style="margin-bottom:12px;"></div>
     <div class="row" style="margin-bottom:16px; gap:8px;">
-      <input id="saveLineupNameInput" type="text" placeholder="Save this lineup as…" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:7px 9px; color:var(--text-primary); font-family:inherit; font-size:12.5px;">
+      <input id="saveLineupNameInput" type="text" placeholder="Save this lineup as…" style="flex:1; ${GATHERING_INPUT_CSS} padding:7px 9px;">
       <button id="saveLineupBtn" class="ghost" style="white-space:nowrap; font-size:12px;">Save Lineup</button>
     </div>
-    <button id="goLiveBtn">Go Live</button>
+    <button id="sendInvitesBtn" style="width:100%;">Send invites &amp; wait for replies</button>
+    <button id="goLiveBtn" class="ghost" style="width:100%; margin-top:8px;">Start now (everyone is already here)</button>
+    <p style="font-size:11.5px; color:var(--text-soft); margin:8px 0 0;">Invites show up in each podmate's bell and on their My Pods page. Guests are not sent anything: you load their deck yourself.</p>
     <div id="hostGatheringStatus" style="font-size:12.5px; margin-top:8px;"></div>
   `;
   overlay.appendChild(modal);
@@ -25483,29 +25556,37 @@ async function openHostGatheringOverlay(pod, members) {
 
   function renderSeats() {
     const area = document.getElementById('hostSeatsArea');
-    area.innerHTML = seatAssignments.map((uid, i) => {
+    area.innerHTML = seatAssignments.map((a, i) => {
       if (i === 0) {
         return `<div style="padding:9px 10px; border:1px solid var(--line); border-radius:3px; margin-bottom:6px; font-size:13px;">Seat 1 — <strong>${escapeHtml(myName)}</strong> (you)</div>`;
       }
-      const takenElsewhere = seatAssignments.filter((u, idx) => idx !== i && u);
-      const options = members.filter(m => m.uid !== myUid && !takenElsewhere.includes(m.uid));
+      if (a && typeof a === 'object') {
+        return `<div class="row" style="gap:6px; margin-bottom:6px; align-items:center;">
+          <span style="font-size:12.5px; color:var(--text-soft); white-space:nowrap;">Seat ${i + 1} · Guest</span>
+          <input type="text" data-guest-name="${i}" maxlength="40" value="${escapeHtml(a.guest || '')}" placeholder="Guest's name" style="flex:1; min-width:0; ${GATHERING_INPUT_CSS}">
+          <button type="button" class="ghost" data-guest-clear="${i}" style="font-size:12px;" aria-label="Clear this seat">×</button></div>`;
+      }
+      const taken = seatAssignments.filter((u, idx) => idx !== i && typeof u === 'string');
+      const options = members.filter(m => m.uid !== myUid && !taken.includes(m.uid));
       return `<div style="margin-bottom:6px;">
-        <select data-seat-index="${i}" style="width:100%; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13px;">
+        <select data-seat-index="${i}" style="width:100%; ${GATHERING_INPUT_CSS}">
           <option value="">Seat ${i + 1} — empty</option>
-          ${options.map(m => `<option value="${escapeHtml(m.uid)}" ${m.uid === uid ? 'selected' : ''}>Seat ${i + 1} — ${escapeHtml(m.displayLabel || m.displayName || 'Podmate')}</option>`).join('')}
+          ${options.map(m => `<option value="${escapeHtml(m.uid)}" ${m.uid === a ? 'selected' : ''}>Seat ${i + 1} — ${escapeHtml(m.displayLabel || m.displayName || 'Podmate')}</option>`).join('')}
+          <option value="__guest__">Seat ${i + 1} — + Add a guest (no account)…</option>
         </select>
       </div>`;
     }).join('');
-    // Rebuild on every change so a member picked into one seat immediately
-    // drops out of every other seat's own dropdown -- otherwise the same
-    // person could end up double-booked into two seats at once.
+    // Rebuilt on every change so a podmate picked into one seat drops out of every other seat's list.
     area.querySelectorAll('[data-seat-index]').forEach(sel => {
       sel.addEventListener('change', () => {
         const idx = parseInt(sel.getAttribute('data-seat-index'), 10);
-        seatAssignments[idx] = sel.value || null;
+        seatAssignments[idx] = sel.value === '__guest__' ? { guest: '' } : (sel.value || null);
         renderSeats();
+        if (sel.value === '__guest__') { const inp = area.querySelector(`[data-guest-name="${idx}"]`); if (inp) inp.focus(); }
       });
     });
+    area.querySelectorAll('[data-guest-name]').forEach(inp => inp.addEventListener('input', () => { seatAssignments[parseInt(inp.getAttribute('data-guest-name'), 10)].guest = inp.value; }));
+    area.querySelectorAll('[data-guest-clear]').forEach(b => b.addEventListener('click', () => { seatAssignments[parseInt(b.getAttribute('data-guest-clear'), 10)] = null; renderSeats(); }));
   }
   renderSeats();
 
@@ -25514,13 +25595,11 @@ async function openHostGatheringOverlay(pod, members) {
     const name = document.getElementById('loadLineupSelect').value;
     if (!name || !savedLineups[name]) return;
     const savedSeats = savedLineups[name].seats || [];
-    // Only reapplies a saved seat if that person is STILL actually a pod
-    // member -- someone may have left since this lineup was saved, and a
-    // stale uid pointing at nobody would just show as broken.
+    // A saved podmate seat is only reapplied if they are STILL a pod member; saved guests come back as named guests.
     for (let i = 1; i < 6; i++) {
       const saved = savedSeats[i];
-      const stillAMember = saved && saved.uid && members.some(m => m.uid === saved.uid);
-      seatAssignments[i] = stillAMember ? saved.uid : null;
+      if (saved && saved.guest && saved.displayName) seatAssignments[i] = { guest: String(saved.displayName) };
+      else seatAssignments[i] = (saved && saved.uid && members.some(m => m.uid === saved.uid)) ? saved.uid : null;
     }
     renderSeats();
     showToast(`Loaded "${name}".`);
@@ -25531,10 +25610,11 @@ async function openHostGatheringOverlay(pod, members) {
     const nameInput = document.getElementById('saveLineupNameInput');
     const name = (nameInput.value || '').trim();
     if (!name) { statusEl.textContent = 'Enter a name for this lineup first.'; statusEl.className = 'status err'; return; }
-    const seats = seatAssignments.map(uid => {
-      if (!uid) return null;
-      const m = members.find(mm => mm.uid === uid);
-      return { uid, displayName: uid === myUid ? myName : ((m && (m.displayLabel || m.displayName)) || 'Podmate') };
+    const seats = seatAssignments.map((a, i) => {
+      if (!a) return null;
+      if (typeof a === 'object') return (a.guest || '').trim() ? { uid: '', guest: true, displayName: a.guest.trim().slice(0, 40) } : null;
+      const m = members.find(mm => mm.uid === a);
+      return { uid: a, displayName: a === myUid ? myName : ((m && (m.displayLabel || m.displayName)) || 'Podmate') };
     });
     try {
       await window.PodmatesCloud.saveTableFormation(pod.id, name, { seats, savedAt: Date.now() });
@@ -25546,34 +25626,301 @@ async function openHostGatheringOverlay(pod, members) {
     }
   });
 
+  // Turns the seat picks into the seats map for the new gathering.
+  function collect(mode) {
+    const seats = {}, invitees = [], inviteeNames = [], guestNames = [];
+    let count = 1;
+    for (let i = 1; i < 6; i++) {
+      const a = seatAssignments[i];
+      if (!a) continue;
+      if (typeof a === 'object') {
+        const nm = (a.guest || '').trim();
+        if (!nm) return { error: `Seat ${i + 1} is a guest seat with no name yet.` };
+        seats[i] = gatheringNewGuestSeat(nm, i); guestNames.push(nm); count++;
+      } else {
+        const m = members.find(mm => mm.uid === a);
+        const nm = (m && (m.displayLabel || m.displayName)) || 'Podmate';
+        seats[i] = { uid: a, displayName: nm, deck: null, rsvp: mode === 'invite' ? 'invited' : 'accepted' };
+        if (mode === 'invite') { invitees.push(a); inviteeNames.push(nm); }
+        count++;
+      }
+    }
+    return { seats, invitees, inviteeNames, guestNames, count };
+  }
+  const readFields = () => ({
+    title: document.getElementById('gatheringTitleInput').value.trim(),
+    whenDate: document.getElementById('gatheringDateInput').value || '',
+    whenTime: document.getElementById('gatheringTimeInput').value || '',
+    place: document.getElementById('gatheringPlaceInput').value.trim(),
+  });
+  const setBusy = (busy) => {
+    const a = document.getElementById('sendInvitesBtn'), b = document.getElementById('goLiveBtn');
+    if (a) a.disabled = busy; if (b) b.disabled = busy;
+  };
+
+  // --- Send invites: the gathering is created WAITING, and each invited podmate is told. ---
+  document.getElementById('sendInvitesBtn').addEventListener('click', async () => {
+    const statusEl = document.getElementById('hostGatheringStatus');
+    statusEl.textContent = ''; statusEl.className = '';
+    const c = collect('invite');
+    if (c.error) { statusEl.textContent = c.error; statusEl.className = 'status err'; return; }
+    if (!c.invitees.length) { statusEl.textContent = 'Add at least one podmate to invite, or use Start now.'; statusEl.className = 'status err'; return; }
+    const f = readFields();
+    const title = f.title || `${myName}'s gathering`;
+    const btn = document.getElementById('sendInvitesBtn');
+    setBusy(true); btn.textContent = 'Sending invites…';
+    try {
+      const gid = await window.PodmatesCloud.createGathering(pod.id, title, { status: 'proposed', seats: c.seats, whenDate: f.whenDate, whenTime: f.whenTime, place: f.place });
+      const sent = await window.PodmatesCloud.notify('invite', title, pod.id, gid, c.invitees);
+      showInvitesSent({ pod, gid, title, f, c, sent, myName });
+    } catch (err) {
+      statusEl.textContent = 'Could not send the invites: ' + err.message;
+      statusEl.className = 'status err';
+      setBusy(false); btn.textContent = 'Send invites & wait for replies';
+    }
+  });
+
+  // --- Start now: seats everyone and goes live straight away (everyone is at the table). ---
   document.getElementById('goLiveBtn').addEventListener('click', async () => {
     const statusEl = document.getElementById('hostGatheringStatus');
-    const title = document.getElementById('gatheringTitleInput').value;
+    statusEl.textContent = ''; statusEl.className = '';
+    const c = collect('now');
+    if (c.error) { statusEl.textContent = c.error; statusEl.className = 'status err'; return; }
+    if (c.count < 2) { statusEl.textContent = 'Seat at least one other player (or a guest) first.'; statusEl.className = 'status err'; return; }
+    const f = readFields();
     const btn = document.getElementById('goLiveBtn');
-    btn.disabled = true;
-    btn.textContent = 'Starting…';
+    setBusy(true); btn.textContent = 'Starting…';
     try {
-      const gatheringId = await window.PodmatesCloud.createGathering(pod.id, title);
-      const seatWrites = [];
-      for (let i = 1; i < 6; i++) {
-        if (!seatAssignments[i]) continue;
-        const m = members.find(mm => mm.uid === seatAssignments[i]);
-        seatWrites.push(window.PodmatesCloud.setGatheringSeat(pod.id, gatheringId, i, {
-          uid: seatAssignments[i], displayName: (m && (m.displayLabel || m.displayName)) || 'Podmate', deck: null,
-        }));
-      }
-      await Promise.all(seatWrites);
-      await window.PodmatesCloud.goLiveGathering(pod.id, gatheringId);
+      const gid = await window.PodmatesCloud.createGathering(pod.id, f.title, { status: 'live', seats: c.seats, whenDate: f.whenDate, whenTime: f.whenTime, place: f.place });
       closeTryADeckModal();
-      openLiveGatheringOverlay(pod.id, gatheringId);
+      openLiveGatheringOverlay(pod.id, gid);
     } catch (err) {
       statusEl.textContent = 'Could not start the Gathering: ' + err.message;
       statusEl.className = 'status err';
-      btn.disabled = false;
-      btn.textContent = 'Go Live';
+      setBusy(false); btn.textContent = 'Start now (everyone is already here)';
     }
   });
 }
+
+// Confirmation shown after invites are sent: who was told, what was not, and a message to send by hand.
+function showInvitesSent({ pod, gid, title, f, c, sent, myName }) {
+  const modal = document.querySelector('#tadOverlay .tad-modal');
+  if (!modal) return;
+  const when = gatheringWhenText(f);
+  const rows = c.inviteeNames.map(n => `<div style="padding:7px 0; border-bottom:1px solid var(--line); font-size:13px;">${escapeHtml(n)} <span style="color:${sent ? 'var(--leaf)' : 'var(--danger)'}; font-size:12px;">— ${sent ? 'invited in PodMates' : 'invite not confirmed'}</span></div>`).join('')
+    + c.guestNames.map(n => `<div style="padding:7px 0; border-bottom:1px solid var(--line); font-size:13px;">${escapeHtml(n)} <span style="color:var(--text-soft); font-size:12px;">— guest, no invite needed</span></div>`).join('');
+  modal.innerHTML = `
+    <button class="tad-close" id="tadCloseBtn">Close ×</button>
+    <h2 style="margin-bottom:4px;">${sent ? 'Invites sent' : 'Gathering created'}</h2>
+    <p style="font-size:13px; margin:0 0 4px;"><strong>${escapeHtml(title)}</strong>${when ? ' · ' + escapeHtml(when) : ''}</p>
+    <p style="font-size:12.5px; color:var(--text-soft); margin:0 0 12px;">${sent
+      ? 'It is now waiting for replies. You will get a bell alert as each person accepts or declines.'
+      : 'The gathering was created, but PodMates could not confirm the invites were delivered. Open the waiting room and use Resend invites.'}</p>
+    <div style="margin-bottom:12px;">${rows}</div>
+    <p style="font-size:12px; color:var(--text-soft); margin:0 0 12px;">Invites appear in each podmate's bell and as a card on their My Pods page. Email and phone alerts are not built yet, so it is worth messaging them as well:</p>
+    <button type="button" id="invCopyBtn" class="ghost" style="width:100%; margin-bottom:8px;">Copy an invite message</button>
+    <button type="button" id="invOpenBtn" style="width:100%; margin-bottom:8px;">Open the waiting room</button>
+    <button type="button" id="invDoneBtn" class="ghost" style="width:100%;">Done</button>`;
+  document.getElementById('tadCloseBtn').addEventListener('click', () => { closeTryADeckModal(); renderOurPodPanel(); });
+  document.getElementById('invCopyBtn').addEventListener('click', () => gatheringCopyText(gatheringInviteMessage(title, f, myName), 'Invite message copied.'));
+  document.getElementById('invOpenBtn').addEventListener('click', () => openLiveGatheringOverlay(pod.id, gid));
+  document.getElementById('invDoneBtn').addEventListener('click', () => { closeTryADeckModal(); renderOurPodPanel(); });
+}
+
+
+// The waiting room: a proposed gathering that is collecting replies. Drawn into the same tray as the live view.
+async function renderWaitingTray(content, podId, gatheringId, g) {
+  const myUid = window.PodmatesCloud.uid;
+  const isHost = g.hostUid === myUid;
+  const rows = GATHERING_KEYS.map(k => ({ k, s: g.seats && g.seats[k] }));
+  const seated = rows.filter(r => r.s && r.s.uid);
+  const inPlay = seated.filter(r => gatheringRsvpOf(r.s) !== 'declined');
+  const pending = inPlay.filter(r => gatheringRsvpOf(r.s) === 'invited');
+  const acceptedN = inPlay.length - pending.length;
+  const mine = seated.find(r => r.s.uid === myUid);
+  const myRsvp = mine ? gatheringRsvpOf(mine.s) : null;
+  const hostRow = seated.find(r => r.s.uid === g.hostUid);
+  const hostName = hostRow ? hostRow.s.displayName : 'the host';
+  const when = gatheringWhenText(g);
+
+  let availableMembers = [];
+  if (isHost) {
+    try {
+      const all = await window.PodmatesCloud.loadPodMembers(podId);
+      const seatedUids = new Set(seated.map(r => r.s.uid));
+      availableMembers = all.filter(m => !seatedUids.has(m.uid));
+    } catch (e) { /* the host can still add a guest */ }
+  }
+  if (!document.getElementById('gatheringTrayContent')) return; // closed while loading
+
+  const badge = (r) => {
+    const s = r.s, v = gatheringRsvpOf(s);
+    if (s.uid === g.hostUid) return `<span style="color:var(--gold);">Host</span>`;
+    if (s.guest) return `<span style="color:var(--text-soft);">Guest</span>`;
+    if (v === 'accepted') return `<span style="color:var(--leaf);">✓ Accepted</span>`;
+    if (v === 'declined') return `<span style="color:var(--danger);">✗ Can't make it</span>`;
+    return `<span style="color:var(--gold);">… Waiting for a reply</span>`;
+  };
+  const seatsHtml = rows.map(r => {
+    const s = r.s, n = parseInt(r.k, 10) + 1;
+    if (!s || !s.uid) {
+      return `<div style="padding:12px; border:1px dashed var(--line); border-radius:4px; margin-bottom:10px; color:var(--text-soft); font-size:13px;">Seat ${n} — empty${isHost ? gatheringAddSelectHtml(r.k, availableMembers) : ''}</div>`;
+    }
+    const declined = gatheringRsvpOf(s) === 'declined';
+    const deckLabel = declined ? 'Seat is free to fill' : (s.deck ? escapeHtml(s.deck.commander || 'Deck loaded') : 'No deck chosen yet');
+    const clearBtn = (isHost && s.uid !== g.hostUid)
+      ? `<button type="button" class="ghost" data-remove-seat="${r.k}" style="font-size:12px; border-color:var(--danger); color:var(--danger);">${declined ? 'Clear seat' : 'Remove'}</button>` : '';
+    const replace = (isHost && declined) ? gatheringAddSelectHtml(r.k, availableMembers, '+ Replace with…') : '';
+    return `<div style="padding:12px; border:1px solid ${declined ? 'rgba(200,80,80,0.5)' : 'var(--line)'}; border-radius:4px; margin-bottom:10px; ${declined ? 'opacity:0.85;' : ''}">
+      <div style="display:flex; justify-content:space-between; gap:8px; align-items:baseline; margin-bottom:4px;">
+        <span style="font-weight:600;">Seat ${n} — ${escapeHtml(s.displayName || 'Podmate')}</span><span style="font-size:11.5px; white-space:nowrap;">${badge(r)}</span></div>
+      <div style="font-size:12.5px; color:var(--text-soft); margin-bottom:8px;">${deckLabel}</div>
+      <div class="row" style="gap:6px;">
+        ${declined ? '' : `<button type="button" class="ghost" data-gathering-seat="${r.k}" style="font-size:12px; flex:1;">Load a Deck</button>`}${clearBtn}
+      </div>${replace}</div>`;
+  }).join('');
+
+  let myBlock = '';
+  if (!isHost && mine) {
+    myBlock = myRsvp === 'invited'
+      ? `<div style="border:1.5px solid var(--gold); border-radius:6px; padding:12px; margin-bottom:14px;"><div style="font-size:13px; margin-bottom:8px;"><strong>${escapeHtml(hostName)}</strong> invited you. Can you make it?</div>
+          <div class="row" style="gap:8px;"><button type="button" id="wtAcceptBtn" style="flex:1;">Accept</button><button type="button" id="wtDeclineBtn" class="ghost" style="flex:1;">Can't make it</button></div></div>`
+      : myRsvp === 'accepted'
+        ? `<p style="font-size:13px; color:var(--leaf); margin:0 0 12px;">✓ You're in. <a href="#" id="wtDeclineLink" style="color:var(--text-soft); font-size:12px; margin-left:6px;">Can't make it after all</a></p>`
+        : `<p style="font-size:13px; color:var(--danger); margin:0 0 12px;">You said you can't make it. <a href="#" id="wtAcceptLink" style="color:var(--gold); font-size:12px; margin-left:6px;">Changed my mind — accept</a></p>`;
+  }
+  const hostBar = isHost ? `
+    <div class="row" style="gap:8px; margin:6px 0 10px;">
+      <button type="button" id="wtStartBtn" style="flex:1;">Start the gathering</button>
+      ${pending.length ? `<button type="button" id="wtResendBtn" class="ghost" style="flex:1;">Resend invites (${pending.length})</button>` : ''}
+    </div>
+    <div class="row" style="gap:8px;">
+      <button type="button" id="wtEditBtn" class="ghost" style="flex:1; font-size:12.5px;">Edit details</button>
+      <button type="button" id="wtCopyBtn" class="ghost" style="flex:1; font-size:12.5px;">Copy invite message</button>
+      <button type="button" id="wtCancelBtn" class="ghost" style="flex:1; font-size:12.5px; border-color:var(--danger); color:var(--danger);">Cancel it</button>
+    </div>
+    <div id="wtEditForm" style="display:none; margin-top:10px; padding:10px; border:1px solid var(--line); border-radius:4px;">
+      <input id="wtTitle" type="text" maxlength="80" value="${escapeHtml(g.title || '')}" placeholder="Name" style="width:100%; ${GATHERING_INPUT_CSS} margin-bottom:8px;">
+      <div class="row" style="gap:8px; margin-bottom:8px;"><input id="wtDate" type="date" value="${escapeHtml(g.whenDate || '')}" style="flex:1; min-width:0; ${GATHERING_INPUT_CSS}"><input id="wtTime" type="time" value="${escapeHtml(g.whenTime || '')}" style="flex:1; min-width:0; ${GATHERING_INPUT_CSS}"></div>
+      <input id="wtPlace" type="text" maxlength="120" value="${escapeHtml(g.place || '')}" placeholder="Where?" style="width:100%; ${GATHERING_INPUT_CSS} margin-bottom:8px;">
+      <button type="button" id="wtSaveBtn" style="width:100%;">Save changes</button></div>` : '';
+
+  content.innerHTML = `
+    <h2 style="margin-bottom:2px;">${escapeHtml(g.title || 'Gathering')}</h2>
+    <p style="font-size:12px; color:var(--text-soft); margin:0 0 4px;">Waiting for replies — hosted by ${escapeHtml(hostName)}</p>
+    ${when ? `<p style="font-size:13px; margin:0 0 4px;">${escapeHtml(when)}</p>` : ''}
+    <p style="font-size:12.5px; margin:0 0 14px; color:var(--gold);">${acceptedN} of ${inPlay.length} confirmed${pending.length ? ` · ${pending.length} still to reply` : ''}</p>
+    ${myBlock}
+    <div id="gatheringSeatsArea">${seatsHtml}</div>
+    ${isHost ? hostBar : `<p style="text-align:center; font-size:12px; color:var(--text-soft); margin-top:10px;">${mine ? `Waiting for ${escapeHtml(hostName)} to start the gathering. You can pick your deck now.` : `Waiting for ${escapeHtml(hostName)} to start the gathering.`}</p>`}`;
+
+  const again = () => renderLiveGatheringTray(podId, gatheringId);
+  const area = document.getElementById('gatheringSeatsArea');
+  area.querySelectorAll('[data-gathering-seat]').forEach(b => b.addEventListener('click', () => openGatheringSeatDeckPicker(podId, gatheringId, b.getAttribute('data-gathering-seat'), g)));
+
+  const answer = async (a) => {
+    try { await gatheringRsvp(podId, { ...g, id: gatheringId }, a); showToast(a === 'accepted' ? "You're in." : "Reply sent: can't make it."); again(); }
+    catch (err) { showToast('Could not send your reply: ' + err.message); }
+  };
+  const on = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener('click', (e) => { e.preventDefault(); fn(); }); };
+  on('wtAcceptBtn', () => answer('accepted')); on('wtDeclineBtn', () => answer('declined'));
+  on('wtAcceptLink', () => answer('accepted')); on('wtDeclineLink', () => answer('declined'));
+  if (!isHost) return;
+
+  wireGatheringAddControls(area, availableMembers, async (k, seat) => {
+    try {
+      const isGuest = !!seat.guest;
+      await window.PodmatesCloud.setGatheringSeat(podId, gatheringId, k, { ...seat, rsvp: isGuest ? 'accepted' : 'invited' });
+      if (!isGuest) await window.PodmatesCloud.notify('invite', g.title || 'Gathering', podId, gatheringId, [seat.uid]);
+      again();
+    } catch (err) { showToast('Could not seat that player: ' + err.message); }
+  });
+  area.querySelectorAll('[data-remove-seat]').forEach(btn => {
+    const k = btn.getAttribute('data-remove-seat'), s = g.seats[k];
+    btn.addEventListener('click', () => {
+      showActionConfirmModal(`Remove ${s && s.displayName ? s.displayName : 'this player'} from the gathering? Their seat will be cleared.`, 'Remove', async () => {
+        try { await window.PodmatesCloud.setGatheringSeat(podId, gatheringId, k, { uid: null, displayName: null, deck: null }); } catch (err) { showToast('Could not remove that player: ' + err.message); }
+        openLiveGatheringOverlay(podId, gatheringId);
+      }, () => openLiveGatheringOverlay(podId, gatheringId));
+    });
+  });
+  on('wtEditBtn', () => { const f = document.getElementById('wtEditForm'); f.style.display = f.style.display === 'none' ? 'block' : 'none'; });
+  on('wtSaveBtn', async () => {
+    try {
+      await window.PodmatesCloud.updateGatheringDetails(podId, gatheringId, { title: document.getElementById('wtTitle').value, whenDate: document.getElementById('wtDate').value || '', whenTime: document.getElementById('wtTime').value || '', place: document.getElementById('wtPlace').value });
+      showToast('Details updated.'); again();
+    } catch (err) { showToast('Could not save: ' + err.message); }
+  });
+  on('wtCopyBtn', () => gatheringCopyText(gatheringInviteMessage(g.title || 'the gathering', g, hostName), 'Invite message copied.'));
+  on('wtResendBtn', async () => {
+    const ok = await window.PodmatesCloud.notify('invite', g.title || 'Gathering', podId, gatheringId, pending.map(r => r.s.uid));
+    showToast(ok ? `Invites sent again to ${pending.length} ${pending.length === 1 ? 'person' : 'people'}.` : 'Could not confirm the invites went out. Try again.');
+  });
+  on('wtCancelBtn', () => {
+    showActionConfirmModal('Cancel this gathering? Everyone invited will be told.', 'Cancel gathering', async () => {
+      try {
+        await window.PodmatesCloud.cancelGathering(podId, gatheringId);
+        const tell = seated.filter(r => r.s.uid !== myUid && !r.s.guest).map(r => r.s.uid);
+        if (tell.length) await window.PodmatesCloud.notify('cancelled', g.title || 'the gathering', podId, gatheringId, tell);
+        stopGatheringPolling(); closeTryADeckModal(); renderOurPodPanel(); showToast('Gathering cancelled.');
+      } catch (err) { showToast('Could not cancel: ' + err.message); openLiveGatheringOverlay(podId, gatheringId); }
+    }, () => openLiveGatheringOverlay(podId, gatheringId), 'Keep it');
+  });
+  on('wtStartBtn', () => {
+    if (inPlay.length < 2) { showToast('You need at least 2 people seated to start.'); return; }
+    const go = async () => {
+      try {
+        for (const r of seated) if (gatheringRsvpOf(r.s) === 'declined') await window.PodmatesCloud.setGatheringSeat(podId, gatheringId, r.k, { uid: null, displayName: null, deck: null });
+        await window.PodmatesCloud.goLiveGathering(podId, gatheringId);
+      } catch (err) { showToast('Could not start: ' + err.message); }
+      openLiveGatheringOverlay(podId, gatheringId);
+    };
+    if (pending.length) showActionConfirmModal(`${pending.length} ${pending.length === 1 ? "person hasn't" : "people haven't"} replied yet. Start anyway? They stay seated and can still join.`, 'Start now', go, () => openLiveGatheringOverlay(podId, gatheringId));
+    else go();
+  });
+}
+
+// The landing-page paint: live gatherings you are seated at, gatherings you host that are waiting, and invites to answer.
+function paintOpenGatherings(liveArea, all, myUid) {
+  if (!liveArea) return;
+  const mineOf = (g) => GATHERING_KEYS.map(k => g.seats && g.seats[k]).find(s => s && s.uid === myUid);
+  const cards = [];
+  for (const g of all) {
+    const mine = mineOf(g); if (!mine) continue;
+    const title = escapeHtml(g.title || 'Gathering'), tag = `data-open-gathering="${escapeHtml(g.podId)}|${escapeHtml(g.id)}"`;
+    const when = gatheringWhenText(g);
+    if (g.status === 'live') {
+      cards.push(`<button type="button" ${tag} style="width:100%; margin-bottom:10px; background:var(--leaf); border-color:var(--leaf);">Join Gathering — ${title} <span style="opacity:0.85; font-size:12px;">(${escapeHtml(g.podName || '')})</span></button>`);
+      continue;
+    }
+    if (g.status !== 'proposed' || gatheringIsStale(g)) continue;
+    const v = gatheringRsvpOf(mine);
+    const seatsN = GATHERING_KEYS.map(k => g.seats && g.seats[k]).filter(s => s && s.uid && gatheringRsvpOf(s) !== 'declined');
+    const okN = seatsN.filter(s => gatheringRsvpOf(s) !== 'invited').length;
+    if (g.hostUid === myUid) {
+      cards.push(`<button type="button" ${tag} class="ghost" style="width:100%; margin-bottom:10px; border-color:var(--gold); text-align:left;">Waiting for replies — ${title}<br><span style="font-size:12px; color:var(--text-soft);">${okN} of ${seatsN.length} confirmed${when ? ' · ' + escapeHtml(when) : ''}</span></button>`);
+    } else if (v === 'invited') {
+      cards.push(`<div style="border:1.5px solid var(--gold); border-radius:6px; padding:10px 12px; margin-bottom:10px;"><div style="font-size:13.5px;"><strong>You're invited:</strong> ${title}</div>
+        <div style="font-size:12px; color:var(--text-soft); margin:2px 0 8px;">${escapeHtml(g.podName || '')}${when ? ' · ' + escapeHtml(when) : ''}</div>
+        <div class="row" style="gap:8px;"><button type="button" data-rsvp="accepted|${escapeHtml(g.podId)}|${escapeHtml(g.id)}" style="flex:1; font-size:12.5px;">Accept</button><button type="button" class="ghost" data-rsvp="declined|${escapeHtml(g.podId)}|${escapeHtml(g.id)}" style="flex:1; font-size:12.5px;">Can't make it</button><button type="button" class="ghost" ${tag} style="font-size:12.5px;">Details</button></div></div>`);
+    } else if (v === 'accepted') {
+      cards.push(`<button type="button" ${tag} class="ghost" style="width:100%; margin-bottom:10px; border-color:var(--leaf); text-align:left;">✓ You're in — ${title}<br><span style="font-size:12px; color:var(--text-soft);">${when ? escapeHtml(when) + ' · ' : ''}waiting for the host to start</span></button>`);
+    }
+  }
+  liveArea.innerHTML = cards.join('');
+  liveArea.querySelectorAll('[data-open-gathering]').forEach(btn => btn.addEventListener('click', () => {
+    const [podId, gid] = btn.getAttribute('data-open-gathering').split('|');
+    openLiveGatheringOverlay(podId, gid);
+  }));
+  liveArea.querySelectorAll('[data-rsvp]').forEach(btn => btn.addEventListener('click', async () => {
+    const [ans, podId, gid] = btn.getAttribute('data-rsvp').split('|');
+    const g = all.find(x => x.id === gid && x.podId === podId); if (!g) return;
+    btn.disabled = true;
+    try { await gatheringRsvp(podId, g, ans); showToast(ans === 'accepted' ? "You're in." : "Reply sent: can't make it."); }
+    catch (err) { btn.disabled = false; showToast('Could not send your reply: ' + err.message); }
+  }));
+}
+
 
 // --- The live Gathering tray: seats with names, and a way to load a deck
 // into any seat -- any signed-in pod member can fill any seat, not just
@@ -25618,7 +25965,7 @@ function startGatheringWatch(podId, gatheringId) {
       if (meta && meta.hasPendingWrites) return; // this device's own write; the confirmed version follows
       const content = document.getElementById('gatheringTrayContent');
       if (!content) { stopGatheringPolling(); return; } // the overlay was closed
-      const sig = gathering ? JSON.stringify([gathering.status, gathering.chartedAt, gathering.lastLoggedChronicleId, gathering.seats, gathering.title]) : 'gone';
+      const sig = gathering ? JSON.stringify([gathering.status, gathering.chartedAt, gathering.lastLoggedChronicleId, gathering.seats, gathering.title, gathering.whenDate, gathering.whenTime, gathering.place]) : 'gone';
       if (sig === lastSig) return;
       lastSig = sig;
       if (content.dataset.confirming) return;
@@ -25677,6 +26024,12 @@ async function renderLiveGatheringTray(podId, gatheringId, preloaded) {
   // Nothing about the computed results is stored in Firestore itself --
   // every client just re-derives them from the same seats, since the
   // analysis is fully deterministic.
+  if (gathering.status === 'cancelled') {
+    stopGatheringPolling();
+    content.innerHTML = `<p style="color:var(--text-soft); font-size:13px;">This gathering was cancelled by the host.</p>`;
+    return;
+  }
+  if (gathering.status === 'proposed') { await renderWaitingTray(content, podId, gatheringId, gathering); return; }
   if (gathering.chartedAt && gathering.chartedAt !== seenGatheringChartedAt[gatheringId]) {
     seenGatheringChartedAt[gatheringId] = gathering.chartedAt;
     if (dbReady) {
@@ -25686,7 +26039,7 @@ async function renderLiveGatheringTray(podId, gatheringId, preloaded) {
         const seat = gathering.seats && gathering.seats[k];
         if (!seat || !seat.uid || !seat.deck || !seat.deck.list) continue;
         const result = analyzeOneList(seat.deck.list, seat.displayName || '', seat.deck.commander || '');
-        if (result) { result.uid = seat.uid; result.color = POD_COLORS[decks.length % POD_COLORS.length]; decks.push(result); }
+        if (result) { result.uid = seat.guest ? null : seat.uid; result.color = POD_COLORS[decks.length % POD_COLORS.length]; decks.push(result); }
       }
       if (decks.length >= 2) {
         stopGatheringPolling();
@@ -25696,7 +26049,7 @@ async function renderLiveGatheringTray(podId, gatheringId, preloaded) {
           podId, gatheringId, gatheringTitle: gathering.title || '',
           isHost: gathering.hostUid === window.PodmatesCloud.uid,
           hostName: (hostSeatForChart && hostSeatForChart.displayName) || 'the host',
-          participants: seatKeysForChart.map(k => gathering.seats && gathering.seats[k]).filter(s => s && s.uid).map(s => ({ uid: s.uid, displayName: s.displayName || 'Podmate' })),
+          participants: seatKeysForChart.map(k => gathering.seats && gathering.seats[k]).filter(s => s && s.uid && !s.guest).map(s => ({ uid: s.uid, displayName: s.displayName || 'Podmate' })),
         };
         renderPodAnalysisResults(decks);
         renderBattleControls();
@@ -25739,14 +26092,7 @@ async function renderLiveGatheringTray(podId, gatheringId, preloaded) {
   seatsArea.innerHTML = seatKeys.map(k => {
     const seat = gathering.seats && gathering.seats[k];
     if (!seat || !seat.uid) {
-      const addControl = isHost
-        ? (availableMembers.length
-          ? `<select data-add-seat="${k}" style="width:100%; margin-top:6px; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:7px 9px; color:var(--text-primary); font-family:inherit; font-size:12.5px;">
-              <option value="">+ Add a player…</option>
-              ${availableMembers.map(m => `<option value="${escapeHtml(m.uid)}">${escapeHtml(m.displayLabel || m.displayName || 'Podmate')}</option>`).join('')}
-            </select>`
-          : `<p style="font-size:11.5px; color:var(--text-soft); margin:6px 0 0;">No other pod members free to seat here.</p>`)
-        : '';
+      const addControl = isHost ? gatheringAddSelectHtml(k, availableMembers) : '';
       return `<div style="padding:12px; border:1px dashed var(--line); border-radius:4px; margin-bottom:10px; color:var(--text-soft); font-size:13px;">Seat ${parseInt(k) + 1} — empty${addControl}</div>`;
     }
     const deckLabel = seat.deck ? escapeHtml(seat.deck.commander || 'Deck loaded') : 'No deck selected yet';
@@ -25754,7 +26100,7 @@ async function renderLiveGatheringTray(podId, gatheringId, preloaded) {
       ? `<button type="button" class="ghost" data-remove-seat="${k}" style="font-size:12px; border-color:var(--danger); color:var(--danger);">Remove</button>`
       : '';
     return `<div style="padding:12px; border:1px solid var(--line); border-radius:4px; margin-bottom:10px;">
-      <div style="font-weight:600; margin-bottom:4px;">Seat ${parseInt(k) + 1} — ${escapeHtml(seat.displayName || 'Podmate')}${seat.uid === gathering.hostUid ? ' (Host)' : ''}</div>
+      <div style="font-weight:600; margin-bottom:4px;">Seat ${parseInt(k) + 1} — ${escapeHtml(seat.displayName || 'Podmate')}${seat.uid === gathering.hostUid ? ' (Host)' : ''}${seat.guest ? ' (Guest)' : ''}</div>
       <div style="font-size:12.5px; color:var(--text-soft); margin-bottom:8px;">${deckLabel}</div>
       <div class="row" style="gap:6px;">
         <button type="button" class="ghost" data-gathering-seat="${k}" style="font-size:12px; flex:1;">Load a Deck</button>
@@ -25769,21 +26115,13 @@ async function renderLiveGatheringTray(podId, gatheringId, preloaded) {
   // selection -- one dropdown, no separate confirm step, matching how
   // lightweight this action actually is (nothing destructive happens;
   // the seat starts with no deck loaded either way).
-  seatsArea.querySelectorAll('[data-add-seat]').forEach(sel => {
-    sel.addEventListener('change', async () => {
-      const uid = sel.value;
-      if (!uid) return;
-      const seatIdx = sel.getAttribute('data-add-seat');
-      const member = availableMembers.find(m => m.uid === uid);
-      try {
-        await window.PodmatesCloud.setGatheringSeat(podId, gatheringId, seatIdx, {
-          uid, displayName: (member && (member.displayLabel || member.displayName)) || 'Podmate', deck: null,
-        });
-        renderLiveGatheringTray(podId, gatheringId);
-      } catch (err) {
-        showToast('Could not seat that player: ' + err.message);
-      }
-    });
+  wireGatheringAddControls(seatsArea, availableMembers, async (seatIdx, seat) => {
+    try {
+      await window.PodmatesCloud.setGatheringSeat(podId, gatheringId, seatIdx, { ...seat, rsvp: 'accepted' });
+      renderLiveGatheringTray(podId, gatheringId);
+    } catch (err) {
+      showToast('Could not seat that player: ' + err.message);
+    }
   });
   // Host-only: clearing a seat back to empty -- confirmed first, since it
   // also discards whatever deck that player had already picked, unlike
@@ -25795,11 +26133,11 @@ async function renderLiveGatheringTray(podId, gatheringId, preloaded) {
       showActionConfirmModal(`Remove ${seat && seat.displayName ? escapeHtml(seat.displayName) : 'this player'} from the Gathering? Their seat will be cleared, including any deck they'd already picked.`, 'Remove', async () => {
         try {
           await window.PodmatesCloud.setGatheringSeat(podId, gatheringId, seatIdx, { uid: null, displayName: null, deck: null });
-          renderLiveGatheringTray(podId, gatheringId);
         } catch (err) {
           showToast('Could not remove that player: ' + err.message);
         }
-      });
+        openLiveGatheringOverlay(podId, gatheringId);
+      }, () => openLiveGatheringOverlay(podId, gatheringId));
     });
   });
   const refreshBtn = document.getElementById('gatheringRefreshBtn');
@@ -25818,7 +26156,7 @@ async function renderLiveGatheringTray(podId, gatheringId, preloaded) {
       if (!seat || !seat.uid || !seat.deck || !seat.deck.list) continue;
       const result = analyzeOneList(seat.deck.list, seat.displayName || '', seat.deck.commander || '');
       if (result) {
-        result.uid = seat.uid; result.color = POD_COLORS[decks.length % POD_COLORS.length];
+        result.uid = seat.guest ? null : seat.uid; result.color = POD_COLORS[decks.length % POD_COLORS.length];
         decks.push(result);
       }
     }
@@ -25841,7 +26179,7 @@ async function renderLiveGatheringTray(podId, gatheringId, preloaded) {
     currentBattleContext = {
       podId, gatheringId, gatheringTitle: gathering.title || '', isHost: true,
       hostName: (window.PodmatesCloud.user && window.PodmatesCloud.user.displayName) || 'the host',
-      participants: seatKeys.map(k => gathering.seats && gathering.seats[k]).filter(s => s && s.uid).map(s => ({ uid: s.uid, displayName: s.displayName || 'Podmate' })),
+      participants: seatKeys.map(k => gathering.seats && gathering.seats[k]).filter(s => s && s.uid && !s.guest).map(s => ({ uid: s.uid, displayName: s.displayName || 'Podmate' })),
     };
     renderPodAnalysisResults(decks);
     renderBattleControls();
@@ -25890,6 +26228,7 @@ function openGatheringSeatDeckPicker(podId, gatheringId, seatIndex, gathering) {
       podId, gatheringId,
       seatIndex: parseInt(seatIndex, 10),
       seatUid: seat.uid,
+      seatIsGuest: !!seat.guest,
       seatDisplayName: seat.displayName || 'Podmate',
     },
   });
@@ -27742,7 +28081,7 @@ async function runRepeatBattle() {
     const seat = gathering.seats && gathering.seats[k];
     if (!seat || !seat.uid || !seat.deck || !seat.deck.list) continue;
     const result = analyzeOneList(seat.deck.list, seat.displayName || '', seat.deck.commander || '');
-    if (result) { result.uid = seat.uid; result.color = POD_COLORS[decks.length % POD_COLORS.length]; decks.push(result); }
+    if (result) { result.uid = seat.guest ? null : seat.uid; result.color = POD_COLORS[decks.length % POD_COLORS.length]; decks.push(result); }
   }
   if (decks.length < 2) { showToast('Not enough decks loaded to repeat this battle.'); return; }
   try { await window.PodmatesCloud.markGatheringCharted(currentBattleContext.podId, currentBattleContext.gatheringId); }
@@ -29971,10 +30310,7 @@ function loadDeckByKey(key, target) {
     // one other caller (the click delegate below) doesn't await it either,
     // and keeping this function's signature unchanged avoids touching
     // every other thing that already relies on it being synchronous.
-    window.PodmatesCloud.setGatheringSeat(g.podId, g.gatheringId, g.seatIndex, {
-      uid: g.seatUid, displayName: g.seatDisplayName,
-      deck: { commander, list, cardCount: null },
-    }).then(() => {
+    window.PodmatesCloud.setSeatDeck(g.podId, g.gatheringId, g.seatIndex, { commander, list, cardCount: null }).then(() => {
       closeTryADeckModal();
       openLiveGatheringOverlay(g.podId, g.gatheringId);
       showToast(`Loaded "${key}" into Seat ${g.seatIndex + 1}.`);
@@ -30102,14 +30438,15 @@ async function showLoadDeckModal(target) {
   // Pre-filtering to "my own name" there risks hiding someone's own decks
   // right when they're trying to find one.
   const gatheringSeatIsMine = isGatheringSeat && target.gatheringSeat.seatUid === window.PodmatesCloud.uid;
-  loadDeckActivePlayer = (isGatheringSeat && !gatheringSeatIsMine) ? target.gatheringSeat.seatDisplayName : null;
+  // A guest has no decks of their own, so a guest seat sees every pod deck (no name filter).
+  loadDeckActivePlayer = (isGatheringSeat && !gatheringSeatIsMine && !target.gatheringSeat.seatIsGuest) ? target.gatheringSeat.seatDisplayName : null;
   loadDeckTarget = isGatheringSeat ? target : 'main';
   const overlay = document.createElement('div');
   overlay.className = 'tad-overlay';
   overlay.id = 'tadOverlay';
   const modal = document.createElement('div');
   modal.className = 'tad-modal';
-  const titleSuffix = isGatheringSeat ? ` — Seat ${(Number(target.gatheringSeat.seatIndex) || 0) + 1} (${escapeHtml(target.gatheringSeat.seatDisplayName)})` : '';
+  const titleSuffix = isGatheringSeat ? ` — Seat ${(Number(target.gatheringSeat.seatIndex) || 0) + 1} (${escapeHtml(target.gatheringSeat.seatDisplayName)}${target.gatheringSeat.seatIsGuest ? ', guest' : ''})` : '';
   modal.innerHTML = `<button class="tad-close" id="tadCloseBtn">Close ×</button>` +
     `<h2 style="margin-bottom:10px;">Load a Deck${titleSuffix}</h2>` +
     `<input type="text" id="loadDeckSearch" placeholder="Search by commander or player…" style="width:100%; box-sizing:border-box; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px; margin-bottom:10px;">` +
@@ -31003,9 +31340,12 @@ setupIconTooltipsFor(document);
     gathering:  { label: 'A gathering is set up',               tag: 'Gathering',  text: (n, s) => n + ' invited the pod to a gathering' + (s ? ': ' + s : '') },
     live:       { label: 'A gathering goes live',               tag: 'Live',       text: (n, s) => n + ' started the gathering' + (s ? ' "' + s + '"' : '') + ' — it is live now' },
     nomination: { label: 'Someone nominates an Impact card',    tag: 'Nomination', text: (n, s) => n + ' nominated ' + (s || 'a card') + ' as an Impact card' },
+    invite:     { label: 'You are invited to a gathering',    tag: 'Invite',     text: (n, s) => n + ' invited you to "' + (s || 'a gathering') + '" — reply in My Pods' },
+    rsvp:       { label: 'Someone replies to your invite',     tag: 'Reply',      text: (n, s) => n + ' ' + (s || 'replied') },
+    cancelled:  { label: 'A gathering is cancelled',            tag: 'Cancelled',  text: (n, s) => n + ' cancelled "' + (s || 'the gathering') + '"' },
     joined:     { label: 'Someone joins a pod',                 tag: 'Joined',     text: (n, s) => n + ' joined ' + (s || 'the pod') },
   };
-  const TAG_COLOR = { deck: '#3d8f8a', gathering: '#d9a62e', live: '#d9603e', nomination: '#8a6cd6', joined: '#7aa35a' };
+  const TAG_COLOR = { deck: '#3d8f8a', gathering: '#d9a62e', live: '#d9603e', nomination: '#8a6cd6', joined: '#7aa35a', invite: '#d9a62e', rsvp: '#3d8f8a', cancelled: '#a05a5a' };
   const DAY = 86400000;
   let cloud = null, uid = null, pods = [], feeds = new Map(), unsubs = [], seenAt = 0, prefs = { types: {}, muted: {} }, started = false;
 
@@ -31090,6 +31430,7 @@ setupIconTooltipsFor(document);
     modal.querySelectorAll('[data-n]').forEach(b => b.addEventListener('click', () => {
       const it = visible()[Number(b.getAttribute('data-n'))]; if (!it) return;
       closeTryADeckModal();
+      if (it.ref && ['invite', 'rsvp', 'cancelled', 'live', 'gathering'].indexOf(it.type) >= 0 && typeof openLiveGatheringOverlay === 'function') { try { openLiveGatheringOverlay(it.podId, it.ref); return; } catch (e) {} }
       const pod = pods.find(p => p.id === it.podId);
       if (pod && typeof openPodDetailOverlay === 'function') { try { openPodDetailOverlay(pod, pods); } catch (e) {} }
     }));
@@ -31703,21 +32044,30 @@ setupIconTooltipsFor(document);
     return seats;
   }
 
-  async function cloudCreateGathering(podId, title) {
+  async function cloudCreateGathering(podId, title, opts) {
     if (!currentUser) throw new Error('Not signed in yet');
     if (!podId) throw new Error('No pod selected');
+    opts = opts || {};
     const seats = emptyGatheringSeats();
-    seats[0] = { uid: currentUser.uid, displayName: clampText(currentUser.displayName || currentUser.email || 'Host', PML().displayName), deck: null };
+    seats[0] = { uid: currentUser.uid, displayName: clampText(currentUser.displayName || currentUser.email || 'Host', PML().displayName), deck: null, rsvp: 'accepted' };
+    // Everything is written in ONE document write, so a failure can never leave a half-made gathering behind.
+    const given = opts.seats || {};
+    for (const k of Object.keys(given)) {
+      const i = Number(k), s = given[k];
+      if (!(i >= 1 && i <= 5) || !s || !s.uid) continue;
+      seats[i] = { uid: String(s.uid).slice(0, 80), displayName: clampText(s.displayName || 'Podmate', PML().displayName), deck: null, rsvp: s.rsvp === 'invited' ? 'invited' : 'accepted' };
+      if (s.guest) seats[i].guest = true;
+    }
+    const status = opts.status === 'proposed' ? 'proposed' : opts.status === 'live' ? 'live' : 'setup';
+    const cleanTitle = clampText((title || '').trim() || 'Untitled Gathering', PML().gatheringTitle);
+    const data = { title: cleanTitle, hostUid: currentUser.uid, status, seats, createdAt: Date.now(), updatedAt: serverTimestamp() };
+    if (status === 'live') data.goLiveAt = Date.now();
+    if (opts.whenDate) data.whenDate = clampText(opts.whenDate, 10);
+    if (opts.whenTime) data.whenTime = clampText(opts.whenTime, 5);
+    if (opts.place) data.place = clampText(String(opts.place).trim(), 120);
     const ref = doc(collection(db, 'pods', podId, 'gatherings'));
-    await setDoc(ref, {
-      title: clampText((title || '').trim() || 'Untitled Gathering', PML().gatheringTitle),
-      hostUid: currentUser.uid,
-      status: 'setup',
-      seats,
-      createdAt: Date.now(),
-      updatedAt: serverTimestamp(),
-    });
-    cloudLogActivity('gathering', (title || '').trim() || 'Untitled Gathering', { podIds: [podId], ref: ref.id });
+    await setDoc(ref, data);
+    if (status === 'live') cloudLogActivity('live', cleanTitle, { podIds: [podId], ref: ref.id });
     return ref.id;
   }
 
@@ -31837,6 +32187,58 @@ setupIconTooltipsFor(document);
     await setDoc(doc(db, 'pods', podId, 'gatherings', gatheringId), {
       status: 'ended', endedAt: Date.now(), updatedAt: serverTimestamp(),
     }, { merge: true });
+  }
+
+  // ---- Gathering invites, replies and the waiting state ----
+  // Statuses: proposed (waiting for replies) -> live -> ended, or proposed -> cancelled.
+  async function cloudSetSeatRsvp(podId, gatheringId, seatIndex, rsvp) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    if (rsvp !== 'accepted' && rsvp !== 'declined' && rsvp !== 'invited') throw new Error('Unknown reply');
+    await updateDoc(doc(db, 'pods', podId, 'gatherings', gatheringId), { [`seats.${seatIndex}.rsvp`]: rsvp, updatedAt: serverTimestamp() });
+  }
+  // Changes only the deck on a seat, so who is sitting there (and their reply, guest flag and so on) is never touched.
+  async function cloudSetSeatDeck(podId, gatheringId, seatIndex, deck) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    if (deck && deck.list) { const p = deckListProblem(deck.list || ''); if (p) throw new Error(p); }
+    await updateDoc(doc(db, 'pods', podId, 'gatherings', gatheringId), { [`seats.${seatIndex}.deck`]: deck || null, updatedAt: serverTimestamp() });
+  }
+  async function cloudUpdateGatheringDetails(podId, gatheringId, d) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    const up = { updatedAt: serverTimestamp() };
+    if (d.title != null) up.title = clampText((d.title || '').trim() || 'Untitled Gathering', PML().gatheringTitle);
+    if (d.whenDate != null) up.whenDate = clampText(d.whenDate, 10);
+    if (d.whenTime != null) up.whenTime = clampText(d.whenTime, 5);
+    if (d.place != null) up.place = clampText(String(d.place).trim(), 120);
+    await updateDoc(doc(db, 'pods', podId, 'gatherings', gatheringId), up);
+  }
+  async function cloudCancelGathering(podId, gatheringId) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    await setDoc(doc(db, 'pods', podId, 'gatherings', gatheringId), { status: 'cancelled', cancelledAt: Date.now(), updatedAt: serverTimestamp() }, { merge: true });
+  }
+  // Waiting and live gatherings together (what the landing page shows).
+  async function cloudLoadOpenGatherings(podId) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    if (!podId) return [];
+    const snap = await getDocs(query(collection(db, 'pods', podId, 'gatherings'), where('status', 'in', ['proposed', 'live'])));
+    const out = []; snap.forEach(d => out.push({ id: d.id, ...d.data() })); return out;
+  }
+  function cloudWatchOpenGatherings(podId, onData, onError) {
+    if (!currentUser) throw new Error('Not signed in yet');
+    if (!podId) return () => {};
+    return onSnapshot(query(collection(db, 'pods', podId, 'gatherings'), where('status', 'in', ['proposed', 'live'])),
+      (snap) => { const out = []; snap.forEach(d => out.push({ id: d.id, ...d.data() })); onData(out); },
+      (err) => { if (onError) onError(err); });
+  }
+  // Writes one bell entry addressed to specific people. Returns true only if it was really written, so the screen can say honestly whether invites went out.
+  async function cloudNotify(type, subject, podId, ref, toUids) {
+    try {
+      if (!currentUser || !podId) return false;
+      const data = { type, by: currentUser.uid, byName: clampText(currentUser.displayName || currentUser.email || 'Someone', 80), subject: clampText(String(subject || ''), 160), createdAt: Date.now() };
+      if (ref) data.ref = clampText(String(ref), 80);
+      if (toUids && toUids.length) data.to = toUids.slice(0, 12);
+      await setDoc(doc(collection(db, 'pods', podId, 'activity')), data);
+      return true;
+    } catch (e) { return false; }
   }
 
   // Note: an earlier version of the Profile Builder used real usernames
@@ -32381,6 +32783,8 @@ setupIconTooltipsFor(document);
     createGathering: cloudCreateGathering, loadGathering: cloudLoadGathering,
     loadLiveGatherings: cloudLoadLiveGatherings, watchGathering: cloudWatchGathering, watchLiveGatherings: cloudWatchLiveGatherings, setGatheringSeat: cloudSetGatheringSeat,
     goLiveGathering: cloudGoLiveGathering, endGathering: cloudEndGathering,
+    setSeatRsvp: cloudSetSeatRsvp, setSeatDeck: cloudSetSeatDeck, updateGatheringDetails: cloudUpdateGatheringDetails, cancelGathering: cloudCancelGathering,
+    loadOpenGatherings: cloudLoadOpenGatherings, watchOpenGatherings: cloudWatchOpenGatherings, notify: cloudNotify,
     markGatheringCharted: cloudMarkGatheringCharted,
     loadImpactSettings: cloudLoadImpactSettings, setImpactChange: cloudSetImpactChange,
     setImpactReason: cloudSetImpactReason, resetImpactSettings: cloudResetImpactSettings,
