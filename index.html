@@ -21094,6 +21094,7 @@ function renderChart(scores, commandSpark, agg, tierDiscrepancy) {
 }
 
 function renderBracket(bracket, agg) {
+  try { window.__pmBracketKey = bracket && bracket.bracketKey; window.__pmGcHeld = agg && agg.gameChangers ? agg.gameChangers.length : 0; } catch (e) {}
   let html = `<div class="bracket-num">Bracket ${escapeHtml(bracket.bracket)}${explainerBtn('bracket')}</div>`;
   html += `<div class="reasoning">${bracket.reasoning.map(r => escapeHtml(r.replace(/\*\*/g, ''))).join(' ')}</div>`;
   if (bracket.cedhNote) {
@@ -21672,10 +21673,9 @@ function knowThemeSuggestions(matched, pool) {
     for (const m of matched) { const k = knowCard(m.card.n); if (!k) continue; for (const e of k[1]) if (!e[2] && KNOW_JSON.lists[e[0]][3] === 'theme') have.set(e[0], (have.get(e[0]) || 0) + 1); }
     const poolMap = new Map(pool.map(c => [String(c.n).toLowerCase(), c]));
     const ranked = Array.from(have.entries()).filter(([i, n]) => n >= Math.max(5, KNOW_JSON.lists[i][1] * 0.1)).sort((a, b) => (b[1] / KNOW_JSON.lists[b[0]][1]) - (a[1] / KNOW_JSON.lists[a[0]][1]));
-    // The broad 'commander staples' list fits every deck, so it only fills a slot when no specific theme qualifies.
+    // The broad 'commander staples' list fits every deck and is well known, so it is never shown.
     const isStaples = (i) => /commander-staples/.test(KNOW_JSON.lists[i][0]);
-    let pick = ranked.filter(r => !isStaples(r[0])).slice(0, 2);
-    if (!pick.length) pick = ranked.filter(r => isStaples(r[0])).slice(0, 1);
+    const pick = ranked.filter(r => !isStaples(r[0])).slice(0, 2); // the broad staples list is never shown: most players know these
     for (const [i, n] of pick) {
       const cand = [];
       for (const name in KNOW_JSON.cards) {
@@ -22623,6 +22623,14 @@ function buildInteractionSuggestions(ctx) {
   }
   return { items, identity: ident };
 }
+// Game Changer note for a suggested card. Warns when adding it would push the deck up a bracket.
+function ixGcNote() {
+  const key = window.__pmBracketKey, held = window.__pmGcHeld || 0;
+  const warn = (txt) => ' <span style="font-size:10.5px; font-weight:700; color:#e0a030;" title="Game Changer">\u26A0 ' + txt + '</span>';
+  if (key === '1-2') return warn('Game Changer: adding it lifts this deck to Bracket 3');
+  if (key === '3' && held >= 3) return warn('Game Changer: would be your 4th, over the Bracket 3 limit of 3');
+  return ' <span style="font-size:10.5px; color:var(--gold);">(Game Changer)</span>';
+}
 function ixShowSuggestions() {
   if (!ixLastCtx) return;
   let data; try { data = buildInteractionSuggestions(ixLastCtx); } catch (e) { data = { items: [] }; }
@@ -22644,7 +22652,7 @@ function ixShowSuggestions() {
       </div>
       <div style="margin:6px 0 0 14px; padding-left:12px; border-left:2px solid var(--line);">
       ${it.groups.map(g => `<div style="margin-top:8px;"><div style="font-size:11px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:var(--gold);">Add: ${g.label}</div>
-        ${g.list.map(c => `<div style="font-size:13px; margin-top:4px; display:flex; gap:8px; align-items:baseline;"><span aria-hidden="true" style="flex:none; width:16px; height:16px; border-radius:50%; background:var(--gold); color:#1a1208; font-weight:700; font-size:13px; line-height:16px; text-align:center;">+</span><span>${cardNameLink(c.n)}${knowBadge(c.n)}${c.g ? ' <span style="font-size:10.5px; color:var(--gold);">(Game Changer)</span>' : ''} <span style="color:var(--text-soft); font-size:12px;">\u2013 ${escapeHtml(c.why)}${c.m ? ', MV ' + c.m : ''}</span></span></div>`).join('')}</div>`).join('')}
+        ${g.list.map(c => `<div style="font-size:13px; margin-top:4px; display:flex; gap:8px; align-items:baseline;"><span aria-hidden="true" style="flex:none; width:16px; height:16px; border-radius:50%; background:var(--gold); color:#1a1208; font-weight:700; font-size:13px; line-height:16px; text-align:center;">+</span><span>${cardNameLink(c.n)}${knowBadge(c.n)}${c.g ? ixGcNote() : ''} <span style="color:var(--text-soft); font-size:12px;">\u2013 ${escapeHtml(c.why)}${c.m ? ', MV ' + c.m : ''}</span></span></div>`).join('')}</div>`).join('')}
       </div></div>`;
   }).join('')
     : '<div style="color:var(--text-soft); font-size:13px;">No clear additions found for this deck\'s main interactions.</div>';
@@ -22664,15 +22672,15 @@ function ixShowSuggestions() {
 // template chosen from its outcome label (comboHow).
 const COMBO_STEPS = [
   { k: ["Thassa's Oracle", "Demonic Consultation"], t: "Cast Demonic Consultation naming a card that is not in your library. It exiles your whole library. Then cast Thassa's Oracle: with an empty library its enter trigger wins you the game." },
-  { k: ["Thassa's Oracle", "Tainted Pact"], t: "Cast Tainted Pact. It exiles cards until it finds a repeated name, so in a singleton deck it exiles the whole library (basic lands can stop it early). Then cast Thassa's Oracle with an empty library and win." },
+  { k: ["Thassa's Oracle", "Tainted Pact"], t: "Cast Tainted Pact. It exiles cards one at a time until two share a name; decline to take any of them. In a singleton deck that is the whole library (a repeated basic land can stop it early). Then cast Thassa's Oracle with an empty library and win." },
   { k: ["Isochron Scepter", "Dramatic Reversal"], t: "Imprint Dramatic Reversal on Isochron Scepter. Pay {2} and tap the Scepter to copy Reversal: it untaps all your nonland permanents, including the Scepter and your mana rocks. If your rocks make 3 or more mana in total, every loop is a net gain." },
   { k: ["Kiki-Jiki, Mirror Breaker", "Zealous Conscripts"], t: "Tap Kiki-Jiki to copy Zealous Conscripts. The copy's enter trigger takes control of a permanent and untaps it, so aim it at Kiki-Jiki and untap him. Repeat for as many hasty Conscripts as you like." },
   { k: ["Kiki-Jiki, Mirror Breaker", "Pestermite / Deceiver Exarch"], t: "Tap Kiki-Jiki to copy Pestermite (or Deceiver Exarch). The copy's enter trigger untaps Kiki-Jiki, so you can copy again, as often as you like, and each copy has haste." },
   { k: ["Splinter Twin", "Pestermite / Deceiver Exarch"], t: "Enchant Pestermite (or Deceiver Exarch) with Splinter Twin. Tap it to make a hasty token copy. The copy's enter trigger untaps the original, so repeat for as many hasty copies as you want." },
   { k: ["Heliod, Sun-Crowned", "Walking Ballista"], t: "Pay {1}{W} to give Walking Ballista lifelink. Remove a counter to ping: lifelink gains you 1 life, and Heliod puts a counter back on the Ballista. Every loop deals 1 damage at no cost, so point it at the opponents." },
-  { k: ["Basalt Monolith", "Rings of Brighthearth"], t: "Tap Basalt Monolith for {C}{C}{C}, then activate its {3} untap. Rings of Brighthearth copies that ability (pay {1}), so each copy untaps the Monolith again while you tap it in between. You end each loop with more mana than you started." },
-  { k: ["Basalt Monolith", "Forsaken Monument"], t: "Forsaken Monument adds an extra {C} whenever you tap something for {C}, so Basalt Monolith taps for six. Pay {3} to untap it and repeat: a net gain of {C}{C}{C} each loop." },
-  { k: ["Power Artifact", "Basalt Monolith / Grim Monolith"], t: "Power Artifact makes the Monolith's {3} untap cost {1}. It taps for {C}{C}{C}, so each loop pays {1} and returns three: a net gain of two colourless mana every time." },
+  { k: ["Basalt Monolith", "Rings of Brighthearth"], t: "Tap Basalt Monolith for {C}{C}{C}, then activate its {3} untap ability. Rings of Brighthearth lets you pay {2} to copy it. The copy and the original each untap the Monolith, so you can tap it again in between and end the loop one mana ahead. You need a little spare mana to start." },
+  { k: ["Basalt Monolith", "Forsaken Monument"], t: "Forsaken Monument adds one extra {C} whenever you tap a permanent for {C}, so Basalt Monolith taps for four. Pay {3} to untap it and repeat: a net gain of {C} each loop." },
+  { k: ["Power Artifact", "Basalt Monolith / Grim Monolith"], t: "Power Artifact makes the Monolith's {3} untap cost {1}. Basalt Monolith taps for {C}{C}{C}, so each loop pays {1} and returns three: a net gain of two colourless mana. Grim Monolith's untap costs {4}, so it drops to {2} and nets one mana per loop." },
   { k: ["Deadeye Navigator", "Peregrine Drake / Palinchron / Great Whale"], t: "Pair Deadeye Navigator with the creature. Pay {1}{U} to blink it: its enter trigger untaps lands (five for Peregrine Drake, seven for Palinchron or Great Whale), which refunds more than the blink cost. Repeat for as much mana as you want." },
   { k: ["Palinchron", "Phantasmal Image"], t: "Cast Phantasmal Image as a copy of Palinchron to untap seven lands. Pay {2}{U}{U} to return the copy to your hand, recast Image for {1}{U}, and untap seven lands again. With 7 or more lands every loop nets mana." },
   { k: ["Food Chain", "Squee, the Immortal"], t: "Cast Squee, then exile it with Food Chain: you get four mana plus one extra, usable on creature spells. Recast Squee from exile with that mana (it costs four) and keep the extra {1}. Each loop gains one mana for creature spells." },
@@ -22681,13 +22689,13 @@ const COMBO_STEPS = [
   { k: ["Krenko, Mob Boss", "Intruder Alarm"], t: "Tap Krenko to make Goblins equal to the Goblins you control. Each one entering triggers Intruder Alarm, which untaps every creature including Krenko. Repeat: your Goblins double each time." },
   { k: ["Earthcraft", "Squirrel Nest"], t: "Squirrel Nest on a basic land makes a Squirrel each time you tap that land. Tap a Squirrel for Earthcraft to untap the land, then tap the land for another Squirrel. That makes as many Squirrels as you want." },
   { k: ["Sprout Swarm", "Mana Echoes"], t: "Cast Sprout Swarm with buyback, using convoke. Each Saproling that enters triggers Mana Echoes for {C} per creature that shares a type, which pays for the buyback again with mana to spare." },
-  { k: ["Duskmantle Guildmage", "Mindcrank"], t: "Duskmantle Guildmage makes an opponent lose 1 life whenever a card goes to their graveyard, and Mindcrank mills them whenever they lose life. The two trigger each other until their library is gone." },
+  { k: ["Duskmantle Guildmage", "Mindcrank"], t: "Activate Duskmantle Guildmage's {1}{U}{B} ability once: until end of turn, an opponent loses 1 life whenever a card goes to their graveyard. Mindcrank mills them whenever they lose life, and those milled cards make them lose life again. The two feed each other until their library is gone." },
   { k: ["Stuffy Doll", "Guilty Conscience"], t: "Put Guilty Conscience on Stuffy Doll. When the Doll is dealt damage, it deals that much to the chosen player and Guilty Conscience deals that much to the Doll again. Ping the Doll once and the damage keeps repeating." },
-  { k: ["Rest in Peace", "Helm of Obedience"], t: "Activate Helm of Obedience with X=1. It mills the target opponent until a creature card hits their graveyard, but Rest in Peace exiles every card instead, so it never stops and their whole library is exiled." },
-  { k: ["Leyline of the Void", "Helm of Obedience"], t: "Activate Helm of Obedience with X=1. It mills until a creature card goes to the graveyard, but Leyline of the Void exiles every card instead, so the opponent's whole library is exiled." },
-  { k: ["Mikaeus, the Unhallowed", "Triskelion"], t: "Mikaeus gives Triskelion undying. Spend all three counters pinging Triskelion itself until it dies. It returns with a +1/+1 counter plus its three enter counters, so it ends with more counters than it spent. Each loop gives free damage." },
+  { k: ["Rest in Peace", "Helm of Obedience"], t: "Activate Helm of Obedience with X=1 on one opponent. It mills until a creature card reaches their graveyard, but Rest in Peace exiles every card instead, so it never stops and their whole library is exiled. They lose when they next have to draw." },
+  { k: ["Leyline of the Void", "Helm of Obedience"], t: "Activate Helm of Obedience with X=1 on one opponent. It mills until a creature card reaches their graveyard, but Leyline of the Void exiles every card instead, so their whole library is exiled. They lose when they next have to draw." },
+  { k: ["Mikaeus, the Unhallowed", "Triskelion"], t: "Mikaeus gives Triskelion +1/+1 and undying. Remove its counters to ping, aiming enough of them at Triskelion itself to kill it. When it dies with no +1/+1 counter, undying brings it back with one extra counter on top of its three enter counters, so each loop leaves you one counter ahead. Those spare pings can go at the opponents." },
   { k: ["Godo, Bandit Warlord", "Helm of the Host"], t: "Equip Helm of the Host to Godo. Every combat, Helm makes a hasty, non-legendary copy of Godo. Godo's attack trigger adds another combat phase, which starts another copy, so combat never ends." },
-  { k: ["Pitiless Plunderer", "Ashnod's Altar", "Reassembling Skeleton"], t: "Sacrifice Reassembling Skeleton to Ashnod's Altar for {C}{C}, and Pitiless Plunderer makes a Treasure. Pay {1}{B} to bring the Skeleton back. Each loop nets one mana and a Treasure." },
+  { k: ["Pitiless Plunderer", "Ashnod's Altar", "Reassembling Skeleton"], t: "Sacrifice Reassembling Skeleton to Ashnod's Altar for {C}{C}, and Pitiless Plunderer makes a Treasure. Pay {1}{B} to bring the Skeleton back. The Altar mana pays for the return, so each loop nets one Treasure." },
 ];
 
 function comboStepsFor(cards) {
@@ -22696,41 +22704,115 @@ function comboStepsFor(cards) {
   }
   return null;
 }
+// Classify an outcome label. Order matters: the first match wins.
+function comboKind(outcome) {
+  const o = String(outcome || '').toLowerCase();
+  if (/mass land denial/.test(o)) return 'landdenial';
+  if (/win the game at the beginning/.test(o)) return 'winlater';
+  if (/^win the game|deck-out win/.test(o)) return 'win';
+  if (/loses? the game|loses all life|kill (?:a player|an opponent)/.test(o)) return 'killplayer';
+  if (/exile each opponent'?s? library with the ability/.test(o)) return 'oppexileplay';
+  if (/all libraries/.test(o)) return 'milleveryone';
+  if (/opponent'?s? librar|mill for target opponent|exile target library/.test(o)) return 'oppmill';
+  if (/put all creature cards from your library/.test(o)) return 'putcreatures';
+  if (/cast all spells in your library/.test(o)) return 'castlib';
+  if (/exile your library/.test(o)) return 'ownlib';
+  if (/self-mill/.test(o)) return 'selfmill';
+  if (/sacrifices any creature that enters/.test(o)) return 'oppsaclock';
+  if (/destroy all creatures$/.test(o)) return 'allwipe';
+  if (/(?:destroy|exile) all creatures opponents control|sacrifices all /.test(o)) return 'oppwipe';
+  if (/damage to (?:all |most |some )?creatures|damage to target creatures/.test(o)) return 'dmgcreatures';
+  if (/infinite turns|extra turns?/.test(o)) return 'turns';
+  if (/skips? of .*untap step|tapped creatures/.test(o)) return 'lock';
+  if (/\bmana\b|treasure/.test(o) && !/damage|drain/.test(o)) return 'mana';
+  if (/combat phases?|^infinite combat(?: via.*)?$/.test(o)) return 'combatphases';
+  if (/combat damage/.test(o)) return 'combatdmg';
+  if (/^infinite mill/.test(o)) return 'mill';
+  if (/damage|lifeloss|life loss|drain/.test(o)) return 'dmg';
+  if (/discard/.test(o)) return 'discard';
+  if (/planeswalker activations/.test(o)) return 'pwact';
+  if (/creature (?:exile|destruction)/.test(o)) return 'removal';
+  if (/draw/.test(o)) return 'draw';
+  if (/mill|library/.test(o)) return 'mill';
+  if (/^lock$|prevent|\bstop\b/.test(o)) return 'lock';
+  if (/infinitely large/.test(o)) return 'large';
+  if (/life/.test(o)) return 'life';
+  if (/token|creatures?\b|saproling|bird|squirrel|goblin|zombie|spirit|elemental/.test(o)) return 'tokens';
+  if (/etb|enter|leave|death|gravestorm|untap|trigger|landfall/.test(o)) return 'etb';
+  return 'generic';
+}
+const COMBO_FINISH = { win: 1, winlater: 1, killplayer: 1, dmg: 1, combatdmg: 1, oppmill: 1, oppexileplay: 1, milleveryone: 1 };
+const COMBO_NEEDS_PAYOFF = { mana: 1, draw: 1, turns: 1, combatphases: 1, large: 1, tokens: 1, etb: 1, ownlib: 1, selfmill: 1, castlib: 1, putcreatures: 1, dmgcreatures: 1, allwipe: 1, landdenial: 1, removal: 1, discard: 1, pwact: 1, life: 1 };
+// Display only: which lines are tagged "Wins" and which "Warps". Scores are not touched.
+function comboDisplayWin(outcome, flag) {
+  const k = comboKind(outcome);
+  if (COMBO_FINISH[k]) return true;
+  if (COMBO_NEEDS_PAYOFF[k]) return false;
+  return !!flag;
+}
 function comboHow(outcome, win) {
   const o = String(outcome || '').toLowerCase();
-  let t;
-  if (/\bmana\b|treasure/.test(o) && !/damage|drain/.test(o)) t = "Every trip round this loop makes more mana than it costs, so you can repeat it as often as you like. Keep the surplus for a payoff: a mana sink, a big draw spell, or damage to finish the game.";
-  else if (/\bturns?\b/.test(o)) t = "The pieces let you take another turn again and again. Stop when you have what you need, or pair it with a way to win during those turns.";
-  else if (/combat/.test(o)) t = "The loop gives you extra combat phases or attacks without limit, so any hasty creature can attack again and again.";
-  else if (/damage|lifeloss|life loss|drain|kill|loses|lose all/.test(o)) t = "Each pass round the loop deals damage or drains life, with no limit on how often it repeats. Point it at the opponents until they are out.";
-  else if (/draw|mill|library|deck-out/.test(o)) t = "Each pass draws or mills cards without limit. Check your own library size first: stop before you deck yourself, or aim it at an opponent.";
-  else if (/lock|prevent|stop/.test(o)) t = "Together these pieces stop opponents from doing something important, and it is hard to undo once it is set up.";
-  else if (/large|infinite power|big/.test(o)) t = "One creature grows without limit until end of turn. It wins through any blockers if it has evasion or trample, and it needs protecting from removal.";
-  else if (/life/.test(o)) t = "You can gain or lose life without limit. On its own that does not kill: pair it with something that turns life into damage, or use it to stay alive.";
-  else if (/token|creature|saproling|bird|squirrel|goblin|zombie|spirit|elemental/.test(o)) t = "Each pass makes another creature or token. The kill comes from using them: haste, a sacrifice outlet with a drain, or a mass pump.";
-  else if (/etb|enter|leave|death|gravestorm|untap|trigger|sacrifice|reanimat/.test(o)) t = "The loop resets an enter-the-battlefield or death trigger over and over, so whatever those triggers do happens as many times as you want.";
-  else t = "These cards combine into a repeatable effect, described by the result above.";
-  return t + (win ? " This line can finish the game by itself." : " This line breaks the game open but usually needs a payoff to finish.");
+  const k = comboKind(outcome);
+  const near = /near-infinite/.test(o);
+  let t = '';
+  switch (k) {
+    case 'mana': {
+      if (/for opponents|for all players|for each opponent/.test(o)) { t = "The mana this makes goes to your opponents, or to every player, not only you. Check who gains from it before you start."; break; }
+      t = "Every trip round this loop makes more mana than it costs, so you can repeat it as often as you like. Keep the surplus for a payoff: a mana sink, a big draw spell, or damage to finish the game.";
+      if (/only be spent|only be used|can't be spent|if you control|if your opponent|during |only/.test(o.replace(/^infinite /, ''))) t += " The mana has a limit on what it can pay for or when you can use it (read the result above), so make sure you have somewhere to spend it.";
+      break; }
+    case 'draw': t = "The loop draws you cards without limit. It only ever draws for you, so it cannot make an opponent draw their library. Stop before your own library runs out unless you win with an empty library (Thassa's Oracle, Laboratory Maniac), or spend the cards on something: a big spell with the mana, or damage that scales with cards drawn."; break;
+    case 'turns': t = "The pieces let you take another turn again and again. Extra turns only help if they are yours: stop when you have what you need, or pair it with a way to win during those turns." + (/after one turn cycle/.test(o) ? " It takes a full turn cycle to get going, so the pieces have to survive until then." : ""); break;
+    case 'combatphases': t = "The loop gives you extra combat phases without limit, so a creature that can attack and deal damage (haste helps) attacks again and again. You still need something that actually deals the damage."; break;
+    case 'combatdmg': t = "Combat damage repeats without limit. Attack the player you want out."; break;
+    case 'dmg':
+      t = near ? "Each pass round the loop deals a huge amount of damage or life loss, far more than any life total (not endless, but enough to end the game). Point it at the opponents until they are out."
+               : "Each pass round the loop deals damage or drains life, with no limit on how often it repeats. Point it at the opponents until they are out.";
+      if (/all players|each player/.test(o)) t = "Every pass hits every player, you included. Only start it if you can survive it (life gain, damage prevention) or if it ends the game before it matters.";
+      break;
+    case 'dmgcreatures': t = "Each pass deals damage to creatures without limit, which clears the board" + (/all creatures/.test(o) ? " (yours too)" : "") + ". It does not hurt players on its own."; break;
+    case 'killplayer':
+      t = "The loop ends with a player losing the game outright." + (/each opponent/.test(o) ? " It hits every opponent." : /target (?:opponent|player)/.test(o) ? " Choose the opponent you want out." : "");
+      if (/beginning of their next|next upkeep|next end step/.test(o)) t += " The loss comes later, at the start of their next step, so they get to act until then.";
+      if (/on each of your turns/.test(o)) t += " It repeats on each of your turns, so the target is locked out of the game.";
+      t += " Opponents can still respond, so check what they could do first."; break;
+    case 'win': t = "These cards win the game outright once they resolve. Read the exact trigger and check what an opponent could do in response."; break;
+    case 'winlater': t = "These cards set up a win at the beginning of your next upkeep. You have to survive until then and keep the pieces on the table, so it gives opponents a full turn to respond."; break;
+    case 'oppmill': t = "The line empties an opponent's library. Aim it at the player you want out: they lose the next time they would draw a card. Other players can still respond, so check what they can do before you go."; break;
+    case 'oppexileplay': t = "The line exiles every opponent's library, so each of them loses the next time they would draw. The exiled cards can be played by you, which can be a payoff in itself."; break;
+    case 'milleveryone': t = "This empties every library, yours included. Whoever has to draw next loses, so only start it when you will not be the one drawing first, or when you can win before then."; break;
+    case 'ownlib': t = "This exiles your own library. It does nothing to opponents, and on its own it makes you lose at your next draw. It is a setup for an empty-library win (Thassa's Oracle, Laboratory Maniac) or for cards that use the exiled cards."; break;
+    case 'selfmill': t = "This mills your own library without limit. It fills your graveyard for payoffs that use it, and it brings you closer to decking. Stop before the library runs out unless you win with an empty library."; break;
+    case 'castlib': t = "This casts every spell in your library, so the library ends up empty. Everything resolves in one go. Line up the win first (or an empty-library win), because you lose at your next draw otherwise."; break;
+    case 'putcreatures': t = "This puts every creature card from your library onto the battlefield" + (/tapped/.test(o) ? " tapped" : "") + ", and all their enter triggers go off together. The payoff is whatever those creatures do, so check that none of them hurts you."; break;
+    case 'oppsaclock': t = "Opponents sacrifice any creature as soon as it enters under their control, so they cannot build a board. It is a lock rather than a kill."; break;
+    case 'oppwipe': t = /permanents/.test(o) ? "Each opponent loses all their permanents. Your own board stays, so it clears the way for an attack." : "Opponents' creatures are removed in one go. Your own creatures stay, so it clears the way for an attack."; break;
+    case 'allwipe': t = "This destroys every creature, yours included. It clears the board but leaves you without a team unless you can protect yours or rebuild."; break;
+    case 'landdenial': t = "This wipes out lands or stops them working. Unless the cards say otherwise it hits every player, you included, so use it when you are ahead on board. It wins slowly rather than at once."; break;
+    case 'discard': t = "Each pass forces a discard, so the target's hand is emptied."; break;
+    case 'pwact': t = "You can activate planeswalker abilities again and again, so their loyalty and effects stack up as many times as you like."; break;
+    case 'removal': t = "Each pass removes a creature, so you can clear a board one creature at a time without limit."; break;
+    case 'mill': t = "The line mills a library without limit. Check whose library it hits: your own needs a stop before you deck yourself, an opponent's is the target to aim for."; break;
+    case 'lock': t = "Together these pieces stop opponents from doing something important, and it is hard to undo once it is set up."; break;
+    case 'large': t = /creatures/.test(o) ? "Your creatures grow without limit this turn. Any attacker that connects (or tramples over a blocker) is lethal, and the creatures need protecting from removal." : "One creature grows without limit this turn. It wins through any blockers if it has evasion or trample, and it needs protecting from removal."; break;
+    case 'life': t = "You can gain or lose life without limit. On its own that does not kill: pair it with something that turns life into damage, or use it to stay alive."; break;
+    case 'tokens': t = "Each pass makes another creature or token (or removes one). The kill comes from using them: haste, a sacrifice outlet with a drain, or a mass pump."; break;
+    case 'etb': t = "The loop repeats an enter-the-battlefield, untap or death trigger over and over, so whatever that trigger does happens as many times as you want."; break;
+    default: t = "These cards combine into a repeatable effect, described by the result above.";
+  }
+  let end;
+  if (COMBO_FINISH[k]) end = k === 'winlater' ? '' : " This line can finish the game by itself.";
+  else if (COMBO_NEEDS_PAYOFF[k]) end = (k === 'ownlib' || k === 'selfmill' || k === 'castlib' || k === 'putcreatures' || k === 'allwipe' || k === 'landdenial') ? '' : " This line breaks the game open but usually needs a payoff to finish.";
+  else end = win ? " This line can finish the game by itself." : " This line breaks the game open but usually needs a payoff to finish.";
+  return t + end;
 }
+// Facts only: type line and mana value, read from the card data. No guessing at what a card "does".
 function comboRole(name, isCmdr) {
-  if (isCmdr) return 'Your commander';
   const c = comboCardByName(name);
-  const t = String((c && c.o) || '').toLowerCase().replace(/\([^)]*\)/g, ' ');
-  if (!c) return '';
-  if (/untap (?:target|up to|all|another|that|each|it)/.test(t)) return 'Untaps things';
-  if (/(?:^|\n|[.:]\s*)[^.\n]*sacrifice (?:a|an|another|one or more|any number of)[^.\n:]*:/.test(t)) return 'Sacrifice outlet';
-  if (/\{t\}[^.\n]*:\s*add\b|add (?:one|two|three|x)? ?(?:mana|\{)/.test(t)) return 'Makes mana';
-  if (/copy (?:target|that|it|each|another)|create a (?:token )?copy/.test(t)) return 'Copies things';
-  if (/exile (?:target|another|up to)[^.]*(?:then )?return|flicker|blink/.test(t)) return 'Blinks creatures';
-  if (/create[^.]*tokens?/.test(t)) return 'Makes tokens';
-  if (/extra turn|additional combat/.test(t)) return 'Extra turn or combat';
-  if (/(?:deals?|dealt) (?:\d+|x|that much)[^.]*damage|loses? (?:\d+|x|that much|half)[^.]*life|each opponent loses/.test(t)) return 'Damage or drain';
-  if (/gain[^.]*life/.test(t)) return 'Gains life';
-  if (/\bdraws?\b|draw (?:a|two|three|x|that many)/.test(t)) return 'Draws cards';
-  if (/mills?\b|put[^.]*into (?:their|your|its owner's) graveyard/.test(t)) return 'Mills';
-  if (/\+1\/\+1 counter/.test(t)) return 'Counters';
-  if (/enters/.test(t)) return 'Enter trigger';
-  return /creature/i.test(String(c.t || '')) ? 'Creature piece' : 'Combo piece';
+  const bits = [];
+  if (isCmdr) bits.push('Your commander');
+  if (c) { if (c.t) bits.push(c.t); bits.push('MV ' + (c.m || 0)); }
+  return bits.join(' · ');
 }
 function comboNiceOutcome(o) {
   const s = String(o || 'combo effect').trim();
@@ -22756,7 +22838,7 @@ function comboDetailsBlock(cards, outcome, win, cmdrs, extra) {
     <div style="font-size:10px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-soft);">How it works</div>
     <div style="margin-top:3px;">${escapeHtml(steps || comboHow(outcome, win))}</div>
     ${steps ? '' : '<div style="margin-top:4px; font-size:11.5px; color:var(--text-soft);">General description for this kind of line. Read each card for exact costs and timing.</div>'}
-    <div style="margin-top:8px; font-size:10px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-soft);">Each piece</div>${roles}${extra || ''}</div>`;
+    <div style="margin-top:8px; font-size:10px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-soft);">The cards</div>${roles}${extra || ''}</div>`;
 }
 function comboCardHtml(d, text, turn) {
   const cards = (d.matchedNames && d.matchedNames.length) ? d.matchedNames : d.cards;
@@ -22765,7 +22847,7 @@ function comboCardHtml(d, text, turn) {
   const outcome = d.outcome || (String(text).match(/\(([^)]*)\)\s*$/) || [])[1] || null;
   const tags = comboTag(win ? 'Wins' : 'Warps', win ? 'win' : 'warp') + comboTag(cards.length + ' cards', 'plain') + (d.infinite ? comboTag('Infinite', 'plain') : '');
   const edge = win ? 'var(--gold)' : '#3d8f8a';
-  const extra = turn ? `<div style="margin-top:8px; font-size:12.5px; color:var(--text-soft);">Pieces could all be on the table around turn ${turn}.</div>` : '';
+  const extra = turn ? `<div style="margin-top:8px; font-size:12.5px; color:var(--text-soft);">If you drew them all, the pieces could be out by about turn ${turn}.</div>` : '';
   return `<details style="margin-top:8px; border-left:4px solid ${edge}; background:rgba(255,255,255,0.03); border-radius:3px 8px 8px 3px; padding:8px 10px;">
     <summary style="cursor:pointer; list-style:none; outline:none;">
       <div>${tags}</div>
@@ -22788,6 +22870,7 @@ function openCombosPopup() {
     if (!o) merged.set(key, { d: Object.assign({}, d), text: texts[i] });
     else if (d.outcome && o.d.outcome && !o.d.outcome.includes(d.outcome)) o.d.outcome = o.d.outcome + ' and ' + d.outcome;
   });
+  merged.forEach(v => { v.d.comboClass = comboDisplayWin(v.d.outcome, v.d.comboClass !== 'warp') ? 'win' : 'warp'; });
   const items = Array.from(merged.values()).sort((a, b) => ((b.d.comboClass !== 'warp') - (a.d.comboClass !== 'warp')) || (a.d.pieceCount || a.d.cards.length) - (b.d.pieceCount || b.d.cards.length));
   const nWin = items.filter(x => x.d.comboClass !== 'warp').length, nWarp = items.length - nWin;
   const have = items.length ? items.map(x => { let turn = null; try { turn = curve ? earliestComboTurn(x.d, curve) : null; } catch (e) {} return comboCardHtml(x.d, x.text, turn); }).join('')
@@ -22796,10 +22879,10 @@ function openCombosPopup() {
   const nearHtml = near.length ? near.map(g => `<div style="margin-top:10px; border:1.5px dashed var(--gold); border-radius:10px; padding:8px 10px;">
       <div style="font-size:14px;"><span style="color:var(--gold); font-weight:700;">+ </span><strong>${cardNameLink(g.missing)}</strong> <span style="color:var(--text-soft); font-size:12px;">MV ${g.mv} · completes ${g.count} line${g.count === 1 ? '' : 's'}</span></div>
       ${g.lines.map(l => `<details style="margin-top:6px;"><summary style="cursor:pointer; list-style:none; outline:none;">
-          <div>${comboTag(l.win ? 'Wins' : 'Warps', l.win ? 'win' : 'warp')}${l.inf ? comboTag('Infinite', 'plain') : ''}</div>
+          <div>${comboTag(comboDisplayWin(l.outcome, l.win) ? 'Wins' : 'Warps', comboDisplayWin(l.outcome, l.win) ? 'win' : 'warp')}${l.inf ? comboTag('Infinite', 'plain') : ''}</div>
           <div style="margin-top:3px;">${comboChips(l.held, agg.commanders || [], g.missing)}</div>
           <div style="font-size:12.5px;"><span style="color:var(--text-soft);">Result:</span> <strong>${escapeHtml(comboNiceOutcome(l.outcome))}</strong> <span style="color:var(--text-soft); font-size:12px;">· how it works</span></div>
-        </summary>${comboDetailsBlock(l.held.concat([g.missing]), l.outcome, l.win, (agg.commanders || []).filter(n => l.held.includes(n)), '')}</details>`).join('')}
+        </summary>${comboDetailsBlock(l.held.concat([g.missing]), l.outcome, comboDisplayWin(l.outcome, l.win), (agg.commanders || []).filter(n => l.held.includes(n)), '')}</details>`).join('')}
     </div>`).join('')
     : '<div style="color:var(--text-soft); font-size:13px; margin-top:6px;">Nothing close right now: no combo is one legal card away in your commander’s colours.</div>';
   const head = (txt, sub) => `<div style="margin-top:16px; font-size:11px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--gold);">${txt}</div><div style="font-size:12px; color:var(--text-soft); margin-top:1px;">${sub}</div>`;
