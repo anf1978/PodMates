@@ -96,7 +96,7 @@ export async function runSnapshot({ bulkPath, dataDir, dayIso }) {
       }
       if (haveYesterday && prevGc !== undefined && prevGc !== (g.gc ? 1 : 0)) events.push({ day, type: 'game_changer', k: key, n: g.name, to: g.gc ? 1 : 0 });
       if (haveYesterday && typeof prevEr === 'number' && typeof g.edhrec === 'number' && g.edhrec <= prevEr * RANK_JUMP.ratio && prevEr - g.edhrec >= RANK_JUMP.minGain) events.push({ day, type: 'rank_jump', k: key, n: g.name, from: prevEr, to: g.edhrec });
-      if (haveYesterday && isNewCard) { const s0 = g.list[0]; events.push({ day, type: 'new_card', k: key, n: g.name, set: s0.set, setName: s0.set_name, releases: s0.released_at, preview: s0.preview && s0.preview.previewed_at ? { d: s0.preview.previewed_at, s: s0.preview.source || null } : null }); }
+      if (haveYesterday && isNewCard) { const s0 = g.list[0]; events.push({ day, type: 'new_card', k: key, n: g.name, set: s0.set, setName: s0.set_name, rarity: s0.rarity || null, releases: s0.released_at, preview: s0.preview && s0.preview.previewed_at ? { d: s0.preview.previewed_at, s: s0.preview.source || null } : null }); }
       const byId = new Map(rec.p.map(p => [p.id, p]));
       for (const src of g.list) {
         const before = byId.get(src.id);
