@@ -392,9 +392,16 @@
   .sb-tabs{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px;}
   .sb-tabs button{background:var(--bg-panel-raised); border:1px solid var(--line); border-radius:14px; padding:5px 12px; color:var(--text-soft); font-family:inherit; font-size:12.5px; cursor:pointer;}
   .sb-tabs button.on{border-color:var(--gold); color:var(--gold-bright);}
+  .sb-chips{display:flex; gap:6px; flex-wrap:wrap; justify-content:center; margin-bottom:8px;}
+  .sb-chips button{background:transparent; border:1px solid var(--line); border-radius:12px; padding:3px 10px; color:var(--text-dim); font-family:inherit; font-size:12px; cursor:pointer;}
+  .sb-chips button span{opacity:0.7;}
+  .sb-chips button.on{border-color:var(--gold); color:var(--gold-bright);}
+  .sb-chips button:disabled{opacity:0.45; cursor:default;}
   .sb-note{font-size:12.5px; color:var(--text-soft); line-height:1.5;}
-  .sb-stage{position:relative; width:min(300px,82vw); aspect-ratio:488/680; margin:6px auto 10px;}
-  .sb-card{position:absolute; inset:0; border-radius:14px; touch-action:pan-y; cursor:grab; user-select:none; -webkit-user-select:none; box-shadow:0 6px 18px rgba(0,0,0,0.45); background:var(--bg-panel-raised); outline:none;}
+  .sb-stage{--sbw:min(300px, 82vw, max(150px, calc((100vh - 450px) * 0.7176))); position:relative; width:var(--sbw); height:calc(var(--sbw) * 1.3934); margin:6px auto 10px;}
+  @supports (height:100dvh){.sb-stage{--sbw:min(300px, 82vw, max(150px, calc((100dvh - 450px) * 0.7176)));}}
+  #sbBody{overflow-x:clip;}
+  .sb-card{position:absolute; inset:0; border-radius:14px; touch-action:none; -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent; overflow:hidden; cursor:grab; user-select:none; -webkit-user-select:none; box-shadow:0 6px 18px rgba(0,0,0,0.45); background:var(--bg-panel-raised); outline:none;}
   .sb-card img{width:100%; height:100%; display:block; border-radius:14px; pointer-events:none;}
   .sb-under{transform:scale(0.95) translateY(8px); opacity:0.7; cursor:default; pointer-events:none;}
   .sb-stamp{position:absolute; top:18px; padding:2px 10px; border:3px solid; border-radius:6px; font-weight:800; font-size:22px; letter-spacing:0.06em; opacity:0; pointer-events:none; background:rgba(0,0,0,0.35);}
@@ -403,6 +410,9 @@
   .sb-name{text-align:center; font-weight:700; font-size:15px;}
   .sb-meta{text-align:center; font-size:12px; color:var(--text-dim); margin-top:2px;}
   .sb-btns{display:flex; gap:10px; justify-content:center; align-items:center; margin-top:12px;}
+  .sb-btns.sb-wait{pointer-events:none;}
+  .sb-btn,.sb-btn:hover,.sb-btn:focus,.sb-btn:active{-webkit-tap-highlight-color:transparent; background:transparent; box-shadow:none; outline:none; filter:none;}
+  .sb-btn:active{transform:scale(0.96);}
   .sb-btn{border-radius:22px; padding:10px 20px; font-family:inherit; font-size:14px; font-weight:700; cursor:pointer; background:transparent; border:2px solid;}
   .sb-b-like{color:#6fd08c; border-color:#6fd08c;}
   .sb-b-pass{color:#e0705f; border-color:#e0705f;}
@@ -24536,7 +24546,7 @@ async function psRenderSignals() {
 
 
 // ============================================================
-// SPOILER BAIT -- swipe through freshly spoiled cards. Swipe left = like, right = bin (or use the buttons).
+// SPOILER BAIT -- swipe through freshly spoiled cards. Swipe left = bang, right = bin (or use the buttons).
 // Votes live at users/{uid}/spoilerVotes/{card} and are readable by podmates (firestore.rules), which is what
 // powers the pod board. Cards come from Scryfall (MyPod) or from the recorded new-card signals (PriceScry);
 // the vote is keyed by card name so both places share one set of votes.
@@ -24562,7 +24572,7 @@ async function sbFetchScryfallSpoilers() {
       if (!fresh) continue;
       const key = sbKey(c.name); if (!key || seen.has(key)) continue; seen.add(key);
       const face = c.image_uris || (c.card_faces && c.card_faces[0] && c.card_faces[0].image_uris) || {};
-      out.push({ key, n: c.name, setName: c.set_name || '', date: when || c.released_at || '', via: (c.preview && c.preview.source) || '', img: face.normal || face.small || '', thumb: face.small || face.normal || '' });
+      out.push({ key, n: c.name, rarity: c.rarity || '', setName: c.set_name || '', date: when || c.released_at || '', via: (c.preview && c.preview.source) || '', img: face.normal || face.small || '', thumb: face.small || face.normal || '' });
     }
     url = j.has_more ? j.next_page : null;
   }
@@ -24575,9 +24585,27 @@ function sbSignalCards() {
   const seen = new Set(), out = [];
   for (const e of sigs.filter(x => x.type === 'new_card' && x.day >= idx - SB_WINDOW_DAYS).sort((a, b) => b.day - a.day)) {
     const key = sbKey(e.n); if (!key || seen.has(key)) continue; seen.add(key);
-    out.push({ key, n: e.n, setName: e.setName || e.set || '', date: pricescryIsoFromDay(e.day), via: (e.preview && e.preview.s) || '', img: psImgByName(e.n, 'normal'), thumb: psImgByName(e.n, 'small') });
+    out.push({ key, n: e.n, rarity: e.rarity || '', setName: e.setName || e.set || '', date: pricescryIsoFromDay(e.day), via: (e.preview && e.preview.s) || '', img: psImgByName(e.n, 'normal'), thumb: psImgByName(e.n, 'small') });
   }
   return out;
+}
+// Rarity filter (a per-viewer convenience, remembered on this device). Chips list only the rarities present among unsorted cards.
+const SB_RARITIES = [['common', 'Common'], ['uncommon', 'Uncommon'], ['rare', 'Rare'], ['mythic', 'Mythic'], ['special', 'Special']];
+function sbRarityOf(c) { const r = String(c.rarity || '').toLowerCase(); return r === 'bonus' ? 'special' : r; }
+SB.rarities = (() => { try { const j = JSON.parse(localStorage.getItem('pm-sb-rarities') || 'null'); if (Array.isArray(j)) return new Set(j); } catch (e) { /* fine */ } return new Set(SB_RARITIES.map(x => x[0])); })();
+function sbSaveRarities() { try { localStorage.setItem('pm-sb-rarities', JSON.stringify([...SB.rarities])); } catch (e) { /* fine */ } }
+// Recorded new-card signals carry no rarity, so ask Scryfall for it by name (one request per 75 cards). Failure just hides the filter.
+async function sbEnrichRarity(cards) {
+  const need = cards.filter(c => !c.rarity); if (!need.length) return;
+  try {
+    for (let i = 0; i < need.length; i += 75) {
+      const chunk = need.slice(i, i + 75);
+      const res = await fetch('https://api.scryfall.com/cards/collection', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifiers: chunk.map(c => ({ name: c.n })) }) });
+      if (!res.ok) return;
+      const j = await res.json(); const by = new Map((j.data || []).map(d => [String(d.name).toLowerCase(), d.rarity]));
+      chunk.forEach(c => { const r = by.get(c.n.toLowerCase()) || by.get(String(c.n).split(' // ')[0].toLowerCase()); if (r) c.rarity = r; });
+    }
+  } catch (e) { /* no rarity: the filter simply stays hidden */ }
 }
 function sbCloud() { return window.PodmatesCloud && window.PodmatesCloud.uid ? window.PodmatesCloud : null; }
 function sbCardInfo(key) { return SB.cards.find(c => c.key === key) || null; }
@@ -24592,7 +24620,8 @@ async function sbClearVote(key) {
   const cl = sbCloud();
   try { await cl.clearSpoilerVote(key); SB.podBoard = null; } catch (e) { showToast('Could not undo that: ' + (e && e.message ? e.message : 'try again')); }
 }
-function sbQueue() { return SB.cards.filter(c => !SB.votes.has(c.key)); }
+function sbUnsorted() { return SB.cards.filter(c => !SB.votes.has(c.key)); }
+function sbQueue() { return sbUnsorted().filter(c => !sbRarityOf(c) || SB.rarities.has(sbRarityOf(c))); }
 
 async function sbMount(host, opts) {
   SB.host = host; SB.mode = (opts && opts.mode) || 'pod'; SB.podId = (opts && opts.podId) || null; SB.onOpen = (opts && opts.onOpen) || null;
@@ -24600,6 +24629,7 @@ async function sbMount(host, opts) {
   host.innerHTML = `<div class="sb-note">Loading this week’s spoilers…</div>`;
   try {
     SB.cards = SB.mode === 'ps' ? sbSignalCards() : await sbFetchScryfallSpoilers();
+    if (SB.mode === 'ps') await sbEnrichRarity(SB.cards);
     const mine = await sbCloud().loadSpoilerVotes(sbCloud().uid);
     SB.votes = new Map(mine.map(v => [v.key, v]));
   } catch (e) { host.innerHTML = `<div class="sb-note">Couldn’t load the spoilers (${escapeHtml(e && e.message ? e.message : 'network')}). Try again in a moment.</div>`; return; }
@@ -24610,7 +24640,7 @@ function sbRender() {
   const host = SB.host; if (!host) return;
   const likes = [...SB.votes.values()].filter(v => v.vote === 'like'), passes = [...SB.votes.values()].filter(v => v.vote === 'pass');
   const left = sbQueue().length;
-  const tabs = [['swipe', `Swipe (${left})`], ['liked', `Liked (${likes.length})`], ['binned', `Binned (${passes.length})`]];
+  const tabs = [['swipe', `Swipe (${left})`], ['liked', `Bangers (${likes.length})`], ['binned', `Binned (${passes.length})`]];
   if (SB.mode === 'ps' ? currentPodViewId : SB.podId) tabs.push(['board', 'Pod board']);
   host.innerHTML = `<div class="sb-tabs">${tabs.map(([k, l]) => `<button type="button" data-sb-tab="${k}" class="${SB.tab === k ? 'on' : ''}">${l}</button>`).join('')}</div><div id="sbBody"></div>`;
   host.querySelectorAll('[data-sb-tab]').forEach(b => b.addEventListener('click', () => { SB.tab = b.getAttribute('data-sb-tab'); sbRender(); }));
@@ -24620,59 +24650,95 @@ function sbRender() {
   else if (SB.tab === 'binned') sbRenderList(body, passes, 'pass');
   else sbRenderBoard(body);
 }
+function sbRarityChips() {
+  const un = sbUnsorted(), counts = {};
+  un.forEach(c => { const r = sbRarityOf(c); if (r) counts[r] = (counts[r] || 0) + 1; });
+  const present = SB_RARITIES.filter(([k]) => counts[k]);
+  if (!present.length) return '';
+  const allOn = present.every(([k]) => SB.rarities.has(k));
+  return `<div class="sb-chips" role="group" aria-label="Rarity filter">${present.map(([k, l]) => `<button type="button" data-sb-rar="${k}" class="${SB.rarities.has(k) ? 'on' : ''}">${l} <span>${counts[k]}</span></button>`).join('')}<button type="button" data-sb-rar-all="1" class="${allOn ? '' : 'on'}" ${allOn ? 'disabled' : ''}>Show all</button></div>`;
+}
+function sbWireRarityChips(body) {
+  body.querySelectorAll('[data-sb-rar]').forEach(b => b.addEventListener('click', () => {
+    const k = b.getAttribute('data-sb-rar'); if (SB.rarities.has(k)) SB.rarities.delete(k); else SB.rarities.add(k);
+    sbSaveRarities(); sbRender();
+  }));
+  const all = body.querySelector('[data-sb-rar-all]');
+  if (all) all.addEventListener('click', () => { SB.rarities = new Set(SB_RARITIES.map(x => x[0])); sbSaveRarities(); sbRender(); });
+}
 function sbRenderSwipe(body) {
   const q = sbQueue();
   if (!SB.cards.length) { body.innerHTML = `<div class="sb-note">No new spoilers in the last ${SB_WINDOW_DAYS} days.</div>`; return; }
+  const hidden = sbUnsorted().length - q.length;
+  if (!q.length && hidden) {
+    body.innerHTML = sbRarityChips() + `<div class="sb-note" style="text-align:center;">${hidden} unsorted card${hidden === 1 ? ' is' : 's are'} hidden by your rarity filter. Turn a rarity back on to see ${hidden === 1 ? 'it' : 'them'}.</div>`;
+    sbWireRarityChips(body); return;
+  }
   if (!q.length) {
     body.innerHTML = `<div class="sb-note" style="text-align:center;">You’ve sorted every spoiler from the last ${SB_WINDOW_DAYS} days. New ones appear here as they are revealed.</div>${SB.undo.length ? `<div style="text-align:center;"><button type="button" class="ghost" id="sbUndo">Undo last</button></div>` : ''}`;
     const u = body.querySelector('#sbUndo'); if (u) u.addEventListener('click', sbDoUndo);
     return;
   }
   const c = q[0], next = q[1];
-  body.innerHTML = `<div class="sb-stage">
+  body.innerHTML = sbRarityChips() + `<div class="sb-stage">
       ${next ? `<div class="sb-card sb-under"><img alt="" src="${escapeHtml(next.img)}"></div>` : ''}
-      <div class="sb-card" id="sbTop" tabindex="0" aria-label="${escapeHtml(c.n)}: swipe left to like, right to bin">
+      <div class="sb-card" id="sbTop" tabindex="0" aria-label="${escapeHtml(c.n)}: swipe left to bang, right to bin">
         <img draggable="false" alt="${escapeHtml(c.n)}" src="${escapeHtml(c.img)}">
-        <div class="sb-stamp sb-like">LIKE</div><div class="sb-stamp sb-pass">BIN</div>
+        <div class="sb-stamp sb-like">BANG</div><div class="sb-stamp sb-pass">BIN</div>
       </div>
     </div>
     <div class="sb-name">${escapeHtml(c.n)}</div>
     <div class="sb-meta">${escapeHtml(c.setName)}${c.date ? ' · ' + escapeHtml(c.date) : ''}${c.via ? ' · via ' + escapeHtml(c.via) : ''}</div>
-    <div class="sb-btns"><button type="button" class="sb-btn sb-b-like" id="sbLike" aria-label="Like">♥ Like</button><button type="button" class="ghost" id="sbUndo" ${SB.undo.length ? '' : 'disabled'}>Undo</button><button type="button" class="sb-btn sb-b-pass" id="sbPass" aria-label="Bin">✕ Bin</button></div>
-    <div class="sb-note" style="text-align:center; margin-top:6px;">Swipe left to like, right to bin. Arrow keys work too.</div>`;
+    <div class="sb-btns"><button type="button" class="sb-btn sb-b-like" id="sbLike" aria-label="Bang">💥 Bang</button><button type="button" class="ghost" id="sbUndo" ${SB.undo.length ? '' : 'disabled'}>Undo</button><button type="button" class="sb-btn sb-b-pass" id="sbPass" aria-label="Bin">✕ Bin</button></div>
+    <div class="sb-note" style="text-align:center; margin-top:6px;">Swipe left for a bang, right to bin. Arrow keys work too.</div>`;
+  sbWireRarityChips(body);
   const top = body.querySelector('#sbTop');
   const img = top.querySelector('img'); img.addEventListener('error', () => { const fb = document.createElement('div'); fb.className = 'sb-fallback'; fb.textContent = c.n; img.replaceWith(fb); });
   body.querySelector('#sbLike').addEventListener('click', () => sbDecide(c, 'like', top));
   body.querySelector('#sbPass').addEventListener('click', () => sbDecide(c, 'pass', top));
   body.querySelector('#sbUndo').addEventListener('click', sbDoUndo);
   top.addEventListener('keydown', (e) => { if (e.key === 'ArrowLeft') { e.preventDefault(); sbDecide(c, 'like', top); } else if (e.key === 'ArrowRight') { e.preventDefault(); sbDecide(c, 'pass', top); } });
-  let sx = 0, dx = 0, drag = false;
-  const hint = () => { top.querySelector('.sb-like').style.opacity = Math.min(1, Math.max(0, -dx / 90)); top.querySelector('.sb-pass').style.opacity = Math.min(1, Math.max(0, dx / 90)); };
-  top.addEventListener('pointerdown', (e) => { drag = true; sx = e.clientX; dx = 0; top.style.transition = 'none'; try { top.setPointerCapture(e.pointerId); } catch (x) { /* fine */ } });
-  top.addEventListener('pointermove', (e) => { if (!drag) return; dx = e.clientX - sx; top.style.transform = `translateX(${dx}px) rotate(${dx / 18}deg)`; hint(); });
-  const end = () => { if (!drag) return; drag = false; if (Math.abs(dx) > 90) sbDecide(c, dx < 0 ? 'like' : 'pass', top, dx); else { top.style.transition = 'transform .18s'; top.style.transform = ''; dx = 0; hint(); } };
-  top.addEventListener('pointerup', end); top.addEventListener('pointercancel', end);
+  let sx = 0, dx = 0, drag = false, pid = null;
+  const hint = () => { top.querySelector('.sb-like').style.opacity = Math.min(1, Math.max(0, -dx / 70)); top.querySelector('.sb-pass').style.opacity = Math.min(1, Math.max(0, dx / 70)); };
+  const move = (x) => { dx = x - sx; top.style.transform = `translateX(${dx}px) rotate(${dx / 18}deg)`; hint(); };
+  const finish = () => {
+    if (!drag) return; drag = false;
+    window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); window.removeEventListener('pointercancel', onUp);
+    if (Math.abs(dx) > 70) sbDecide(c, dx < 0 ? 'like' : 'pass', top, dx);
+    else { top.style.transition = 'transform .18s'; top.style.transform = ''; dx = 0; hint(); }
+  };
+  const onMove = (e) => { if (drag && (pid == null || e.pointerId === pid)) { e.preventDefault(); move(e.clientX); } };
+  const onUp = (e) => { if (pid == null || e.pointerId === pid) finish(); };
+  top.addEventListener('pointerdown', (e) => {
+    if (SB.busy || e.button > 0) return;
+    drag = true; pid = e.pointerId; sx = e.clientX; dx = 0; top.style.transition = 'none';
+    window.addEventListener('pointermove', onMove, { passive: false }); window.addEventListener('pointerup', onUp); window.addEventListener('pointercancel', onUp);
+  });
+  top.addEventListener('dragstart', (e) => e.preventDefault());
+  top.addEventListener('contextmenu', (e) => e.preventDefault());
 }
 function sbDecide(card, vote, el, fromDx) {
   if (SB.busy) return; SB.busy = true;
   const dir = vote === 'like' ? -1 : 1;
-  if (el) { el.style.transition = 'transform .22s, opacity .22s'; el.style.transform = `translateX(${dir * 420}px) rotate(${dir * 22}deg)`; el.style.opacity = '0'; }
+  try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch (x) { /* fine */ }
+  const bar = SB.host && SB.host.querySelector('.sb-btns'); if (bar) bar.classList.add('sb-wait');
+  if (el) { el.style.transition = 'transform .16s, opacity .16s'; el.style.transform = `translateX(${dir * 420}px) rotate(${dir * 22}deg)`; el.style.opacity = '0'; }
   SB.undo.push(card.key);
   sbSetVote(card, vote);
-  setTimeout(() => { SB.busy = false; sbRender(); }, el ? 200 : 0);
+  setTimeout(() => { SB.busy = false; sbRender(); }, el ? 130 : 0);
 }
 async function sbDoUndo() {
   const key = SB.undo.pop(); if (!key) return;
   await sbClearVote(key); SB.tab = 'swipe'; sbRender();
 }
 function sbRenderList(body, items, kind) {
-  if (!items.length) { body.innerHTML = `<div class="sb-note">${kind === 'like' ? 'Nothing liked yet. Swipe left on a spoiler you want.' : 'Nothing binned yet.'}</div>`; return; }
+  if (!items.length) { body.innerHTML = `<div class="sb-note">${kind === 'like' ? 'No bangers yet. Swipe left on a spoiler that bangs.' : 'Nothing binned yet.'}</div>`; return; }
   items.sort((a, b) => (b.votedAt || 0) - (a.votedAt || 0));
   body.innerHTML = `<div class="sb-grid">${items.map(v => {
     const info = sbCardInfo(v.key); const thumb = info ? info.thumb : '';
     return `<div class="sb-tile"><${SB.onOpen ? 'button type="button" data-sb-open="' + escapeHtml(v.n) + '"' : 'div'} class="sb-tile-img">${thumb ? `<img loading="lazy" alt="${escapeHtml(v.n)}" src="${escapeHtml(thumb)}">` : `<div class="sb-fallback">${escapeHtml(v.n)}</div>`}</${SB.onOpen ? 'button' : 'div'}>
       <div class="sb-tile-name">${escapeHtml(v.n)}</div>
-      <div class="sb-tile-btns"><button type="button" class="ghost" data-sb-move="${escapeHtml(v.key)}" data-sb-to="${kind === 'like' ? 'pass' : 'like'}">${kind === 'like' ? 'Move to Binned' : 'Move to Liked'}</button><button type="button" class="ghost" data-sb-reset="${escapeHtml(v.key)}">Unsort</button></div></div>`;
+      <div class="sb-tile-btns"><button type="button" class="ghost" data-sb-move="${escapeHtml(v.key)}" data-sb-to="${kind === 'like' ? 'pass' : 'like'}">${kind === 'like' ? 'Move to Binned' : 'Move to Bangers'}</button><button type="button" class="ghost" data-sb-reset="${escapeHtml(v.key)}">Unsort</button></div></div>`;
   }).join('')}</div>`;
   body.querySelectorAll('[data-sb-move]').forEach(b => b.addEventListener('click', async () => {
     const key = b.getAttribute('data-sb-move'), v = SB.votes.get(key); if (!v) return;
@@ -24693,10 +24759,10 @@ async function sbRenderBoard(body) {
   }
   const rows = [...byCard.values()].sort((a, b) => b.likes.length - a.likes.length || a.passes.length - b.passes.length || b.last - a.last);
   if (!rows.length) { body.innerHTML = `<div class="sb-note">Nobody in the pod has sorted a spoiler yet.</div>`; return; }
-  body.innerHTML = `<div class="sb-note" style="margin-bottom:6px;">Every card your pod has sorted. Most-liked first.</div>` + rows.map(r => {
+  body.innerHTML = `<div class="sb-note" style="margin-bottom:6px;">Every card your pod has sorted. Most bangs first.</div>` + rows.map(r => {
     const info = sbCardInfo(r.key);
     return `<div class="sb-board-row">${info && info.thumb ? `<img loading="lazy" alt="" src="${escapeHtml(info.thumb)}">` : '<div class="sb-board-ph"></div>'}<div style="min-width:0;"><div class="sb-tile-name">${escapeHtml(r.n)}</div>
-      ${r.likes.length ? `<div class="sb-who sb-who-like">♥ ${r.likes.map(escapeHtml).join(', ')}</div>` : ''}${r.passes.length ? `<div class="sb-who sb-who-pass">✕ ${r.passes.map(escapeHtml).join(', ')}</div>` : ''}</div></div>`;
+      ${r.likes.length ? `<div class="sb-who sb-who-like">💥 ${r.likes.map(escapeHtml).join(', ')}</div>` : ''}${r.passes.length ? `<div class="sb-who sb-who-pass">✕ ${r.passes.map(escapeHtml).join(', ')}</div>` : ''}</div></div>`;
   }).join('');
 }
 function openSpoilerBaitOverlay(pod) {
@@ -24706,7 +24772,7 @@ function openSpoilerBaitOverlay(pod) {
   overlay.className = 'tad-overlay'; overlay.id = 'tadOverlay';
   const modal = document.createElement('div');
   modal.className = 'tad-modal';
-  modal.innerHTML = `<button class="tad-close" id="tadCloseBtn">Close ×</button><h2 style="margin-bottom:2px;">Spoiler Bait</h2><p style="font-size:12.5px; color:var(--text-soft); margin:0 0 12px;">Swipe through the cards spoiled in the last ${SB_WINDOW_DAYS} days. Your pod can see what you like and bin.</p><div id="sbHost"></div>`;
+  modal.innerHTML = `<button class="tad-close" id="tadCloseBtn">Close ×</button><h2 style="margin-bottom:2px;">Spoiler Bait</h2><p style="font-size:12.5px; color:var(--text-soft); margin:0 0 12px;">Swipe through the cards spoiled in the last ${SB_WINDOW_DAYS} days. Your pod can see what bangs and what you bin.</p><div id="sbHost"></div>`;
   overlay.appendChild(modal); document.body.appendChild(overlay);
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
