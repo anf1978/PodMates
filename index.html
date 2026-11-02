@@ -25397,7 +25397,7 @@ async function enhanceKeyPiecesWithThumbnails(agg) {
 
   document.querySelectorAll('#keyPiecesArea .kp-thumbs').forEach(el => {
     let names = []; try { names = JSON.parse(el.getAttribute('data-names') || '[]'); } catch (e) {}
-    el.innerHTML = thumbHtml(names, 86);
+    el.innerHTML = thumbHtml(names, 101);
   });
 }
 
