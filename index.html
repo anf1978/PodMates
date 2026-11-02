@@ -1615,6 +1615,13 @@ One card per line. Formats like &quot;1x Sol Ring&quot;, plain names, or Moxfiel
       <div class="chart-area" id="chartArea"></div>
     </div>
 
+    <div class="panel" id="keyPiecesPanel" style="display:none;">
+      <details class="panel-collapsible">
+        <summary class="panel-toggle">Key Pieces &amp; Combos</summary>
+        <div id="keyPiecesArea"></div>
+      </details>
+    </div>
+
     <div class="panel">
       <details class="panel-collapsible">
         <summary class="panel-toggle">Mana Curve — Expected Available Per Turn</summary>
@@ -1673,13 +1680,6 @@ One card per line. Formats like &quot;1x Sol Ring&quot;, plain names, or Moxfiel
       <details class="panel-collapsible" open>
         <summary class="panel-toggle">Commander Centrality</summary>
         <div id="centralityArea"></div>
-      </details>
-    </div>
-
-    <div class="panel" id="keyPiecesPanel" style="display:none;">
-      <details class="panel-collapsible">
-        <summary class="panel-toggle">Key Pieces Detected</summary>
-        <div id="keyPiecesArea"></div>
       </details>
     </div>
 
@@ -22111,7 +22111,7 @@ async function initDatabase() {
     dbReady = true;
     window.__dbReady = true;
     window.__dbWatchdogFired = false;
-    setDbLoadUI('ok', `Ready — ${CARD_DB.length.toLocaleString()} cards${SPELLBOOK_INDEX ? ' and ' + SPELLBOOK_INDEX.snap.c.length.toLocaleString() + ' combos' : ''} loaded.` + (SPELLBOOK_INDEX ? '' : ' The combo snapshot could not be loaded, so only the built-in combo list is used.') + ' You can chart decks now.');
+    setDbLoadUI('ok', `Ready — ${CARD_DB.length.toLocaleString()} cards${SPELLBOOK_INDEX ? ' and ' + SPELLBOOK_INDEX.snap.c.length.toLocaleString() + ' combos (Spellbook lines that win, warp or loop)' : ''} loaded.` + (SPELLBOOK_INDEX ? '' : ' The combo snapshot could not be loaded, so only the built-in combo list is used.') + ' You can chart decks now.');
     $('chartBtn').disabled = false;
   } catch (e) {
     window.__dbWatchdogFired = true;
@@ -22999,15 +22999,11 @@ function renderBracket(bracket, agg) {
   if (agg && agg.detectedCombos.length > 0) {
     const comboDetails = agg.detectedComboDetails || [];
     window.__comboAgg = agg;
-    const comboLines = agg.detectedCombos.slice(0, 3).map((text, i) =>
-      '<div style="margin-top:3px;">' + linkifyKnownCardNames(escapeHtml(text), (comboDetails[i] || {}).cards) + '</div>'
-    );
     const nWinC = comboDetails.filter(d => d.comboClass !== 'warp').length, nNearC = (agg.comboNear || []).length;
-    html += `<div class="detail" style="margin-top:6px; font-size:13px;"><strong>Combos that win or warp the game:</strong> ${agg.detectedCombos.length} line${agg.detectedCombos.length === 1 ? '' : 's'} (${nWinC} win${nWinC === 1 ? '' : 's'}${agg.detectedCombos.length - nWinC ? ', ' + (agg.detectedCombos.length - nWinC) + ' warp' : ''})${comboLines.join('')}${agg.detectedCombos.length > 3 ? '<div style="margin-top:3px; color:var(--text-soft);">and ' + (agg.detectedCombos.length - 3) + ' more</div>' : ''}<div style="margin-top:6px;"><button type="button" onclick="openCombosPopup()" style="background:none; border:1px solid var(--gold); color:var(--gold); border-radius:8px; padding:5px 12px; cursor:pointer; font-size:12.5px;">How these combos work${nNearC ? ' \u00b7 ' + nNearC + ' one card away' : ''}</button></div></div>`;
-    const sbShown = comboDetails.filter(d => d.source === 'spellbook').length;
-    const sbMore = (agg.spellbookMatched || 0) - sbShown;
-    html += `<div class="detail" style="margin-top:4px; font-size:11.5px; color:var(--text-dim);">From PodMates' own combo list plus a built-in copy of Commander Spellbook${SPELLBOOK_INDEX && SPELLBOOK_INDEX.snap.date ? ' (snapshot of ' + escapeHtml(String(SPELLBOOK_INDEX.snap.date).slice(0, 10)) + ')' : ''}. Only lines that win the game or warp it (infinite damage or mana, extra turns, locks) count; a line that just adds cards to a smaller combo is not listed again.` +
-      (sbMore > 0 ? ` ${sbMore} more line${sbMore === 1 ? '' : 's'} also match${sbMore === 1 ? 'es' : ''} this deck but only the ${sbShown} strongest Spellbook line${sbShown === 1 ? ' is' : 's are'} scored, so a pile of overlapping combos cannot run away with the numbers.` : '') + `</div>`;
+    const nLoopC = (agg.infiniteLoopTwoCard || []).length;
+    html += `<div class="detail" style="margin-top:6px; font-size:13px;"><strong>Combos that win or warp the game:</strong> ${agg.detectedCombos.length} line${agg.detectedCombos.length === 1 ? '' : 's'} (${nWinC} win${nWinC === 1 ? '' : 's'}${agg.detectedCombos.length - nWinC ? ', ' + (agg.detectedCombos.length - nWinC) + ' warp' : ''})${nLoopC ? ' plus ' + nLoopC + ' two-card infinite loop' + (nLoopC === 1 ? '' : 's') : ''}.<div style="margin-top:6px;"><button type="button" onclick="goToKeyPieces()" style="background:none; border:1px solid var(--gold); color:var(--gold); border-radius:8px; padding:5px 12px; cursor:pointer; font-size:12.5px;">See each combo and how it works${nNearC ? ' \u00b7 ' + nNearC + ' one card away' : ''}</button></div></div>`;
+  } else if (agg && (agg.infiniteLoopTwoCard || []).length) {
+    html += `<div class="detail" style="margin-top:6px; font-size:13px;"><strong>Two-card infinite loops:</strong> ${agg.infiniteLoopTwoCard.length}. <button type="button" onclick="goToKeyPieces()" style="background:none; border:1px solid var(--gold); color:var(--gold); border-radius:8px; padding:5px 12px; cursor:pointer; font-size:12.5px;">See them</button></div>`;
   }
   if (agg && agg.bannedCards.length > 0) {
     html += `<div class="detail" style="margin-top:6px; font-size:13px; color:var(--danger);"><strong>Banned cards (left out of the scores):</strong> ${agg.bannedCards.map(cardNameLink).join(', ')}</div>`;
@@ -24895,28 +24891,9 @@ function comboDetailsBlock(cards, outcome, win, cmdrs, extra) {
     ${steps ? '' : '<div style="margin-top:4px; font-size:11.5px; color:var(--text-soft);">General description for this kind of line. Read each card for exact costs and timing.</div>'}
     <div style="margin-top:8px; font-size:10px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-soft);">The cards</div>${roles}${extra || ''}</div>`;
 }
-function comboCardHtml(d, text, turn) {
-  const cards = (d.matchedNames && d.matchedNames.length) ? d.matchedNames : d.cards;
-  const cmdrs = d.commanderPiece ? cards.filter(n => (window.__comboAgg && (window.__comboAgg.commanders || []).includes(n))) : [];
-  const win = d.comboClass !== 'warp';
-  const outcome = d.outcome || (String(text).match(/\(([^)]*)\)\s*$/) || [])[1] || null;
-  const tags = comboTag(win ? 'Wins' : 'Warps', win ? 'win' : 'warp') + comboTag(cards.length + ' cards', 'plain') + (d.infinite ? comboTag('Infinite', 'plain') : '');
-  const edge = win ? 'var(--gold)' : '#3d8f8a';
-  const extra = turn ? `<div style="margin-top:8px; font-size:12.5px; color:var(--text-soft);">If you drew them all, the pieces could be out by about turn ${turn}.</div>` : '';
-  return `<details style="margin-top:8px; border-left:4px solid ${edge}; background:rgba(255,255,255,0.03); border-radius:3px 8px 8px 3px; padding:8px 10px;">
-    <summary style="cursor:pointer; list-style:none; outline:none;">
-      <div>${tags}</div>
-      <div style="margin-top:4px;">${comboChips(cards, cmdrs)}</div>
-      <div style="font-size:13px; margin-top:2px;"><span style="color:var(--text-soft);">Result:</span> <strong>${escapeHtml(comboNiceOutcome(outcome))}</strong> <span style="color:var(--text-soft); font-size:12px;">· tap for how it works</span></div>
-    </summary>${comboDetailsBlock(cards, outcome, win, cmdrs, extra)}</details>`;
-}
-function openCombosPopup() {
-  const agg = window.__comboAgg; if (!agg) return;
-  let ov = document.getElementById('comboOverlay'); if (ov) ov.remove();
-  ov = document.createElement('div'); ov.id = 'comboOverlay';
-  ov.style.cssText = 'position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.65); display:flex; align-items:flex-end; justify-content:center;';
+// ---- Combos inside Key Pieces & Combos (the one place that shows every combo) ----
+function comboMergedItems(agg) {
   const details = agg.detectedComboDetails || [], texts = agg.detectedCombos || [];
-  let curve = null; try { curve = computeManaCurve(agg); } catch (e) {}
   const merged = new Map();
   details.forEach((d, i) => {
     const cs = (d.matchedNames && d.matchedNames.length) ? d.matchedNames : d.cards;
@@ -24926,34 +24903,76 @@ function openCombosPopup() {
     else if (d.outcome && o.d.outcome && !o.d.outcome.includes(d.outcome)) o.d.outcome = o.d.outcome + ' and ' + d.outcome;
   });
   merged.forEach(v => { v.d.comboClass = comboDisplayWin(v.d.outcome, v.d.comboClass !== 'warp') ? 'win' : 'warp'; });
-  const items = Array.from(merged.values()).sort((a, b) => ((b.d.comboClass !== 'warp') - (a.d.comboClass !== 'warp')) || (a.d.pieceCount || a.d.cards.length) - (b.d.pieceCount || b.d.cards.length));
-  const nWin = items.filter(x => x.d.comboClass !== 'warp').length, nWarp = items.length - nWin;
-  const have = items.length ? items.map(x => { let turn = null; try { turn = curve ? earliestComboTurn(x.d, curve) : null; } catch (e) {} return comboCardHtml(x.d, x.text, turn); }).join('')
-    : '<div style="color:var(--text-soft); font-size:13px; margin-top:6px;">No complete combo found in this list.</div>';
+  return Array.from(merged.values()).sort((a, b) => ((b.d.comboClass !== 'warp') - (a.d.comboClass !== 'warp')) || (a.d.pieceCount || a.d.cards.length) - (b.d.pieceCount || b.d.cards.length));
+}
+/** One line on what this combo does to the bracket: mirrors detectBracketCore exactly. */
+function comboBracketLine(d, turn) {
+  const n = d.pieceCount || (d.cards || []).length;
+  if (n >= 3) return 'Bracket effect: none. Combos of three or more cards do not change the bracket.';
+  if (n === 2 && d.bracketRelevant !== false) {
+    if (d.winsAlone !== false && turn !== null && turn !== undefined && turn <= EARLY_COMBO_BY_TURN)
+      return `Bracket effect: a two-card infinite combo that wins on its own and could be out by about turn ${turn}. This pushes the deck to Bracket 4.`;
+    return 'Bracket effect: any two-card infinite combo makes a deck Bracket 3 at least. ' + (d.winsAlone === false ? 'This one needs a payoff to win, so it never pushes to Bracket 4 on speed.' : 'It is too slow to push the deck to Bracket 4.');
+  }
+  return 'Bracket effect: none.';
+}
+function comboBlockHtml(d, text, turn, agg) {
+  const cards = (d.matchedNames && d.matchedNames.length) ? d.matchedNames : d.cards;
+  const cmdrs = cards.filter(n => (agg.commanders || []).includes(n));
+  const win = d.comboClass !== 'warp';
+  const outcome = d.outcome || (String(text).match(/\(([^)]*)\)\s*$/) || [])[1] || null;
+  const tags = comboTag(win ? 'Wins' : 'Warps', win ? 'win' : 'warp') + comboTag(cards.length + ' cards', 'plain') + (d.infinite ? comboTag('Infinite', 'plain') : '');
+  const edge = win ? 'var(--gold)' : '#3d8f8a';
+  const extra = turn ? `<div style="margin-top:8px; font-size:12.5px; color:var(--text-soft);">If you drew them all, the pieces could be out by about turn ${turn}.</div>` : '';
+  return `<div class="kp-combo" style="margin-top:14px; border:1px solid var(--line); border-left:4px solid ${edge}; background:rgba(255,255,255,0.03); border-radius:4px 10px 10px 4px; padding:12px;">
+    <div>${tags}</div>
+    <div class="kp-thumbs" data-names="${escapeHtml(JSON.stringify(cards))}" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;"></div>
+    <div style="font-size:13.5px; margin-top:10px;"><span style="color:var(--text-soft);">Result:</span> <strong>${escapeHtml(comboNiceOutcome(outcome))}</strong></div>
+    ${comboDetailsBlock(cards, outcome, win, cmdrs, extra)}
+    <div style="margin-top:8px; font-size:12px; color:var(--text-soft);">${escapeHtml(comboBracketLine(d, turn))}</div>
+  </div>`;
+}
+function comboLoopBlockHtml(l) {
+  return `<div class="kp-combo" style="margin-top:14px; border:1px solid var(--line); border-left:4px solid var(--line-strong); background:rgba(255,255,255,0.03); border-radius:4px 10px 10px 4px; padding:12px;">
+    <div>${comboTag('Loop', 'plain')}${comboTag('2 cards', 'plain')}${comboTag('Infinite', 'plain')}</div>
+    <div class="kp-thumbs" data-names="${escapeHtml(JSON.stringify(l.cards))}" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;"></div>
+    <div style="margin-top:6px;">${comboChips(l.cards, window.__comboAgg ? (window.__comboAgg.commanders || []) : [])}</div>
+    <div style="font-size:13px; margin-top:4px;">${escapeHtml(l.name.replace(/^.*? \+ .*? \(/, '').replace(/\)$/, '').replace(/^./, c => c.toUpperCase()))} <span style="color:var(--text-soft);">(a loop that wins nothing by itself)</span></div>
+    <div style="margin-top:8px; font-size:12px; color:var(--text-soft);">Bracket effect: any two-card infinite combo makes a deck Bracket 3 at least. A loop with no win of its own never pushes to Bracket 4. It is not scored.</div>
+  </div>`;
+}
+function comboNearHtml(agg) {
   const near = agg.comboNear || [];
-  const nearHtml = near.length ? near.map(g => `<div style="margin-top:10px; border:1.5px dashed var(--gold); border-radius:10px; padding:8px 10px;">
-      <div style="font-size:14px;"><span style="color:var(--gold); font-weight:700;">+ </span><strong>${cardNameLink(g.missing)}</strong> <span style="color:var(--text-soft); font-size:12px;">MV ${g.mv} · completes ${g.count} line${g.count === 1 ? '' : 's'}</span></div>
+  if (!near.length) return '<div style="color:var(--text-soft); font-size:13px; margin-top:6px;">Nothing close right now: no combo is one legal card away in your commander\u2019s colours.</div>';
+  return near.map(g => `<div style="margin-top:10px; border:1.5px dashed var(--gold); border-radius:10px; padding:8px 10px;">
+      <div style="font-size:14px;"><span style="color:var(--gold); font-weight:700;">+ </span><strong>${cardNameLink(g.missing)}</strong> <span style="color:var(--text-soft); font-size:12px;">MV ${g.mv} \u00b7 completes ${g.count} line${g.count === 1 ? '' : 's'}</span></div>
       ${g.lines.map(l => `<details style="margin-top:6px;"><summary style="cursor:pointer; list-style:none; outline:none;">
           <div>${comboTag(comboDisplayWin(l.outcome, l.win) ? 'Wins' : 'Warps', comboDisplayWin(l.outcome, l.win) ? 'win' : 'warp')}${l.inf ? comboTag('Infinite', 'plain') : ''}</div>
           <div style="margin-top:3px;">${comboChips(l.held, agg.commanders || [], g.missing)}</div>
-          <div style="font-size:12.5px;"><span style="color:var(--text-soft);">Result:</span> <strong>${escapeHtml(comboNiceOutcome(l.outcome))}</strong> <span style="color:var(--text-soft); font-size:12px;">· how it works</span></div>
+          <div style="font-size:12.5px;"><span style="color:var(--text-soft);">Result:</span> <strong>${escapeHtml(comboNiceOutcome(l.outcome))}</strong> <span style="color:var(--text-soft); font-size:12px;">\u00b7 how it works</span></div>
         </summary>${comboDetailsBlock(l.held.concat([g.missing]), l.outcome, comboDisplayWin(l.outcome, l.win), (agg.commanders || []).filter(n => l.held.includes(n)), '')}</details>`).join('')}
-    </div>`).join('')
-    : '<div style="color:var(--text-soft); font-size:13px; margin-top:6px;">Nothing close right now: no combo is one legal card away in your commander’s colours.</div>';
-  const head = (txt, sub) => `<div style="margin-top:16px; font-size:11px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--gold);">${txt}</div><div style="font-size:12px; color:var(--text-soft); margin-top:1px;">${sub}</div>`;
-  ov.innerHTML = `<div role="dialog" aria-label="Combos" style="background:var(--bg-card, #14121a); border:1px solid var(--line-strong); border-radius:14px 14px 0 0; width:min(560px,100%); max-height:calc(82vh / var(--pm-zoom, 1)); overflow:auto; padding:16px 16px 22px;">
-    <style>#comboOverlay summary::-webkit-details-marker{display:none}</style>
-    <div style="display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; z-index:5; background:var(--bg-card, #14121a); margin:-16px -16px 10px; padding:14px 16px 10px; border-bottom:1px solid var(--line);"><div style="font-family:'Cinzel',Georgia,serif; font-size:13px; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold);">Combos</div><button type="button" id="comboClose" style="background:none; border:1px solid var(--line-strong); color:var(--text-primary); border-radius:8px; padding:4px 12px; cursor:pointer; text-transform:none; letter-spacing:normal;">Close</button></div>
-    <div style="font-size:12px; color:var(--text-soft); margin-top:6px;">${comboTag('Wins', 'win')} finishes the game on its own. ${comboTag('Warps', 'warp')} breaks the game open but needs a payoff. Solid chips are in your deck, dashed ones are missing.</div>
-    ${head('In your deck · ' + nWin + ' win' + (nWin === 1 ? '' : 's') + (nWarp ? ', ' + nWarp + ' warp' + (nWarp === 1 ? '' : 's') : ''), (agg.spellbookMatched || 0) > items.filter(x => x.d.source === 'spellbook').length ? 'The strongest lines. More overlapping lines also match; only these are scored.' : 'Every line we found.')}
-    ${have}
-    ${head('One card away', 'Add one card and a combo is complete. Inside your commander’s colours and legal to play.')}
-    ${nearHtml}
-    <div style="font-size:11.5px; color:var(--text-soft); margin-top:14px;">Lines come from PodMates’ own list and a built-in copy of Commander Spellbook${SPELLBOOK_INDEX && SPELLBOOK_INDEX.snap.date ? ' (snapshot of ' + escapeHtml(String(SPELLBOOK_INDEX.snap.date).slice(0, 10)) + ')' : ''}. This is explanation, not scoring: the scores are unchanged.</div></div>`;
-  document.body.appendChild(ov);
-  const close = () => ov.remove();
-  ov.addEventListener('click', e => { if (e.target === ov) close(); });
-  document.getElementById('comboClose').addEventListener('click', close);
+    </div>`).join('');
+}
+function comboSectionHtml(agg) {
+  const items = comboMergedItems(agg), loops = agg.infiniteLoopTwoCard || [];
+  if (!items.length && !loops.length && !(agg.comboNear || []).length) return '';
+  let curve = null; try { curve = computeManaCurve(agg); } catch (e) {}
+  const nWin = items.filter(x => x.d.comboClass !== 'warp').length, nWarp = items.length - nWin;
+  const sub = (txt) => `<div style="margin-top:16px; font-size:11px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--gold);">${txt}</div>`;
+  const sbShown = (agg.detectedComboDetails || []).filter(d => d.source === 'spellbook').length;
+  const sbMore = (agg.spellbookMatched || 0) - sbShown;
+  let h = `<div style="margin-bottom:12px;"><strong style="color:var(--gold);">Combos</strong> <span style="color:var(--text-soft); font-size:12.5px;">${items.length ? nWin + ' win' + (nWin === 1 ? '' : 's') + (nWarp ? ', ' + nWarp + ' warp' + (nWarp === 1 ? '' : 's') : '') : 'none that win or warp'}${loops.length ? ' \u00b7 ' + loops.length + ' two-card loop' + (loops.length === 1 ? '' : 's') : ''}</span>
+    <div style="font-size:12px; color:var(--text-soft); margin-top:6px;">${comboTag('Wins', 'win')} finishes the game on its own. ${comboTag('Warps', 'warp')} breaks the game open but needs a payoff. ${comboTag('Loop', 'plain')} repeats forever but wins nothing alone. Tap any card picture to enlarge it.</div>`;
+  h += items.map(x => { let turn = null; try { turn = curve ? earliestComboTurn(x.d, curve) : null; } catch (e) {} return comboBlockHtml(x.d, x.text, turn, agg); }).join('');
+  if (loops.length) h += sub('Two-card infinite loops') + loops.map(comboLoopBlockHtml).join('');
+  if ((agg.comboNear || []).length) h += sub('One card away') + '<div style="font-size:12px; color:var(--text-soft); margin-top:2px;">Add one card and a combo is complete. Inside your commander\u2019s colours and legal to play.</div>' + comboNearHtml(agg);
+  h += `<div style="font-size:11.5px; color:var(--text-dim); margin-top:14px;">From PodMates\u2019 own combo list plus a built-in copy of Commander Spellbook${SPELLBOOK_INDEX && SPELLBOOK_INDEX.snap.date ? ' (snapshot of ' + escapeHtml(String(SPELLBOOK_INDEX.snap.date).slice(0, 10)) + ')' : ''}. Lines that win the game or warp it are listed (infinite damage or mana, extra turns, locks), plus two-card infinite loops for the bracket. A line that just adds cards to a smaller combo is not listed again.${sbMore > 0 ? ` ${sbMore} more line${sbMore === 1 ? '' : 's'} also match${sbMore === 1 ? 'es' : ''} this deck but only the ${sbShown} strongest Spellbook line${sbShown === 1 ? ' is' : 's are'} scored, so a pile of overlapping combos cannot run away with the numbers.` : ''}</div></div>`;
+  return h;
+}
+function goToKeyPieces() {
+  const panel = document.getElementById('keyPiecesPanel'); if (!panel) return;
+  const d = panel.querySelector('details'); if (d) d.open = true;
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 // ===== END COMBOS POPUP =====
 
@@ -25319,7 +25338,8 @@ function renderKeyPieces(agg) {
     sections.push(`<div style="margin-bottom:10px;"><strong style="color:var(--gold);">Commander</strong><br>${agg.commanders.map(cardNameLink).join(' / ')}</div>`);
   }
   if (agg.gameChangers.length) sections.push(`<div style="margin-bottom:10px;"><strong style="color:var(--gold);">Game Changers</strong><div id="gameChangerThumbs" style="margin:6px 0;"></div>${gameChangerChips(agg.gameChangers)}</div>`);
-  if (agg.detectedCombos.length) sections.push(`<div style="margin-bottom:10px;"><strong style="color:var(--gold);">Detected Combos</strong><div id="comboThumbs"></div></div>`);
+  window.__comboAgg = agg;
+  { const cs = comboSectionHtml(agg); if (cs) sections.push(cs); }
   if (agg.fastManaCards.length) sections.push(`<div style="margin-bottom:10px;"><strong style="color:var(--gold);">Fast Mana</strong><br>${[...new Set(agg.fastManaCards)].map(cardNameLink).join(', ')}</div>`);
   if (agg.tutorCards.length) sections.push(`<div style="margin-bottom:10px;"><strong style="color:var(--gold);">Tutors</strong><br>${[...new Set(agg.tutorCards)].map(cardNameLink).join(', ')}</div>`);
   if (agg.mldCards.length) sections.push(`<div style="margin-bottom:10px;"><strong style="color:var(--danger);">Mass Land Denial</strong><br>${[...new Set(agg.mldCards)].map(cardNameLink).join(', ')}</div>`);
@@ -25352,8 +25372,7 @@ function renderKeyPieces(agg) {
 // naturally few in count, so an always-visible row stays tasteful there.
 async function enhanceKeyPiecesWithThumbnails(agg) {
   const gcNames = [...new Set(agg.gameChangers || [])];
-  const comboDetails = agg.detectedComboDetails || [];
-  const comboCardNames = [...new Set(comboDetails.flatMap(c => c.cards || []))];
+  const comboCardNames = [...new Set([...(agg.detectedComboDetails || []).flatMap(c => c.cards || []), ...(agg.infiniteLoopTwoCard || []).flatMap(l => l.cards || [])])];
   const allNames = [...new Set([...gcNames, ...comboCardNames])];
   if (!allNames.length) return;
 
@@ -25364,25 +25383,22 @@ async function enhanceKeyPiecesWithThumbnails(agg) {
   // the same full-size art modal used everywhere else in this panel --
   // one consistent way to get a bigger look at any card, rather than a
   // second, different enlarge mechanism just for these two sections.
-  const thumbHtml = (names) => names.map(name => {
+  const thumbHtml = (names, w) => names.map(name => {
+    const tw = w || 130, th = Math.round(tw * 1.396 * 10) / 10;
     const url = urlMap.get(name);
     if (!url) return ''; // no placeholder here -- the text chips/labels right below already name every card either way
     return `<span class="card-name-link" data-card-name="${escapeHtml(name)}" style="display:inline-block; border-bottom:none;">
-      <img src="${escapeHtml(url)}" alt="${escapeHtml(name)}" title="${escapeHtml(name)}" loading="lazy" style="width:130px; height:181.4px; object-fit:cover; border:1.5px solid var(--line); border-radius:0; margin:0 6px 6px 0; cursor:pointer;">
+      <img src="${escapeHtml(url)}" alt="${escapeHtml(name)}" title="${escapeHtml(name)}" loading="lazy" style="width:${tw}px; height:${th}px; object-fit:cover; border:1.5px solid var(--line); border-radius:0; margin:0 ${w ? 0 : 6}px ${w ? 0 : 6}px 0; cursor:pointer;">
     </span>`;
   }).join('');
 
   const gcArea = $('gameChangerThumbs');
   if (gcArea && gcNames.length) gcArea.innerHTML = thumbHtml(gcNames);
 
-  const comboArea = $('comboThumbs');
-  if (comboArea && comboDetails.length) {
-    comboArea.innerHTML = comboDetails.map(combo => `
-      <div style="margin:6px 0 8px;">
-        <div>${thumbHtml(combo.cards || [])}</div>
-      </div>
-    `).join('');
-  }
+  document.querySelectorAll('#keyPiecesArea .kp-thumbs').forEach(el => {
+    let names = []; try { names = JSON.parse(el.getAttribute('data-names') || '[]'); } catch (e) {}
+    el.innerHTML = thumbHtml(names, 86);
+  });
 }
 
 function stat(num, label) {
