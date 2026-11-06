@@ -1433,6 +1433,12 @@ h1 {
 </style>
 </head>
 <body>
+<div id="jaHint" translate="no" style="display:none; background:#241b33; color:#f1ead8; border:1px solid #c9a227; border-radius:8px; padding:10px 14px; margin:8px auto; max-width:900px; font-size:13.5px; line-height:1.6;">
+  <button type="button" id="jaHintClose" aria-label="閉じる" style="float:right; background:none; border:none; font-size:18px; cursor:pointer; color:inherit;">×</button>
+  <strong>日本語で使うには：</strong>このアプリは英語表示ですが、ブラウザの翻訳機能で日本語にできます。<br>
+  <span><strong>Chrome / Edge：</strong>アドレスバー右側の翻訳アイコン →「日本語」を選択。<strong>Safari（iPhone）：</strong>アドレスバー左の「ぁあ」→「日本語に翻訳」。</span><br>
+  <span style="color:#cfc6b0; font-size:12.5px;">カード名は英語のままです。デッキリストは英語名で貼り付けてください。</span>
+</div>
 <div class="wrap">
   <div id="authBar" style="display:flex; justify-content:flex-end; align-items:center; gap:10px; margin-bottom:8px; font-size:12.5px; color:var(--text-soft); min-height:24px;">
     <span id="authStatusText"></span>
@@ -1731,7 +1737,7 @@ One card per line. Formats like &quot;1x Sol Ring&quot;, plain names, or Moxfiel
     </div>
   </div>
 
-  <footer>PodMates · Card data from Scryfall, refreshed automatically · Game Changers and banned status follow Scryfall's own official data · scores help us align, they don’t rank people<br>Mana symbols courtesy of Scryfall, portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC. Deck Compass is unofficial Fan Content permitted under the Fan Content Policy; not approved/endorsed by Wizards.</footer>
+  <footer>PodMates · Card data from Scryfall, refreshed automatically · Game Changers and banned status follow Scryfall's own official data · scores help us align, they don’t rank people<br>Mana symbols courtesy of Scryfall, portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC. PodMates is unofficial Fan Content permitted under the Fan Content Policy; not approved/endorsed by Wizards.</footer>
 </div>
 
 <script id="engine-script">
@@ -25268,7 +25274,7 @@ function renderCommanderCentrality(agg, matched, commanders, winCons, archetypeM
   const reasons = r.reasons.map(x => `<li>${escapeHtml(x)}</li>`).join('');
   const notes = r.notes.map(x => `<div class="cc-note">${escapeHtml(x)}</div>`).join('');
   const tiles = r.tiles.slice(0, 110).map(t =>
-    `<span class="card-name-link cc-tile cc-l${t.level}" data-card-name="${escapeHtml(t.name)}" title="${escapeHtml(t.name + (ccTileLabel(t) ? ' (' + ccTileLabel(t) + ')' : '') + (t.why ? ' — ' + t.why : ''))}">${ccTileInner(t)}</span>`
+    `<span translate="no" class="card-name-link cc-tile cc-l${t.level}" data-card-name="${escapeHtml(t.name)}" title="${escapeHtml(t.name + (ccTileLabel(t) ? ' (' + ccTileLabel(t) + ')' : '') + (t.why ? ' — ' + t.why : ''))}">${ccTileInner(t)}</span>`
   ).join('');
   const legendItems = [['cc-l4', 'Commander'], ['cc-l3', 'Essential'], ['cc-l2', 'Linked'], ['cc-l1', 'Support'], ['cc-l0', 'Independent']];
   const legendSwatch = { 'cc-l4': 'background:var(--gold-bright); border:2px solid #fff;', 'cc-l3': 'background:var(--gold-bright);', 'cc-l2': 'background:#8a6d2a;', 'cc-l1': 'background:#3d8f8a;', 'cc-l0': 'background:var(--bg-panel-raised);' };
@@ -29331,7 +29337,7 @@ function showCardReason(cardName) {
 // linkifyKnownCardNames below -- the specific cards named inside Win
 // Condition detail text).
 function cardNameLink(name) {
-  return `<span class="card-name-link" data-card-name="${escapeHtml(name)}">${escapeHtml(name)}</span>`;
+  return `<span translate="no" class="card-name-link" data-card-name="${escapeHtml(name)}">${escapeHtml(name)}</span>`;
 }
 
 // Wraps KNOWN card names inside an already-escaped block of text, turning
@@ -35318,5 +35324,14 @@ setupIconTooltipsFor(document);
   window.dispatchEvent(new CustomEvent('podmates-cloud-init'));
 </script>
 
+<script>
+(function(){ try {
+  var lang = (navigator.language || '').toLowerCase();
+  var el = document.getElementById('jaHint'), x = document.getElementById('jaHintClose');
+  var seen = false; try { seen = localStorage.getItem('pm_ja_hint') === '1'; } catch (e) {}
+  if (el && lang.indexOf('ja') === 0 && !seen && !(document.documentElement.className || '').match(/translated/)) el.style.display = 'block';
+  if (x) x.addEventListener('click', function(){ el.style.display = 'none'; try { localStorage.setItem('pm_ja_hint', '1'); } catch (e) {} });
+} catch (e) {} })();
+</script>
 </body>
 </html>
