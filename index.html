@@ -28431,7 +28431,7 @@ async function renderLiveGatheringTray(podId, gatheringId, preloaded) {
         closeTryADeckModal();
         const hostSeatForChart = (gathering.seats && Object.values(gathering.seats).find(s => s && s.uid === gathering.hostUid)) || null;
         currentBattleContext = {
-          podId, gatheringId, gatheringTitle: gathering.title || '',
+          podId, gatheringId, gatheringTitle: gathering.title || '', ignoreChronicleId: gathering.lastLoggedChronicleId || null,
           isHost: gathering.hostUid === window.PodmatesCloud.uid,
           hostName: (hostSeatForChart && hostSeatForChart.displayName) || 'the host',
           participants: seatKeysForChart.map(k => gathering.seats && gathering.seats[k]).filter(s => s && s.uid && !s.guest).map(s => ({ uid: s.uid, displayName: s.displayName || 'Podmate' })),
@@ -28562,7 +28562,7 @@ async function renderLiveGatheringTray(podId, gatheringId, preloaded) {
     stopGatheringPolling();
     closeTryADeckModal();
     currentBattleContext = {
-      podId, gatheringId, gatheringTitle: gathering.title || '', isHost: true,
+      podId, gatheringId, gatheringTitle: gathering.title || '', ignoreChronicleId: gathering.lastLoggedChronicleId || null, isHost: true,
       hostName: (window.PodmatesCloud.user && window.PodmatesCloud.user.displayName) || 'the host',
       participants: seatKeys.map(k => gathering.seats && gathering.seats[k]).filter(s => s && s.uid && !s.guest).map(s => ({ uid: s.uid, displayName: s.displayName || 'Podmate' })),
     };
@@ -30370,7 +30370,7 @@ function startResultsPolling() {
   const handle = (gathering) => {
     if (!currentBattleContext || currentBattleContext.loggedChronicleId) { stopResultsPolling(); return; }
     if (!gathering || gathering.status === 'ended') { stopResultsPolling(); return; }
-    if (gathering.lastLoggedChronicleId && gathering.lastLoggedChronicleId !== currentBattleContext.loggedChronicleId) {
+    if (gathering.lastLoggedChronicleId && gathering.lastLoggedChronicleId !== currentBattleContext.loggedChronicleId && gathering.lastLoggedChronicleId !== currentBattleContext.ignoreChronicleId) {
       currentBattleContext.loggedChronicleId = gathering.lastLoggedChronicleId;
       stopResultsPolling();
       renderBattleControls();
@@ -30474,6 +30474,7 @@ async function runRepeatBattle() {
   if (decks.length < 2) { showToast('Not enough decks loaded to repeat this battle.'); return; }
   try { await window.PodmatesCloud.markGatheringCharted(currentBattleContext.podId, currentBattleContext.gatheringId); }
   catch (e) { /* non-fatal -- results still render locally either way */ }
+  currentBattleContext.ignoreChronicleId = gathering.lastLoggedChronicleId || currentBattleContext.loggedChronicleId || null;
   currentBattleContext.loggedChronicleId = null;
   renderPodAnalysisResults(decks);
   renderBattleControls();
@@ -34660,7 +34661,7 @@ setupIconTooltipsFor(document);
   async function cloudMarkGatheringCharted(podId, gatheringId) {
     if (!currentUser) throw new Error('Not signed in yet');
     await setDoc(doc(db, 'pods', podId, 'gatherings', gatheringId), {
-      chartedAt: Date.now(), updatedAt: serverTimestamp(),
+      chartedAt: Date.now(), lastLoggedChronicleId: null, lastLoggedAt: null, updatedAt: serverTimestamp(),   // a fresh battle starts un-logged, so the last battle's id can't pose as this one
     }, { merge: true });
   }
 
