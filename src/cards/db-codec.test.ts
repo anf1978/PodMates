@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
-import { buildLookupIndexes, decodeCardDatabase, decodeCardRecords } from "./db-codec.js";
+import { decodeCardDatabase, decodeCardRecords } from "./db-codec.js";
+import { buildLookupIndexes } from "./lookup.ts";
 
 it("preserves old tuple omissions, new face fields, and legality flags", () => {
   const cards = decodeCardRecords({

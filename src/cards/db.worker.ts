@@ -1,6 +1,8 @@
-import { buildLookupIndexes, decodeCardDatabase } from "./db-codec.js";
+import { decodeCardDatabase } from "./db-codec.js";
+import { buildLookupIndexes } from "./lookup.ts";
+import type { CardRecord } from "./tuple.ts";
 
-export type Card = Awaited<ReturnType<typeof decodeCardDatabase>>[number];
+export type Card = CardRecord;
 type IndexEntries = [string, Card][];
 export type WorkerMessage =
   | { type: "progress"; message: string; percent: number }

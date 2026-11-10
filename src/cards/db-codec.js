@@ -1,70 +1,36 @@
 // @ts-check
+// Decodes the published gzip/base64 card database into card records, on the worker
+// thread or (as a fallback) the main thread. Shared with the golden harness, so it
+// must stay DOM-free; tuple positions are read only through src/cards/tuple.ts.
 
-/** @typedef {[string, string, string, string, string, number, string, string, string?, number?, string?, string?, number?, string?, string?, string?]} CardTuple */
+import { cardFromTuple, cardName } from "./tuple.ts";
+
+/** @typedef {import("./tuple.ts").CardTuple} CardTuple */
+/** @typedef {import("./tuple.ts").CardRecord} CardRecord */
 /** @typedef {{cards: CardTuple[], gc: string[], banned: string[]}} CardPayload */
 /** @typedef {(message: string, percent: number) => void} Progress */
 
 /**
  * @param {CardPayload} payload
  * @param {Progress} [report]
+ * @returns {CardRecord[]}
  */
 export function decodeCardRecords(payload, report = () => {}) {
   const gcSet = new Set(payload.gc);
   const bannedSet = new Set(payload.banned);
-  return payload.cards.map((t, i) => {
+  return payload.cards.map((tuple, i) => {
     if (i % 1024 === 0) report("Building card records...", 70 + (i / payload.cards.length) * 15);
-    return {
-      n: t[0],
-      t: t[1],
-      o: t[2],
-      c: t[3],
-      ci: t[4],
-      m: t[5],
-      p: t[6],
-      r: t[7],
-      // Missing optional fields must stay undefined for older publications.
-      pm: t.length > 8 ? t[8] || "" : undefined,
-      rt: t.length > 9 ? t[9] === 1 : undefined,
-      pw: t.length > 10 ? t[10] : undefined,
-      tg: t.length > 11 ? t[11] : undefined,
-      x: t.length > 12 ? t[12] === 1 : undefined,
-      ly: t.length > 13 ? t[13] : undefined,
-      ob: t.length > 14 ? t[14] : undefined,
-      bt: t.length > 15 ? t[15] : undefined,
-      g: gcSet.has(t[0]),
-      b: bannedSet.has(t[0]),
-    };
+    return cardFromTuple(tuple, {
+      gameChanger: gcSet.has(cardName(tuple)),
+      banned: bannedSet.has(cardName(tuple)),
+    });
   });
-}
-
-/**
- * @param {ReturnType<typeof decodeCardRecords>} db
- * @param {Progress} [report]
- */
-export function buildLookupIndexes(db, report = () => {}) {
-  /** @type {Map<string, (typeof db)[number]>} */
-  const byExactName = new Map();
-  /** @type {Map<string, (typeof db)[number]>} */
-  const byFrontFaceName = new Map();
-  /** @type {Map<string, (typeof db)[number]>} */
-  const byBackFaceName = new Map();
-  for (const [i, card] of db.entries()) {
-    if (i % 1024 === 0) report("Building lookup indexes...", 85 + (i / db.length) * 10);
-    byExactName.set(card.n.toLowerCase(), card);
-    if (card.n.includes(" // ")) {
-      const [frontRaw, backRaw] = card.n.split(" // ");
-      const front = frontRaw.trim().toLowerCase();
-      const back = (backRaw || "").trim().toLowerCase();
-      if (!byFrontFaceName.has(front)) byFrontFaceName.set(front, card);
-      if (back && !byBackFaceName.has(back)) byBackFaceName.set(back, card);
-    }
-  }
-  return { byExactName, byFrontFaceName, byBackFaceName };
 }
 
 /**
  * @param {string} compressed
  * @param {Progress} [report]
+ * @returns {Promise<CardRecord[]>}
  */
 export async function decodeCardDatabase(compressed, report = () => {}) {
   if (typeof DecompressionStream === "undefined") {

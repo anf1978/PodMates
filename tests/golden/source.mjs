@@ -3,7 +3,9 @@
 import { readFileSync } from "node:fs";
 import { createContext, runInContext } from "node:vm";
 import { gunzipSync } from "node:zlib";
-import { buildLookupIndexes, decodeCardDatabase } from "../../src/cards/db-codec.js";
+import { decodeCardDatabase } from "../../src/cards/db-codec.js";
+import { buildLookupIndexes, matchDecklist } from "../../src/cards/lookup.ts";
+import { parseDecklist } from "../../src/cards/parse-decklist.ts";
 
 export const htmlUrl = new URL("../../index.html", import.meta.url);
 export const fixtureUrl = new URL("./fixtures/", import.meta.url);
@@ -35,8 +37,9 @@ export function decodeSpellbook() {
 }
 
 export function createEngine(cards, spellbook, html = readFileSync(htmlUrl, "utf8")) {
-  const context = createContext({ buildLookupIndexes });
-  for (const name of ["engine", "lookup", "corpus", "samples", "legality", "combo-outcomes"]) {
+  // Parsing and lookup now live in src/cards, so they are injected rather than extracted.
+  const context = createContext({ buildLookupIndexes, matchDecklist, parseDecklist });
+  for (const name of ["engine", "corpus", "samples", "legality", "combo-outcomes"]) {
     const source = extractBlock(html, name).replace(
       /^let (COMMANDER_TIER_DATA|REFERENCE_SCORES|REFERENCE_TIERS|PRECON_FINGERPRINTS|TRY_A_DECK_METADATA|STAPLES_BASELINE|MANABASE_BASELINE|TRY_A_DECK_OPTIONS);$/gm,
       (_declaration, dataset) => {

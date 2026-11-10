@@ -4663,193 +4663,18 @@ function detectTableFeel(agg, powerLevel, disruption, winCons) {
 /* @golden:engine:end */
 </script>
 <script id="lookup-script">
+// Decklist parsing and card lookup moved to src/cards/parse-decklist.ts and
+// src/cards/lookup.ts. src/cards/legacy-globals.ts republishes parseDecklist,
+// parseDecklistLine, matchDecklist, fuzzyFindCard, getCard and levenshtein on window
+// before the database is marked ready, so the scripts below still call them by name.
 var buildLookupIndexes;
-/* @golden:lookup:start */
-// ============================================================
-// DECK COMPASS — Decklist Parsing & Card Lookup
-// ============================================================
-
-function parseDecklistLine(line) {
-  let text = line.trim();
-  if (!text) return null;
-
-  // Skip section headers like "Deck:", "Sideboard:", "Commander:", "Maybeboard:"
-  if (/^(deck|sideboard|commander|maybeboard)s?:?\s*$/i.test(text)) return null;
-
-  // Extract quantity prefix: "1 ", "1x ", "2X "
-  let qty = 1;
-  const qtyMatch = text.match(/^(\d+)\s*[xX]?\s+(.+)$/);
-  if (qtyMatch) {
-    qty = parseInt(qtyMatch[1], 10) || 1;
-    text = qtyMatch[2];
-  }
-
-  // Strip trailing annotations -- foil/condition markers ("*F*"), bracketed
-  // set info ("[LTC]"), and set code + collector number ("(LTC) 123") --
-  // repeatedly, from the true end of the string inward, until a full pass
-  // changes nothing. This must run in a loop rather than once each: the set
-  // code + collector number pattern only matches when it's the LAST thing
-  // on the line, but Moxfield (and others) put the foil marker AFTER the
-  // collector number -- "As Foretold (WHO) 805 *F*" -- so stripping the set
-  // code first (the original, buggy order) simply doesn't match at all,
-  // leaving "(WHO) 805" stuck to the card name and guaranteeing every
-  // fuzzy-match attempt fails. Peeling one real trailing annotation off per
-  // loop, in whatever order they actually appear, handles that case and any
-  // other stacking without needing to special-case Moxfield specifically.
-  for (let i = 0; i < 5; i++) {
-    const before = text;
-    text = text.replace(/\s*\*[^*]*\*\s*$/, '');
-    text = text.replace(/\s*\[[^\]]+\]\s*$/, '');
-    text = text.replace(/\s*\([A-Za-z0-9]{2,6}\)\s*\S*$/, '');
-    if (text === before) break;
-  }
-
-  text = text.trim();
-  if (!text) return null;
-
-  return { qty, name: text };
-}
-
-function parseDecklist(rawText) {
-  const lines = rawText.split(/\r?\n/);
-  const entries = [];
-  let inCommanderSection = false;
-  const commanderNames = [];
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (/^commanders?:?\s*$/i.test(trimmed)) {
-      inCommanderSection = true;
-      continue;
-    }
-    if (/^(deck|sideboard|maybeboard|mainboard)s?:?\s*$/i.test(trimmed)) {
-      inCommanderSection = false;
-      continue;
-    }
-    const parsed = parseDecklistLine(line);
-    if (parsed) {
-      entries.push(parsed);
-      if (inCommanderSection) commanderNames.push(parsed.name);
-    }
-  }
-  // Fallback: if no explicit Commander section, look for a single-copy legendary later
-  return { entries, commanderNames };
-}
-
-// Levenshtein distance for fuzzy fallback matching (typo tolerance)
-function levenshtein(a, b) {
-  const m = a.length, n = b.length;
-  if (m === 0) return n;
-  if (n === 0) return m;
-  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
-  for (let i = 0; i <= m; i++) dp[i][0] = i;
-  for (let j = 0; j <= n; j++) dp[0][j] = j;
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      dp[i][j] = Math.min(
-        dp[i - 1][j] + 1,
-        dp[i][j - 1] + 1,
-        dp[i - 1][j - 1] + cost
-      );
-    }
-  }
-  return dp[m][n];
-}
-
-function fuzzyFindCard(name, db, indexes) {
-  const lower = name.toLowerCase();
-
-  // 1. Exact match
-  if (indexes.byExactName.has(lower)) {
-    return { card: indexes.byExactName.get(lower), matchType: 'exact' };
-  }
-
-  // 1.5. Split-card single-slash normalization: other deckbuilders commonly
-  // export split/fuse cards as "Fire / Ice" or "Fire/Ice" rather than
-  // Scryfall's own "Fire // Ice" convention. Normalize and retry the exact
-  // lookup before falling through to front/back-face or fuzzy matching.
-  if (lower.includes('/')) {
-    const normalized = lower.replace(/\s*\/\s*/g, ' // ').replace(/\s+/g, ' ').trim();
-    if (indexes.byExactName.has(normalized)) {
-      return { card: indexes.byExactName.get(normalized), matchType: 'exact' };
-    }
-  }
-
-  // 2. Front-face match (double-faced/split cards pasted by their front name only)
-  if (indexes.byFrontFaceName.has(lower)) {
-    return { card: indexes.byFrontFaceName.get(lower), matchType: 'dfc-front-face' };
-  }
-
-  // 2.5. Back-face match — typing just the second half of a split card
-  // (e.g. "Dawn" for "Dusk // Dawn") would otherwise fall through to fuzzy
-  // matching and can silently resolve to an unrelated card with a similar
-  // name (e.g. "Damn"). Check this before fuzzy matching, not after.
-  if (indexes.byBackFaceName && indexes.byBackFaceName.has(lower)) {
-    return { card: indexes.byBackFaceName.get(lower), matchType: 'dfc-back-face' };
-  }
-
-  // 3. Fuzzy fallback: only attempt for reasonably short names (perf) and only
-  // accept close matches (distance <= 2, or <= 3 for longer names) to avoid
-  // wildly wrong substitutions
-  if (lower.length > 3) {
-    let best = null;
-    let bestDist = Infinity;
-    const maxAllowedDist = lower.length > 12 ? 3 : 2;
-
-    for (const card of db) {
-      const candidateName = card.n.split(' // ')[0].toLowerCase();
-      // Quick length-based pre-filter to skip obviously-mismatched candidates
-      if (Math.abs(candidateName.length - lower.length) > maxAllowedDist) continue;
-      const dist = levenshtein(lower, candidateName);
-      if (dist < bestDist) {
-        bestDist = dist;
-        best = card;
-      }
-      if (bestDist === 0) break;
-    }
-
-    if (best && bestDist <= maxAllowedDist) {
-      return { card: best, matchType: 'fuzzy', distance: bestDist };
-    }
-  }
-
-  return null;
-}
-
-function matchDecklist(entries, db, indexes) {
-  const matched = [];
-  const notFound = [];
-  const fuzzyMatches = [];
-
-  for (const entry of entries) {
-    const result = fuzzyFindCard(entry.name, db, indexes);
-    if (result) {
-      matched.push({ qty: entry.qty, card: result.card, originalName: entry.name });
-      if (result.matchType === 'fuzzy') {
-        fuzzyMatches.push({ typed: entry.name, matched: result.card.n });
-      }
-    } else {
-      notFound.push(entry.name);
-    }
-  }
-
-  return { matched, notFound, fuzzyMatches };
-}
-
-/* @golden:lookup:end */
-
 </script>
 <script id="data-script">// Compressed card database, gzip+base64. Rebuilt weekly by the
 // "Rebuild Card Database" GitHub Action (see .github/scripts/build-card-db.mjs).
 // Fetched, decompressed and indexed by src/cards/db.worker.ts (main-thread fallback
-// shares src/cards/db-codec.js). Tuple schema:
-//   [n, t, o, c, ci, m, p, r, pm, rt, pw, tg, x]
-//   n name · t type line · o oracle text · c mana cost string · ci color identity
-//   m mana VALUE (number) · p pip encoding · r RARITY (not a ritual flag)
-//   pm colors of mana the card can produce ("" if none)
-//   rt 1 if that mana is one-shot only (rituals, Lotus Petal, Spirit Guides)
-//   pw, tg printed power / toughness as text ("0", "4", "*", "1+*"); "" for non-creatures
-//   x 1 if not legal in Commander (Un-cards, playtest cards, Schemes and similar)
+// shares src/cards/db-codec.js). The tuple schema and the short keys it decodes to
+// (n name, t type line, o oracle text, c, ci, m, p, r, pm, rt, pw, tg, x, ly, ob, bt)
+// live in src/cards/tuple.ts, which is the only place allowed to index a tuple.
 // Card objects also get g (Game Changer) and b (banned) from the gc/banned lists.
 var CARD_DB;
 let CARD_DB_COMPRESSED_B64;
@@ -5239,7 +5064,8 @@ async function initDatabase() {
       decodeCardDatabase = cardDb.decodeCardDatabase;
       return cardDb.loadCardDatabase((stage, percent) => window.__dbProgress(stage, percent));
     });
-    const [, database] = await Promise.all([
+    const [, , database] = await Promise.all([
+      import('./src/cards/legacy-globals.ts'),
       staticDatasetsReady,
       databaseReady,
     ]);
