@@ -1,0 +1,13 @@
+index.html
+node_modules/
+dist/
+public/
+data/
+**/*.b64
+**/*.jsonl
+**/*.ndjson
+**/*.gz
+**/*-lock.json
+**/*.lock
+playwright-report/
+test-results/

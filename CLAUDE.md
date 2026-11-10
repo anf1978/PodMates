@@ -1,11 +1,26 @@
 # PodMates
 
 Commander (MTG) playgroup companion: deck analysis ("Deck Chart"), pod social features (MyPods) and the PriceScry
-price tool. Today the whole app is **one ~5.5 MB `index.html`** (HTML + CSS + JS + embedded data), no build step.
+price tool. Today the whole app is **one ~5.5 MB `index.html`** (HTML + CSS + JS + embedded data), served by Vite.
 Full context: [docs/overview.md](docs/overview.md) · Plan: [docs/refactor-plan.md](docs/refactor-plan.md)
 
 > **Interim file.** This describes the single-file app as it is now. It will be replaced by the target version
 > (refactor plan, Appendix A) during Phase 3, once the code is split into `src/`.
+
+## Commands
+
+Use Node.js 22 or newer. Run `npm ci` to install the locked development dependencies.
+
+- `npm run dev` — local Vite development server.
+- `npm run build` — produce `dist/`; `index.html` is copied verbatim to preserve its inline scripts.
+- `npm run preview` — serve the production build locally (run the build first).
+- `npm run check` — typecheck + lint + unit tests; must pass before finishing a change.
+- `npm run typecheck`, `npm run lint`, `npm test` — run an individual check.
+- `npm run format` — Prettier; excludes `index.html`, data and lockfiles. Review diffs before committing.
+
+TypeScript is strict for new TypeScript; legacy JavaScript has `checkJs: false` and warn-only lint rules.
+ESLint does not inspect inline HTML scripts yet. Golden and browser tests arrive in the next sessions.
+Static icons and the web manifest live in `public/` and keep their original URLs in dev and production.
 
 ## Golden rules
 
