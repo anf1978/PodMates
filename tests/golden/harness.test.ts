@@ -1,36 +1,29 @@
-import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
-import { createHarness, stableJson } from "./harness";
-import { extractBlock, htmlUrl } from "./source.mjs";
+import type { CardRecord } from "../../src/cards/tuple.ts";
+import type { CommanderTierRecord, SpellbookSnapshot } from "../../src/engine/index.ts";
+import { createHarness, readFixture, stableJson } from "./harness.ts";
 
-it.each([
-  "",
-  "/* @golden:test:start */",
-  "/* @golden:test:start *//* @golden:test:start *//* @golden:test:end */",
-  "/* @golden:test:start *//* @golden:test:end *//* @golden:test:end */",
-  "/* @golden:test:end *//* @golden:test:start */",
-])("rejects missing, duplicate or reversed extraction markers: %s", (source) => {
-  expect(() => extractBlock(source, "test")).toThrow("Expected exactly one golden block");
-});
+function deepFreeze<T>(value: T): T {
+  if (value && typeof value === "object" && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    for (const item of Object.values(value)) deepFreeze(item);
+  }
+  return value;
+}
 
 // Two complete library passes exceed Vitest's default 5s on hosted runners.
-it("keeps analysis independent of refreshed card data and the live Spellbook loader", () => {
-  const html = readFileSync(htmlUrl, "utf8");
-  const changed = html
-    .replace(
-      /const CARD_DB_COMPRESSED_B64 = "[^"]+";/,
-      'const CARD_DB_COMPRESSED_B64 = "deliberately invalid compressed data";',
-    )
-    .replace(
-      "let SPELLBOOK_SNAPSHOT_B64;",
-      'const SPELLBOOK_SNAPSHOT_B64 = "deliberately invalid compressed data";',
-    );
-  expect(changed).not.toBe(html);
-  const original = createHarness(html);
-  const refreshed = createHarness(changed);
-  for (const sample of original.samples) {
-    expect(stableJson(refreshed.analyzeSample(sample))).toBe(
-      stableJson(original.analyzeSample(sample)),
-    );
-  }
+it("analyses every sample without mutating its inputs or keeping state between runs", () => {
+  const original = createHarness();
+  const frozen = createHarness(
+    deepFreeze(readFixture<CardRecord[]>("cards.json")),
+    deepFreeze(readFixture<SpellbookSnapshot>("spellbook.json")),
+    deepFreeze(readFixture<CommanderTierRecord[]>("winrates.json")),
+  );
+  const first = original.samples.map((sample) => stableJson(original.analyzeSample(sample)));
+  // Reverse order: a result must not depend on which decks were analysed before it.
+  const second = [...frozen.samples]
+    .reverse()
+    .map((sample) => stableJson(frozen.analyzeSample(sample)))
+    .reverse();
+  expect(second).toEqual(first);
 }, 15_000);
