@@ -37,8 +37,14 @@ export function createEngine(cards, spellbook, html = readFileSync(htmlUrl, "utf
   const context = createContext({});
   for (const name of ["engine", "lookup", "corpus", "samples", "legality", "combo-outcomes"]) {
     const source = extractBlock(html, name).replace(
-      /^let (REFERENCE_SCORES|REFERENCE_TIERS|PRECON_FINGERPRINTS|STAPLES_BASELINE|MANABASE_BASELINE|TRY_A_DECK_OPTIONS);$/gm,
-      (_declaration, dataset) => `const ${dataset} = ${JSON.stringify(readDataset(dataset))};`,
+      /^let (COMMANDER_TIER_DATA|REFERENCE_SCORES|REFERENCE_TIERS|PRECON_FINGERPRINTS|STAPLES_BASELINE|MANABASE_BASELINE|TRY_A_DECK_OPTIONS);$/gm,
+      (_declaration, dataset) => {
+        const value =
+          dataset === "COMMANDER_TIER_DATA"
+            ? JSON.parse(readFileSync(new URL("winrates.json", fixtureUrl), "utf8"))
+            : readDataset(dataset);
+        return `const ${dataset} = ${JSON.stringify(value)};`;
+      },
     );
     runInContext(source, context, {
       filename: `index.html#golden:${name}`,
@@ -94,10 +100,8 @@ export async function decodeCards(html) {
     setTimeout,
     clearTimeout,
   });
-  const match = html.match(/const CARD_DB_COMPRESSED_B64 = ["']([^"']+)["'];/);
-  if (!match) throw new Error("Missing embedded card database");
   runInContext(
-    `const CARD_DB_COMPRESSED_B64 = ${JSON.stringify(match[1])};\n${extractBlock(html, "decode")}`,
+    `const CARD_DB_COMPRESSED_B64 = ${JSON.stringify(readDataset("cards"))};\n${extractBlock(html, "decode")}`,
     context,
   );
   return await runInContext("decompressCardDB()", context);

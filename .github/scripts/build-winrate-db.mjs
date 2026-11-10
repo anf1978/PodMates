@@ -104,13 +104,13 @@ async function build(outPath) {
 
   results.sort((a, b) => a.r - b.r); // by global rank, matching how this data is presented elsewhere in the app
   const json = JSON.stringify(results);
-  writeFileSync(outPath, `const COMMANDER_TIER_DATA = ${json};\n`, 'utf8');
+  writeFileSync(outPath, `${json}\n`, 'utf8');
   return { count: results.length, highestIdChecked: id - 1 };
 }
 
 const [, , outPath] = process.argv;
 try {
-  const stats = await build(outPath || 'commander-tier-data.js');
+  const stats = await build(outPath || 'winrates.json');
   console.log('Build complete:', stats);
 } catch (err) {
   console.error('Build failed:', err.message);

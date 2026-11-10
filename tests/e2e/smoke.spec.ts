@@ -78,6 +78,33 @@ test("DB-ready and an early Try-a-Deck click wait for extracted datasets", async
   const pendingDataset = new Promise<void>((resolve) => {
     releaseDataset = resolve;
   });
+
+  test("DB-ready waits for bot datasets and populates the legacy win-rate and tag bindings", async ({
+    page,
+  }) => {
+    let releaseDataset!: () => void;
+    const pendingDataset = new Promise<void>((resolve) => {
+      releaseDataset = resolve;
+    });
+    await page.route("**/data/winrates.json", async (route) => {
+      await pendingDataset;
+      await route.continue();
+    });
+    try {
+      await page.goto("/");
+      await expect(page.getByRole("button", { name: "Chart Deck", exact: true })).toBeDisabled();
+      await expect(page.locator("#dbStatus")).not.toContainText(/^Ready /);
+      releaseDataset();
+      await expect(page.locator("#dbStatus")).toContainText(/^Ready .* cards.*loaded/);
+      expect(await page.evaluate("lookupCommanderTiers(['Kinnan, Bonder Prodigy'])[0].t")).toBe(
+        "S",
+      );
+      expect(await page.evaluate("IX_TAGS.blink.size")).toBeGreaterThanOrEqual(50);
+      expect(await page.evaluate("IX_TAGS.extraCombat.size")).toBeGreaterThanOrEqual(10);
+    } finally {
+      releaseDataset();
+    }
+  });
   await page.route("**/data/TRY_A_DECK_OPTIONS.json", async (route) => {
     await pendingDataset;
     await route.continue();

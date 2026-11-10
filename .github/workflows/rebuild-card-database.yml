@@ -5,7 +5,7 @@ name: Rebuild Card Database
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: '0 6 * * 1'
+    - cron: "0 6 * * 1"
 
 # Explicitly granted rather than relying on the repo's default token
 # permissions -- GitHub increasingly defaults new repos to a read-only
@@ -13,6 +13,10 @@ on:
 # before any of the real work even starts.
 permissions:
   contents: write
+
+concurrency:
+  group: dataset-publish-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   rebuild:
@@ -31,13 +35,13 @@ jobs:
       # has to be looked up fresh every run rather than hardcoded anywhere.
       - name: Look up the current Scryfall Oracle Cards download URL
         run: |
-          curl -s https://api.scryfall.com/bulk-data/oracle-cards -o bulk-meta.json
-          BULK_URL=$(jq -r '.jsonl_download_uri' bulk-meta.json)
+          curl --fail --silent --show-error https://api.scryfall.com/bulk-data/oracle-cards -o bulk-meta.json
+          BULK_URL=$(jq -er '.jsonl_download_uri // .download_uri' bulk-meta.json)
           echo "Resolved download URL: $BULK_URL"
           echo "BULK_URL=$BULK_URL" >> "$GITHUB_ENV"
 
       - name: Download the current card data
-        run: curl -s -L "$BULK_URL" -o scryfall-bulk.jsonl
+        run: curl --fail --silent --show-error -L "$BULK_URL" -o scryfall-bulk.jsonl
 
       - name: Build the compressed database
         run: node .github/scripts/build-card-db.mjs scryfall-bulk.jsonl new-card-db.b64
@@ -46,25 +50,14 @@ jobs:
       # If Scryfall's tag search is down this step is allowed to fail: the
       # card data still refreshes and the previous tag lists are kept.
       - name: Fetch Scryfall function tags
+        id: tags
         continue-on-error: true
         run: node .github/scripts/fetch-function-tags.mjs function-tags.json
 
-      - name: Splice it into index.html
+      - name: Publish validated data files
         run: |
-          if [ -f function-tags.json ]; then
-            node .github/scripts/splice-card-db.mjs index.html new-card-db.b64 index.html function-tags.json
+          if [ '${{ steps.tags.outcome }}' = success ]; then
+            node .github/scripts/publish-datasets.mjs cards new-card-db.b64 function-tags.json
           else
-            echo "No function-tags.json this run; splicing card data only."
-            node .github/scripts/splice-card-db.mjs index.html new-card-db.b64
+            node .github/scripts/publish-datasets.mjs cards new-card-db.b64
           fi
-
-      # Only commits if the card data actually changed -- a week where
-      # nothing new released (or Scryfall's data is unchanged) produces an
-      # identical file, and this deliberately doesn't create an empty commit
-      # just because the workflow ran.
-      - name: Commit the refreshed database, if it changed
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add index.html
-          git diff --staged --quiet && echo "No change -- nothing to commit." || (git commit -m "Automated card database refresh" && git push)

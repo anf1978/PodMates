@@ -9,10 +9,14 @@ name: Rebuild Commander Win-Rate Database
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: '0 7 * * 1'
+    - cron: "0 7 * * 1"
 
 permissions:
   contents: write
+
+concurrency:
+  group: dataset-publish-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   rebuild:
@@ -27,14 +31,7 @@ jobs:
           node-version: 22
 
       - name: Build the win-rate database
-        run: node .github/scripts/build-winrate-db.mjs new-winrate-data.js
+        run: node .github/scripts/build-winrate-db.mjs new-winrate-data.json
 
-      - name: Splice it into index.html
-        run: node .github/scripts/splice-winrate-db.mjs index.html new-winrate-data.js
-
-      - name: Commit the refreshed database, if it changed
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add index.html
-          git diff --staged --quiet && echo "No change -- nothing to commit." || (git commit -m "Automated commander win-rate refresh" && git push)
+      - name: Publish validated data files
+        run: node .github/scripts/publish-datasets.mjs winrates new-winrate-data.json
