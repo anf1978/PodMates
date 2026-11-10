@@ -17,12 +17,22 @@ export default defineConfig({
           ["engineLegacy", "./src/engine/legacy-globals.ts"],
           ["cloudLimits", "./src/services/cloud/limits-global.ts"],
           ["cloud", "./src/services/cloud/index.ts"],
+          ["ui", "./src/ui/legacy-globals.ts"],
         ]) {
           const loader = Object.values(bundle).find(
             (output) => output.type === "chunk" && output.isEntry && output.name === name,
           );
           if (!loader) throw new Error(`Missing ${name} loader entry`);
           html = html.replaceAll(source, `./${loader.fileName}`);
+        }
+        for (const stylesheet of ["tokens.css", "base.css"]) {
+          const source = `./src/styles/${stylesheet}`;
+          const reference = this.emitFile({
+            type: "asset",
+            name: stylesheet,
+            source: readFileSync(new URL(source, import.meta.url), "utf8"),
+          });
+          html = html.replaceAll(source, `./${this.getFileName(reference)}`);
         }
         this.emitFile({
           type: "asset",
@@ -44,6 +54,7 @@ export default defineConfig({
           new URL("./src/services/cloud/limits-global.ts", import.meta.url),
         ),
         cloud: fileURLToPath(new URL("./src/services/cloud/index.ts", import.meta.url)),
+        ui: fileURLToPath(new URL("./src/ui/legacy-globals.ts", import.meta.url)),
       },
       preserveEntrySignatures: "strict",
     },

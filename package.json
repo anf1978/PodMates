@@ -25,6 +25,7 @@
     "@types/node": "^22.0.0",
     "eslint": "^9.0.0",
     "eslint-plugin-no-unsanitized": "^4.0.0",
+    "happy-dom": "^21.0.4",
     "prettier": "^3.0.0",
     "typescript": "^5.0.0",
     "typescript-eslint": "^8.0.0",
@@ -32,6 +33,7 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "firebase": "^12.19.0"
+    "firebase": "^12.19.0",
+    "lit-html": "^3.3.3"
   }
 }

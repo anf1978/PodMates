@@ -9,77 +9,10 @@
 <meta name="apple-mobile-web-app-title" content="PodMates">
 <meta name="theme-color" content="#0F0C0A">
 <title>PodMates — Playgroup Companion for Commander</title>
+<link rel="stylesheet" href="./src/styles/tokens.css">
+<link rel="stylesheet" href="./src/styles/base.css">
+<script type="module" src="./src/ui/legacy-globals.ts"></script>
 <style>
-  :root {
-  /* Deep earthy / cave backgrounds */
-  --bg-main:            #0F0C0A;
-  --bg-panel:           #1A1510;
-  --bg-panel-raised:    #241C14;
-  --bg-slot:            #12100C;          /* inventory-slot feel */
-
-  /* Text */
-  --text-primary:       #F0E6D2;
-  --text-soft:          #B8A88A;
-  --text-dim:           #8A7B63;
-
-  /* Terraria-leaning accents */
-  --gold:               #E8C14A;          /* rare-item gold */
-  --gold-bright:        #FFE07A;
-  --cyan:               #4EC8E0;          /* mana / crystal accent */
-  --cyan-dim:           #2A8A9C;
-  --leaf:               #6FBF4E;          /* nature / success */
-  --bronze:             #A67C2A;
-  --wine:               #6B2A32;
-  --wine-bright:        #9A3A48;
-
-  /* Borders & lines (thicker / blockier) */
-  --line:               rgba(232, 193, 74, 0.18);
-  --line-strong:        rgba(232, 193, 74, 0.45);
-  --slot-border:        #3A3228;
-  --slot-border-hi:     #5C4E3A;
-
-  /* Status */
-  --danger:             #E0553A;
-  --success-text:       #8FDF6A;
-  --success-bg:         rgba(111, 191, 78, 0.22);
-  --medium-bg:          rgba(232, 193, 74, 0.18);
-
-  /* Helpers so translucent accents follow the colour theme (see the theme script below) */
-  --gold-rgb:           232, 193, 74;
-  --cyan-rgb:           78, 200, 224;
-  --glow-a-rgb:         198, 153, 44;
-  --glow-b-rgb:         94, 30, 40;
-  --bronze-dark:        #5C3F12;
-
-  /* Mana colors (kept for card identity) */
-  --w: #E8CE7B;
-  --u: #8AB1E0;
-  --b: #A79FB0;
-  --r: #E0977A;
-  --g: #8FBF78;
-}
-  *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;}
-  body{
-    background:
-      radial-gradient(ellipse 900px 500px at 18% -8%, rgba(var(--glow-a-rgb),0.09), transparent 60%),
-      radial-gradient(ellipse 700px 500px at 100% 8%, rgba(var(--glow-b-rgb),0.16), transparent 55%),
-      radial-gradient(ellipse 1000px 700px at 50% 110%, rgba(0,0,0,0.45), transparent 60%),
-      repeating-linear-gradient(115deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px),
-      var(--bg-main);
-    color:var(--text-primary);
-    font-family:'Crimson Pro', 'Palatino Linotype', 'Iowan Old Style', Georgia, serif;
-    min-height:100vh;
-    padding:32px 20px 60px;
-  }
-  .wrap{max-width:1200px;margin:0 auto;}
-
-  ::selection{background:var(--gold); color:var(--bg-main);}
-  ::-webkit-scrollbar{width:11px; height:11px;}
-  ::-webkit-scrollbar-track{background:var(--bg-main);}
-  ::-webkit-scrollbar-thumb{background:linear-gradient(var(--bronze), var(--gold)); border-radius:6px; border:2px solid var(--bg-main);}
-  ::-webkit-scrollbar-thumb:hover{background:var(--gold-bright);}
-
   header{text-align:center; margin-bottom:30px;}
   .eyebrow{
     font-family:'Cormorant SC', 'Trajan Pro', Georgia, serif;
@@ -2606,17 +2539,7 @@ async function showTypeCardsModal(typeName) {
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
 }
 
-function setStatus(msg, isErr) {
-  $('status').textContent = msg;
-  $('status').className = 'status' + (isErr ? ' err' : '');
-}
-
-function setDeckMgmtStatus(msg, isErr) {
-  const el = $('deckMgmtStatus');
-  if (!el) return; // fall back silently if the element isn't present
-  el.textContent = msg;
-  el.className = 'status' + (isErr ? ' err' : '');
-}
+// setStatus / setDeckMgmtStatus: src/ui/status.ts via src/ui/legacy-globals.ts.
 
 function detectCommander(matched, commanderNamesFromParse) {
   // Prefer explicit Commander: section names
@@ -2903,16 +2826,7 @@ let currentWinCons = null;
 let currentScores = null; // stored so axis explainers can show this deck's percentile
 let currentCommandSpark = null; // stored so the Spark explainer can show its percentile
 
-function ordinalSuffix(n) {
-  const rem100 = n % 100;
-  if (rem100 >= 11 && rem100 <= 13) return n + 'th';
-  switch (n % 10) {
-    case 1: return n + 'st';
-    case 2: return n + 'nd';
-    case 3: return n + 'rd';
-    default: return n + 'th';
-  }
-}
+// ordinalSuffix: src/ui/format.ts via src/ui/legacy-globals.ts.
 
 let currentTierDiscrepancy = null;
 // Re-draw the radial when the text size changes or the phone turns, so its labels are re-fitted.
@@ -2926,81 +2840,17 @@ function renderChart(scores, commandSpark, agg, tierDiscrepancy) {
   currentAgg = agg || null;
   currentScores = scores || null;
   currentCommandSpark = (typeof commandSpark === 'number') ? commandSpark : null;
-  // Rectangular viewBox with generous margins, verified to give every axis
-  // label 55px+ of clearance on all sides regardless of screen width — the
-  // SVG scales as a whole via viewBox, so this works identically on phone
-  // and desktop without needing separate narrow-screen logic or truncated labels.
-  const width = 680, height = 560;
-  const cx = width / 2, cy = height / 2;
-  // On a phone the viewBox is shrunk to about half size, which made the labels about 6-7 px on screen.
-  // Size the text from the width the chart really gets, so it is readable without zooming, and
-  // list the scores again as plain text underneath (that list grows with the Text size setting).
+  // The radar SVG is built by src/ui/radar-chart.ts. Its text is sized from the width the
+  // chart really gets, and the scores are listed again as plain text underneath (that list
+  // grows with the Text size setting).
   const boxW = Math.min(560, ($('chartArea') && $('chartArea').clientWidth) || Math.min(window.innerWidth - 40, 560));
-  const narrow = boxW < 480;
-  const uu = width / Math.max(boxW, 200);                   // viewBox units per screen pixel
-  const radius = narrow ? 118 : 150;
-  const levels = 5;
-  const n = AXES.length;
-  const labelFrac = 1.2;
-  const longest = Math.max(...AXES.map(a => String(a.label).length + 2));
-  const roomUnits = cx - (radius * labelFrac * 0.95) - 6;     // horizontal room beside the widest side labels
-  const fsName = narrow ? Math.min(13.5 * uu, roomUnits / (longest * 0.6)) : 16;
-  const fsVal = narrow ? Math.min(19 * uu, fsName * 1.5) : 31.5;
-  const fsPct = narrow ? Math.min(12 * uu, fsName * 0.9) : 12.5;
-  const zoomF = (window.PMText ? parseFloat(window.PMText.current()) : 1) || 1;
-  const hideVals = narrow && zoomF > 1;                    // with larger text the plain list below carries the numbers
-
-  function angleFor(i) { return (Math.PI * 2 * i / n) - Math.PI / 2; }
-  function pointAt(i, frac) {
-    const a = angleFor(i);
-    return [cx + Math.cos(a) * radius * frac, cy + Math.sin(a) * radius * frac];
-  }
-
-  let svg = `<svg viewBox="0 0 ${width} ${height}" width="100%" style="max-width:560px;">`;
-
-  for (let l = 1; l <= levels; l++) {
-    const frac = l / levels;
-    const pts = [];
-    for (let i = 0; i < n; i++) pts.push(pointAt(i, frac).join(','));
-    svg += `<polygon class="grid-ring" points="${pts.join(' ')}"/>`;
-  }
-
-  for (let i = 0; i < n; i++) {
-    const [x, y] = pointAt(i, 1);
-    svg += `<line class="grid-spoke" x1="${cx}" y1="${cy}" x2="${x}" y2="${y}"/>`;
-    const [lx, ly] = pointAt(i, labelFrac);
-    const cosA = Math.cos(angleFor(i));
-    const sinA = Math.sin(angleFor(i));
-    const anchor = Math.abs(cosA) < 0.2 ? 'middle' : (cosA > 0 ? 'start' : 'end');
-    // Value/percentile lines stack AWAY from the plot's center, not always
-    // downward -- for an axis in the upper half (Speed, straight up, is the
-    // extreme case) stacking downward drags that text back toward the
-    // pentagon and its grid rings/spokes, clipping into them. Axes below
-    // center keep the original downward stack, which was already clear of
-    // the shape on that side.
-    const stackDir = sinA >= 0 ? 1 : -1;
-    svg += `<text class="axis-label axis-label-clickable" data-explain="${AXES[i].key}" x="${lx}" y="${ly}" text-anchor="${anchor}" dominant-baseline="middle"${narrow ? ` style="font-size:${fsName.toFixed(1)}px"` : ''}>${AXES[i].label} ⓘ</text>`;
-    const valY = narrow ? (stackDir > 0 ? ly + fsName * 0.65 + fsVal * 0.85 : ly - fsName * 0.75) : ly + stackDir * 30;
-    const pctY = narrow ? (stackDir > 0 ? valY + fsPct * 1.3 : valY - fsVal * 0.9 - fsPct * 0.1) : ly + stackDir * 52;
-    if (!hideVals) svg += `<text class="axis-value" x="${lx}" y="${valY}" text-anchor="${anchor}"${narrow ? ` style="font-size:${fsVal.toFixed(1)}px"` : ''}>${scores[AXES[i].key].toFixed(1)}</text>`;
-    const pct = computeAxisPercentile(AXES[i].key, scores[AXES[i].key]);
-    if (pct !== null && !hideVals) {
-      svg += `<text class="axis-percentile" x="${lx}" y="${pctY}" text-anchor="${anchor}"${narrow ? ` style="font-size:${fsPct.toFixed(1)}px"` : ''}>${ordinalSuffix(pct)} pct.</text>`;
-    }
-  }
-
-  const shapePts = [];
-  for (let i = 0; i < n; i++) {
-    const frac = Math.max(scores[AXES[i].key] / 10, 0.04);
-    shapePts.push(pointAt(i, frac));
-  }
-  svg += `<polygon class="deck-shape" points="${shapePts.map(p => p.join(',')).join(' ')}"/>`;
-  for (const [x, y] of shapePts) {
-    svg += `<circle class="deck-point" cx="${x}" cy="${y}" r="4"/>`;
-  }
-
-  svg += '</svg>';
-
+  const svg = window.pmUi.radarChartSvg({
+    axes: AXES,
+    scores,
+    percentile: computeAxisPercentile,
+    boxWidth: boxW,
+    textZoom: (window.PMText ? parseFloat(window.PMText.current()) : 1) || 1,
+  });
   const scoreRows = AXES.map(a => { const v = scores[a.key]; const pc = computeAxisPercentile(a.key, v); return `<span>${escapeHtml(a.label)}</span><strong style="color:var(--gold-bright);">${v.toFixed(1)}</strong><span style="color:var(--text-soft);">${pc !== null ? ordinalSuffix(pc) + ' pct.' : ''}</span>`; }).join('');
   const scoreList = `<div class="chart-scores" aria-label="Scores as text">${scoreRows}</div>`;
   const sparkPct = computeSparkPercentile(commandSpark);
@@ -5710,28 +5560,7 @@ function renderAuthModal(modal, errorMsg) {
   });
 }
 
-// Small transient confirmation banner -- reuses the same visual language as
-// the modal system but doesn't block interaction the way a modal would,
-// since sign-in/out confirmations are informational, not decisions to make.
-function showToast(message) {
-  let toast = document.getElementById('podmatesToast');
-  if (!toast) {
-    toast = document.createElement('div');
-    toast.id = 'podmatesToast';
-    toast.className = 'pm-toast';
-    document.body.appendChild(toast);
-  }
-  toast.textContent = message;
-  // Reflow between removing and re-adding the class, so retriggering the
-  // toast while one's already showing (a second message arriving before
-  // the first faded out) restarts the transition instead of the browser
-  // silently no-op'ing a class that was technically never removed.
-  toast.classList.remove('pm-toast-show');
-  void toast.offsetWidth;
-  toast.classList.add('pm-toast-show');
-  clearTimeout(toast._hideTimer);
-  toast._hideTimer = setTimeout(() => { toast.classList.remove('pm-toast-show'); }, 6000);
-}
+// showToast: src/ui/toast.ts via src/ui/legacy-globals.ts.
 
 // Every save-related action in the app funnels through this one check.
 // PodMates' policy: charting/analyzing a deck is always free and requires
@@ -6029,7 +5858,7 @@ function openPriceScry() {
 }
 function psSetTab(tab) {
   psState.tab = tab;
-  document.querySelectorAll('#pricescryOverlay [data-ps-tab]').forEach(b => b.classList.toggle('on', b.getAttribute('data-ps-tab') === tab));
+  psSetTabHighlight(tab);
   if (tab === 'search') return psRenderSearch(); else if (tab === 'signals') return psRenderSignals(); else if (tab === 'bait') return psRenderBait(); else if (tab === 'radar') return psRenderRadar(); else if (tab === 'ledger') return psRenderLedger(); else return psRenderMovers();
 }
 async function psLoadIndex() {
@@ -6100,7 +5929,7 @@ async function psOpenCard(name) {
     document.getElementById('psBack').addEventListener('click', psBackToOrigin);
   }
 }
-function psSetTabHighlight(tab) { document.querySelectorAll('#pricescryOverlay [data-ps-tab]').forEach(b => b.classList.toggle('on', b.getAttribute('data-ps-tab') === tab)); }
+function psSetTabHighlight(tab) { window.pmUi.selectTab(window.pmUi.tabsByAttribute(document.querySelectorAll('#pricescryOverlay [data-ps-tab]'), 'data-ps-tab'), tab, { activeClass: 'on' }); }
 
 // Which price series belong to each finish
 // Card picture for a printing, from Scryfall's image server (the printing's id is Scryfall's own id). Shown so you can tell printings apart.
@@ -11746,20 +11575,11 @@ function setMode(mode) {
     single: { container: 'singleMode', btn: 'modeSingleBtn' },
     pod: { container: 'podMode', btn: 'modePodBtn' },
   };
-  for (const [m, ids] of Object.entries(MODES)) {
-    const container = $(ids.container);
-    if (container) container.style.display = (m === mode) ? 'block' : 'none';
-    const btn = $(ids.btn);
-    if (!btn) continue;
-    // CSS fully owns both states now (.mode-btn.active and
-    // .mode-btn:not(.active), both !important) -- this just needs to move
-    // the class, not also set matching inline styles by hand. Before this,
-    // modeSingleBtn started with the active class hardcoded in its markup
-    // and nothing ever removed it, which is exactly why it stayed gold no
-    // matter which tab was actually selected -- the class moving is what
-    // was actually missing, not the inline styles this replaces.
-    btn.classList.toggle('active', m === mode);
-  }
+  // CSS owns both button states (.mode-btn.active / :not(.active)); this only moves the class.
+  window.pmUi.selectTab(
+    Object.entries(MODES).map(([key, ids]) => ({ key, button: $(ids.btn), panel: $(ids.container) })),
+    mode,
+  );
   // Explicitly show or hide each results area based on the tab we're
   // arriving at, rather than only ever hiding -- a tab we're leaving gets
   // its results hidden, but a tab we're arriving at gets them RESTORED if
@@ -13722,76 +13542,9 @@ if (deckLinkLoadBtn) deckLinkLoadBtn.addEventListener('click', async () => {
   $('deckLinkSyncOption').style.display = '';
 });
 
-// ---- Icon button tooltips: appended to document.body (not to the button
-// itself) and positioned with getBoundingClientRect, specifically so
-// nothing about the button's own containers -- including .panel's
-// overflow:hidden, which was clipping an earlier absolute-positioned
-// version into invisibility -- can cut the tooltip off. Handles mouse
-// hover, keyboard focus, and touch long-press through one shared show/hide
-// pair rather than splitting the logic between CSS and JS.
-document.addEventListener('click', (e) => {
-  const btn = e.target.closest('.icon-btn.suppress-next-click, .icon-checkbox-label.suppress-next-click');
-  if (btn) {
-    e.preventDefault();
-    e.stopPropagation();
-    btn.classList.remove('suppress-next-click');
-  }
-}, true);
-
-// A named, reusable function rather than a one-time page-load loop --
-// content rendered dynamically after load (like the pod member list,
-// which re-renders every time membership changes) needs this run again
-// for whatever it just added. The data-tooltip-wired guard stops the same
-// button from ever getting a second tooltip span and a second set of
-// listeners if its container happens to re-render more than once.
-function setupIconTooltipsFor(scope) {
-  (scope || document).querySelectorAll('.icon-btn[data-tooltip]:not([data-tooltip-wired]), .icon-checkbox-label[data-tooltip]:not([data-tooltip-wired]), .has-tooltip[data-tooltip]:not([data-tooltip-wired])').forEach(btn => {
-    btn.setAttribute('data-tooltip-wired', '1');
-    const tip = document.createElement('span');
-    tip.className = 'icon-tooltip';
-    tip.textContent = btn.getAttribute('data-tooltip');
-    document.body.appendChild(tip);
-
-    function showTip() {
-      const rect = btn.getBoundingClientRect();
-      tip.style.left = (rect.left + rect.width / 2) + 'px';
-      tip.style.top = (rect.top - 8) + 'px';
-      tip.style.transform = 'translate(-50%, -100%)';
-      tip.classList.add('show');
-    }
-    function hideTip() {
-      tip.classList.remove('show');
-    }
-
-    btn.addEventListener('mouseenter', showTip);
-    btn.addEventListener('mouseleave', hideTip);
-    btn.addEventListener('focus', showTip);
-    btn.addEventListener('blur', hideTip);
-    // A click doesn't necessarily move the mouse off the button -- if it
-    // opens a modal (most of these do), the tooltip was never told to hide
-    // and just sits on top of whatever opened, on top of everything, until
-    // the mouse eventually leaves. Hiding it the instant a click happens is
-    // the actual fix, not something mouseleave alone can cover.
-    btn.addEventListener('click', hideTip);
-
-    let pressTimer = null;
-    btn.addEventListener('touchstart', () => {
-      pressTimer = setTimeout(() => {
-        showTip();
-        btn.classList.add('suppress-next-click');
-      }, 450);
-    }, { passive: true });
-    const endPress = () => {
-      clearTimeout(pressTimer);
-      if (tip.classList.contains('show')) {
-        setTimeout(hideTip, 1400);
-      }
-    };
-    btn.addEventListener('touchend', endPress);
-    btn.addEventListener('touchcancel', endPress);
-  });
-}
-setupIconTooltipsFor(document);
+// Icon-button tooltips live in src/ui/tooltip.ts; setupIconTooltipsFor comes from
+// src/ui/legacy-globals.ts, a module that runs after parsing, before DOMContentLoaded.
+document.addEventListener('DOMContentLoaded', () => setupIconTooltipsFor(document));
 </script>
 
 <!-- ============================================================

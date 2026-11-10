@@ -130,6 +130,18 @@ context built from `CARD_DB`, `SPELLBOOK_INDEX` and `COMMANDER_TIER_DATA`. It lo
 `engine-script` and is also awaited by `initDatabase()`. ESLint keeps the engine pure (no page globals or
 module-level `let`) and limits its imports to its own files, `src/cards`, `src/data` and `src/shared`.
 
+### UI primitives (`src/ui`) and global styles (`src/styles`)
+
+`src/ui/legacy-globals.ts` is loaded by a `<script type="module">` in `<head>`, so it runs after parsing and
+before `DOMContentLoaded` (and before the Firebase module). It publishes the typed surface as `window.pmUi`
+(`selectTab`, `tabsByAttribute`, `radarChartSvg`) and the original global names `showToast`, `setStatus`,
+`setDeckMgmtStatus`, `setupIconTooltipsFor` and `ordinalSuffix`. Inline code must not call these during
+parsing; the page-wide tooltip wiring waits for `DOMContentLoaded`. `renderChart` keeps its panel glue and
+gets the SVG string from `radar-chart.ts`. `html.ts` re-exports lit-html; its `trustedHtml()` is the only
+raw-markup path, and ESLint forbids importing lit-html anywhere else. `src/ui` may import only its own files and
+`src/shared`. `src/styles/tokens.css` (the `:root` custom properties) and `base.css` (page-wide rules) are
+linked before the first inline `<style>`, so the cascade is unchanged; the build emits them as hashed assets.
+
 ### Extracted hand-maintained datasets
 
 `public/data/<CONSTANT>.json` holds `SPELLBOOK_SNAPSHOT_B64`, `KNOW_JSON`, `IMPACT_CANDS`,
