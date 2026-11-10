@@ -13,6 +13,14 @@ const legacyRules = Object.assign(
   noUnsanitized.configs.recommended.rules,
 );
 
+// Only the cloud layer may talk to Firebase; everything else goes through its repositories.
+// Flat-config rule settings replace rather than merge, so every block that configures
+// no-restricted-imports repeats this pattern.
+const firebaseOnlyInCloud = {
+  group: ["firebase", "firebase/*", "@firebase/*"],
+  message: "Import Firebase only inside src/services/cloud/; use its repositories.",
+};
+
 // Layer boundary (refactor plan 4.2): the engine may import only its own files, the card
 // modules, the static data tables and src/shared -- never features, the page or the dataset
 // loader. `up` is the relative prefix from the linted folder back to src/.
@@ -39,6 +47,7 @@ function engineBoundary(files, up) {
                 group: [`${up}data/load-dataset*`],
                 message: "The engine is pure; the app loads datasets and passes them in.",
               },
+              firebaseOnlyInCloud,
             ],
           },
         ],
@@ -57,6 +66,10 @@ export default tseslint.config(
     rules: noUnsanitized.configs.recommended.rules,
   },
   {
+    ignores: ["src/services/cloud/**"],
+    rules: { "no-restricted-imports": ["error", { patterns: [firebaseOnlyInCloud] }] },
+  },
+  {
     // Layer boundary (refactor plan 4.2): src/cards is imported by the engine and the
     // features, so it may only reach sideways into its own folder or down into
     // src/shared. The dataset loader is the one documented exception, pending the
@@ -71,6 +84,7 @@ export default tseslint.config(
               group: ["../*/**", "../../**", "!../shared/**", "!../data/load-dataset*"],
               message: "src/cards may import only its own files and src/shared.",
             },
+            firebaseOnlyInCloud,
           ],
         },
       ],
@@ -90,6 +104,7 @@ export default tseslint.config(
               group: ["../engine/**", "../features/**"],
               message: "src/data must not import the engine or features.",
             },
+            firebaseOnlyInCloud,
           ],
         },
       ],

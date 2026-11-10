@@ -110,20 +110,20 @@ only replaces their loader import URLs. See [deploy.md](./deploy.md) for the Git
 
 ### 3.2 Anatomy of `index.html`
 
-| Block (`<script id>` / tag)       |  Lines |   Size | Purpose                                                                                                  |
-| --------------------------------- | -----: | -----: | -------------------------------------------------------------------------------------------------------- |
-| `<style>` + `#pm-visual-overhaul` | ~1,260 | ~51 KB | All CSS ("Terraria × MTG Arena" theme + overrides)                                                       |
-| `#theme-script`                   |    152 |  11 KB | Colour themes, runs in `<head>`                                                                          |
-| `<body>` markup                   |   ~310 |  45 KB | Static shell: auth bar, header, mode tabs, deck form, result panels                                      |
-| `#engine-script`                  |      6 |  <1 KB | Page-owned engine globals; the **Deck Compass** engine itself is typed, pure `src/engine` (shim module)  |
-| `#lookup-script`                  |    198 |   7 KB | Decklist parsing & card lookup indexes. DOM-free.                                                        |
-| `#data-script`                    |      — | 2.8 MB | `CARD_DB_COMPRESSED_B64` — gzip+base64 Scryfall oracle DB                                                |
-| `#combo-data-script`              |      5 |  <1 KB | `SPELLBOOK_SNAPSHOT_B64` binding; gzip/base64 snapshot now lives in `public/data/`                       |
-| `#app-script`                     | 12,107 | 842 KB | Everything else: UI, features, Pods, PriceScry; corpus and decklists are now fetched from `public/data/` |
-| `#notif-script`                   |    153 |  12 KB | Notifications inbox (IIFE)                                                                               |
-| `<script type="module">`          |  1,363 |  74 KB | Firebase SDK (from gstatic CDN) + `window.PodmatesCloud` bridge (~90 functions)                          |
+| Block (`<script id>` / tag)         |  Lines |   Size | Purpose                                                                                                              |
+| ----------------------------------- | -----: | -----: | -------------------------------------------------------------------------------------------------------------------- |
+| `<style>` + `#pm-visual-overhaul`   | ~1,260 | ~51 KB | All CSS ("Terraria × MTG Arena" theme + overrides)                                                                   |
+| `#theme-script`                     |    152 |  11 KB | Colour themes, runs in `<head>`                                                                                      |
+| `<body>` markup                     |   ~310 |  45 KB | Static shell: auth bar, header, mode tabs, deck form, result panels                                                  |
+| `#engine-script`                    |      6 |  <1 KB | Page-owned engine globals; the **Deck Compass** engine itself is typed, pure `src/engine` (shim module)              |
+| `#lookup-script`                    |    198 |   7 KB | Decklist parsing & card lookup indexes. DOM-free.                                                                    |
+| `#data-script`                      |      — | 2.8 MB | `CARD_DB_COMPRESSED_B64` — gzip+base64 Scryfall oracle DB                                                            |
+| `#combo-data-script`                |      5 |  <1 KB | `SPELLBOOK_SNAPSHOT_B64` binding; gzip/base64 snapshot now lives in `public/data/`                                   |
+| `#app-script`                       | 12,107 | 842 KB | Everything else: UI, features, Pods, PriceScry; corpus and decklists are now fetched from `public/data/`             |
+| `#notif-script`                     |    153 |  12 KB | Notifications inbox (IIFE)                                                                                           |
+| cloud `<script type="module">` tags |      4 |  <1 KB | Load `src/services/cloud/`: npm Firebase SDK, typed repositories and the `window.PodmatesCloud` shim (~90 functions) |
 
-The HTML is now 1.05 MB, down from 5.53 MB; all large datasets are external JSON.
+The HTML is now 0.97 MB, down from 5.53 MB; all large datasets are external JSON and the Firebase layer lives in `src/services/cloud/`.
 The legacy application functions still share the global scope.
 
 ### 3.3 Datasets
@@ -187,7 +187,8 @@ and verifies parity against the extracted datasets;
    this step does not introduce a gzip polyfill. Worker errors/stalls terminate it and reach the boot error UI.
    The extracted Spellbook string is fetched and decoded in its existing optional fallback path. Only then does
    the app set `window.__dbReady`. Golden tests import the same DOM-free codec without starting a worker.
-5. The Firebase module is deferred (and can run while dataset fetches are pending), signs in anonymously, exposes `window.PodmatesCloud`, and
+5. The cloud modules are deferred (and can run while dataset fetches are pending). They publish `window.PM_LIMITS`, start Firebase signed out
+   (there is no automatic anonymous sign-in), expose `window.PodmatesCloud`, and
    dispatches a `podmates-cloud-init` event that the app and notifications script wait for.
 
 Scripts talk to each other through **globals** (`window.PodmatesCloud`, `window.pmNotif`, `window.PM_LIMITS`,

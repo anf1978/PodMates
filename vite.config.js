@@ -15,6 +15,8 @@ export default defineConfig({
           ["cardDb", "./src/cards/load-db.ts"],
           ["cardsLegacy", "./src/cards/legacy-globals.ts"],
           ["engineLegacy", "./src/engine/legacy-globals.ts"],
+          ["cloudLimits", "./src/services/cloud/limits-global.ts"],
+          ["cloud", "./src/services/cloud/index.ts"],
         ]) {
           const loader = Object.values(bundle).find(
             (output) => output.type === "chunk" && output.isEntry && output.name === name,
@@ -38,6 +40,10 @@ export default defineConfig({
         cardDb: fileURLToPath(new URL("./src/cards/load-db.ts", import.meta.url)),
         cardsLegacy: fileURLToPath(new URL("./src/cards/legacy-globals.ts", import.meta.url)),
         engineLegacy: fileURLToPath(new URL("./src/engine/legacy-globals.ts", import.meta.url)),
+        cloudLimits: fileURLToPath(
+          new URL("./src/services/cloud/limits-global.ts", import.meta.url),
+        ),
+        cloud: fileURLToPath(new URL("./src/services/cloud/index.ts", import.meta.url)),
       },
       preserveEntrySignatures: "strict",
     },

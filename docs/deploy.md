@@ -77,8 +77,8 @@ are preserved at the same relative URLs under `/PodMates/`:
 
 The manifest's three icon URLs, `start_url` and `scope` remain relative. There is no local service
 worker. The bundled loader fetches `data/*.json` relative to the app base; the deployment assembly replaces
-only `cards.json`, `tags.json` and `winrates.json`. Firebase CDN
-modules, Google Fonts, Scryfall art/API, Tesseract CDN assets, the deployed deck-sync Worker and
+only `cards.json`, `tags.json` and `winrates.json`. The Firebase SDK is bundled
+into `dist/assets/`; Firebase's Auth/Firestore services, Google Fonts, Scryfall art/API, Tesseract CDN assets, the deployed deck-sync Worker and
 PriceScry's raw `pricescry-data` branch URLs remain external; they are not part of `dist/`.
 `deck-link-sync-worker.js` is Worker deployment source, not a browser-loaded script. Repository docs,
 Firestore rules and data-builder scripts are not application assets.
