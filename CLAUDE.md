@@ -67,15 +67,15 @@ always fail, with no noise allow-list. `@axe-core/playwright` is installed for l
 
 Start Claude Code at the repository root with dependencies installed. Committed
 `.claude/commands/` supplies `/check`, `/new-feature <name>` and `/engine-change`.
-`.claude/settings.json` formats/lints each edited file (never `index.html`), and runs
-`npm run check` on Stop.
-A failed hook reports the error; fix it before finishing. See
-[hook verification](.claude/hooks/README.md) for a manual session check.
-Never hand-edit `public/data/**`, `**/generated/**`, `*.generated.*` or a file with
-a `// GENERATED` header: update its pipeline. Permissions block the path patterns;
-the pre-edit hook also checks existing headers and symlink targets. These guard
-Edit/Write/NotebookEdit, not arbitrary shell commands; npm scripts and hooks are
-trusted repository code, not a sandbox.
+There are no hooks; you are trusted to follow these rules yourself:
+
+- **Before you finish:** run Prettier on the files you changed (`npx prettier --write <files>`; never
+  `npm run format`, which reformats unrelated files, and never `index.html`), then `npm run check`.
+  Fix failures and paste the result in the PR. CI re-runs `check` and e2e on every PR and is the real gate.
+- **Generated files are off limits:** never hand-edit `public/data/**`, `**/generated/**`,
+  `*.generated.*` or any file whose first lines contain a `// GENERATED` header, not even through shell
+  commands or scripts. Change its pipeline instead. (`.claude/settings.json` also denies the path patterns
+  to Claude's Edit/Write tools.)
 
 ## Golden rules
 

@@ -19,41 +19,5 @@
       "Edit(**/*.generated.*)",
       "Write(**/*.generated.*)"
     ]
-  },
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Edit|Write|NotebookEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \".claude/hooks/workspace.mjs\" protect"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \".claude/hooks/workspace.mjs\" format",
-            "timeout": 60
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \".claude/hooks/workspace.mjs\" check",
-            "timeout": 180
-          }
-        ]
-      }
-    ]
   }
 }
