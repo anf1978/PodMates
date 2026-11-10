@@ -1,3 +1,0 @@
-PodMates test file
-Created via Claude on mobile to confirm GitHub push access works.
-Safe to delete.

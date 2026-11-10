@@ -24,7 +24,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 22
 
       # Scryfall's own bulk-data endpoint always points at the CURRENT file --
       # the actual download URL is timestamped and changes constantly, so this
