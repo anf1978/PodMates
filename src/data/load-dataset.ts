@@ -23,7 +23,12 @@ export function loadManifest(): Promise<DatasetManifest> {
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const manifest: DatasetManifest = await response.json();
-      if (!manifest || !manifest.files || typeof manifest.files !== "object") {
+      if (
+        !manifest ||
+        !manifest.files ||
+        typeof manifest.files !== "object" ||
+        Array.isArray(manifest.files)
+      ) {
         throw new Error("Missing dataset entries");
       }
       for (const [name, entry] of Object.entries(manifest.files)) {
@@ -35,6 +40,7 @@ export function loadManifest(): Promise<DatasetManifest> {
           typeof entry.generatedAt !== "string" ||
           !/^\d{4}-\d\d-\d\dT/.test(entry.generatedAt) ||
           !Number.isFinite(Date.parse(entry.generatedAt)) ||
+          typeof entry.sha256 !== "string" ||
           !/^[a-f0-9]{64}$/.test(entry.sha256) ||
           !Number.isSafeInteger(entry.bytes) ||
           entry.bytes < 0 ||
