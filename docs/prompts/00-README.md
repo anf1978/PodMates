@@ -32,6 +32,7 @@ Sessions on the same row can **work** in parallel, but their PRs still join the 
 | 4 | [p4-1-firestore-rules-tests](./p4-1-firestore-rules-tests.md) · [p4-2-rendering-security](./p4-2-rendering-security.md) · [p4-3-pwa-and-budget](./p4-3-pwa-and-budget.md) · [p4-4-a11y-and-errors](./p4-4-a11y-and-errors.md) | 3e (4-1 only needs 1c) |
 | 5 | [p5-1-pipelines-move](./p5-1-pipelines-move.md) → [p5-2-workflows-tidy](./p5-2-workflows-tidy.md) | 2b (parallel with Phase 3) |
 | 5 | [p5-3-shared-code](./p5-3-shared-code.md) | 5-1 and the `pricescry` run of 3d |
+| 6 | [p6-1-phone-first-delivery](./p6-1-phone-first-delivery.md) | 1c, 1d, 5-2 |
 
 ## Stack order
 
@@ -58,7 +59,7 @@ each other. A session's **predecessor** is the row above it.
 | 16 | `p3-5-01-deck-chart` | | 35 | `p5-1-pipelines-move` |
 | 17 | `p3-5-02-try-a-deck-export-scan` | | 36 | `p5-2-workflows-tidy` |
 | 18 | `p3-5-03-deck-crafter` | | 37 | `p5-3-shared-code` |
-| 19 | `p3-5-04-auth-profile` | | | |
+| 19 | `p3-5-04-auth-profile` | | 38 | `p6-1-phone-first-delivery` |
 
 If one session splits its work into several PRs, it adds them as consecutive branches named `<branch>-2`,
 `<branch>-3`, … directly on top of its own branch. Its successor then stacks on the last of them.
