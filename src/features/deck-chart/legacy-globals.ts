@@ -4,6 +4,8 @@
 
 import { render } from "../../ui/html.ts";
 import { computeManaCurve } from "../../engine/axes/shared.ts";
+import { resolveCommanderName } from "../../engine/commanders.ts";
+import { pageContext } from "../../engine/legacy-globals.ts";
 import type { DeckTallies } from "../../engine/analyze-tallies.ts";
 import type { CardRecord } from "../../cards/tuple.ts";
 import type { MatchedCard } from "../../cards/lookup.ts";
@@ -31,7 +33,7 @@ function legacyCheckLegality(
   notFound: string[],
 ): LegalityReport {
   const commanderCards: CardRecord[] = (commanders || [])
-    .map((name) => window.resolveCommanderName(name, matched))
+    .map((name) => resolveCommanderName(pageContext(), name, matched))
     .filter((card): card is CardRecord => Boolean(card));
   return checkLegality({ matched, commanders, notFound, commanderCards });
 }

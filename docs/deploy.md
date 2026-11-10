@@ -63,7 +63,7 @@ and [`workflow_run` documentation](https://docs.github.com/en/actions/reference/
 ## Build contents and URL parity
 
 The interim Vite plugin preserves inline scripts, artwork and the favicon while substituting the bundled
-dataset-loader URL. Vite copies `public/` verbatim too, including the fallback datasets. The files used by the branch-served site
+module URLs (`src/main.ts` and the loaders `initDatabase` imports). Vite copies `public/` verbatim too, including the fallback datasets. The files used by the branch-served site
 are preserved at the same relative URLs under `/PodMates/`:
 
 | Before (repository root) | Source now                     | Build output                 |

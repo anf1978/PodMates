@@ -13,11 +13,11 @@
 // Usage: node pricescry-backtest.mjs <scryfall-bulk.jsonl[.gz]> <data-dir> <out-dir>
 // Writes <out-dir>/backtest-report.json and backtest-summary.txt.
 
-import { createReadStream, existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync, copyFileSync, readdirSync } from 'fs';
+import { createReadStream, existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync, copyFileSync } from 'fs';
 import { createInterface } from 'readline';
 import { createGunzip, gzipSync, gunzipSync } from 'zlib';
 import { join, resolve } from 'path';
-import { dayIndex, isoFromDayIndex, nameKey, shardOf, shardFile, marketCentsAt, makeEurUsd, SHARDS } from './pricescry-lib.mjs';
+import { dayIndex, isoFromDayIndex, nameKey, shardOf, shardFile, marketCentsAt, makeEurUsd } from './pricescry-lib.mjs';
 import { buildIndex, linksFor, strongestType } from './pricescry-links.mjs';
 import { evaluate } from './pricescry-shadow.mjs';
 

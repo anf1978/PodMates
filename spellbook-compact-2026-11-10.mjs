@@ -32,7 +32,7 @@ export function compactSnapshot(v1) {
     if (!labelIdx.has(best)) { labelIdx.set(best, labels.length); labels.push(best); }
     return labelIdx.get(best);
   };
-  let rows = [];
+  const rows = [];
   for (const r of v1.c) {
     const [cards, , pop, , fi] = r;
     const c = Math.max(0, ...fi.map(i => cls[i]));
@@ -46,7 +46,7 @@ export function compactSnapshot(v1) {
   // drop supersets of another kept combo
   const keys = new Set(byKey.keys());
   const kept = [];
-  for (const [k, r] of byKey) {
+  for (const r of byKey.values()) {
     const n = r.cards.length; let sup = false;
     for (let mask = 1; mask < (1 << n) - 1 && !sup; mask++) {
       let cnt = 0; const sub = [];

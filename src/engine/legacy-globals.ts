@@ -27,7 +27,7 @@ import { CENTRALITY_BANDS, CENTRALITY_WEIGHTS, COMMANDER_RULES } from "./central
 import { computeCommanderCentrality } from "./centrality.ts";
 import { IXPROP } from "./commander-ability.ts";
 import { detectCommanderSparkDiscrepancy, lookupCommanderTiers } from "./commander-tiers.ts";
-import { parseCommanderField, resolveCommanderName } from "./commanders.ts";
+import { parseCommanderField } from "./commanders.ts";
 import { createEngineContext } from "./context.ts";
 import type { CommanderTierRecord, EngineContext, SpellbookIndex } from "./context.ts";
 import { ixUsable } from "./legality.ts";
@@ -44,7 +44,7 @@ declare const COMMANDER_TIER_DATA: CommanderTierRecord[] | undefined;
 let cached: { key: readonly unknown[]; ctx: EngineContext } | null = null;
 
 /** The context for the page's current data; rebuilt only when one of the globals is replaced. */
-function pageContext(): EngineContext {
+export function pageContext(): EngineContext {
   const cards = typeof CARD_DB !== "undefined" && CARD_DB ? CARD_DB : [];
   const spellbook = typeof SPELLBOOK_INDEX !== "undefined" ? SPELLBOOK_INDEX || null : null;
   const winRates = typeof COMMANDER_TIER_DATA !== "undefined" ? COMMANDER_TIER_DATA : undefined;
@@ -103,7 +103,6 @@ const legacy = {
   computeCommanderCentrality: withPageContext(computeCommanderCentrality),
   lookupCommanderTiers: withPageContext(lookupCommanderTiers),
   parseCommanderField: withPageContext(parseCommanderField),
-  resolveCommanderName: withPageContext(resolveCommanderName),
 };
 
 type LegacyEngine = typeof legacy;

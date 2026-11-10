@@ -12,8 +12,7 @@
 <link rel="stylesheet" href="./src/styles/tokens.css">
 <link rel="stylesheet" href="./src/styles/base.css">
 <link rel="stylesheet" href="./src/features/deck-chart/deck-chart.css">
-<script type="module" src="./src/ui/legacy-globals.ts"></script>
-<script type="module" src="./src/features/deck-chart/legacy-globals.ts"></script>
+<script type="module" src="./src/main.ts"></script>
 <style>
   header{text-align:center; margin-bottom:30px;}
   .eyebrow{
@@ -1675,17 +1674,17 @@ One card per line. Formats like &quot;1x Sol Ring&quot;, plain names, or Moxfiel
 </div>
 
 <script id="engine-script">
-// The analysis engine is pure TypeScript in src/engine. src/engine/legacy-globals.ts publishes it
+// The analysis engine is pure TypeScript in src/engine. src/engine/legacy-globals.ts (loaded by
+// src/main.ts and awaited by initDatabase) publishes it
 // on window under its original names; its context is built from these page-owned globals, plus
 // CARD_DB. SPELLBOOK_INDEX is set at startup; while it is unset only the curated combos count.
 var SPELLBOOK_INDEX = null;
 let COMMANDER_TIER_DATA;
 </script>
-<script type="module" id="engine-module" src="./src/engine/legacy-globals.ts"></script>
 <script id="lookup-script">
 // Decklist parsing and card lookup moved to src/cards/parse-decklist.ts and
 // src/cards/lookup.ts. src/cards/legacy-globals.ts republishes parseDecklist,
-// parseDecklistLine, matchDecklist, fuzzyFindCard, getCard and levenshtein on window
+// matchDecklist and fuzzyFindCard on window
 // before the database is marked ready, so the scripts below still call them by name.
 var buildLookupIndexes;
 </script>
@@ -12911,7 +12910,7 @@ if (deckLinkLoadBtn) deckLinkLoadBtn.addEventListener('click', async () => {
 });
 
 // Icon-button tooltips live in src/ui/tooltip.ts; setupIconTooltipsFor comes from
-// src/ui/legacy-globals.ts, a module that runs after parsing, before DOMContentLoaded.
+// src/ui/legacy-globals.ts via src/main.ts, a module that runs after parsing, before DOMContentLoaded.
 document.addEventListener('DOMContentLoaded', () => setupIconTooltipsFor(document));
 </script>
 
@@ -13085,10 +13084,8 @@ document.addEventListener('DOMContentLoaded', () => setupIconTooltipsFor(documen
   window.pmNotif = { open: openInbox, restart: start, unread: unreadCount };
 })();
 </script>
-<!-- Size limits, then the Firebase cloud layer (src/services/cloud/). Modules run after every
-     ordinary script; the app waits for the podmates-cloud-init event. -->
-<script type="module" src="./src/services/cloud/limits-global.ts"></script>
-<script type="module" src="./src/services/cloud/index.ts"></script>
+<!-- Size limits, then the Firebase cloud layer (src/services/cloud/), are loaded by src/main.ts.
+     Modules run after every ordinary script; the app waits for the podmates-cloud-init event. -->
 
 <script>
 (function(){ try {

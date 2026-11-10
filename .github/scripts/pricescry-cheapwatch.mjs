@@ -154,7 +154,7 @@ export function evalCheap({ dataDir }) {
       ev.picks.forEach((p, i) => {
         if (!f(p, i) || !d.p[i]) return;
         const [minY, yEnd] = d.p[i], cell = d.c[bandOf(p.y0)], rate = cell && cell.n ? cell.hit[ti] / cell.n : 0;
-        nE++; expE += rate; if (isHit(t, p.y0, minY)) { hitsE++; if (gname === 'all') { const k = ev.set + '|' + p.k; if (!hitCards.has(p.k) || hitCards.get(p.k).h > h) hitCards.set(p.k, { n: p.n, from: p.y0, to: yEnd == null ? minY : yEnd, h, newCard: ev.n, set: ev.set, target: t.label }); } }
+        nE++; expE += rate; if (isHit(t, p.y0, minY)) { hitsE++; if (gname === 'all') { if (!hitCards.has(p.k) || hitCards.get(p.k).h > h) hitCards.set(p.k, { n: p.n, from: p.y0, to: yEnd == null ? minY : yEnd, h, newCard: ev.n, set: ev.set, target: t.label }); } }
       });
       if (!nE) continue; picks += nE; hits += hitsE; exp += expE; const sk = ev.set || ev.n; (bySet.get(sk) || bySet.set(sk, []).get(sk)).push((hitsE - expE) / nE); setsSeen.add(sk);
     }

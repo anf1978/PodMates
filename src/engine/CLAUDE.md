@@ -25,9 +25,9 @@ Import from `index.ts`; it is the public surface.
 
 `legacy-globals.ts` is the only engine file allowed to touch `window`. It republishes the engine under
 its original global names for the inline scripts, dropping the context argument: each call builds (and
-memoises) a context from the page's `CARD_DB`, `SPELLBOOK_INDEX` and `COMMANDER_TIER_DATA`. It loads
-as a module tag (so globals exist before `DOMContentLoaded` and the Firebase module) and is also awaited
-by `initDatabase`. Add a name there only when inline code needs it; delete names as callers move to
+memoises) a context from the page's `CARD_DB`, `SPELLBOOK_INDEX` and `COMMANDER_TIER_DATA`; typed
+callers can import that `pageContext()` instead of reading globals. It is imported by `src/main.ts` (so
+globals exist before `DOMContentLoaded` and the cloud modules) and is also awaited by `initDatabase`. Add a name there only when inline code needs it; delete names as callers move to
 `src/features`.
 
 ## Golden tests

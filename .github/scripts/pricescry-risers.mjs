@@ -123,7 +123,7 @@ class Space {                                   // turns a sample into numbers
 
 // ---- logistic regression (Newton / IRLS with a ridge penalty) ----------------------------
 export function fitLogistic(X, y, l2) {
-  const n = X.length, p = X[0].length; let w = new Float64Array(p);
+  const n = X.length, p = X[0].length, w = new Float64Array(p);
   for (let it = 0; it < 12; it++) {
     const g = new Float64Array(p), H = Array.from({ length: p }, () => new Float64Array(p));
     for (let r = 0; r < n; r++) {

@@ -10,15 +10,13 @@ export default defineConfig({
       apply: "build",
       generateBundle(_options, bundle) {
         let html = readFileSync(new URL("./index.html", import.meta.url), "utf8");
+        // `main` is the page's module tag; the others are imported by the inline start-up code.
         for (const [name, source] of [
+          ["main", "./src/main.ts"],
           ["datasets", "./src/data/load-dataset.ts"],
           ["cardDb", "./src/cards/load-db.ts"],
           ["cardsLegacy", "./src/cards/legacy-globals.ts"],
           ["engineLegacy", "./src/engine/legacy-globals.ts"],
-          ["cloudLimits", "./src/services/cloud/limits-global.ts"],
-          ["cloud", "./src/services/cloud/index.ts"],
-          ["ui", "./src/ui/legacy-globals.ts"],
-          ["deckChart", "./src/features/deck-chart/legacy-globals.ts"],
         ]) {
           const loader = Object.values(bundle).find(
             (output) => output.type === "chunk" && output.isEntry && output.name === name,
@@ -50,18 +48,11 @@ export default defineConfig({
     minify: false,
     rollupOptions: {
       input: {
+        main: fileURLToPath(new URL("./src/main.ts", import.meta.url)),
         datasets: fileURLToPath(new URL("./src/data/load-dataset.ts", import.meta.url)),
         cardDb: fileURLToPath(new URL("./src/cards/load-db.ts", import.meta.url)),
         cardsLegacy: fileURLToPath(new URL("./src/cards/legacy-globals.ts", import.meta.url)),
         engineLegacy: fileURLToPath(new URL("./src/engine/legacy-globals.ts", import.meta.url)),
-        cloudLimits: fileURLToPath(
-          new URL("./src/services/cloud/limits-global.ts", import.meta.url),
-        ),
-        cloud: fileURLToPath(new URL("./src/services/cloud/index.ts", import.meta.url)),
-        ui: fileURLToPath(new URL("./src/ui/legacy-globals.ts", import.meta.url)),
-        deckChart: fileURLToPath(
-          new URL("./src/features/deck-chart/legacy-globals.ts", import.meta.url),
-        ),
       },
       preserveEntrySignatures: "strict",
     },

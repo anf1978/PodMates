@@ -7,11 +7,16 @@ const legacyFiles = [
   "spellbook-compact-2026-11-10.mjs",
 ];
 const recommended = tseslint.configs.recommended;
-const legacyRules = Object.assign(
-  {},
-  ...recommended.map((config) => config.rules),
-  noUnsanitized.configs.recommended.rules,
-);
+
+// The only src/ files that may publish on `window`: the strangler shims the inline scripts in
+// index.html still call, and the boot-bar progress the inline watchdog reads. Each is deleted
+// with its last inline caller; nothing else may add a global.
+const windowPublishers = [
+  "src/**/legacy-globals.ts",
+  "src/services/cloud/index.ts",
+  "src/services/cloud/limits-global.ts",
+  "src/data/load-dataset.ts",
+];
 
 // Only the cloud layer may talk to Firebase; everything else goes through its repositories.
 // Flat-config rule settings replace rather than merge, so every block that configures
@@ -199,12 +204,41 @@ export default tseslint.config(
     },
   },
   {
+    // Hand-written files stay small (refactor plan 5.2). Curated data tables are exempt.
+    files: ["src/**/*.{ts,js,mjs}", "tests/**/*.{ts,js,mjs}"],
+    ignores: ["src/data/**"],
+    rules: {
+      "max-lines": ["error", { max: 500, skipBlankLines: true, skipComments: true }],
+    },
+  },
+  {
+    // No new globals: modules import what they need instead of reading or writing `window`.
+    files: ["src/**/*.{ts,js,mjs}"],
+    ignores: [...windowPublishers, "src/**/*.test.ts", "src/engine/**"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "AssignmentExpression > MemberExpression.left[object.name=/^(window|globalThis|self)$/]:not([property.name=/^on/])",
+          message: "No new globals; export the value from a module instead.",
+        },
+        {
+          selector:
+            "CallExpression[callee.object.name='Object'][callee.property.name='assign'] > Identifier.arguments:first-child[name=/^(window|globalThis|self)$/]",
+          message: "No new globals; export the value from a module instead.",
+        },
+      ],
+    },
+  },
+  {
+    // Pipelines, the deck-sync Worker and the one-off Spellbook script are plain JavaScript.
+    // The recommended rules are errors here too; unused parameters and ignored catch bindings are
+    // allowed because they document the call shape, and `cond ? a++ : b++` is the self-tests' idiom.
     files: legacyFiles,
-    rules: Object.fromEntries(
-      Object.entries(legacyRules).map(([name, setting]) => {
-        const [severity, ...options] = Array.isArray(setting) ? setting : [setting];
-        return [name, [severity === 0 || severity === "off" ? "off" : "warn", ...options]];
-      }),
-    ),
+    rules: {
+      "@typescript-eslint/no-unused-vars": ["error", { args: "none", caughtErrors: "none" }],
+      "@typescript-eslint/no-unused-expressions": ["error", { allowTernary: true }],
+    },
   },
 );

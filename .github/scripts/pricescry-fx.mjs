@@ -10,7 +10,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { dayIndex, isoFromDayIndex, todayIso, applyPoint } from './pricescry-lib.mjs';
+import { dayIndex, isoFromDayIndex, applyPoint } from './pricescry-lib.mjs';
 
 const UA = 'PodMatesPriceScry/1.0 (+https://github.com/anf1978/PodMates)';
 const BASES = ['https://api.frankfurter.dev/v1', 'https://api.frankfurter.app'];

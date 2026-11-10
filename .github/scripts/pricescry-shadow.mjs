@@ -131,7 +131,7 @@ export function evaluate({ dataDir, horizons = HORIZONS, minEvents = 5, minCandi
     }
     for (const t of types) {
       const a = acc[t]; if (!a.n) continue;
-      const k25 = a.r.filter(x => x >= 0.25).length, k100 = a.r.filter(x => x >= 1).length, [lo25, hi25] = wilson(k25, a.n), [lo100] = wilson(k100, a.n), c25 = mean(a.ctrl25.filter(x => x != null)), c100 = mean(a.ctrl100.filter(x => x != null));
+      const k25 = a.r.filter(x => x >= 0.25).length, k100 = a.r.filter(x => x >= 1).length, [lo25, hi25] = wilson(k25, a.n), c25 = mean(a.ctrl25.filter(x => x != null)), c100 = mean(a.ctrl100.filter(x => x != null));
       const enough = a.events.size >= minEvents && a.n >= minCandidates;
       let verdict = 'too early';
       if (enough) verdict = (lo25 > c25 && mean(a.abn) > 0) ? 'beats ordinary cards' : (hi25 < c25 || mean(a.abn) < 0) ? 'no edge' : 'inconclusive';

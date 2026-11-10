@@ -67,7 +67,6 @@ export function featuresOf(t) {
   const mech = []; for (const [k, re] of Object.entries(MECHANICS)) if (re.test(text)) mech.push(k);
   const kw = KEYWORDS.filter(w => new RegExp('\\b' + w + '\\b', 'i').test(text));
   const types = typesOf(typeLine);
-  const cares = types.length ? [] : [];
   return { name, mech, kw, types, ci: ci || '', mv: mv || 0, rarity, legend: /legendary/i.test(typeLine || '') && /creature|planeswalker/i.test(typeLine || ''), isLand: /\bland\b/i.test(typeLine || ''), text };
 }
 

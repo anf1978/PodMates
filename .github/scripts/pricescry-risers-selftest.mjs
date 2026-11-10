@@ -31,7 +31,6 @@ const STRONG = [
 ];
 const mk = (seed, extra = {}) => simulateMarket({ seed, nEvents: 300, priceScale: 25, pockets: POCKETS, spikeRate: 0.00012, ...extra });
 const mkStrong = (seed, extra = {}) => mk(seed, { pockets: STRONG, ...extra });
-const mean = a => a.reduce((x, y) => x + y, 0) / a.length;
 const t0 = Date.now();
 
 console.log('--- A. anatomy of past risers');
@@ -94,7 +93,7 @@ console.log('--- F. (information) what the screen would have shown, one market')
   console.log(`   considered ${sm.considered}, shown ${sm.shown}; base rate ${(100 * sm.baseRate).toFixed(1)}%, shown doubled ${(100 * sm.shownRate).toFixed(0)}%, lift ${sm.lift.toFixed(1)}x`);
   for (const b of sm.calibration) console.log(`   given ${b.range}: n=${b.n}, claimed ${b.predicted == null ? '-' : (100 * b.predicted).toFixed(0) + '%'}, realised ${b.realized == null ? '-' : (100 * b.realized).toFixed(0) + '%'}`); }
 console.log('--- G. the live screen scores brand-new events using only what had already played out');
-{ let shown = 0, hit = 0, leak = 0, bad = 0;
+{ let shown = 0, bad = 0;
   for (const seed of SEEDS) {
     const { src, events } = mkStrong(seed); const cutoff = 700;
     const past = events.filter(e => e.day + 14 <= cutoff), fresh = events.filter(e => e.day > cutoff && e.day <= 800);
@@ -102,8 +101,7 @@ console.log('--- G. the live screen scores brand-new events using only what had 
     const r = liveScreen(past, fresh.map(e => ({ ...e, day: Math.min(e.day, cutoff + 1) })), trimmed, {});
     if (r.rows.some(x => x.shown && x.P < GATE)) bad++;
     // check the shown ones against what really happened afterwards (using the full market)
-    for (const x of r.rows.filter(x => x.shown)) { shown++; const real = src.price(x.card, cutoff + 14); const p0 = src.price(x.card, cutoff); if (real && p0 && real / p0 >= 2) hit++; }
-    leak += r.trainSamples > 0 && r.rows.length === 0 && r.note ? 1 : 0;
+    shown += r.rows.filter(x => x.shown).length;
   }
   ck('nothing below the gate is ever shown by the live screen, and with strong signals it does show candidates', bad === 0 && shown > 0, `${shown} cards shown across ${SEEDS.length} markets`);
   ck('with no history at all the live screen says so and shows nothing', (() => { const { src, events } = mk(5); const r = liveScreen([], events.slice(0, 3), src, {}); return r.rows.length === 0 && /nothing can be judged/.test(r.note); })()); }

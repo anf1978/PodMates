@@ -57,7 +57,8 @@ ck(`noise-only: ${runsWithAny} of ${SEEDS.length} runs had any false flag (a 10%
 
 console.log('--- C. time-ordered trade test (each pick uses only events that had finished before it)');
 const wfOpts = { hStar: 7, cost: 0.10, topK: 5, pMin: 0.35, margin: 0.05, minTrainEvents: 30 };
-let edgeWins = 0, picksP = [], hitP = [], edges = [];
+let edgeWins = 0;
+const picksP = [], hitP = [], edges = [];
 for (const seed of SEEDS) {
   const { src, events } = simulateMarket({ seed: seed + 200, nEvents: 200 });
   const wf = walkForward(events, src, wfOpts);
@@ -66,7 +67,8 @@ for (const seed of SEEDS) {
 }
 ck(`planted: picks beat the average linked card in ${edgeWins} of ${SEEDS.length} runs (95% range above zero)`, edgeWins >= 4, `average edge ${(100 * mean(edges)).toFixed(1)} points per pick after costs`);
 ck(`planted: ${(100 * mean(hitP)).toFixed(0)}% of picks were profitable after costs`, mean(hitP) >= 0.6);
-let nullBeat = 0, nullPicks = [];
+let nullBeat = 0;
+const nullPicks = [];
 for (const seed of SEEDS) {
   const { src, events } = simulateMarket({ seed: seed + 300, nEvents: 200, effects: NOISE });
   const wf = walkForward(events, src, wfOpts);
@@ -98,7 +100,7 @@ console.log('--- G. Japan selling costs (Mercari: 10% of the sale price, plus 23
 console.log('--- H. with real costs, the biggest % movers are not always the best trades');
 {
   const model = japanCostModel({ usdToJpy: 150 });
-  const run = (scale) => { let picks = 0, wins = 0, edges = [];
+  const run = (scale) => { let picks = 0, wins = 0; const edges = [];
     for (const seed of SEEDS.slice(0, 3)) {
       const { src, events } = simulateMarket({ seed: seed + 600, nEvents: 200, priceScale: scale });
       const wf = walkForward(events, src, { hStar: 7, topK: 5, pMin: 0.35, margin: 0.05, minTrainEvents: 30, costModel: model });

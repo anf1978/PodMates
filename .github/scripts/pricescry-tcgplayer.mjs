@@ -42,7 +42,7 @@ export async function buildProductMap(bulkPath) {            // productId -> { s
 
 class Blocked extends Error {}
 export function makeFetcher({ base, delay = 400, retries = 3, log = console.log }) {
-  let last = 0, consecutiveFails = 0;
+  let last = 0;
   return async function get(path, asText = false) {
     for (let attempt = 0; ; attempt++) {
       const wait = Math.max(0, last + delay - Date.now()); if (wait) await sleep(wait);
@@ -52,11 +52,10 @@ export function makeFetcher({ base, delay = 400, retries = 3, log = console.log 
       catch (e) { if (attempt >= retries) throw new Error(`Network problem on ${path}: ${e.message}`); await sleep(1500 * (attempt + 1)); continue; }
       if (r.status === 403) throw new Blocked(`HTTP 403 on ${path}: the site is refusing us. Stopping and not retrying.`);
       if (r.status === 429 || r.status >= 500) {
-        if (attempt >= retries) { consecutiveFails++; throw new Error(`HTTP ${r.status} on ${path} after ${retries} retries`); }
+        if (attempt >= retries) { throw new Error(`HTTP ${r.status} on ${path} after ${retries} retries`); }
         const ra = Number(r.headers.get('retry-after')); await sleep(Number.isFinite(ra) && ra > 0 ? Math.min(ra, 60) * 1000 : 2000 * (attempt + 1) * (attempt + 1)); continue;
       }
       if (!r.ok) throw new Error(`HTTP ${r.status} on ${path}`);
-      consecutiveFails = 0;
       return asText ? r.text() : r.json();
     }
   };
