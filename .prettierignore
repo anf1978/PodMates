@@ -2,7 +2,7 @@ index.html
 node_modules/
 dist/
 public/
-data/
+/data/
 **/*.b64
 **/*.jsonl
 **/*.ndjson

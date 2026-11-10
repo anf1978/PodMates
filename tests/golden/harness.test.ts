@@ -14,12 +14,17 @@ it.each([
 });
 
 // Two complete library passes exceed Vitest's default 5s on hosted runners.
-it("keeps analysis independent of refreshed embedded card and Spellbook blobs", () => {
+it("keeps analysis independent of refreshed card data and the live Spellbook loader", () => {
   const html = readFileSync(htmlUrl, "utf8");
-  const changed = html.replace(
-    /const (CARD_DB_COMPRESSED_B64|SPELLBOOK_SNAPSHOT_B64) = "[^"]+";/g,
-    'const $1 = "deliberately invalid compressed data";',
-  );
+  const changed = html
+    .replace(
+      /const CARD_DB_COMPRESSED_B64 = "[^"]+";/,
+      'const CARD_DB_COMPRESSED_B64 = "deliberately invalid compressed data";',
+    )
+    .replace(
+      "let SPELLBOOK_SNAPSHOT_B64;",
+      'const SPELLBOOK_SNAPSHOT_B64 = "deliberately invalid compressed data";',
+    );
   expect(changed).not.toBe(html);
   const original = createHarness(html);
   const refreshed = createHarness(changed);

@@ -1,7 +1,6 @@
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
-
-const legacyEntry = "\0podmates-legacy-entry";
 
 export default defineConfig({
   base: "./",
@@ -9,23 +8,19 @@ export default defineConfig({
     {
       name: "preserve-legacy-html",
       apply: "build",
-      resolveId(id) {
-        if (id === legacyEntry) return id;
-      },
-      load(id) {
-        if (id === legacyEntry) return "";
-      },
       generateBundle(_options, bundle) {
-        // The placeholder lets Vite copy public/ without processing inline scripts.
-        for (const [fileName, output] of Object.entries(bundle)) {
-          if (output.type === "chunk" && output.facadeModuleId === legacyEntry) {
-            delete bundle[fileName];
-          }
-        }
+        // Bundle the typed loader, but leave the legacy scripts and bot data untouched.
+        const loader = Object.values(bundle).find(
+          (output) => output.type === "chunk" && output.isEntry && output.name === "datasets",
+        );
+        if (!loader) throw new Error("Missing dataset loader entry");
         this.emitFile({
           type: "asset",
           fileName: "index.html",
-          source: readFileSync(new URL("./index.html", import.meta.url)),
+          source: readFileSync(new URL("./index.html", import.meta.url), "utf8").replaceAll(
+            "./src/data/load-dataset.ts",
+            `./${loader.fileName}`,
+          ),
         });
       },
     },
@@ -33,7 +28,8 @@ export default defineConfig({
   build: {
     minify: false,
     rollupOptions: {
-      input: legacyEntry,
+      input: { datasets: fileURLToPath(new URL("./src/data/load-dataset.ts", import.meta.url)) },
+      preserveEntrySignatures: "strict",
     },
   },
 });

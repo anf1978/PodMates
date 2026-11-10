@@ -7,6 +7,12 @@ import { gunzipSync } from "node:zlib";
 export const htmlUrl = new URL("../../index.html", import.meta.url);
 export const fixtureUrl = new URL("./fixtures/", import.meta.url);
 
+export function readDataset(name) {
+  return JSON.parse(
+    readFileSync(new URL(`../../public/data/${name}.json`, import.meta.url), "utf8"),
+  );
+}
+
 export function extractBlock(html, name) {
   const start = `/* @golden:${name}:start */`;
   const end = `/* @golden:${name}:end */`;
@@ -21,16 +27,20 @@ export function extractBlock(html, name) {
   return parts[1].split(end)[0];
 }
 
-export function decodeEmbedded(html, name) {
-  const match = html.match(new RegExp(`const ${name} = ["']([^"']+)["'];`));
-  if (!match) throw new Error(`Missing embedded dataset: ${name}`);
-  return JSON.parse(gunzipSync(Buffer.from(match[1], "base64")).toString("utf8"));
+export function decodeSpellbook() {
+  return JSON.parse(
+    gunzipSync(Buffer.from(readDataset("SPELLBOOK_SNAPSHOT_B64"), "base64")).toString("utf8"),
+  );
 }
 
 export function createEngine(cards, spellbook, html = readFileSync(htmlUrl, "utf8")) {
   const context = createContext({});
   for (const name of ["engine", "lookup", "corpus", "samples", "legality", "combo-outcomes"]) {
-    runInContext(extractBlock(html, name), context, {
+    const source = extractBlock(html, name).replace(
+      /^let (REFERENCE_SCORES|REFERENCE_TIERS|PRECON_FINGERPRINTS|STAPLES_BASELINE|MANABASE_BASELINE|TRY_A_DECK_OPTIONS);$/gm,
+      (_declaration, dataset) => `const ${dataset} = ${JSON.stringify(readDataset(dataset))};`,
+    );
+    runInContext(source, context, {
       filename: `index.html#golden:${name}`,
       timeout: 10_000,
     });

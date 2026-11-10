@@ -72,3 +72,27 @@ test("card DB loads, a sample deck charts, and a pasted decklist analyses", asyn
   await expect(page.locator("#notFoundBox")).toBeEmpty();
   await expectAnalysis(page);
 });
+
+test("DB-ready and an early Try-a-Deck click wait for extracted datasets", async ({ page }) => {
+  let releaseDataset!: () => void;
+  const pendingDataset = new Promise<void>((resolve) => {
+    releaseDataset = resolve;
+  });
+  await page.route("**/data/TRY_A_DECK_OPTIONS.json", async (route) => {
+    await pendingDataset;
+    await route.continue();
+  });
+  try {
+    await page.goto("/");
+    await expect(page.getByRole("button", { name: "Chart Deck", exact: true })).toBeDisabled();
+    await page.getByRole("button", { name: "Try a Deck", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Try a Deck", exact: true })).toBeHidden();
+    releaseDataset();
+    await expect(page.locator("#dbStatus")).toContainText(/^Ready .* cards.*loaded/);
+    await expect(page.getByRole("heading", { name: "Try a Deck", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: /Browse by Archetype/ }).click();
+    await expect(page.getByRole("button", { name: /^Voltron\b/ })).toBeVisible();
+  } finally {
+    releaseDataset();
+  }
+});

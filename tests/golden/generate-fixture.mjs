@@ -1,12 +1,12 @@
-// Regenerates pinned data from the checked-in HTML, then proves the subset
-// produces exactly the same complete analyses as the full embedded databases.
+// Regenerates pinned data from the HTML card DB and extracted Spellbook, then
+// proves the subset produces the same complete analyses as the full databases.
 import assert from "node:assert/strict";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { createEngine, decodeCards, decodeEmbedded, fixtureUrl, htmlUrl } from "./source.mjs";
+import { createEngine, decodeCards, decodeSpellbook, fixtureUrl, htmlUrl } from "./source.mjs";
 
 const html = readFileSync(htmlUrl, "utf8");
 const cards = await decodeCards(html);
-const spellbook = decodeEmbedded(html, "SPELLBOOK_SNAPSHOT_B64");
+const spellbook = decodeSpellbook();
 const full = createEngine(cards, spellbook, html);
 const deckNames = full.samples.map(
   (sample) =>

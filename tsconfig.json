@@ -9,7 +9,7 @@
     "checkJs": false,
     "noEmit": true,
     "skipLibCheck": true,
-    "types": ["node"]
+    "types": ["node", "vite/client"]
   },
   "include": ["**/*.ts", "**/*.js", "**/*.mjs", "**/*.cjs"],
   "exclude": ["node_modules", "dist", "playwright-report", "test-results"]
