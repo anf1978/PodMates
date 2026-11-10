@@ -79,7 +79,7 @@ export const test = base.extend({
 
       // Fail closed, including Firebase RPCs and deck-import/price APIs, without sending traffic.
       unexpectedRequests.push(`${request.method()} ${url.origin}${url.pathname}`);
-      return route.fulfill({ status: 200, json: {} });
+      return route.abort("blockedbyclient");
     });
 
     try {
