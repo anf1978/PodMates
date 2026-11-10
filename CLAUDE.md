@@ -3,6 +3,11 @@
 Commander (MTG) playgroup companion: deck analysis ("Deck Chart"), pod social features (MyPods) and the PriceScry
 price tool. Today the whole app is **one ~5.5 MB `index.html`** (HTML + CSS + JS + embedded data), served by Vite.
 Full context: [docs/overview.md](docs/overview.md) · Plan: [docs/refactor-plan.md](docs/refactor-plan.md)
+Terms: [glossary](docs/glossary.md) · Decisions (Proposed until human agreement):
+[D1](docs/adr/0001-development-workflow.md), [D2](docs/adr/0002-ui-approach.md),
+[D3](docs/adr/0003-pricescry-location.md), [D4](docs/adr/0004-hosting.md),
+[D5](docs/adr/0005-generated-data.md), [D6](docs/adr/0006-history-rewrite.md),
+[D7](docs/adr/0007-typescript-strictness.md).
 
 > **Interim file.** This describes the single-file app as it is now. It will be replaced by the target version
 > (refactor plan, Appendix A) during Phase 3, once the code is split into `src/`.
@@ -51,6 +56,20 @@ CDN modules as signed out (including its ready callback); the real app bridge st
 account is created and no Firestore traffic is sent. Scryfall art/API and Google Fonts are fulfilled locally;
 all other external requests fail the test without leaving the browser. Console errors and uncaught page errors
 always fail, with no noise allow-list. `@axe-core/playwright` is installed for later accessibility assertions.
+
+### Claude workspace
+
+Start Claude Code at the repository root with dependencies installed. Committed
+`.claude/commands/` supplies `/check`, `/new-feature <name>` and `/engine-change`.
+`.claude/settings.json` formats/lints each edited file (never `index.html`), and runs
+`npm run check` on Stop.
+A failed hook reports the error; fix it before finishing. See
+[hook verification](.claude/hooks/README.md) for a manual session check.
+Never hand-edit `public/data/**`, `**/generated/**`, `*.generated.*` or a file with
+a `// GENERATED` header: update its pipeline. Permissions block the path patterns;
+the pre-edit hook also checks existing headers and symlink targets. These guard
+Edit/Write/NotebookEdit, not arbitrary shell commands; npm scripts and hooks are
+trusted repository code, not a sandbox.
 
 ## Golden rules
 
