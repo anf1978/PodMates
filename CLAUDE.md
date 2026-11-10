@@ -27,6 +27,9 @@ Use Node.js 22 or newer. Run `npm ci` to install the locked development dependen
 TypeScript is strict for new TypeScript; legacy JavaScript has `checkJs: false` and warn-only lint rules.
 ESLint does not inspect inline HTML scripts yet.
 Static icons and the web manifest live in `public/` and keep their original URLs in dev and production.
+CI checks every PR (including stacked bases) and `main`; Pages builds/deploys and weekly-refresh
+triggering are defined in `.github/workflows/{ci,deploy}.yml`. See [docs/deploy.md](docs/deploy.md)
+for build-only validation, the human Pages source switch and rollback.
 
 ## Golden harness
 
