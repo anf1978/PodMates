@@ -1,0 +1,16 @@
+{
+  "files": {
+    "cards.json": {
+      "sha256": "223fb9807ea01c4c4a9c15f5afe1a1da2f4303979baa61910b2538ba9cb86498",
+      "bytes": 2939147
+    },
+    "tags.json": {
+      "sha256": "06ab328639b44863a3064f8b22b0e5ff2a5168839f266ad9b27b2a81f42920fd",
+      "bytes": 4821
+    },
+    "winrates.json": {
+      "sha256": "1b8bb40b189f6dfc4d9ab5ea3bdc20cc0d213217e8c979a1af908c40349d2aea",
+      "bytes": 85424
+    }
+  }
+}
