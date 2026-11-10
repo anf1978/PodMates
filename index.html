@@ -2436,16 +2436,7 @@ async function showDeckViewerModal(decklistText, commanderStr) {
 
   const commanderNames = new Set(parseCommanderField(commanderStr || ''));
 
-  injectTryADeckStyles();
-  closeTryADeckModal();
-  const overlay = document.createElement('div');
-  overlay.className = 'tad-overlay';
-  overlay.id = 'tadOverlay';
-  const modal = document.createElement('div');
-  modal.className = 'tad-modal tad-modal-wide';
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
+  const { modal } = openTadOverlay({ modalClass: 'tad-modal tad-modal-wide' });
 
   modal.innerHTML = `<p style="text-align:center; color:var(--text-soft); font-size:13px;">Loading card art…</p>`;
 
@@ -2507,16 +2498,7 @@ async function showTypeCardsModal(typeName) {
   if (!currentAgg || !currentAgg.cardsByType || !currentAgg.cardsByType[typeName]) return;
   const entries = currentAgg.cardsByType[typeName];
 
-  injectTryADeckStyles();
-  closeTryADeckModal();
-  const overlay = document.createElement('div');
-  overlay.className = 'tad-overlay';
-  overlay.id = 'tadOverlay';
-  const modal = document.createElement('div');
-  modal.className = 'tad-modal tad-modal-wide';
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
+  const { modal } = openTadOverlay({ modalClass: 'tad-modal tad-modal-wide' });
 
   modal.innerHTML = `<p style="text-align:center; color:var(--text-soft); font-size:13px;">Loading card art…</p>`;
 
@@ -2697,13 +2679,7 @@ async function runAnalysis() {
 }
 
 function showLegalityPopup(report) {
-  injectTryADeckStyles(); // shares the same modal styles (.tad-overlay / .tad-modal)
-  closeTryADeckModal();
-  const overlay = document.createElement('div');
-  overlay.className = 'tad-overlay';
-  overlay.id = 'tadOverlay';
-  const modal = document.createElement('div');
-  modal.className = 'tad-modal';
+  const { modal } = openTadOverlay();
   const itemsHtml = report.hardViolations.map(v =>
     `<li style="margin-bottom:6px;">${escapeHtml(v)}</li>`
   ).join('');
@@ -2711,10 +2687,7 @@ function showLegalityPopup(report) {
     `<h2 style="color:var(--danger, var(--gold));">Legality check</h2>` +
     `<p class="tad-sub">This decklist has been charted as usual — some pods don't care about official rules. But if you're playing sanctioned Commander, these would need fixing:</p>` +
     `<ul style="margin:0; padding-left:18px; font-size:13.5px; color:var(--text-primary); line-height:1.5;">${itemsHtml}</ul>`;
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
 }
 
 function renderNotFound(notFound, fuzzyMatches) {
@@ -5418,17 +5391,8 @@ let authModalMode = 'signup'; // 'signup' | 'login'
 
 function showAuthModal() {
   if (!window.PodmatesCloud) return;
-  injectTryADeckStyles();
-  closeTryADeckModal();
   authModalMode = 'signup';
-  const overlay = document.createElement('div');
-  overlay.className = 'tad-overlay';
-  overlay.id = 'tadOverlay';
-  const modal = document.createElement('div');
-  modal.className = 'tad-modal';
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
+  const { modal } = openTadOverlay();
   renderAuthModal(modal);
 }
 
@@ -5653,16 +5617,7 @@ async function loadAndMergeMyDecks() {
 
 async function showProfileModal(opts) {
   if (!window.PodmatesCloud) return;
-  injectTryADeckStyles();
-  closeTryADeckModal();
-  const overlay = document.createElement('div');
-  overlay.className = 'tad-overlay';
-  overlay.id = 'tadOverlay';
-  const modal = document.createElement('div');
-  modal.className = 'tad-modal';
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
+  const { modal } = openTadOverlay();
 
   modal.innerHTML = `<p style="text-align:center; color:var(--text-soft); font-size:13px;">Loading your profile…</p>`;
 
@@ -6405,16 +6360,9 @@ async function sbRenderBoard(body) {
   }).join('');
 }
 function openSpoilerBaitOverlay(pod) {
-  injectTryADeckStyles();
-  closeTryADeckModal();
-  const overlay = document.createElement('div');
-  overlay.className = 'tad-overlay'; overlay.id = 'tadOverlay';
-  const modal = document.createElement('div');
-  modal.className = 'tad-modal';
+  const { modal } = openTadOverlay();
   modal.innerHTML = `<button class="tad-close" id="tadCloseBtn">Close ×</button><h2 style="margin-bottom:2px;">Spoiler Bait</h2><p style="font-size:12.5px; color:var(--text-soft); margin:0 0 12px;">Swipe through the cards spoiled in the last ${SB_WINDOW_DAYS} days. Your pod can see what bangs and what you bin.</p><div id="sbHost"></div>`;
-  overlay.appendChild(modal); document.body.appendChild(overlay);
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
   sbMount(document.getElementById('sbHost'), { mode: 'pod', podId: pod.id });
 }
 
@@ -7501,16 +7449,8 @@ function startLiveInviteWatch(pods, liveArea, paint) {
 // own overlay rather than the pod detail view -- reuses renderNoPodsView
 // as-is, just targets a fresh overlay div instead of the main tab area.
 function openCreateOrJoinPodOverlay(focus) {
-  injectTryADeckStyles();
-  closeTryADeckModal();
-  const overlay = document.createElement('div');
-  overlay.className = 'tad-overlay';
-  overlay.id = 'tadOverlay';
-  const modal = document.createElement('div');
-  modal.className = 'tad-modal';
+  const { modal } = openTadOverlay({ onDismiss: () => { closeTryADeckModal(); renderOurPodPanel(); } });
   modal.innerHTML = `<button class="tad-close" id="tadCloseBtn">Close ×</button><div id="podOverlayContent"></div>`;
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
   const content = document.getElementById('podOverlayContent');
   renderNoPodsView(content);
   if (focus === 'join') {
@@ -7521,9 +7461,6 @@ function openCreateOrJoinPodOverlay(focus) {
     closeTryADeckModal();
     renderOurPodPanel(); // refresh the landing list -- a pod may have just been created or joined
   });
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) { closeTryADeckModal(); renderOurPodPanel(); }
-  });
 }
 
 // Opens a specific pod's existing detail view (members, invite link, Host
@@ -7531,24 +7468,13 @@ function openCreateOrJoinPodOverlay(focus) {
 // renderPodModal/renderPodDetailView are otherwise completely unchanged
 // and self-refresh correctly within whatever container they're given.
 function openPodDetailOverlay(pod, pods) {
-  injectTryADeckStyles();
-  closeTryADeckModal();
   currentPodViewId = pod.id;
-  const overlay = document.createElement('div');
-  overlay.className = 'tad-overlay';
-  overlay.id = 'tadOverlay';
-  const modal = document.createElement('div');
-  modal.className = 'tad-modal';
+  const { modal } = openTadOverlay({ onDismiss: () => { closeTryADeckModal(); renderOurPodPanel(); } });
   modal.innerHTML = `<button class="tad-close" id="tadCloseBtn">Close ×</button><div id="podOverlayContent"></div>`;
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
   renderPodModal(document.getElementById('podOverlayContent'), pods);
   document.getElementById('tadCloseBtn').addEventListener('click', () => {
     closeTryADeckModal();
     renderOurPodPanel(); // refresh the landing list -- a rename, leave, etc. may have happened inside
-  });
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) { closeTryADeckModal(); renderOurPodPanel(); }
   });
 }
 
@@ -7681,11 +7607,7 @@ async function openHostGatheringOverlay(pod, members) {
   let savedLineups = {};
   try { savedLineups = await window.PodmatesCloud.loadAllTableFormations(pod.id); } catch (e) { /* fine -- just nothing to offer */ }
 
-  const overlay = document.createElement('div');
-  overlay.className = 'tad-overlay';
-  overlay.id = 'tadOverlay';
-  const modal = document.createElement('div');
-  modal.className = 'tad-modal';
+  const { modal } = openTadOverlay();
   const lineupNames = Object.keys(savedLineups).sort();
   const lbl = 'font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold); display:block; margin-bottom:6px;';
   modal.innerHTML = `
@@ -7722,10 +7644,7 @@ async function openHostGatheringOverlay(pod, members) {
     <p style="font-size:11.5px; color:var(--text-soft); margin:8px 0 0;">Invites show up in each podmate's bell and on their My Pods page. Guests are not sent anything: you load their deck yourself.</p>
     <div id="hostGatheringStatus" style="font-size:12.5px; margin-top:8px;"></div>
   `;
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
 
   function renderSeats() {
     const area = document.getElementById('hostSeatsArea');
@@ -8153,18 +8072,9 @@ let seenGatheringChartedAt = {};
 
 async function openLiveGatheringOverlay(podId, gatheringId) {
   stopGatheringPolling();
-  injectTryADeckStyles();
-  closeTryADeckModal();
-  const overlay = document.createElement('div');
-  overlay.className = 'tad-overlay';
-  overlay.id = 'tadOverlay';
-  const modal = document.createElement('div');
-  modal.className = 'tad-modal';
+  const { modal } = openTadOverlay({ onDismiss: () => { stopGatheringPolling(); closeTryADeckModal(); } });
   modal.innerHTML = `<button class="tad-close" id="tadCloseBtn">Close ×</button><div id="gatheringTrayContent"><p style="text-align:center; color:var(--text-soft); font-size:13px;">Loading…</p></div>`;
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
   document.getElementById('tadCloseBtn').addEventListener('click', () => { stopGatheringPolling(); closeTryADeckModal(); });
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) { stopGatheringPolling(); closeTryADeckModal(); } });
   await renderLiveGatheringTray(podId, gatheringId);
   startGatheringWatch(podId, gatheringId);
 }
@@ -9489,19 +9399,9 @@ function renderTadDeckList(decks, opts) {
 }
 
 async function showTryADeckModal() {
-  injectTryADeckStyles();
-  closeTryADeckModal();
   tadNavState = { view: 'home' };
   tadNavStack.length = 0;
-  const overlay = document.createElement('div');
-  overlay.className = 'tad-overlay';
-  overlay.id = 'tadOverlay';
-  const modal = document.createElement('div');
-  modal.className = 'tad-modal';
-  modal.id = 'tadModal';
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
+  const { overlay, modal } = openTadOverlay({ modalId: 'tadModal' });
   modal.innerHTML = '<button class="tad-close" id="tadCloseBtn">Close &times;</button><h2>Try a Deck</h2><p style="text-align:center; color:var(--text-soft); font-size:13px;">Loading...</p>';
   modal.querySelector('#tadCloseBtn').addEventListener('click', closeTryADeckModal);
   try { await loadDeckLibrary(); }
@@ -9735,14 +9635,8 @@ function loadTesseractScript() {
 let scanCardsResults = []; // { card, checked } -- confirmed matches only; see processOcrText for why "no match" rows were removed entirely
 
 function showScanCardsModal() {
-  injectTryADeckStyles();
-  closeTryADeckModal();
   scanCardsResults = [];
-  const overlay = document.createElement('div');
-  overlay.className = 'tad-overlay';
-  overlay.id = 'tadOverlay';
-  const modal = document.createElement('div');
-  modal.className = 'tad-modal';
+  const { modal } = openTadOverlay({ onDismiss: () => openDeckBuilderOverlay() });
   modal.innerHTML = `
     <button class="tad-close" id="tadCloseBtn">Close ×</button>
     <h2 style="margin-bottom:10px;">Scan Cards from Photo</h2>
@@ -9769,10 +9663,7 @@ function showScanCardsModal() {
       <button id="scanCardsAddToDeckBtn">Add Checked Cards to Deck Crafter</button>
     </div>
   `;
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
   document.getElementById('tadCloseBtn').addEventListener('click', openDeckBuilderOverlay);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) openDeckBuilderOverlay(); });
   document.getElementById('scanCardsAddPhotoBtn').addEventListener('click', () => {
     $('scanCardsFileInput').click();
   });
@@ -9958,14 +9849,8 @@ function showExportDeckModal() {
     setDeckMgmtStatus('Chart a deck first, then export it.', true);
     return;
   }
-  injectTryADeckStyles();
-  closeTryADeckModal();
   const text = buildArchidektMoxfieldExportText();
-  const overlay = document.createElement('div');
-  overlay.className = 'tad-overlay';
-  overlay.id = 'tadOverlay';
-  const modal = document.createElement('div');
-  modal.className = 'tad-modal';
+  const { modal } = openTadOverlay();
   modal.innerHTML = `
     <button class="tad-close" id="tadCloseBtn">Close ×</button>
     <h2 style="margin-bottom:8px;">Export for Archidekt/Moxfield</h2>
@@ -9976,10 +9861,7 @@ function showExportDeckModal() {
     </div>
     <div id="exportCopyStatus" style="font-size:12.5px; margin-top:6px;"></div>
   `;
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
   document.getElementById('exportCopyBtn').addEventListener('click', async () => {
     const statusEl = document.getElementById('exportCopyStatus');
     try {
@@ -10332,14 +10214,8 @@ async function runLogBattle() {
 // entry already has everyone seated, written at Log Battle time, whether
 // or not they ever open this survey at all).
 function showFeedbackSurvey(podId, chronicleId) {
-  injectTryADeckStyles();
-  closeTryADeckModal();
   let fun = 0, accuracy = 0;
-  const overlay = document.createElement('div');
-  overlay.className = 'tad-overlay';
-  overlay.id = 'tadOverlay';
-  const modal = document.createElement('div');
-  modal.className = 'tad-modal';
+  const { modal } = openTadOverlay();
   modal.innerHTML = `
     <button class="tad-close" id="tadCloseBtn">Close ×</button>
     <h2 style="margin-bottom:4px;">How was the battle?</h2>
@@ -10362,10 +10238,7 @@ function showFeedbackSurvey(podId, chronicleId) {
     </div>
     <div id="feedbackStatus" style="font-size:12.5px; margin-top:8px;"></div>
   `;
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
   document.getElementById('skipFeedbackBtn').addEventListener('click', closeTryADeckModal);
 
   function renderRating(rowId, current, onPick) {
@@ -10883,18 +10756,9 @@ async function renderPlayerProfileContent(container, uid, displayName, podId) {
 }
 
 function openPlayerProfileOverlay(uid, displayName, podId) {
-  injectTryADeckStyles();
-  closeTryADeckModal();
-  const overlay = document.createElement('div');
-  overlay.className = 'tad-overlay';
-  overlay.id = 'tadOverlay';
-  const modal = document.createElement('div');
-  modal.className = 'tad-modal';
+  const { modal } = openTadOverlay();
   modal.innerHTML = `<button class="tad-close" id="tadCloseBtn">Close ×</button><div id="playerProfileContent"></div>`;
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
   renderPlayerProfileContent(document.getElementById('playerProfileContent'), uid, displayName, podId);
 }
 
@@ -11125,18 +10989,9 @@ async function renderPodProfileContent(container, pod) {
 }
 
 function openPodProfileOverlay(pod) {
-  injectTryADeckStyles();
-  closeTryADeckModal();
-  const overlay = document.createElement('div');
-  overlay.className = 'tad-overlay';
-  overlay.id = 'tadOverlay';
-  const modal = document.createElement('div');
-  modal.className = 'tad-modal';
+  const { modal } = openTadOverlay();
   modal.innerHTML = `<button class="tad-close" id="tadCloseBtn">Close ×</button><div id="podProfileContent"></div>`;
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
   renderPodProfileContent(document.getElementById('podProfileContent'), pod);
 }
 
@@ -12019,14 +11874,7 @@ function openDeckBuilderOverlay(opts) {
   // a commander already chosen (e.g. in a saved draft) belongs in the list too
   dbAddingPartner = false;
   dbCmdNames().forEach(n => { if (!deckBuilderCards[n]) deckBuilderCards[n] = 1; });
-  injectTryADeckStyles();
-  closeTryADeckModal();
-  const overlay = document.createElement('div');
-  overlay.className = 'tad-overlay';
-  overlay.id = 'tadOverlay';
-  const modal = document.createElement('div');
-  modal.className = 'tad-modal';
-  modal.style.maxWidth = '480px';
+  const { modal } = openTadOverlay({ modalStyle: 'max-width:480px' });
   const draftNotice = restoredDraft
     ? `<p id="dbDraftNotice" style="font-size:12px; color:var(--text-soft); font-style:italic; margin:0 0 10px;">Picked up where you left off. <button type="button" id="dbStartNewBtn" class="ghost" style="padding:2px 8px; font-size:11px; margin-left:4px;">Start New Deck</button>${currentDeck ? ` <button type="button" id="dbLoadCurrentBtn" class="ghost" style="padding:2px 8px; font-size:11px; margin-left:4px;">Load ${escapeHtml(currentDeck.commander || 'current decklist')} instead</button>` : ''}</p>`
     : (currentDeck ? `<p style="font-size:12px; color:var(--text-soft); font-style:italic; margin:0 0 10px;">Editing ${escapeHtml(currentDeck.commander || 'the current decklist')} from Deck Chart.</p>` : '');
@@ -12062,10 +11910,7 @@ function openDeckBuilderOverlay(opts) {
       <button id="dbChartBtn" style="flex:1;">Chart This Deck</button>
     </div>
   `;
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
   const loadCurrentBtn = document.getElementById('dbLoadCurrentBtn');
   if (loadCurrentBtn) loadCurrentBtn.addEventListener('click', () => {
     deckBuilderCards = { ...currentDeck.cards };
@@ -12511,13 +12356,7 @@ function saveCurrentDeck() {
   }
 
   if (matchedKey) {
-    injectTryADeckStyles();
-    closeTryADeckModal();
-    const overlay = document.createElement('div');
-    overlay.className = 'tad-overlay';
-    overlay.id = 'tadOverlay';
-    const modal = document.createElement('div');
-    modal.className = 'tad-modal';
+    const { modal } = openTadOverlay();
     modal.innerHTML = `
       <button class="tad-close" id="tadCloseBtn">Close ×</button>
       <h2 style="margin-bottom:10px;">Deck name already in use</h2>
@@ -12527,10 +12366,7 @@ function saveCurrentDeck() {
         <button id="dnSaveNewBtn" style="flex:1;">Save as New Deck</button>
       </div>
     `;
-    overlay.appendChild(modal);
-    document.body.appendChild(overlay);
     document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
     document.getElementById('dnOverwriteBtn').addEventListener('click', () => {
       closeTryADeckModal();
       performDeckSave(proposedName, raw, cmd, player, matchedKey);
@@ -12679,8 +12515,6 @@ function refreshPodmateDecksCache() {
 })();
 
 async function showLoadDeckModal(target) {
-  injectTryADeckStyles();
-  closeTryADeckModal();
   const isGatheringSeat = !!(target && typeof target === 'object' && target.gatheringSeat);
   // Only pre-filter to the seat's player when it's someone ELSE's seat --
   // a podmate's shared decks are always tagged with their real display
@@ -12693,21 +12527,14 @@ async function showLoadDeckModal(target) {
   // A guest has no decks of their own, so a guest seat sees every pod deck (no name filter).
   loadDeckActivePlayer = (isGatheringSeat && !gatheringSeatIsMine && !target.gatheringSeat.seatIsGuest) ? target.gatheringSeat.seatDisplayName : null;
   loadDeckTarget = isGatheringSeat ? target : 'main';
-  const overlay = document.createElement('div');
-  overlay.className = 'tad-overlay';
-  overlay.id = 'tadOverlay';
-  const modal = document.createElement('div');
-  modal.className = 'tad-modal';
+  const { modal } = openTadOverlay();
   const titleSuffix = isGatheringSeat ? ` — Seat ${(Number(target.gatheringSeat.seatIndex) || 0) + 1} (${escapeHtml(target.gatheringSeat.seatDisplayName)}${target.gatheringSeat.seatIsGuest ? ', guest' : ''})` : '';
   modal.innerHTML = `<button class="tad-close" id="tadCloseBtn">Close ×</button>` +
     `<h2 style="margin-bottom:10px;">Load a Deck${titleSuffix}</h2>` +
     `<input type="text" id="loadDeckSearch" placeholder="Search by commander or player…" style="width:100%; box-sizing:border-box; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px; margin-bottom:10px;">` +
     `<div id="loadDeckPlayerChips" style="margin-bottom:8px;"></div>` +
     `<div id="loadDeckListArea" style="max-height:calc(50vh / var(--pm-zoom, 1)); overflow-y:auto;"><div style="color:var(--text-soft); font-size:13px; padding:10px 0;">Loading…</div></div>`;
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
   document.getElementById('loadDeckSearch').addEventListener('input', renderLoadDeckList);
 
   // Whatever is already in memory shows straight away; fresh copies are then fetched (waiting for
@@ -13658,12 +13485,7 @@ document.addEventListener('DOMContentLoaded', () => setupIconTooltipsFor(documen
   }
   function refreshOpen() { const m = document.querySelector('#tadOverlay .pm-notif-modal'); if (m) renderList(m); }
   async function openInbox() {
-    if (typeof injectTryADeckStyles === 'function') injectTryADeckStyles();
-    if (typeof closeTryADeckModal === 'function') closeTryADeckModal();
-    const overlay = document.createElement('div'); overlay.className = 'tad-overlay'; overlay.id = 'tadOverlay';
-    const modal = document.createElement('div'); modal.className = 'tad-modal pm-notif-modal'; modal.style.maxWidth = '460px';
-    overlay.appendChild(modal); document.body.appendChild(overlay);
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
+    const { modal } = openTadOverlay({ modalClass: 'tad-modal pm-notif-modal', modalStyle: 'max-width:460px' });
     openSince = seenAt;
     modal.innerHTML = '<button class="tad-close" id="tadCloseBtn">Close ×</button><h2 style="margin-bottom:10px;">Notifications</h2><div id="pmNotifBody">' + bodyHtml() + '</div>';
     document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);

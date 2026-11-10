@@ -107,7 +107,7 @@ trusted repository code, not a sandbox.
 | ~Line | Identifier (grep for this)                      |  Size | Managed by |
 | ----: | ----------------------------------------------- | ----: | ---------- |
 |     6 | `<link rel="icon"` (inline base64 PNG)          | 11 KB | hand       |
-|  1450 | `<img src="data:image/jpeg;base64` (header art) | 25 KB | hand       |
+|  1383 | `<img src="data:image/jpeg;base64` (header art) | 25 KB | hand       |
 
 ### Typed card modules (`src/cards`)
 
@@ -144,7 +144,7 @@ linked before the first inline `<style>`, so the cascade is unchanged; the build
 
 Overlays open through `src/ui/modal.ts` (`pmUi.openModal`/`closeModal`). It owns Escape, the Tab trap, focus
 restore, body scroll lock and stacking; looks still come from the overlay's own classes. In `index.html`,
-`openTadOverlay(opts)` wraps it for `.tad-overlay`/`.tad-modal` dialogs: a base layer (`#tadOverlay`) replaces
+`openTadOverlay(opts)` wraps it for every `.tad-overlay`/`.tad-modal` dialog: a base layer (`#tadOverlay`) replaces
 the open one, `{ stacked: true, id }` layers on top, and `onDismiss` keeps the site's backdrop/Escape behaviour.
 Close with `closeTryADeckModal()` or `pmUi.closeModal(el)` rather than `el.remove()`, so focus and scroll are
 restored at once (a removed layer is otherwise only pruned by a MutationObserver).
@@ -206,52 +206,53 @@ byte-identical entries keep their existing dates. Do not use manifest regenerati
 
 |       ~Line | Region                                                            | Identifier to grep                                                                                                |
 | ----------: | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-|     12–1135 | Main CSS                                                          | `<style>` (first one)                                                                                             |
-|         599 | Terraria × MTG Arena theme overrides                              | `Terraria x MTG Arena theme`                                                                                      |
-|   1136–1287 | Colour themes (runs in `<head>`)                                  | `<script id="theme-script">`                                                                                      |
-|   1299–1433 | Visual overhaul CSS                                               | `<style id="pm-visual-overhaul">`                                                                                 |
-|   1435–1742 | `<body>` markup: auth bar, header, mode tabs, deck form           | `id="authBar"`, `<header>`, `class="mode-tabs"`                                                                   |
-|   1461–1500 | Card-DB progress + progress-stall watchdog                        | `dbLoadFill`, `window.__dbProgress`                                                                               |
-|        1617 | Result panels markup                                              | `id="resultsSection"`                                                                                             |
-|   1742–1749 | Engine page globals + module shim (code in `src/engine`)          | `<script id="engine-script">`                                                                                     |
-|   1750–1756 | Lookup/parser shim (code now in `src/cards`)                      | `<script id="lookup-script">`, `var buildLookupIndexes`                                                           |
-|   1757–1766 | Card DB bindings                                                  | `<script id="data-script">`                                                                                       |
-|   1767–1771 | Spellbook snapshot binding (data now external)                    | `<script id="combo-data-script">`                                                                                 |
-|  1772–13816 | **App script** (UI + all features)                                | `<script id="app-script">`                                                                                        |
-|   1777–2007 | Reference corpus bindings, percentiles, baselines                 | `REFERENCE_TIERS`, `function computeAxisPercentile`, `STAPLES_BASELINE`                                           |
-|   2008–2011 | Try-a-Deck binding (decklists now external)                       | `let TRY_A_DECK_OPTIONS;`                                                                                         |
-|        2053 | Card DB decode compatibility shim                                 | `async function decompressCardDB`                                                                                 |
-|        2056 | Spellbook snapshot loader                                         | `async function loadSpellbookSnapshot`                                                                            |
-|   2080–2180 | Eager/lazy dataset gates + worker startup                         | `loadStaticDatasets`, `loadDeckLibrary`, `loadAnalysisDatasets`, `loadKnowledge`, `initDatabase`                  |
-|        2192 | Shared size limits (values in `src/services/cloud/limits.ts`)     | `---- Size limits`, `PM_INPUT_LIMIT_KEYS`                                                                         |
-|        2277 | Card art (Scryfall, on demand)                                    | `CARD ART — fetched on demand`                                                                                    |
-|        2343 | Card lookup                                                       | `async function lookup(name)`                                                                                     |
-|        2403 | View Deck gallery                                                 | `VIEW DECK — full visual gallery`                                                                                 |
-|        2688 | Chart request waits for fingerprint/metadata data                 | `async function runAnalysis`                                                                                      |
-|   2839–3372 | Result panels: win-con, radar chart, bracket, mana                | `function renderWinCondition`, `function renderChart(`, `function renderBracket`, `function renderManaCurveChart` |
-|        4990 | Synergy profile                                                   | `function renderSynergyProfile`                                                                                   |
-|        5268 | Commander Centrality panel                                        | `function renderCommanderCentrality`                                                                              |
-|        5599 | Sign in / sign up modal                                           | `SIGN IN / SIGN UP MODAL`                                                                                         |
-|        5773 | Profile builder (link Archidekt/Moxfield)                         | `PROFILE BUILDER`                                                                                                 |
-|   5886–7054 | **PriceScry** (Search, Movers, Radar, Ledger, trades)             | `PriceScry -- card price history`, `PRICESCRY_PW_SHA256`, `function psRenderRadar`                                |
-|        6398 | Spoiler Bait                                                      | `SPOILER BAIT -- swipe`                                                                                           |
-|        7100 | My Profile modal                                                  | `function renderProfileModal`                                                                                     |
-|        7572 | Pods (create/join, members, invites)                              | `PODS — create/join`                                                                                              |
-|   7788–8709 | Gatherings (host, RSVP, seats, live)                              | `function runSampleGathering`, `function openHostGatheringOverlay`, `function renderLiveGatheringTray`            |
-|   8986–9353 | Impact cards + "Pod view" line                                    | `IMPACT_LS_KEY`, `function openImpactCardsModal`                                                                  |
-|        9733 | Lazy Try-a-Deck entry point                                       | `async function showTryADeckModal`                                                                                |
-|  9880–10139 | Scan cards (Tesseract OCR)                                        | `tesseractLoadPromise`, `function showScanCardsModal`                                                             |
-|       10257 | Pod Comparison (up to 6 decks)                                    | `POD COMPARISON`                                                                                                  |
-| 10803–11349 | Player / pod profile overlays                                     | `function getPlayerRawDecksForProfile`, `function openPlayerProfileOverlay`, `function openPodProfileOverlay`     |
-|       11525 | Pod deck detail waits for fingerprint/metadata data               | `async function showPodDeckDetail`                                                                                |
-|       11809 | Saved data: decks, formations, chronicles                         | `SAVED DATA — decks`                                                                                              |
-| 11929–12629 | Deck Crafter (deck builder)                                       | `Build a Deck: search-and-add`, `function openDeckBuilderOverlay`                                                 |
-|       13139 | My Data backup/restore                                            | `MY DATA — download/restore`                                                                                      |
-|       13234 | Retired pod rosters (dead code)                                   | `POD ROSTERS -- retired`                                                                                          |
-| 13819–13971 | Notifications inbox                                               | `<script id="notif-script">`                                                                                      |
-| 13972–13975 | Cloud modules: size limits, then Firebase (`src/services/cloud/`) | `limits-global.ts`, `src/services/cloud/index.ts`                                                                 |
+|     15–1068 | Main CSS                                                          | `<style>` (first one)                                                                                             |
+|         533 | Terraria × MTG Arena theme overrides                              | `Terraria x MTG Arena theme`                                                                                      |
+|   1069–1220 | Colour themes (runs in `<head>`)                                  | `<script id="theme-script">`                                                                                      |
+|   1232–1366 | Visual overhaul CSS                                               | `<style id="pm-visual-overhaul">`                                                                                 |
+|   1368–1674 | `<body>` markup: auth bar, header, mode tabs, deck form           | `id="authBar"`, `<header>`, `class="mode-tabs"`                                                                   |
+|   1390–1429 | Card-DB progress + progress-stall watchdog                        | `dbLoadFill`, `window.__dbProgress`                                                                               |
+|        1549 | Result panels markup                                              | `id="resultsSection"`                                                                                             |
+|   1675–1682 | Engine page globals + module shim (code in `src/engine`)          | `<script id="engine-script">`                                                                                     |
+|   1683–1689 | Lookup/parser shim (code now in `src/cards`)                      | `<script id="lookup-script">`, `var buildLookupIndexes`                                                           |
+|   1690–1699 | Card DB bindings                                                  | `<script id="data-script">`                                                                                       |
+|   1700–1704 | Spellbook snapshot binding (data now external)                    | `<script id="combo-data-script">`                                                                                 |
+|  1705–13347 | **App script** (UI + all features)                                | `<script id="app-script">`                                                                                        |
+|   1731–1938 | Reference corpus bindings, percentiles, baselines                 | `REFERENCE_TIERS`, `function computeAxisPercentile`, `STAPLES_BASELINE`                                           |
+|   1939–1942 | Try-a-Deck binding (decklists now external)                       | `let TRY_A_DECK_OPTIONS;`                                                                                         |
+|        1981 | Card DB decode compatibility shim                                 | `async function decompressCardDB`                                                                                 |
+|        1987 | Spellbook snapshot loader                                         | `async function loadSpellbookSnapshot`                                                                            |
+|   2009–2109 | Eager/lazy dataset gates + worker startup                         | `loadStaticDatasets`, `loadDeckLibrary`, `loadAnalysisDatasets`, `loadKnowledge`, `initDatabase`                  |
+|        2125 | Shared size limits (values in `src/services/cloud/limits.ts`)     | `---- Size limits`, `PM_INPUT_LIMIT_KEYS`                                                                         |
+|        2189 | Card art (Scryfall, on demand)                                    | `CARD ART — fetched on demand`                                                                                    |
+|        2255 | Card lookup                                                       | `async function lookup(name)`                                                                                     |
+|        2315 | View Deck gallery                                                 | `VIEW DECK — full visual gallery`                                                                                 |
+|        2572 | Chart request waits for fingerprint/metadata data                 | `async function runAnalysis`                                                                                      |
+|   2714–3247 | Result panels: win-con, radar chart, bracket, mana                | `function renderWinCondition`, `function renderChart(`, `function renderBracket`, `function renderManaCurveChart` |
+|        4793 | Synergy profile                                                   | `function renderSynergyProfile`                                                                                   |
+|        5071 | Commander Centrality panel                                        | `function renderCommanderCentrality`                                                                              |
+|        5384 | Sign in / sign up modal                                           | `SIGN IN / SIGN UP MODAL`                                                                                         |
+|        5528 | Profile builder (link Archidekt/Moxfield)                         | `PROFILE BUILDER`                                                                                                 |
+|   5632–6800 | **PriceScry** (Search, Movers, Radar, Ledger, trades)             | `PriceScry -- card price history`, `PRICESCRY_PW_SHA256`, `function psRenderRadar`                                |
+|        6143 | Spoiler Bait                                                      | `SPOILER BAIT -- swipe`                                                                                           |
+|        6838 | My Profile modal                                                  | `function renderProfileModal`                                                                                     |
+|        7299 | Pods (create/join, members, invites)                              | `PODS — create/join`                                                                                              |
+|   7493–8414 | Gatherings (host, RSVP, seats, live)                              | `function runSampleGathering`, `function openHostGatheringOverlay`, `function renderLiveGatheringTray`            |
+|   8665–9032 | Impact cards + "Pod view" line                                    | `IMPACT_LS_KEY`, `function openImpactCardsModal`                                                                  |
+|        9401 | Lazy Try-a-Deck entry point                                       | `async function showTryADeckModal`                                                                                |
+|   9503–9520 | Shared modal overlay + Try-a-Deck close                           | `function openTadOverlay`, `function closeTryADeckModal`                                                          |
+|   9560–9819 | Scan cards (Tesseract OCR)                                        | `tesseractLoadPromise`, `function showScanCardsModal`                                                             |
+|        9919 | Pod Comparison (up to 6 decks)                                    | `POD COMPARISON`                                                                                                  |
+| 10456–11002 | Player / pod profile overlays                                     | `function getPlayerRawDecksForProfile`, `function openPlayerProfileOverlay`, `function openPodProfileOverlay`     |
+|       11160 | Pod deck detail waits for fingerprint/metadata data               | `async function showPodDeckDetail`                                                                                |
+|       11435 | Saved data: decks, formations, chronicles                         | `SAVED DATA — decks`                                                                                              |
+| 11555–12255 | Deck Crafter (deck builder)                                       | `Build a Deck: search-and-add`, `function openDeckBuilderOverlay`                                                 |
+|       12737 | My Data backup/restore                                            | `MY DATA — download/restore`                                                                                      |
+|       12832 | Retired pod rosters (dead code)                                   | `POD ROSTERS -- retired`                                                                                          |
+| 13371–13518 | Notifications inbox                                               | `<script id="notif-script">`                                                                                      |
+| 13521–13522 | Cloud modules: size limits, then Firebase (`src/services/cloud/`) | `limits-global.ts`, `src/services/cloud/index.ts`                                                                 |
 
-Line numbers above are approximate, updated for P3-3. The footer freshness element is at 1739.
+Line numbers above are approximate, updated for P3-4. The footer freshness element is at 1672.
 Refresh this map when code moves noticeably.
 
 ## Gotchas

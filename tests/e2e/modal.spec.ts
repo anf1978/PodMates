@@ -68,6 +68,19 @@ test("a dialog traps focus, locks scroll, and closes on Escape, backdrop and Clo
   expect(await bodyOverflow(page)).toBe("");
 });
 
+test("Try a Deck closes on Escape and returns focus to its button", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("#dbStatus")).toContainText(/^Ready .* cards.*loaded/);
+  const opener = page.getByRole("button", { name: "Try a Deck", exact: true });
+  await opener.click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("heading", { name: "Try a Deck", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(opener).toBeFocused();
+  expect(await bodyOverflow(page)).toBe("");
+});
+
 test("Escape closes only the top stacked layer, and cancels an action confirm", async ({
   page,
 }) => {
