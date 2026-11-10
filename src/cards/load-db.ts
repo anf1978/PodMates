@@ -1,4 +1,4 @@
-import { loadDataset } from "../data/load-dataset";
+import { datasetUrl, loadDataset } from "../data/load-dataset";
 import { buildLookupIndexes, decodeCardDatabase } from "./db-codec.js";
 import type { Card, WorkerMessage } from "./db.worker";
 
@@ -83,9 +83,11 @@ export function loadCardDatabase(report: Progress): Promise<Database> {
       worker.onerror = (event) => fail(new Error(`Card database worker failed: ${event.message}`));
       worker.onmessageerror = () =>
         fail(new Error("Could not receive the card database worker result"));
-      worker.postMessage({
-        url: new URL(`${import.meta.env.BASE_URL}data/cards.json`, document.baseURI).href,
-      });
+      void datasetUrl("cards")
+        .then((url) => {
+          if (!settled) worker?.postMessage({ url: new URL(url, document.baseURI).href });
+        })
+        .catch((error: unknown) => fail(error instanceof Error ? error : new Error(String(error))));
     } catch (error) {
       fail(error instanceof Error ? error : new Error(String(error)));
     }

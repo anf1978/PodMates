@@ -1,6 +1,28 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { WorkerMessage } from "./db.worker";
 
+const hash = "a".repeat(64);
+function mockDatasetFetch(body: string) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string) =>
+      url.endsWith("manifest.json")
+        ? Response.json({
+            files: {
+              "cards.json": {
+                version: "test",
+                generatedAt: "2026-11-10T00:00:00Z",
+                sha256: hash,
+                bytes: body.length,
+                source: "Test pipeline",
+              },
+            },
+          })
+        : new Response(body),
+    ),
+  );
+}
+
 class TestWorker {
   static instances: TestWorker[] = [];
   onmessage!: (event: { data: WorkerMessage }) => void;
@@ -22,6 +44,7 @@ beforeEach(() => {
     getElementById: () => null,
   });
   vi.stubEnv("BASE_URL", "/PodMates/");
+  mockDatasetFetch('"H4sI"');
 });
 
 afterEach(() => {
@@ -37,8 +60,9 @@ it("extends the stall deadline on progress and hydrates indexes without duplicat
   const report = vi.fn();
   const promise = loadCardDatabase(report);
   const worker = TestWorker.instances[0];
+  await vi.advanceTimersByTimeAsync(0);
   expect(worker.postMessage).toHaveBeenCalledWith({
-    url: "https://example.test/PodMates/data/cards.json",
+    url: `https://example.test/PodMates/data/cards.json?v=${hash}`,
   });
   await vi.advanceTimersByTimeAsync(25_000);
   worker.onmessage({ data: { type: "progress", message: "Parsing", percent: 65 } });
@@ -101,14 +125,7 @@ it.each(["no-worker", "worker-unsupported"] as const)(
         .stream()
         .pipeThrough(new CompressionStream("gzip")),
     ).arrayBuffer();
-    vi.stubGlobal(
-      "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          new Response(JSON.stringify(Buffer.from(compressed).toString("base64"))),
-        ),
-    );
+    mockDatasetFetch(JSON.stringify(Buffer.from(compressed).toString("base64")));
     if (kind === "no-worker") vi.stubGlobal("Worker", undefined);
     const { loadCardDatabase } = await import("./load-db");
     const promise = loadCardDatabase(vi.fn());
@@ -125,8 +142,16 @@ it.each(["no-worker", "worker-unsupported"] as const)(
 
 it("attempts the legacy path without DecompressionStream and explains the browser requirement", async () => {
   vi.stubGlobal("DecompressionStream", undefined);
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response('"H4sI"')));
+  mockDatasetFetch('"H4sI"');
   const { loadCardDatabase } = await import("./load-db");
   await expect(loadCardDatabase(vi.fn())).rejects.toThrow("doesn't support DecompressionStream");
   expect(TestWorker.instances).toHaveLength(0);
+});
+
+it("terminates the worker when the manifest fails, without fetching unversioned card data", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("", { status: 503 })));
+  const { loadCardDatabase } = await import("./load-db");
+  await expect(loadCardDatabase(vi.fn())).rejects.toThrow("Could not load dataset manifest");
+  expect(TestWorker.instances[0].postMessage).not.toHaveBeenCalled();
+  expect(TestWorker.instances[0].terminate).toHaveBeenCalledTimes(1);
 });
