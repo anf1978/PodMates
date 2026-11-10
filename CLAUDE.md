@@ -1,8 +1,8 @@
 # PodMates
 
 Commander (MTG) playgroup companion: deck analysis ("Deck Chart"), pod social features (MyPods) and the PriceScry
-price tool. Today the app is **one ~4.3 MB `index.html`** (HTML + CSS + JS + bot-managed data), plus
-hand-maintained datasets in `public/data/`, served by Vite.
+price tool. Today the app is **one ~1.27 MB `index.html`** (HTML + CSS + inline JS), plus
+datasets in `public/data/`, served by Vite.
 Full context: [docs/overview.md](docs/overview.md) · Plan: [docs/refactor-plan.md](docs/refactor-plan.md)
 Terms: [glossary](docs/glossary.md) · Decisions (Proposed until human agreement):
 [D1](docs/adr/0001-development-workflow.md), [D2](docs/adr/0002-ui-approach.md),
@@ -42,7 +42,8 @@ for build-only validation, the human Pages source switch and rollback.
 `tests/golden/harness.ts` loads the inline engine through `source.mjs`, using `/* @golden:<block>:start */` /
 `:end` markers rather than line numbers. Preserve the markers when moving code. Blocks cover engine, lookup,
 corpus, sample decks, card decoding, suggestion legality and combo outcomes; no app startup, DOM or network runs.
-Corpus and sample bindings are populated from `public/data/*.json`; fixture regeneration reads the extracted
+Corpus and sample bindings are populated from `public/data/*.json`; win-rates use the pinned
+`tests/golden/fixtures/winrates.json`, never the weekly publication. Fixture regeneration reads the extracted
 gzip/base64 Spellbook string, while ordinary golden tests keep using the pinned Spellbook fixture.
 
 The current library has **178 decks** (the prompt's 174 predates four Star Trek decks). Fixtures pin 7,621 card
@@ -76,13 +77,14 @@ trusted repository code, not a sandbox.
 
 ## Golden rules
 
-1. **Always start from the latest `main`.** Weekly bots rewrite data lines inside `index.html` on `main`; editing an
-   older copy silently reverts that data (this has happened — see overview §5.1).
+1. **Start from the latest stack base.** Follow `docs/prompts/00-README.md` for refactor sessions.
+   Weekly bots publish data separately and never rewrite application source.
 2. **Never regenerate, re-download or re-upload the whole `index.html`.** Edit only the lines you need.
-3. **Never touch the bot-managed lines** (the weekly workflows splice them via `.github/scripts/splice-*.mjs`):
-   - `const CARD_DB_COMPRESSED_B64 = …` — `rebuild-card-database.yml`
-   - `const IX_TAGS_JSON = …` — `rebuild-card-database.yml`
-   - `const COMMANDER_TIER_DATA = …` — `rebuild-winrate-database.yml`
+3. **Never edit `public/data/**` by hand.** Update the pipeline or reproduce an extraction instead.
+   Weekly workflows publish validated `cards.json`, `tags.json` and `winrates.json` on the `data` branch;
+   deploy copies them into `dist/data/` and records exact revision/hashes in `build-manifest.json`.
+   Branch-dispatched rebuilds use `data-<source-branch>` instead, never production `data`.
+   Committed snapshots support local development and CI without a data branch.
 4. **Never change Firestore paths or field names** (`users/{uid}/…`, `pods/{podId}/…`). Real user data depends on them.
 5. **Open a PR; never push to `main`.** One feature or fix per PR.
 6. No behaviour change unless asked (no visual, score or data-model changes as side effects).
@@ -100,14 +102,11 @@ trusted repository code, not a sandbox.
 
 ### Huge single-line data blobs still in HTML — do not print
 
-| ~Line | Identifier (grep for this)                      |   Size | Managed by            |
-| ----: | ----------------------------------------------- | -----: | --------------------- |
-|     6 | `<link rel="icon"` (inline base64 PNG)          |  11 KB | hand                  |
-|  1450 | `<img src="data:image/jpeg;base64` (header art) |  25 KB | hand                  |
-|  2158 | `const HARD_COMBOS =`                           |  10 KB | hand-curated          |
-|  4260 | `const COMMANDER_TIER_DATA =`                   |  85 KB | **bot — do not edit** |
-|  4879 | `const CARD_DB_COMPRESSED_B64 =`                | 2.9 MB | **bot — do not edit** |
-|  6749 | `const IX_TAGS_JSON =`                          |   5 KB | **bot — do not edit** |
+| ~Line | Identifier (grep for this)                      |  Size | Managed by   |
+| ----: | ----------------------------------------------- | ----: | ------------ |
+|     6 | `<link rel="icon"` (inline base64 PNG)          | 11 KB | hand         |
+|  1450 | `<img src="data:image/jpeg;base64` (header art) | 25 KB | hand         |
+|  2158 | `const HARD_COMBOS =`                           | 10 KB | hand-curated |
 
 Also long (avoid printing): `SOFT_SYNERGIES` (2200).
 
@@ -123,6 +122,12 @@ files from pre-extraction HTML; its optional `--replace-inline` flag performs th
 bar. `loadStaticDatasets()` assigns the legacy bindings and builds `KNOW_MAP` before card DB initialization.
 Try-a-Deck and Impact wait for this promise even on an early click. Spellbook fetch/decode remains inside its
 existing optional fallback path; DB-ready waits for it to settle. Required dataset failures use the boot error UI.
+
+The same loader fetches `cards.json` (unchanged gzip/base64 string), `tags.json` and `winrates.json` before
+DB initialization; it populates `CARD_DB_COMPRESSED_B64`, `IX_TAGS_JSON` / `IX_TAGS` and `COMMANDER_TIER_DATA`.
+`scripts/extract-bot-datasets.mjs` reproduces the fallback snapshots from pre-cutover HTML and pins win-rates
+for golden tests. Both splice scripts have been deleted. Publish/assemble helpers in `.github/scripts/`
+validate dataset shapes/counts and SHA-256 manifests; publication is lease-protected and serialized.
 
 ## Line map (approximate — always re-grep the identifier)
 
@@ -182,7 +187,8 @@ existing optional fallback path; DB-ready waits for it to settle. Required datas
 |       18401 | Cloud: pod impact settings                              | `async function cloudLoadImpactSettings`                                                                          |
 |       18480 | Cloud bridge exposed to ordinary scripts                | `window.PodmatesCloud = {`                                                                                        |
 
-Line numbers checked after P2-1 extraction from `main` @ `0700f8e`. Refresh this map when your change moves things noticeably.
+Line numbers above are from P2-1; P2-2 replaces three declarations in place and adds six boot lines.
+After `loadStaticDatasets()` (5267), later regions are about six lines later. Refresh this map when code moves noticeably.
 
 ## Gotchas
 

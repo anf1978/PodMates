@@ -123,12 +123,16 @@ only replaces their loader import URLs. See [deploy.md](./deploy.md) for the Git
 | `#notif-script`                   |    153 |  12 KB | Notifications inbox (IIFE)                                                                               |
 | `<script type="module">`          |  1,363 |  74 KB | Firebase SDK (from gstatic CDN) + `window.PodmatesCloud` bridge (~90 functions)                          |
 
-The HTML is now 4.30 MB, down from 5.53 MB; nine extracted datasets total 1.24 MB on disk.
-The bot-managed data still dominates the HTML; the legacy application functions still share the global scope.
+The HTML is now 1.27 MB, down from 5.53 MB; all large datasets are external JSON.
+The legacy application functions still share the global scope.
 
 ### 3.3 Datasets
 
-The three bot-managed constants remain embedded in `index.html` until P2-2. The other datasets listed below
+The three bot-managed constants now load from `cards.json`, `tags.json` and `winrates.json` through
+`loadDataset()` before DB-ready, retaining their original global names and encodings. Committed snapshots
+under `public/data/` are the local-dev/CI fallback; deploy overlays the validated `data` branch publication.
+Never edit generated data by hand. `scripts/extract-bot-datasets.mjs` reproduces this cutover from older HTML.
+The other datasets listed below
 (except the small code-like tables) are now `public/data/<CONSTANT>.json`, extracted without changing their
 runtime values by `scripts/extract-static-datasets.mjs`. Spellbook retains its original gzip/base64 encoding.
 
@@ -146,8 +150,9 @@ runtime values by `scripts/extract-static-datasets.mjs`. Spellbook retains its o
 
 The refactor's regression baseline lives in `tests/golden/`: a DOM-free Node VM harness snapshots the full
 analysis and five axis scores for all **178 sample decks** (four more than the historical 174 above).
-Its card and Spellbook subsets are committed, so weekly data updates cannot move the expected results.
-`npm run golden:fixture` deliberately regenerates them and verifies parity against the HTML card DB and extracted Spellbook;
+Its card and Spellbook subsets and win-rates are pinned in `tests/golden/fixtures/`, so weekly data updates
+cannot move the expected results. `npm run golden:fixture` deliberately regenerates the cards/Spellbook
+and verifies parity against the extracted datasets;
 `npm run golden` checks snapshots and also runs through `npm run check`. No floats are rounded.
 
 ### 3.4 Boot sequence
@@ -194,8 +199,8 @@ offline copy. The only local copy is one the user downloads via _My Data_ backup
 
 | Workflow                                            | Trigger                | What it does                                                                                      | Output                                                           |
 | --------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `rebuild-card-database.yml`                         | Mon 06:00 UTC + manual | Scryfall oracle bulk → `build-card-db.mjs`; tags → `fetch-function-tags.mjs`                      | **Rewrites `index.html` on `main`** via `splice-card-db.mjs`     |
-| `rebuild-winrate-database.yml`                      | Mon 07:00 UTC + manual | Scans Playgroup.gg per-commander API                                                              | **Rewrites `index.html` on `main`** via `splice-winrate-db.mjs`  |
+| `rebuild-card-database.yml`                         | Mon 06:00 UTC + manual | Scryfall oracle bulk → `build-card-db.mjs`; tags → `fetch-function-tags.mjs`                      | `cards.json` + `tags.json` on force-updated `data` branch        |
+| `rebuild-winrate-database.yml`                      | Mon 07:00 UTC + manual | Scans Playgroup.gg per-commander API                                                              | `winrates.json` on the same `data` branch                        |
 | `pricescry-daily.yml`                               | Daily 06:30 UTC        | Snapshot prices, FX, MTGJSON, tcgcsv, movers, spoiler radar, shadow predictions, cheap-pick watch | Force-pushes `pricescry-data` branch (512 gzip shards + reports) |
 | `pricescry-backfill.yml`                            | manual, run-once       | 90 days of MTGJSON history                                                                        | `pricescry-data`                                                 |
 | `pricescry-backtest.yml`, `pricescry-bulkjump.yml`  | manual                 | Research backtests                                                                                | Workflow artifacts                                               |
@@ -204,6 +209,17 @@ offline copy. The only local copy is one the user downloads via _My Data_ backup
 | `pricescry-probe.yml`, `pricescry-tcgcsv-probe.yml` | manual                 | One-off investigation of data sources                                                             | Logs/artifact                                                    |
 
 Secrets used: `GITHUB_TOKEN`, `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `ANTHROPIC_API_KEY`.
+
+The weekly publishers validate counts/shapes before writing a SHA-256 manifest, preserve the other workflow's
+datasets and force-update an orphan data commit with an explicit lease. A shared concurrency group prevents
+lost updates. A failed tag fetch logs a warning and keeps the previous validated lists; malformed fetched tags
+abort publication. Rebuilds never commit to application source. Non-main dispatches publish only to
+`data-<source-branch>` for safe validation.
+
+Successful main rebuilds trigger `deploy.yml` through `workflow_run` (token pushes do not trigger `push`).
+Deployment pins the data branch SHA, checks hashes and copies the files into `dist/data/`; its
+`build-manifest.json` and job summary record that revision and every hash. If no data branch exists yet,
+the committed snapshots are validated and used explicitly. Existing but invalid publications fail the build.
 
 ### 3.7 Things the app depends on that are _not_ in this repo
 

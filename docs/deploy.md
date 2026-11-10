@@ -22,23 +22,34 @@ publish even if that input is enabled. No PR-preview hosting environment is crea
 
 ### Weekly data refreshes
 
-The card and commander win-rate rebuilds push `index.html` using `GITHUB_TOKEN`. Those pushes **do
+The card and commander win-rate rebuilds publish JSON files to the force-updated `data` branch using
+`GITHUB_TOKEN`, never to application source. Those pushes **do
 not trigger `push` workflows**. Instead, deployment listens for successful `workflow_run` completion
 of `Rebuild Card Database` and `Rebuild Commander Win-Rate Database`, restricted to runs on `main`.
 Failed rebuilds do not deploy; a successful no-change rebuild can harmlessly redeploy.
 
-The downstream checkout explicitly uses the latest `main`, not the upstream run's `head_sha`, which
-predates the bot's new commit. This includes the freshly spliced data. No PAT, additional secret or
+The downstream checkout explicitly uses the latest `main`, not the upstream run's `head_sha`.
+After building, `assemble-datasets.mjs` resolves an exact data revision, validates the publication's hashes
+and copies the three bot datasets into `dist/data/`. `dist/data/build-manifest.json` and the Actions summary
+record the revision and hashes. If the branch does not exist yet, validated committed fallback snapshots
+are used; a malformed existing publication fails rather than silently reverting data. No PAT, additional secret or
 write permission on the rebuild token is needed. Both workflow files must first be on the default
 branch for this trigger to work. Keep the workflow names in sync if renaming either rebuild.
+
+Both publishers share a concurrency group, preserve the other dataset files, and use an explicit push lease
+to reject concurrent updates. Every published revision is an orphan commit, avoiding weekly data history.
+Optional tag-fetch failures retain the previous validated tags with a warning; invalid supplied tags abort.
+Manual rebuilds on non-main branches publish to `data-<source-branch>`, never production `data`.
+For build-only verification, dispatch Deploy Pages on the source branch with **data_ref** set to that
+test data branch. Main deployments always use `data`, regardless of the input.
 
 See GitHub's [token-trigger rules](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow#triggering-a-workflow-from-a-workflow)
 and [`workflow_run` documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run).
 
 ## Build contents and URL parity
 
-The interim Vite plugin copies `index.html` verbatim, preserving inline scripts, embedded card data,
-artwork and the favicon. Vite copies `public/` verbatim too. The files used by the branch-served site
+The interim Vite plugin preserves inline scripts, artwork and the favicon while substituting the bundled
+dataset-loader URL. Vite copies `public/` verbatim too, including the fallback datasets. The files used by the branch-served site
 are preserved at the same relative URLs under `/PodMates/`:
 
 | Before (repository root) | Source now                     | Build output                 |
@@ -51,7 +62,8 @@ are preserved at the same relative URLs under `/PodMates/`:
 | `icon-maskable-512.png`  | `public/icon-maskable-512.png` | `dist/icon-maskable-512.png` |
 
 The manifest's three icon URLs, `start_url` and `scope` remain relative. There is no local service
-worker or other local script, stylesheet or runtime dataset URL to copy at this stage. Firebase CDN
+worker. The bundled loader fetches `data/*.json` relative to the app base; the deployment assembly replaces
+only `cards.json`, `tags.json` and `winrates.json`. Firebase CDN
 modules, Google Fonts, Scryfall art/API, Tesseract CDN assets, the deployed deck-sync Worker and
 PriceScry's raw `pricescry-data` branch URLs remain external; they are not part of `dist/`.
 `deck-link-sync-worker.js` is Worker deployment source, not a browser-loaded script. Repository docs,
