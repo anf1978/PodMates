@@ -2,6 +2,7 @@
 // in index.html. `window.pmUi` is the typed surface; the other names are exactly the
 // functions those scripts already call. Add no behaviour here; delete it with the last caller.
 
+import { closeAllModals, closeModal, openModal, openModals } from "./modal.ts";
 import { ordinal } from "./format.ts";
 import { radarChartSvg } from "./radar-chart.ts";
 import { setStatusText } from "./status.ts";
@@ -10,6 +11,10 @@ import { showToast } from "./toast.ts";
 import { setupIconTooltips } from "./tooltip.ts";
 
 const pmUi = Object.freeze({
+  openModal,
+  closeModal,
+  openModals,
+  closeAllModals,
   selectTab,
   tabsByAttribute,
   radarChartSvg,

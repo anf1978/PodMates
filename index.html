@@ -4569,9 +4569,13 @@ async function ixShowSuggestions() {
   if (!loadingOverlay || !loadingOverlay.isConnected || !ixLastCtx) return;
   closeTryADeckModal();
   let data; try { data = buildInteractionSuggestions(ixLastCtx); } catch (e) { data = { items: [] }; }
-  let ov = document.getElementById('ixSugOverlay'); if (ov) ov.remove();
-  ov = document.createElement('div'); ov.id = 'ixSugOverlay';
-  ov.style.cssText = 'position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.65); display:flex; align-items:flex-end; justify-content:center;';
+  window.pmUi.closeModal(document.getElementById('ixSugOverlay'));
+  // A bottom sheet styled inline; its inner box carries the dialog role and name.
+  const sheet = window.pmUi.openModal({
+    overlayClass: '', overlayId: 'ixSugOverlay', modalClass: null, role: null,
+    overlayStyle: 'position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.65); display:flex; align-items:flex-end; justify-content:center;',
+  });
+  const ov = sheet.overlay;
   const inDeckNames = new Set(((ixLastCtx && ixLastCtx.matched) || []).map(m => String(m.card.n).toLowerCase()));
   const body = data.items.length ? data.items.map((it, ix) => {
     const isCard = inDeckNames.has(String(it.title).replace(/ \(commander\)$/, '').toLowerCase());
@@ -4595,10 +4599,7 @@ async function ixShowSuggestions() {
     <div style="display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; z-index:5; background:var(--bg-card, #14121a); margin:-16px -16px 10px; padding:14px 16px 10px; border-bottom:1px solid var(--line);"><div style="font-family:'Cinzel',Georgia,serif; font-size:13px; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold);">Cards you could add</div><button type="button" id="ixSugClose" style="background:none; border:1px solid var(--line-strong); color:var(--text-primary); border-radius:8px; padding:4px 12px; cursor:pointer; text-transform:none; letter-spacing:normal;">Close</button></div>
     ${body}
     <div style="font-size:11.5px; color:var(--text-soft);">Searched from the full card list: inside your commander's colours, not banned, not already in the deck. Cards that rank high on community best-of lists come first (\u2605), then cheaper cards. Ideas, not instructions.</div></div>`;
-  document.body.appendChild(ov);
-  const close = () => ov.remove();
-  ov.addEventListener('click', e => { if (e.target === ov) close(); });
-  document.getElementById('ixSugClose').addEventListener('click', close);
+  document.getElementById('ixSugClose').addEventListener('click', () => sheet.close());
 }
 // ===== END INTERACTION PACKAGES =====
 // ===== COMBOS POPUP (display only) =====
@@ -5335,13 +5336,7 @@ function gameChangerChips(names) {
 // without ever asking). Building this in plain HTML/JS removes that
 // uncertainty entirely, same fix pattern as the earlier sync-transport work.
 function showConfirmModal(message, onConfirm) {
-  injectTryADeckStyles();
-  closeTryADeckModal();
-  const overlay = document.createElement('div');
-  overlay.className = 'tad-overlay';
-  overlay.id = 'tadOverlay';
-  const modal = document.createElement('div');
-  modal.className = 'tad-modal';
+  const { modal } = openTadOverlay();
   modal.innerHTML = `
     <p style="font-size:14px; color:var(--text-primary); line-height:1.6; margin:6px 0 20px;">${escapeHtml(message)}</p>
     <div class="row" style="justify-content:flex-end; gap:10px;">
@@ -5349,14 +5344,11 @@ function showConfirmModal(message, onConfirm) {
       <button id="confirmModalOkBtn" class="ghost" style="border-color:var(--danger); color:var(--danger);">Delete</button>
     </div>
   `;
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
   document.getElementById('confirmModalCancelBtn').addEventListener('click', closeTryADeckModal);
   document.getElementById('confirmModalOkBtn').addEventListener('click', () => {
     closeTryADeckModal();
     onConfirm();
   });
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
 }
 
 // A more general confirm dialog than showConfirmModal above, which is
@@ -5389,13 +5381,8 @@ function buildEndGatheringConfirmHtml(battleInProgress) {
 }
 
 function showActionConfirmModal(message, confirmLabel, onConfirm, onCancel, cancelLabel) {
-  injectTryADeckStyles();
-  closeTryADeckModal();
-  const overlay = document.createElement('div');
-  overlay.className = 'tad-overlay';
-  overlay.id = 'tadOverlay';
-  const modal = document.createElement('div');
-  modal.className = 'tad-modal';
+  const cancel = () => { closeTryADeckModal(); if (onCancel) onCancel(); };
+  const { modal } = openTadOverlay({ onDismiss: cancel });
   modal.innerHTML = `
     <p style="font-size:14px; color:var(--text-primary); line-height:1.6; margin:6px 0 20px;">${escapeHtml(message)}</p>
     <div class="row" style="justify-content:flex-end; gap:10px;">
@@ -5403,11 +5390,7 @@ function showActionConfirmModal(message, confirmLabel, onConfirm, onCancel, canc
       <button id="actionConfirmOkBtn">${escapeHtml(confirmLabel)}</button>
     </div>
   `;
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
-  const cancel = () => { closeTryADeckModal(); if (onCancel) onCancel(); };
   document.getElementById('actionConfirmCancelBtn').addEventListener('click', cancel);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) cancel(); });
   document.getElementById('actionConfirmOkBtn').addEventListener('click', () => {
     closeTryADeckModal();
     onConfirm();
@@ -5833,15 +5816,16 @@ async function pricescryTryPassword(value) {
   try { new MutationObserver(muts => { for (const m of muts) m.addedNodes.forEach(n => { if (n.nodeType === 1 && n.classList && n.classList.contains('tad-overlay')) watch(n); }); }).observe(document.body, { childList: true }); } catch (e) {}
 })();
 function closePriceScry() {
-  const o = document.getElementById('pricescryOverlay');
-  if (o) o.remove();
-  document.body.style.overflow = '';
+  window.pmUi.closeModal(document.getElementById('pricescryOverlay'));
 }
 function openPriceScry() {
   closePriceScry();
   closeTryADeckModal();
-  const o = document.createElement('div');
-  o.id = 'pricescryOverlay'; o.className = 'ps-overlay';
+  // A full, opaque screen: only Close or Escape leaves it, never a stray click.
+  const o = window.pmUi.openModal({
+    overlayClass: 'ps-overlay', overlayId: 'pricescryOverlay', modalClass: null, label: 'PriceScry',
+    dismissOnBackdrop: false, onDismiss: closePriceScry,
+  }).overlay;
   o.innerHTML = `<div class="ps-wrap">
     <div class="ps-head"><div class="ps-title">PriceScry</div><button class="ghost" id="psClose">Close ×</button></div>
     <div id="psAsOf" class="ps-asof">Loading…</div>
@@ -5850,8 +5834,6 @@ function openPriceScry() {
     <div class="ps-foot">Information only, not financial advice. Prices come from Scryfall and MTGJSON (TCGplayer, Cardmarket, Card Kingdom, Manapool), shown in yen at the day's exchange rate, and refresh once a day. History starts on the first day the data was collected, plus about 90 days back-filled from MTGJSON. Japanese shop prices are being added.</div>
   </div>`;
   psState.q = ''; psState.origin = null;
-  document.body.appendChild(o);
-  document.body.style.overflow = 'hidden';
   document.getElementById('psClose').addEventListener('click', closePriceScry);
   o.querySelectorAll('[data-ps-tab]').forEach(b => b.addEventListener('click', () => psSetTab(b.getAttribute('data-ps-tab'))));
   psLoadIndex().then(() => psSetTab('search'));
@@ -7336,26 +7318,15 @@ function renderMyDecksList(modal, myDecks, isWelcome) {
 // anywhere else a deck list like this one shows up) when it closes --
 // same pattern as the card art popup, and for the same reason.
 function openDeckSummaryPopup(deck) {
-  injectTryADeckStyles();
-  const existing = document.getElementById('tadDeckSummaryOverlay');
-  if (existing) existing.remove(); // only replace a PREVIOUS summary popup, never whatever it was opened from
-  const overlay = document.createElement('div');
-  overlay.className = 'tad-overlay tad-stacked-overlay';
-  overlay.id = 'tadDeckSummaryOverlay';
-  overlay.style.zIndex = '10001'; // above both the base .tad-overlay (1000) and icon tooltips (9999)
-  const modal = document.createElement('div');
-  modal.className = 'tad-modal';
-  modal.style.maxWidth = '420px';
+  // Stacked: replaces only a PREVIOUS summary popup, never whatever it was opened from.
+  const { modal } = openTadOverlay({ stacked: true, id: 'tadDeckSummaryOverlay', modalStyle: 'max-width:420px' });
   modal.innerHTML = `
     <button class="tad-close" id="tadDeckSummaryCloseBtn">Close ×</button>
     <h2 style="margin-bottom:4px; font-size:17px;">${escapeHtml(deck.name)}</h2>
     ${renderMyDeckSummary(deck)}
   `;
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
-  const closePopup = () => { const el = document.getElementById('tadDeckSummaryOverlay'); if (el) el.remove(); };
+  const closePopup = () => window.pmUi.closeModal(document.getElementById('tadDeckSummaryOverlay'));
   document.getElementById('tadDeckSummaryCloseBtn').addEventListener('click', closePopup);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closePopup(); });
 
   // renderMyDeckSummary already builds its own "Open in Deck Chart" button
   // (data-action="open-chart") -- wired here rather than through the
@@ -8766,19 +8737,9 @@ function updateAuthBar(user) {
 }
 
 function showInfoModal(headerHtml, bodyHtml) {
-  injectTryADeckStyles(); // shares the .tad-overlay / .tad-modal styles
-  closeTryADeckModal();
-  const overlay = document.createElement('div');
-  overlay.className = 'tad-overlay';
-  overlay.id = 'tadOverlay';
-  const modal = document.createElement('div');
-  modal.className = 'tad-modal';
-  modal.style.maxWidth = '460px';
+  const { modal } = openTadOverlay({ modalStyle: 'max-width:460px' });
   modal.innerHTML = `<button class="tad-close" id="tadCloseBtn">Close ×</button>` + headerHtml + bodyHtml;
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
 }
 
 // ===========================================================================
@@ -9216,25 +9177,14 @@ async function showSingleCardArtModal(name) {
   // back out of. A stacked layer fixes both the loss-of-context and
   // keeps the (still slightly redundant, but now harmless) click cheap
   // to dismiss.
-  const existingArt = document.getElementById('tadArtOverlay');
-  if (existingArt) existingArt.remove(); // only replace a PREVIOUS art popup, never the parent overlay underneath
-  const overlay = document.createElement('div');
-  overlay.className = 'tad-overlay tad-stacked-overlay';
-  overlay.id = 'tadArtOverlay';
-  overlay.style.zIndex = '10001'; // above both the base .tad-overlay (1000) and icon tooltips (9999)
-  const modal = document.createElement('div');
-  modal.className = 'tad-modal';
-  modal.style.maxWidth = '340px';
+  const { modal } = openTadOverlay({ stacked: true, id: 'tadArtOverlay', modalStyle: 'max-width:340px' });
   modal.innerHTML = `
     <button class="tad-close" id="tadArtCloseBtn">Close ×</button>
     <h2 style="margin-bottom:12px; font-size:16px;">${escapeHtml(name)}</h2>
     <div id="singleCardArtArea" style="text-align:center; color:var(--text-soft); font-size:13px;">Loading art…</div>
   `;
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
-  const closeArt = () => { const el = document.getElementById('tadArtOverlay'); if (el) el.remove(); };
+  const closeArt = () => window.pmUi.closeModal(document.getElementById('tadArtOverlay'));
   document.getElementById('tadArtCloseBtn').addEventListener('click', closeArt);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeArt(); });
 
   const url = await fetchCardImageUrl(name, 'normal');
   const artArea = document.getElementById('singleCardArtArea');
@@ -9644,9 +9594,31 @@ function renderTryADeckModal() {
   });
 }
 
+// Opens the shared .tad-overlay / .tad-modal dialog through src/ui/modal.ts, which adds
+// Escape, a focus trap, focus restore, scroll lock and stacking. A base layer (id tadOverlay)
+// replaces whatever base layer is open. A stacked layer ({ stacked: true, id }) sits on top
+// and replaces only a previous layer with the same id. onDismiss is what Escape and a
+// backdrop click do; by default they close the layer, as its Close button does.
+// Returns { overlay, modal, handle }.
+function openTadOverlay(opts = {}) {
+  injectTryADeckStyles();
+  if (opts.stacked) window.pmUi.closeModal(document.getElementById(opts.id));
+  else closeTryADeckModal();
+  const handle = window.pmUi.openModal({
+    overlayClass: opts.stacked ? 'tad-overlay tad-stacked-overlay' : 'tad-overlay',
+    overlayId: opts.id || 'tadOverlay',
+    // Stacked layers sit above both the base .tad-overlay (1000) and icon tooltips (9999).
+    overlayStyle: opts.stacked ? 'z-index:10001' : undefined,
+    modalClass: opts.modalClass || 'tad-modal',
+    modalId: opts.modalId,
+    modalStyle: opts.modalStyle,
+    onDismiss: opts.onDismiss || (opts.stacked ? (reason, layer) => layer.close() : closeTryADeckModal),
+  });
+  return { overlay: handle.overlay, modal: handle.dialog, handle };
+}
+
 function closeTryADeckModal() {
-  const overlay = document.getElementById('tadOverlay');
-  if (overlay) overlay.remove();
+  window.pmUi.closeModal(document.getElementById('tadOverlay'));
   // Any stacked layer (card art, deck summary) opened on top of the base
   // overlay is scoped to it -- if the base overlay is going away, anything
   // stacked on it should go too, or it's left floating on top of whatever
@@ -9659,7 +9631,7 @@ function closeTryADeckModal() {
   // than needing each one individually updated -- and covers whatever
   // gets stacked next too, without needing to remember to update this
   // again each time.
-  document.querySelectorAll('.tad-stacked-overlay').forEach(el => el.remove());
+  document.querySelectorAll('.tad-stacked-overlay').forEach(el => window.pmUi.closeModal(el));
 }
 
 // ---- Scan Cards from Photo: client-side OCR, matched by scanning the

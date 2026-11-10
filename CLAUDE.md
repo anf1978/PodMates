@@ -142,6 +142,15 @@ raw-markup path, and ESLint forbids importing lit-html anywhere else. `src/ui` m
 `src/shared`. `src/styles/tokens.css` (the `:root` custom properties) and `base.css` (page-wide rules) are
 linked before the first inline `<style>`, so the cascade is unchanged; the build emits them as hashed assets.
 
+Overlays open through `src/ui/modal.ts` (`pmUi.openModal`/`closeModal`). It owns Escape, the Tab trap, focus
+restore, body scroll lock and stacking; looks still come from the overlay's own classes. In `index.html`,
+`openTadOverlay(opts)` wraps it for `.tad-overlay`/`.tad-modal` dialogs: a base layer (`#tadOverlay`) replaces
+the open one, `{ stacked: true, id }` layers on top, and `onDismiss` keeps the site's backdrop/Escape behaviour.
+Close with `closeTryADeckModal()` or `pmUi.closeModal(el)` rather than `el.remove()`, so focus and scroll are
+restored at once (a removed layer is otherwise only pruned by a MutationObserver).
+Set dialog width through `modalStyle`; assigning `style.cssText` afterwards drops `outline:none`.
+`tests/e2e/modal.spec.ts` covers focus, Escape, backdrop, stacking and PriceScry.
+
 ### Extracted hand-maintained datasets
 
 `public/data/<CONSTANT>.json` holds `SPELLBOOK_SNAPSHOT_B64`, `KNOW_JSON`, `IMPACT_CANDS`,
