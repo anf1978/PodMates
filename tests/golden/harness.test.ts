@@ -13,6 +13,7 @@ it.each([
   expect(() => extractBlock(source, "test")).toThrow("Expected exactly one golden block");
 });
 
+// Two complete library passes exceed Vitest's default 5s on hosted runners.
 it("keeps analysis independent of refreshed embedded card and Spellbook blobs", () => {
   const html = readFileSync(htmlUrl, "utf8");
   const changed = html.replace(
@@ -27,4 +28,4 @@ it("keeps analysis independent of refreshed embedded card and Spellbook blobs", 
       stableJson(original.analyzeSample(sample)),
     );
   }
-});
+}, 15_000);
