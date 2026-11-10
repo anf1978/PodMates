@@ -33,6 +33,15 @@ async function expectAnalysis(page: Page) {
     await expect(page.locator(content)).toBeVisible();
     await expect(page.locator(content)).not.toBeEmpty();
   }
+
+  // The panels moved into src/features/deck-chart draw real content, not just a container.
+  await expect(page.locator("#manaCurveArea svg.dc-curve-svg polyline")).toBeVisible();
+  await expect(
+    page.locator("#typeTableArea table.type-table tbody tr.dc-type-row").first(),
+  ).toBeVisible();
+  await expect(page.locator("#typeTableArea .dc-bucket-bar")).toHaveCount(8);
+  await expect(page.locator("#manaBaseArea .dc-mb-row").first()).toBeVisible();
+  await expect(page.locator("#legalityBadge")).toHaveClass(/dc-badge-(ok|notes)/);
 }
 
 test("card DB loads, a sample deck charts, and a pasted decklist analyses", async ({ page }) => {

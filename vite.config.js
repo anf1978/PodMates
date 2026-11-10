@@ -18,6 +18,7 @@ export default defineConfig({
           ["cloudLimits", "./src/services/cloud/limits-global.ts"],
           ["cloud", "./src/services/cloud/index.ts"],
           ["ui", "./src/ui/legacy-globals.ts"],
+          ["deckChart", "./src/features/deck-chart/legacy-globals.ts"],
         ]) {
           const loader = Object.values(bundle).find(
             (output) => output.type === "chunk" && output.isEntry && output.name === name,
@@ -25,11 +26,14 @@ export default defineConfig({
           if (!loader) throw new Error(`Missing ${name} loader entry`);
           html = html.replaceAll(source, `./${loader.fileName}`);
         }
-        for (const stylesheet of ["tokens.css", "base.css"]) {
-          const source = `./src/styles/${stylesheet}`;
+        for (const source of [
+          "./src/styles/tokens.css",
+          "./src/styles/base.css",
+          "./src/features/deck-chart/deck-chart.css",
+        ]) {
           const reference = this.emitFile({
             type: "asset",
-            name: stylesheet,
+            name: source.split("/").pop(),
             source: readFileSync(new URL(source, import.meta.url), "utf8"),
           });
           html = html.replaceAll(source, `./${this.getFileName(reference)}`);
@@ -55,6 +59,9 @@ export default defineConfig({
         ),
         cloud: fileURLToPath(new URL("./src/services/cloud/index.ts", import.meta.url)),
         ui: fileURLToPath(new URL("./src/ui/legacy-globals.ts", import.meta.url)),
+        deckChart: fileURLToPath(
+          new URL("./src/features/deck-chart/legacy-globals.ts", import.meta.url),
+        ),
       },
       preserveEntrySignatures: "strict",
     },

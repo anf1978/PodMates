@@ -128,6 +128,27 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // Features own one area of the app each. A feature may use the UI primitives, the
+    // engine, the card modules, the cloud repositories and the static data -- but never
+    // another feature, so the boundaries stay one-way and each can move on its own.
+    files: ["src/features/**/*.{ts,js,mjs}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["../../features/*/**", "../../../features/*/**"],
+              message: "Features must not import each other; lift shared code into src/ui.",
+            },
+            firebaseOnlyInCloud,
+            litHtmlOnlyViaUi,
+          ],
+        },
+      ],
+    },
+  },
   ...engineBoundary("src/engine/*.{ts,js,mjs}", "../"),
   ...engineBoundary("src/engine/axes/**/*.{ts,js,mjs}", "../../"),
   {
