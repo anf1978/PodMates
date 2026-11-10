@@ -14,6 +14,7 @@ export default defineConfig({
           ["datasets", "./src/data/load-dataset.ts"],
           ["cardDb", "./src/cards/load-db.ts"],
           ["cardsLegacy", "./src/cards/legacy-globals.ts"],
+          ["engineLegacy", "./src/engine/legacy-globals.ts"],
         ]) {
           const loader = Object.values(bundle).find(
             (output) => output.type === "chunk" && output.isEntry && output.name === name,
@@ -36,6 +37,7 @@ export default defineConfig({
         datasets: fileURLToPath(new URL("./src/data/load-dataset.ts", import.meta.url)),
         cardDb: fileURLToPath(new URL("./src/cards/load-db.ts", import.meta.url)),
         cardsLegacy: fileURLToPath(new URL("./src/cards/legacy-globals.ts", import.meta.url)),
+        engineLegacy: fileURLToPath(new URL("./src/engine/legacy-globals.ts", import.meta.url)),
       },
       preserveEntrySignatures: "strict",
     },
