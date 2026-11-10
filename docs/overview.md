@@ -115,7 +115,7 @@ only replaces their loader import URLs. See [deploy.md](./deploy.md) for the Git
 | `<style>` + `#pm-visual-overhaul` | ~1,260 | ~51 KB | All CSS ("Terraria × MTG Arena" theme + overrides)                                                       |
 | `#theme-script`                   |    152 |  11 KB | Colour themes, runs in `<head>`                                                                          |
 | `<body>` markup                   |   ~310 |  45 KB | Static shell: auth bar, header, mode tabs, deck form, result panels                                      |
-| `#engine-script`                  |  2,921 | 288 KB | **Deck Compass** classification & scoring engine (+ curated combos, win-rate data). DOM-free.            |
+| `#engine-script`                  |      6 |  <1 KB | Page-owned engine globals; the **Deck Compass** engine itself is typed, pure `src/engine` (shim module)  |
 | `#lookup-script`                  |    198 |   7 KB | Decklist parsing & card lookup indexes. DOM-free.                                                        |
 | `#data-script`                    |      — | 2.8 MB | `CARD_DB_COMPRESSED_B64` — gzip+base64 Scryfall oracle DB                                                |
 | `#combo-data-script`              |      5 |  <1 KB | `SPELLBOOK_SNAPSHOT_B64` binding; gzip/base64 snapshot now lives in `public/data/`                       |
@@ -123,7 +123,7 @@ only replaces their loader import URLs. See [deploy.md](./deploy.md) for the Git
 | `#notif-script`                   |    153 |  12 KB | Notifications inbox (IIFE)                                                                               |
 | `<script type="module">`          |  1,363 |  74 KB | Firebase SDK (from gstatic CDN) + `window.PodmatesCloud` bridge (~90 functions)                          |
 
-The HTML is now 1.27 MB, down from 5.53 MB; all large datasets are external JSON.
+The HTML is now 1.05 MB, down from 5.53 MB; all large datasets are external JSON.
 The legacy application functions still share the global scope.
 
 ### 3.3 Datasets
