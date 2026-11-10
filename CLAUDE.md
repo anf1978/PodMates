@@ -14,13 +14,28 @@ Use Node.js 22 or newer. Run `npm ci` to install the locked development dependen
 - `npm run dev` — local Vite development server.
 - `npm run build` — produce `dist/`; `index.html` is copied verbatim to preserve its inline scripts.
 - `npm run preview` — serve the production build locally (run the build first).
-- `npm run check` — typecheck + lint + unit tests; must pass before finishing a change.
+- `npm run check` — typecheck + lint + unit/golden tests; must pass before finishing a change.
 - `npm run typecheck`, `npm run lint`, `npm test` — run an individual check.
 - `npm run format` — Prettier; excludes `index.html`, data and lockfiles. Review diffs before committing.
+- `npm run golden` — full analysis and all five axis snapshots for every embedded sample deck.
+- `npm run golden:update` — intentionally accept reviewed engine output changes.
+- `npm run golden:fixture` — regenerate pinned cards/Spellbook from the local HTML; proves full-data parity.
 
 TypeScript is strict for new TypeScript; legacy JavaScript has `checkJs: false` and warn-only lint rules.
-ESLint does not inspect inline HTML scripts yet. Golden and browser tests arrive in the next sessions.
+ESLint does not inspect inline HTML scripts yet. Browser tests arrive in the next session.
 Static icons and the web manifest live in `public/` and keep their original URLs in dev and production.
+
+## Golden harness
+
+`tests/golden/harness.ts` loads the inline engine through `source.mjs`, using `/* @golden:<block>:start */` /
+`:end` markers rather than line numbers. Preserve the markers when moving code. Blocks cover engine, lookup,
+corpus, sample decks, card decoding, suggestion legality and combo outcomes; no app startup, DOM or network runs.
+
+The current library has **178 decks** (the prompt's 174 predates four Star Trek decks). Fixtures pin 7,621 card
+records and 3,397 Spellbook rows, including one-card-away combo candidates so the _whole_ analysis is preserved.
+Ordinary golden/check runs never decode the live data blobs. Regenerate fixtures only deliberately, then review
+the snapshot diff; weekly data refreshes must not automatically update this baseline. JSON object keys are sorted
+recursively; array order and floating-point values are preserved without rounding.
 
 ## Golden rules
 

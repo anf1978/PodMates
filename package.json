@@ -13,6 +13,9 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
+    "golden": "vitest run tests/golden/engine.golden.test.ts",
+    "golden:update": "npm run golden -- --update",
+    "golden:fixture": "node tests/golden/generate-fixture.mjs",
     "check": "npm run typecheck && npm run lint && npm run test"
   },
   "devDependencies": {

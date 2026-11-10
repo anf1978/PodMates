@@ -11,3 +11,5 @@ data/
 **/*.lock
 playwright-report/
 test-results/
+tests/golden/fixtures/
+tests/golden/__snapshots__/

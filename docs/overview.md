@@ -137,6 +137,12 @@ Rough split of the 5.4 MB: **~3.8 MB embedded data on a handful of very long lin
 | `REFERENCE_SCORES`, `REFERENCE_TIERS`, `PRECON_FINGERPRINTS`, `STAPLES_BASELINE`, `MANABASE_BASELINE` | engine run over the reference corpus | scripts **not in repo** |
 | `HARD_COMBOS`, `SOFT_SYNERGIES`, `DEFAULT_IMPACT_CARDS`, `GAME_CHANGER_REASONS`, `TRY_A_DECK_OPTIONS` | hand-curated | edited by hand |
 
+The refactor's regression baseline lives in `tests/golden/`: a DOM-free Node VM harness snapshots the full
+analysis and five axis scores for all **178 currently embedded decks** (four more than the historical 174 above).
+Its card and Spellbook subsets are committed, so weekly data updates cannot move the expected results.
+`npm run golden:fixture` deliberately regenerates them and verifies parity against the full embedded databases;
+`npm run golden` checks snapshots and also runs through `npm run check`. No floats are rounded.
+
 ### 3.4 Boot sequence
 
 1. `#theme-script` applies the saved theme (no colour flash).
