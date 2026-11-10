@@ -158,13 +158,21 @@ and verifies parity against the extracted datasets;
 ### 3.4 Boot sequence
 
 1. `#theme-script` applies the saved theme (no colour flash).
-2. Inline header script shows a staged progress bar + 30 s watchdog for the card DB.
+2. Inline header script shows real dataset/worker progress. Its 30 s watchdog measures progress stalls,
+   not total boot duration.
 3. Engine, lookup and data scripts parse. The app awaits the typed `loadDataset()` loader's cached JSON fetches,
    assigns the original global dataset bindings and builds the knowledge map. Early Try-a-Deck/Impact clicks wait
    for these required datasets; failures appear in the existing boot error UI.
-4. The app decompresses the card DB with `DecompressionStream` and builds lookup indexes on the main thread.
+4. In parallel with the required static datasets, `src/cards/db.worker.ts` fetches `data/cards.json`, decodes its
+   gzip/base64 string with `DecompressionStream`, parses the card records and builds all three name indexes.
+   One structured-clone message carries the records and plain index-entry arrays, preserving shared card identity;
+   the main thread only hydrates `Map`s. There are no transferable buffers in the final string/object graph.
+   `CARD_DB`, `CARD_DB_COMPRESSED_B64`, `indexes` and `buildLookupIndexes` keep their legacy bindings.
+   Missing Worker support (or missing decompression in the worker) uses the shared main-thread decoder/indexer.
+   If `DecompressionStream` is also missing on the main thread, the legacy compatibility error still applies;
+   this step does not introduce a gzip polyfill. Worker errors/stalls terminate it and reach the boot error UI.
    The extracted Spellbook string is fetched and decoded in its existing optional fallback path. Only then does
-   the app set `window.__dbReady`.
+   the app set `window.__dbReady`. Golden tests import the same DOM-free codec without starting a worker.
 5. The Firebase module is deferred (and can run while dataset fetches are pending), signs in anonymously, exposes `window.PodmatesCloud`, and
    dispatches a `podmates-cloud-init` event that the app and notifications script wait for.
 

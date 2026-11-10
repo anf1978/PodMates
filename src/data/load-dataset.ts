@@ -6,15 +6,17 @@ declare global {
     __dbReady?: boolean;
     __dbWatchdogFired?: boolean;
     __dbLoadPct?: number;
+    __dbProgress?: (message?: string, percent?: number) => void;
   }
 }
 
 function reportProgress(name: string) {
   if (typeof document === "undefined" || window.__dbReady || window.__dbWatchdogFired) return;
+  window.__dbProgress?.();
   const message = document.getElementById("dbStatus");
   const fill = document.getElementById("dbLoadFill");
   if (message) message.textContent = `Loading ${name}... (${completed}/${datasets.size} datasets)`;
-  const percent = Math.max(window.__dbLoadPct ?? 8, 8 + (completed / datasets.size) * 70);
+  const percent = Math.max(window.__dbLoadPct ?? 8, 8 + (completed / datasets.size) * 12);
   window.__dbLoadPct = percent;
   if (fill) {
     fill.classList.remove("indeterminate");

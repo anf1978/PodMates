@@ -3,6 +3,7 @@
 import { readFileSync } from "node:fs";
 import { createContext, runInContext } from "node:vm";
 import { gunzipSync } from "node:zlib";
+import { buildLookupIndexes, decodeCardDatabase } from "../../src/cards/db-codec.js";
 
 export const htmlUrl = new URL("../../index.html", import.meta.url);
 export const fixtureUrl = new URL("./fixtures/", import.meta.url);
@@ -34,7 +35,7 @@ export function decodeSpellbook() {
 }
 
 export function createEngine(cards, spellbook, html = readFileSync(htmlUrl, "utf8")) {
-  const context = createContext({});
+  const context = createContext({ buildLookupIndexes });
   for (const name of ["engine", "lookup", "corpus", "samples", "legality", "combo-outcomes"]) {
     const source = extractBlock(html, name).replace(
       /^let (COMMANDER_TIER_DATA|REFERENCE_SCORES|REFERENCE_TIERS|PRECON_FINGERPRINTS|STAPLES_BASELINE|MANABASE_BASELINE|TRY_A_DECK_OPTIONS);$/gm,
@@ -99,6 +100,7 @@ export async function decodeCards(html) {
     TextDecoder,
     setTimeout,
     clearTimeout,
+    decodeCardDatabase,
   });
   runInContext(
     `const CARD_DB_COMPRESSED_B64 = ${JSON.stringify(readDataset("cards"))};\n${extractBlock(html, "decode")}`,

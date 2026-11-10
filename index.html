@@ -1459,30 +1459,29 @@ h1 {
       <div class="db-load-msg" id="dbStatus">Loading card database… should only take a few seconds.</div>
     </div>
     <script>
-      // Staged load UI + watchdog for the ~2.5 MB compressed card database
-      // (decompressed client-side). Inline script parse has no byte-level
-      // progress; we advance a bar on timers and complete/fail when the main
-      // app sets window.__dbReady.
+      // Only real dataset/worker progress resets the 30-second stall watchdog.
       window.__dbWatchdogFired = false;
       window.__dbLoadPct = 8;
       (function() {
         var msg = document.getElementById('dbStatus');
         var fill = document.getElementById('dbLoadFill');
-        function setMsg(t) { if (msg && !window.__dbReady && !window.__dbWatchdogFired) msg.textContent = t; }
-        function setPct(p) {
-          window.__dbLoadPct = p;
-          if (fill && !window.__dbReady && !window.__dbWatchdogFired) {
+        var lastProgress = Date.now();
+        window.__dbProgress = function(message, percent) {
+          if (window.__dbReady || window.__dbWatchdogFired) return;
+          lastProgress = Date.now();
+          if (message && msg) msg.textContent = message;
+          if (typeof percent === 'number') window.__dbLoadPct = Math.max(window.__dbLoadPct, percent);
+          if (fill) {
             fill.classList.remove('indeterminate');
-            fill.style.width = p + '%';
+            fill.style.width = window.__dbLoadPct + '%';
           }
-        }
-        setTimeout(function() { setPct(25); setMsg('Decompressing card data…'); }, 2000);
-        setTimeout(function() { setPct(45); setMsg('Still working — phones can take a few seconds.'); }, 5000);
-        setTimeout(function() { setPct(65); setMsg('Building lookup indexes… almost there.'); }, 10000);
-        setTimeout(function() { setPct(80); setMsg('Nearly there… finishing database setup.'); }, 18000);
-        setTimeout(function() {
-          if (!window.__dbReady && !window.__dbWatchdogFired) {
+        };
+        var watchdog = setInterval(function() {
+          if (window.__dbReady || window.__dbWatchdogFired) {
+            clearInterval(watchdog);
+          } else if (Date.now() - lastProgress >= 30000) {
             window.__dbWatchdogFired = true;
+            clearInterval(watchdog);
             if (fill) {
               fill.classList.remove('indeterminate');
               fill.classList.add('err');
@@ -1490,12 +1489,12 @@ h1 {
             }
             if (msg) {
               msg.className = 'db-load-msg err';
-              msg.innerHTML = 'Database failed to load on this device.<br><br>' +
+              msg.innerHTML = 'Database loading stalled for 30 seconds on this device.<br><br>' +
                 '<strong>Common causes on phones:</strong> a browser without the decompression feature this needs (try updating, or use a recent Chrome/Safari), or the file was truncated when downloading (it should be about <strong>2.5&nbsp;MB</strong>).<br><br>' +
                 'Try: re-download the full file · open in a desktop browser · close other tabs · use Wi‑Fi and wait a full minute on a fresh load.';
             }
           }
-        }, 30000);
+        }, 1000);
       })();
     </script>
   </header>
@@ -4664,34 +4663,11 @@ function detectTableFeel(agg, powerLevel, disruption, winCons) {
 /* @golden:engine:end */
 </script>
 <script id="lookup-script">
+var buildLookupIndexes;
 /* @golden:lookup:start */
 // ============================================================
 // DECK COMPASS — Decklist Parsing & Card Lookup
 // ============================================================
-
-function buildLookupIndexes(db) {
-  const byExactName = new Map();
-  const byFrontFaceName = new Map();
-  const byBackFaceName = new Map();
-
-  for (const card of db) {
-    byExactName.set(card.n.toLowerCase(), card);
-    if (card.n.includes(' // ')) {
-      const [frontRaw, backRaw] = card.n.split(' // ');
-      const front = frontRaw.trim().toLowerCase();
-      const back = (backRaw || '').trim().toLowerCase();
-      // Don't overwrite if a card with that exact full name already claimed it
-      if (!byFrontFaceName.has(front)) {
-        byFrontFaceName.set(front, card);
-      }
-      if (back && !byBackFaceName.has(back)) {
-        byBackFaceName.set(back, card);
-      }
-    }
-  }
-
-  return { byExactName, byFrontFaceName, byBackFaceName };
-}
 
 function parseDecklistLine(line) {
   let text = line.trim();
@@ -4865,8 +4841,8 @@ function matchDecklist(entries, db, indexes) {
 </script>
 <script id="data-script">// Compressed card database, gzip+base64. Rebuilt weekly by the
 // "Rebuild Card Database" GitHub Action (see .github/scripts/build-card-db.mjs).
-// Decompressed client-side via the native DecompressionStream API at load time
-// (see decompressCardDB() in app-script). Tuple schema:
+// Fetched, decompressed and indexed by src/cards/db.worker.ts (main-thread fallback
+// shares src/cards/db-codec.js). Tuple schema:
 //   [n, t, o, c, ci, m, p, r, pm, rt, pw, tg, x]
 //   n name · t type line · o oracle text · c mana cost string · ci color identity
 //   m mana VALUE (number) · p pip encoding · r RARITY (not a ritual flag)
@@ -5134,6 +5110,7 @@ let currentBattleContext = null;
 const $ = (id) => document.getElementById(id);
 
 function setDbLoadUI(state, message) {
+  if (!state) window.__dbProgress?.();
   const msg = $('dbStatus');
   const fill = $('dbLoadFill');
   if (msg) {
@@ -5152,6 +5129,7 @@ function setDbLoadUI(state, message) {
   }
 }
 
+let decodeCardDatabase;
 /* @golden:decode:start */
 function withTimeout(promise, ms, label) {
   let timeoutId;
@@ -5162,79 +5140,7 @@ function withTimeout(promise, ms, label) {
 }
 
 async function decompressCardDB(onProgress) {
-  const report = (msg) => { if (onProgress) onProgress(msg); };
-
-  report('Decoding compressed data…');
-  const binaryStr = atob(CARD_DB_COMPRESSED_B64);
-  const bytes = new Uint8Array(binaryStr.length);
-  // Chunked with periodic yields to the event loop -- a single unbroken
-  // ~1.5M-iteration loop can hold the main thread long enough to stop the
-  // browser repainting the progress bar, which looks identical to a true
-  // hang from the user's side even when it's actually just slow.
-  const CHUNK = 65536;
-  for (let start = 0; start < binaryStr.length; start += CHUNK) {
-    const end = Math.min(start + CHUNK, binaryStr.length);
-    for (let i = start; i < end; i++) bytes[i] = binaryStr.charCodeAt(i);
-    if (end < binaryStr.length) await new Promise(r => setTimeout(r, 0));
-  }
-
-  report('Decompressing…');
-  // Direct reader/writer stream API rather than chaining through Blob and
-  // Response -- fewer intermediate objects/abstractions for a WebKit-side
-  // quirk to hide in, and this path is wrapped in its own timeout so a
-  // genuine hang here fails fast and visibly instead of silently.
-  const decompressPromise = (async () => {
-    const ds = new DecompressionStream('gzip');
-    const writer = ds.writable.getWriter();
-    // Deliberately NOT awaited here: awaiting write()/close() before the
-    // reader starts draining creates a backpressure deadlock (verified by
-    // testing -- the writer can't finish until the reader consumes data,
-    // and the reader can't start until this line resolves). Firing these
-    // off and immediately starting the read loop lets producer and
-    // consumer run concurrently, which is the correct pattern for a piped
-    // transform stream.
-    writer.write(bytes);
-    writer.close();
-    const reader = ds.readable.getReader();
-    const chunks = [];
-    let totalLen = 0;
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-      totalLen += value.length;
-    }
-    const merged = new Uint8Array(totalLen);
-    let offset = 0;
-    for (const c of chunks) { merged.set(c, offset); offset += c.length; }
-    return merged;
-  })();
-  const merged = await withTimeout(decompressPromise, 15000, 'decompression');
-
-  report('Parsing card data…');
-  const jsonText = new TextDecoder().decode(merged);
-  const payload = JSON.parse(jsonText);
-
-  report('Building card records…');
-  const gcSet = new Set(payload.gc);
-  const bannedSet = new Set(payload.banned);
-  return payload.cards.map(t => ({
-    n: t[0], t: t[1], o: t[2], c: t[3], ci: t[4], m: t[5], p: t[6], r: t[7],
-    // t[8], t[9]: mana produced / one-shot flag. Left undefined (not "") when
-    // the database predates them, so deriveManaProduction knows to fall back.
-    pm: t.length > 8 ? (t[8] || '') : undefined,
-    rt: t.length > 9 ? t[9] === 1 : undefined,
-    // t[10], t[11]: printed power / toughness as text ("" for non-creatures); t[12]: 1 = not legal in Commander.
-    // Undefined (not "") when the database predates them, so the app knows the data is missing.
-    pw: t.length > 10 ? t[10] : undefined,
-    tg: t.length > 11 ? t[11] : undefined,
-    x: t.length > 12 ? t[12] === 1 : undefined,
-    // t[13]: starting loyalty (planeswalkers, "" otherwise); t[14]: rules text of the back face; t[15]: back face type line. Undefined on older databases.
-    ly: t.length > 13 ? t[13] : undefined,
-    ob: t.length > 14 ? t[14] : undefined,
-    bt: t.length > 15 ? t[15] : undefined,
-    g: gcSet.has(t[0]), b: bannedSet.has(t[0]),
-  }));
+  return decodeCardDatabase(CARD_DB_COMPRESSED_B64, onProgress);
 }
 
 /* @golden:decode:end */
@@ -5268,7 +5174,7 @@ async function loadStaticDatasets() {
   const { loadDataset } = await import('./src/data/load-dataset.ts');
   [REFERENCE_SCORES, REFERENCE_TIERS, PRECON_FINGERPRINTS, STAPLES_BASELINE,
     MANABASE_BASELINE, TRY_A_DECK_OPTIONS, KNOW_JSON, IMPACT_CANDS,
-    CARD_DB_COMPRESSED_B64, IX_TAGS_JSON, COMMANDER_TIER_DATA] = await Promise.all([
+    IX_TAGS_JSON, COMMANDER_TIER_DATA] = await Promise.all([
     loadDataset('REFERENCE_SCORES'),
     loadDataset('REFERENCE_TIERS'),
     loadDataset('PRECON_FINGERPRINTS'),
@@ -5277,7 +5183,6 @@ async function loadStaticDatasets() {
     loadDataset('TRY_A_DECK_OPTIONS'),
     loadDataset('KNOW_JSON'),
     loadDataset('IMPACT_CANDS'),
-    loadDataset('cards'),
     loadDataset('tags'),
     loadDataset('winrates'),
   ]);
@@ -5289,19 +5194,21 @@ async function loadStaticDatasets() {
 
 async function initDatabase() {
   try {
-    await staticDatasetsReady;
-    if (typeof DecompressionStream === 'undefined') {
-      throw new Error("This browser doesn't support the decompression feature needed to load the card database (DecompressionStream). Try updating your browser, or use a recent version of Chrome or Safari.");
-    }
-    CARD_DB = await withTimeout(
-      decompressCardDB((stage) => setDbLoadUI('', stage)),
-      25000, 'overall database load'
-    );
+    const databaseReady = import('./src/cards/load-db.ts').then(cardDb => {
+      buildLookupIndexes = cardDb.buildLookupIndexes;
+      decodeCardDatabase = cardDb.decodeCardDatabase;
+      return cardDb.loadCardDatabase((stage, percent) => window.__dbProgress(stage, percent));
+    });
+    const [, database] = await Promise.all([
+      staticDatasetsReady,
+      databaseReady,
+    ]);
+    CARD_DB = database.cards;
+    CARD_DB_COMPRESSED_B64 = database.compressed;
+    indexes = database.indexes;
     if (!CARD_DB || !CARD_DB.length) {
       throw new Error('CARD_DB missing or empty after decompression');
     }
-    setDbLoadUI('', 'Card data found — building search indexes…');
-    indexes = buildLookupIndexes(CARD_DB);
     setDbLoadUI('', 'Loading the combo snapshot…');
     try {
       await withTimeout(loadSpellbookSnapshot(), 15000, 'combo snapshot load');

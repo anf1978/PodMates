@@ -37,7 +37,7 @@ it.each([
 it("reports completed fetches to the boot bar without overwriting ready state", async () => {
   const message = { textContent: "" };
   const fill = { classList: { remove: vi.fn() }, style: { width: "" } };
-  const bootWindow = { __dbLoadPct: 8, __dbReady: false };
+  const bootWindow = { __dbLoadPct: 8, __dbReady: false, __dbProgress: vi.fn() };
   vi.stubGlobal("window", bootWindow);
   vi.stubGlobal("document", {
     getElementById: (id: string) => (id === "dbStatus" ? message : fill),
@@ -46,7 +46,8 @@ it("reports completed fetches to the boot bar without overwriting ready state", 
   const { loadDataset } = await import("./load-dataset");
   await loadDataset("REFERENCE_SCORES");
   expect(message.textContent).toContain("(1/1 datasets)");
-  expect(fill.style.width).toBe("78%");
+  expect(fill.style.width).toBe("20%");
+  expect(bootWindow.__dbProgress).toHaveBeenCalledTimes(2);
   bootWindow.__dbReady = true;
   message.textContent = "Ready";
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("[]")));
