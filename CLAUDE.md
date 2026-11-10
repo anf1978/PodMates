@@ -15,6 +15,9 @@ Use Node.js 22 or newer. Run `npm ci` to install the locked development dependen
 - `npm run build` — produce `dist/`; `index.html` is copied verbatim to preserve its inline scripts.
 - `npm run preview` — serve the production build locally (run the build first).
 - `npm run check` — typecheck + lint + unit/golden tests; must pass before finishing a change.
+- `npx playwright install chromium` — install the browser once after `npm ci` (`--with-deps` on Linux CI).
+- `npm run e2e` — Chromium smoke test; builds and starts an isolated Vite preview on port 4183.
+  Browser tests are deliberately excluded from `npm run check`.
 - `npm run typecheck`, `npm run lint`, `npm test` — run an individual check.
 - `npm run format` — Prettier; excludes `index.html`, data and lockfiles. Review diffs before committing.
 - `npm run golden` — full analysis and all five axis snapshots for every embedded sample deck.
@@ -22,7 +25,7 @@ Use Node.js 22 or newer. Run `npm ci` to install the locked development dependen
 - `npm run golden:fixture` — regenerate pinned cards/Spellbook from the local HTML; proves full-data parity.
 
 TypeScript is strict for new TypeScript; legacy JavaScript has `checkJs: false` and warn-only lint rules.
-ESLint does not inspect inline HTML scripts yet. Browser tests arrive in the next session.
+ESLint does not inspect inline HTML scripts yet.
 Static icons and the web manifest live in `public/` and keep their original URLs in dev and production.
 
 ## Golden harness
@@ -36,6 +39,15 @@ records and 3,397 Spellbook rows, including one-card-away combo candidates so th
 Ordinary golden/check runs never decode the live data blobs. Regenerate fixtures only deliberately, then review
 the snapshot diff; weekly data refreshes must not automatically update this baseline. JSON object keys are sorted
 recursively; array order and floating-point values are preserved without rounding.
+
+## Browser smoke test
+
+The smoke test in `tests/e2e/smoke.spec.ts` waits for the real DB-ready message, charts a Try-a-Deck sample,
+checks the radar and populated panels, then analyses a pasted short list. `tests/e2e/offline.ts` stubs Firebase's
+CDN modules as signed out (including its ready callback); the real app bridge still executes. No anonymous
+account is created and no Firestore traffic is sent. Scryfall art/API and Google Fonts are fulfilled locally;
+all other external requests fail the test without leaving the browser. Console errors and uncaught page errors
+always fail, with no noise allow-list. `@axe-core/playwright` is installed for later accessibility assertions.
 
 ## Golden rules
 

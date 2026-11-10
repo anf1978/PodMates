@@ -12,13 +12,16 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "test": "vitest run",
+    "test": "vitest run --exclude tests/e2e/**",
     "golden": "vitest run tests/golden/engine.golden.test.ts",
     "golden:update": "npm run golden -- --update",
     "golden:fixture": "node tests/golden/generate-fixture.mjs",
+    "e2e": "playwright test",
     "check": "npm run typecheck && npm run lint && npm run test"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.0",
+    "@playwright/test": "^1.56.0",
     "@types/node": "^22.0.0",
     "eslint": "^9.0.0",
     "eslint-plugin-no-unsanitized": "^4.0.0",
