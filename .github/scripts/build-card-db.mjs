@@ -53,7 +53,8 @@ const MIN_PLAUSIBLE_BACK_FACE_COUNT = 800;
 // ===== BEGIN SHARED MANA-PRODUCTION LOGIC =====
 // This block is IDENTICAL in two places and must stay that way:
 //   1. .github/scripts/build-card-db.mjs  (computes the values at database-build time)
-//   2. index.html, engine-script          (fallback for a database built before these fields existed)
+//   2. src/engine/mana.ts                 (typed copy: fallback for a database built before these fields existed)
+// mana.test.ts runs both copies over every pinned card and fails if they disagree.
 // Scryfall has no "what mana does this make" field that separates real mana
 // abilities from Treasure/token makers, and no "one-shot ritual" concept at
 // all, so both are worked out from a card's type line and rules text.
