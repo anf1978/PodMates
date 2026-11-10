@@ -27,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/workspace.mjs\" protect"
+            "command": "node \".claude/hooks/workspace.mjs\" protect"
           }
         ]
       }
@@ -38,7 +38,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/workspace.mjs\" format",
+            "command": "node \".claude/hooks/workspace.mjs\" format",
             "timeout": 60
           }
         ]
@@ -49,7 +49,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/workspace.mjs\" check",
+            "command": "node \".claude/hooks/workspace.mjs\" check",
             "timeout": 180
           }
         ]

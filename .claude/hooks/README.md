@@ -1,17 +1,18 @@
 # Claude workspace hooks
 
 Requires Node 22+ and `npm ci`. Start Claude Code at the repository root and trust
-the committed project settings. Commands use Claude Code's Bash hook environment
-and `CLAUDE_PROJECT_DIR`; file processing itself uses Node, not shell interpolation.
+the committed project settings. Hook commands use a repository-relative path, so they work in both POSIX shells
+and Windows `cmd.exe`; file processing itself uses Node, not shell interpolation.
 Restart the session after changing hooks so its loaded configuration is current.
 
 `workspace.mjs` reads a Claude hook event as JSON on stdin. `protect` rejects
 generated paths, existing `// GENERATED` headers (first five lines), new generated
 Write content and paths outside this project. Header detection supplements path
 permissions because permission globs cannot inspect contents. Agents that edit
-with `apply_patch` (for example Copilot CLI or Codex loading these settings) send
-a patch instead of `file_path`; the hook reads every `Add`/`Update`/`Delete`/`Move
-to` file from the patch headers and applies the same checks to each. `format` runs the
+with `apply_patch` (for example Codex loading these settings) send a patch instead
+of `file_path`; the hook reads every `Add`/`Update`/`Delete`/`Move to` file from the
+patch headers and applies the same checks to each. Copilot CLI instead sends `path`
+with `file_text` (create) or `new_str` (edit), which the hook also understands. `format` runs the
 locally installed Prettier then ESLint with `--fix` on each edited file; ignored or
 unsupported files follow existing tool configuration. `index.html` and generated
 files are never formatted. `check` runs `npm run check` on every Stop, including a

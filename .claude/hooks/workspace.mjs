@@ -63,10 +63,12 @@ function patchEdits(input) {
   return edits;
 }
 
+// Agents name the edited file differently: Claude sends file_path/notebook_path and
+// content, Copilot CLI sends path with file_text (create) or new_str (edit).
 function editedFiles(input) {
-  const file = input?.file_path ?? input?.notebook_path;
+  const file = input?.file_path ?? input?.notebook_path ?? input?.path;
   if (typeof file === "string" && file.length > 0)
-    return [{ file, deleted: false, content: input.content }];
+    return [{ file, deleted: false, content: input.content ?? input.file_text ?? input.new_str }];
   const edits = patchEdits(input);
   if (edits.length === 0) throw new Error("Missing edited file path.");
   return edits;
