@@ -1,0 +1,34 @@
+{
+  "name": "podmates",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "test": "vitest run --exclude \"tests/e2e/**\"",
+    "golden": "vitest run tests/golden/engine.golden.test.ts",
+    "golden:update": "npm run golden -- --update",
+    "golden:fixture": "node tests/golden/generate-fixture.mjs",
+    "e2e": "playwright test",
+    "check": "npm run typecheck && npm run lint && npm run test"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.11.0",
+    "@playwright/test": "^1.56.0",
+    "@types/node": "^22.0.0",
+    "eslint": "^9.0.0",
+    "eslint-plugin-no-unsanitized": "^4.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.0.0",
+    "vite": "^6.4.6",
+    "vitest": "^3.2.4"
+  }
+}

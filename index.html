@@ -1741,6 +1741,7 @@ One card per line. Formats like &quot;1x Sol Ring&quot;, plain names, or Moxfiel
 </div>
 
 <script id="engine-script">
+/* @golden:engine:start */
 // ============================================================
 // DECK COMPASS — Classification & Scoring Engine
 // ============================================================
@@ -4660,8 +4661,10 @@ function detectTableFeel(agg, powerLevel, disruption, winCons) {
 
 // Export for use in main app
 
+/* @golden:engine:end */
 </script>
 <script id="lookup-script">
+/* @golden:lookup:start */
 // ============================================================
 // DECK COMPASS — Decklist Parsing & Card Lookup
 // ============================================================
@@ -4857,6 +4860,7 @@ function matchDecklist(entries, db, indexes) {
   return { matched, notFound, fuzzyMatches };
 }
 
+/* @golden:lookup:end */
 
 </script>
 <script id="data-script">// Compressed card database, gzip+base64. Rebuilt weekly by the
@@ -4884,6 +4888,7 @@ const SPELLBOOK_SNAPSHOT_B64 = "H4sIAAAAAAACA2y9zXYrObI19iq4NbhnYKm7bl/bd309I6nf
 // DECK COMPASS — App Logic
 // ============================================================
 
+/* @golden:corpus:start */
 const AXES = [
   { key: 'speed', label: 'Speed', short: 'Speed' },
   { key: 'consistency', label: 'Consistency', short: 'Consist.' },
@@ -5112,6 +5117,8 @@ function computeManaBaseBenchmark(matchedCards, commanderCards) {
   };
 }
 
+/* @golden:corpus:end */
+/* @golden:samples:start */
 const TRY_A_DECK_OPTIONS = [
   {
     key: "uril",
@@ -21949,6 +21956,7 @@ const TRY_A_DECK_OPTIONS = [
   },
 ];
 
+/* @golden:samples:end */
 let indexes = null;
 let dbReady = false;
 var lastPodDecks = null;
@@ -21979,6 +21987,7 @@ function setDbLoadUI(state, message) {
   }
 }
 
+/* @golden:decode:start */
 function withTimeout(promise, ms, label) {
   let timeoutId;
   const timeout = new Promise((_, reject) => {
@@ -22063,6 +22072,7 @@ async function decompressCardDB(onProgress) {
   }));
 }
 
+/* @golden:decode:end */
 // Decodes the embedded Commander Spellbook snapshot and builds its lookup index. Never blocks the app:
 // on any failure the scores fall back to the curated combo list and the status line says so.
 async function loadSpellbookSnapshot() {
@@ -24435,6 +24445,7 @@ const IX_MASS_PUMP = /(?:other )?creatures you control (?:each )?get \+(\d+|x)\/
 // The stat-swap rule applied to every creature you control, not just one equipped or enchanted creature.
 const IX_TEAM_AXIS = /(?:each|all|every) creature(?:s)?(?: you control)? (?:assigns?|assign) combat damage equal to (?:its|their) toughness|creatures you control (?:each )?assign combat damage equal to their toughness/;
 // Usable as a suggestion: legal in Commander. A database built before the legality flag existed falls back to spotting joke and special-format cards by their text.
+/* @golden:legality:start */
 function ixUsable(c) {
   if (c.b) return false;
   if (c.x === true) return false;
@@ -24444,6 +24455,7 @@ function ixUsable(c) {
   if (c.x === undefined && /^(?:special|bonus)$/.test(c.r)) return false;
   return true;
 }
+/* @golden:legality:end */
 // Printed power and toughness as numbers (null when unknown or "*"); null for the whole card when the database has no stats.
 function ixStat(c) {
   if (c.pw === undefined || c.pw === '' || c.tg === undefined) return null;
@@ -24762,6 +24774,7 @@ function comboStepsFor(cards) {
   return null;
 }
 // Classify an outcome label. Order matters: the first match wins.
+/* @golden:combo-outcomes:start */
 function comboKind(outcome) {
   const o = String(outcome || '').toLowerCase();
   if (/mass land denial/.test(o)) return 'landdenial';
@@ -24807,6 +24820,7 @@ function comboDisplayWin(outcome, flag) {
   if (COMBO_NEEDS_PAYOFF[k]) return false;
   return !!flag;
 }
+/* @golden:combo-outcomes:end */
 function comboHow(outcome, win) {
   const o = String(outcome || '').toLowerCase();
   const k = comboKind(outcome);
