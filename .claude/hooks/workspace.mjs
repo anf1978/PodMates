@@ -33,6 +33,45 @@ function generated(path, input) {
   );
 }
 
+function patchTexts(value) {
+  if (typeof value === "string") return value.includes("*** Begin Patch") ? [value] : [];
+  if (Array.isArray(value)) return value.flatMap(patchTexts);
+  if (value && typeof value === "object") return Object.values(value).flatMap(patchTexts);
+  return [];
+}
+
+// Agents that edit with apply_patch send a patch instead of file_path; list every file it touches.
+function patchEdits(input) {
+  const edits = [];
+  for (const text of patchTexts(input)) {
+    let current;
+    for (const line of text.split(/\r?\n/)) {
+      const header = /^\*\*\* (Add|Update|Delete) File: (.+)$/.exec(line);
+      const move = /^\*\*\* Move to: (.+)$/.exec(line);
+      if (header) {
+        current = { file: header[2].trim(), deleted: header[1] === "Delete", content: "" };
+        edits.push(current);
+      } else if (move && current) {
+        current.deleted = true;
+        current = { file: move[1].trim(), deleted: false, content: "" };
+        edits.push(current);
+      } else if (current && line.startsWith("+")) {
+        current.content += `${line.slice(1)}\n`;
+      }
+    }
+  }
+  return edits;
+}
+
+function editedFiles(input) {
+  const file = input?.file_path ?? input?.notebook_path;
+  if (typeof file === "string" && file.length > 0)
+    return [{ file, deleted: false, content: input.content }];
+  const edits = patchEdits(input);
+  if (edits.length === 0) throw new Error("Missing edited file path.");
+  return edits;
+}
+
 try {
   const event = JSON.parse(readFileSync(0, "utf8"));
   const mode = process.argv[2];
@@ -40,17 +79,24 @@ try {
     // A previous failed Stop must be fixed, not skipped via stop_hook_active.
     run("npm run check", [], true);
   } else if (mode === "protect" || mode === "format") {
-    const input = event.tool_input;
-    const file = input?.file_path ?? input?.notebook_path;
-    if (typeof file !== "string" || file.length === 0) throw new Error("Missing edited file path.");
-    const path = canonicalPath(resolve(event.cwd ?? root, file));
-    const local = relative(root, path);
-    if (local === ".." || local.startsWith(`..${sep}`) || isAbsolute(local)) {
-      throw new Error("Edited file is outside this project.");
-    }
-    if (generated(path, input)) {
-      if (mode === "protect") throw new Error("Generated file: edit its pipeline instead.");
-    } else if (mode === "format" && path !== join(root, "index.html")) {
+    for (const edit of editedFiles(event.tool_input)) {
+      const path = canonicalPath(resolve(event.cwd ?? root, edit.file));
+      const local = relative(root, path);
+      if (local === ".." || local.startsWith(`..${sep}`) || isAbsolute(local)) {
+        throw new Error("Edited file is outside this project.");
+      }
+      if (generated(path, edit)) {
+        if (mode === "protect") throw new Error("Generated file: edit its pipeline instead.");
+        continue;
+      }
+      if (
+        mode !== "format" ||
+        edit.deleted ||
+        !existsSync(path) ||
+        path === join(root, "index.html")
+      ) {
+        continue;
+      }
       const bin = (pkg, entry) => join(dirname(require.resolve(`${pkg}/package.json`)), entry);
       run(process.execPath, [
         bin("prettier", "bin/prettier.cjs"),
