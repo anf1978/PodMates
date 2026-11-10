@@ -63,6 +63,18 @@ function patchEdits(input) {
   return edits;
 }
 
+// Copilot CLI's native hook payload carries the arguments as JSON text in `toolArgs`
+// instead of `tool_input`.
+function toolInput(event) {
+  if (event.tool_input !== undefined) return event.tool_input;
+  if (typeof event.toolArgs !== "string") return event.toolArgs;
+  try {
+    return JSON.parse(event.toolArgs);
+  } catch {
+    return event.toolArgs;
+  }
+}
+
 // Agents name the edited file differently: Claude sends file_path/notebook_path and
 // content, Copilot CLI sends path with file_text (create) or new_str (edit).
 function editedFiles(input) {
@@ -81,7 +93,7 @@ try {
     // A previous failed Stop must be fixed, not skipped via stop_hook_active.
     run("npm run check", [], true);
   } else if (mode === "protect" || mode === "format") {
-    for (const edit of editedFiles(event.tool_input)) {
+    for (const edit of editedFiles(toolInput(event))) {
       const path = canonicalPath(resolve(event.cwd ?? root, edit.file));
       const local = relative(root, path);
       if (local === ".." || local.startsWith(`..${sep}`) || isAbsolute(local)) {

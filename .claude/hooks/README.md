@@ -12,7 +12,8 @@ permissions because permission globs cannot inspect contents. Agents that edit
 with `apply_patch` (for example Codex loading these settings) send a patch instead
 of `file_path`; the hook reads every `Add`/`Update`/`Delete`/`Move to` file from the
 patch headers and applies the same checks to each. Copilot CLI instead sends `path`
-with `file_text` (create) or `new_str` (edit), which the hook also understands. `format` runs the
+with `file_text` (create) or `new_str` (edit), which the hook also understands; its native payload carries
+arguments as JSON text in `toolArgs`, parsed the same way. `format` runs the
 locally installed Prettier then ESLint with `--fix` on each edited file; ignored or
 unsupported files follow existing tool configuration. `index.html` and generated
 files are never formatted. `check` runs `npm run check` on every Stop, including a
