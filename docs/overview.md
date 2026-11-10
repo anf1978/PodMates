@@ -85,8 +85,8 @@ Colour themes (Classic, plus MTG colour-pair and tri-colour themes) applied via 
 ```mermaid
 flowchart LR
   subgraph Browser
-    APP["index.html<br/>(4.3 MB: HTML + CSS + JS<br/>+ bot-managed data)"]
-    DATA["public/data/*.json<br/>(1.24 MB static datasets)"] --> APP
+    APP["index.html<br/>(HTML + CSS + JS)"]
+    DATA["data/*.json + manifest<br/>(eager analysis inputs; lazy feature data)"] --> APP
   end
   APP -- "Auth + Firestore" --> FB[(Firebase<br/>podmates2027)]
   APP -- "?deckUrl=" --> CW[Cloudflare Worker<br/>deck sync proxy]
@@ -96,8 +96,8 @@ flowchart LR
   APP -- "OCR (lazy)" --> JSD["jsDelivr: Tesseract.js"]
 
   subgraph GHA["GitHub Actions"]
-    W1["Weekly: card DB"] -- "splices into" --> APP
-    W2["Weekly: win-rates"] -- "splices into" --> APP
+    W1["Weekly: card DB"] -- "publishes data branch" --> DATA
+    W2["Weekly: win-rates"] -- "publishes data branch" --> DATA
     W3["Daily: PriceScry"] -- "force-pushes" --> RAW
   end
   W1 --> SF
@@ -132,6 +132,20 @@ The three bot-managed constants now load from `cards.json`, `tags.json` and `win
 `loadDataset()` before DB-ready, retaining their original global names and encodings. Committed snapshots
 under `public/data/` are the local-dev/CI fallback; deploy overlays the validated `data` branch publication.
 Never edit generated data by hand. `scripts/extract-bot-datasets.mjs` reproduces this cutover from older HTML.
+
+`data/manifest.json` describes every file with `version`, `generatedAt`, SHA-256, byte length and source.
+The loader revalidates it before fetching hash-versioned URLs. The footer displays card/win-rate dates and
+quietly warns when cards are over 14 days old. Extraction timestamps describe the committed fallback snapshot;
+weekly publications use refresh time, preserving dates of datasets that were not refreshed.
+
+Try-a-Deck decklists are fetched only on library/sample-table use or card-search ranking. First chart and
+pod-detail requests load fingerprints plus derived deck metadata (without ordinary decklists); announced
+decks retain a validation list so unavailable cards are filtered exactly as before. Knowledge data/indexes
+load when "Cards you could add" opens, and Impact candidates when the Impact modal opens. Their existing
+loading UI remains visible while waiting; dismissing a loading modal cannot reopen it on completion.
+Cards, win-rates, reference percentiles, staples/manabase baselines and Spellbook stay eager because every
+complete analysis/scoring view needs them. Function tags stay eager for the first chart's Key Interactions,
+not just the optional suggestions. No engine score inputs or golden outputs change.
 The other datasets listed below
 (except the small code-like tables) are now `public/data/<CONSTANT>.json`, extracted without changing their
 runtime values by `scripts/extract-static-datasets.mjs`. Spellbook retains its original gzip/base64 encoding.

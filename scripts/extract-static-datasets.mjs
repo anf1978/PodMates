@@ -2,9 +2,10 @@
 // Re-run against the pre-extraction HTML to reproduce the committed JSON files.
 import assert from "node:assert/strict";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { basename, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
+import { updateManifest, writeDeckMetadata } from "./dataset-manifest.mjs";
 
 const root = new URL("../", import.meta.url);
 const args = process.argv.slice(2);
@@ -42,6 +43,13 @@ for (const name of names) {
   migrated = migrated.replace(match[0], `let ${name};`);
   console.log(`${name}.json: ${Buffer.byteLength(json + "\n")} bytes`);
 }
+
+writeDeckMetadata(fileURLToPath(outputDir));
+updateManifest(
+  fileURLToPath(outputDir),
+  [...names, "TRY_A_DECK_METADATA"],
+  `Static extraction from ${sourcePath ? basename(sourcePath) : "index.html"}`,
+);
 
 if (args.includes("--replace-inline")) {
   for (const name of ["CARD_DB_COMPRESSED_B64", "IX_TAGS_JSON", "COMMANDER_TIER_DATA"]) {

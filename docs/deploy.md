@@ -30,7 +30,8 @@ Failed rebuilds do not deploy; a successful no-change rebuild can harmlessly red
 
 The downstream checkout explicitly uses the latest `main`, not the upstream run's `head_sha`.
 After building, `assemble-datasets.mjs` resolves an exact data revision, validates the publication's hashes
-and copies the three bot datasets into `dist/data/`. `dist/data/build-manifest.json` and the Actions summary
+and copies the three bot datasets into `dist/data/`. It merges their metadata into `dist/data/manifest.json`,
+preserving static-dataset entries. `dist/data/build-manifest.json` and the Actions summary
 record the revision and hashes. If the branch does not exist yet, validated committed fallback snapshots
 are used; a malformed existing publication fails rather than silently reverting data. No PAT, additional secret or
 write permission on the rebuild token is needed. Both workflow files must first be on the default
@@ -42,6 +43,19 @@ Optional tag-fetch failures retain the previous validated tags with a warning; i
 Manual rebuilds on non-main branches publish to `data-<source-branch>`, never production `data`.
 For build-only verification, dispatch Deploy Pages on the source branch with **data_ref** set to that
 test data branch. Main deployments always use `data`, regardless of the input.
+
+Every dataset manifest entry has a content-addressed `version`, ISO `generatedAt`, `sha256`, `bytes` and
+`source`. Publishers update dates for fetched datasets even when the content is unchanged, and preserve
+untouched sibling dates (including tags when their fetch fails). Older hash-only publications are validated
+and upgraded using their stable Git commit time, explicitly labelled as a legacy publication timestamp;
+repeated deploys never make them look newer. New rebuilds replace that legacy metadata with fetch time.
+Committed fallbacks initially use extraction time, not an inferred upstream generation date.
+
+The browser revalidates the manifest first, then fetches each dataset with `?v=<sha256>`. The footer shows
+the card and win-rate dates; card data older than 14 days adds quiet footer text and a console warning.
+Do not regenerate the manifest merely to silence a stale warning: run the relevant refresh pipeline.
+`node scripts/generate-data-manifest.mjs` bootstraps committed snapshot metadata and chart-only deck metadata,
+preserving dates of byte-identical snapshots. Both extraction scripts also write manifest entries.
 
 See GitHub's [token-trigger rules](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow#triggering-a-workflow-from-a-workflow)
 and [`workflow_run` documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run).

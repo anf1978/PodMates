@@ -38,6 +38,9 @@ async function expectAnalysis(page: Page) {
 test("card DB loads, a sample deck charts, and a pasted decklist analyses", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator("#dbStatus")).toContainText(/^Ready .* cards.*loaded/);
+  await expect(page.locator("#dataFreshness")).toContainText(
+    /Card data as of \d{4}-\d{2}-\d{2} · Win-rates as of \d{4}-\d{2}-\d{2}/,
+  );
   const chartButton = page.getByRole("button", { name: "Chart Deck", exact: true });
   await expect(chartButton).toBeEnabled();
 
@@ -73,23 +76,29 @@ test("card DB loads, a sample deck charts, and a pasted decklist analyses", asyn
   await expectAnalysis(page);
 });
 
-test("DB-ready and an early Try-a-Deck click wait for extracted datasets", async ({ page }) => {
+test("Try-a-Deck shows loading without blocking DB-ready, and closing cancels rendering", async ({
+  page,
+}) => {
   let releaseDataset!: () => void;
   const pendingDataset = new Promise<void>((resolve) => {
     releaseDataset = resolve;
   });
 
-  await page.route("**/data/TRY_A_DECK_OPTIONS.json", async (route) => {
+  await page.route("**/data/TRY_A_DECK_OPTIONS.json*", async (route) => {
     await pendingDataset;
     await route.continue();
   });
   try {
     await page.goto("/");
-    await expect(page.getByRole("button", { name: "Chart Deck", exact: true })).toBeDisabled();
     await page.getByRole("button", { name: "Try a Deck", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Try a Deck", exact: true })).toBeHidden();
-    releaseDataset();
+    await expect(page.getByRole("heading", { name: "Try a Deck", exact: true })).toBeVisible();
+    await expect(page.locator("#tadModal")).toContainText("Loading...");
     await expect(page.locator("#dbStatus")).toContainText(/^Ready .* cards.*loaded/);
+    await expect(page.getByRole("button", { name: "Chart Deck", exact: true })).toBeEnabled();
+    await page.locator("#tadCloseBtn").click();
+    releaseDataset();
+    await expect(page.locator("#tadOverlay")).toHaveCount(0);
+    await page.getByRole("button", { name: "Try a Deck", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Try a Deck", exact: true })).toBeVisible();
     await page.getByRole("button", { name: /Browse by Archetype/ }).click();
     await expect(page.getByRole("button", { name: /^Voltron\b/ })).toBeVisible();
@@ -105,11 +114,11 @@ test("DB-ready waits for bot datasets and populates the legacy win-rate and tag 
   const pendingDataset = new Promise<void>((resolve) => {
     releaseDataset = resolve;
   });
-  await page.route("**/data/winrates.json", async (route) => {
+  await page.route("**/data/winrates.json*", async (route) => {
     await pendingDataset;
     await route.continue();
   });
-  const winratesResponse = page.waitForResponse("**/data/winrates.json");
+  const winratesResponse = page.waitForResponse("**/data/winrates.json*");
   try {
     await page.goto("/");
     await expect(page.getByRole("button", { name: "Chart Deck", exact: true })).toBeDisabled();

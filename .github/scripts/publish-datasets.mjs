@@ -2,7 +2,13 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createManifest, datasetNames, validateDataset, verifyManifest } from "./dataset-files.mjs";
+import {
+  datasetNames,
+  upgradeManifest,
+  validateDataset,
+  verifyManifest,
+} from "./dataset-files.mjs";
+import { datasetEntry } from "../../scripts/dataset-manifest.mjs";
 
 const [kind, input, tagsPath] = process.argv.slice(2);
 if (!["cards", "winrates"].includes(kind) || !input) {
@@ -17,27 +23,51 @@ git("check-ref-format", `refs/heads/${branch}`);
 const remote = git("ls-remote", "--heads", "origin", `refs/heads/${branch}`);
 const previous = remote.split(/\s/)[0];
 const files = {};
+let manifest;
 if (previous) {
   git("fetch", "--no-tags", "origin", `refs/heads/${branch}`);
   for (const name of datasetNames)
     files[`${name}.json`] = git("show", `${previous}:${name}.json`) + "\n";
-  verifyManifest(files, JSON.parse(git("show", `${previous}:manifest.json`)));
+  manifest = upgradeManifest(
+    files,
+    JSON.parse(git("show", `${previous}:manifest.json`)),
+    git("show", "-s", "--format=%cI", previous),
+    `Legacy publication ${branch}@${previous} (publication time)`,
+  );
 } else {
   for (const name of datasetNames)
     files[`${name}.json`] = readFileSync(`public/data/${name}.json`, "utf8");
+  manifest = JSON.parse(readFileSync("public/data/manifest.json", "utf8"));
+  verifyManifest(files, manifest);
 }
 const value =
   kind === "cards" ? readFileSync(input, "utf8").trim() : JSON.parse(readFileSync(input, "utf8"));
 validateDataset(kind, value);
 files[`${kind}.json`] = JSON.stringify(value) + "\n";
+manifest.files[`${kind}.json`] = datasetEntry(
+  files[`${kind}.json`],
+  kind === "cards" ? "Scryfall Oracle Cards" : "Playgroup.gg commander win-rates",
+);
 if (tagsPath) {
   const tags = JSON.parse(readFileSync(tagsPath, "utf8"));
   validateDataset("tags", tags);
   files["tags.json"] = JSON.stringify(tags) + "\n";
+  manifest.files["tags.json"] = datasetEntry(files["tags.json"], "Scryfall function tags");
 } else if (kind === "cards") {
   console.warn("WARNING: function tags were not fetched; preserving the previous validated lists.");
 }
-files["manifest.json"] = JSON.stringify(createManifest(files), null, 2) + "\n";
+// Publications contain only bot datasets; deployment merges these into the static manifest.
+verifyManifest(files, manifest);
+files["manifest.json"] =
+  JSON.stringify(
+    {
+      files: Object.fromEntries(
+        datasetNames.map((name) => [`${name}.json`, manifest.files[`${name}.json`]]),
+      ),
+    },
+    null,
+    2,
+  ) + "\n";
 const temporary = mkdtempSync(join(tmpdir(), "podmates-data-"));
 try {
   const env = { ...process.env, GIT_INDEX_FILE: join(temporary, "index") };

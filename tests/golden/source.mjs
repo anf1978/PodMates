@@ -38,7 +38,7 @@ export function createEngine(cards, spellbook, html = readFileSync(htmlUrl, "utf
   const context = createContext({ buildLookupIndexes });
   for (const name of ["engine", "lookup", "corpus", "samples", "legality", "combo-outcomes"]) {
     const source = extractBlock(html, name).replace(
-      /^let (COMMANDER_TIER_DATA|REFERENCE_SCORES|REFERENCE_TIERS|PRECON_FINGERPRINTS|STAPLES_BASELINE|MANABASE_BASELINE|TRY_A_DECK_OPTIONS);$/gm,
+      /^let (COMMANDER_TIER_DATA|REFERENCE_SCORES|REFERENCE_TIERS|PRECON_FINGERPRINTS|TRY_A_DECK_METADATA|STAPLES_BASELINE|MANABASE_BASELINE|TRY_A_DECK_OPTIONS);$/gm,
       (_declaration, dataset) => {
         const value =
           dataset === "COMMANDER_TIER_DATA"

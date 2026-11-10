@@ -1736,7 +1736,7 @@ One card per line. Formats like &quot;1x Sol Ring&quot;, plain names, or Moxfiel
     </div>
   </div>
 
-  <footer>PodMates · Card data from Scryfall, refreshed automatically · Game Changers and banned status follow Scryfall's own official data · scores help us align, they don’t rank people<br>Mana symbols courtesy of Scryfall, portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC. PodMates is unofficial Fan Content permitted under the Fan Content Policy; not approved/endorsed by Wizards.</footer>
+  <footer>PodMates · Card data from Scryfall, refreshed automatically · Game Changers and banned status follow Scryfall's own official data · scores help us align, they don’t rank people<br><span id="dataFreshness"></span><br>Mana symbols courtesy of Scryfall, portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC. PodMates is unofficial Fan Content permitted under the Fan Content Policy; not approved/endorsed by Wizards.</footer>
 </div>
 
 <script id="engine-script">
@@ -4953,9 +4953,10 @@ const FINGERPRINT_KEYS = {
   mech: ['ramp','tutor','removal','wipe','draw','reanimate','sac','counterMagic','discard','extraTurn'],
 };
 // [deckKey, vector] pairs, in no particular order -- looked up by key against
-// TRY_A_DECK_OPTIONS at render time rather than relying on array-index
+// TRY_A_DECK_METADATA at render time rather than relying on array-index
 // alignment between the two arrays.
 let PRECON_FINGERPRINTS;
+let TRY_A_DECK_METADATA;
 
 function buildFingerprintVector(agg) {
   const nl = Math.max(agg.nonlandCount || 1, 1);
@@ -4986,7 +4987,7 @@ function computeArchetypeMatch(agg) {
     .sort((a, b) => b.sim - a.sim);
 
   const withMeta = ranked.map(r => {
-    const deck = TRY_A_DECK_OPTIONS.find(o => o.key === r.key);
+    const deck = TRY_A_DECK_METADATA.find(o => o.key === r.key);
     return deck ? { ...r, deck } : null;
   }).filter(Boolean);
 
@@ -5171,25 +5172,64 @@ async function loadSpellbookSnapshot() {
 const staticDatasetsReady = loadStaticDatasets();
 
 async function loadStaticDatasets() {
-  const { loadDataset } = await import('./src/data/load-dataset.ts');
-  [REFERENCE_SCORES, REFERENCE_TIERS, PRECON_FINGERPRINTS, STAPLES_BASELINE,
-    MANABASE_BASELINE, TRY_A_DECK_OPTIONS, KNOW_JSON, IMPACT_CANDS,
+  const { loadDataset, updateDataFreshness } = await import('./src/data/load-dataset.ts');
+  [REFERENCE_SCORES, REFERENCE_TIERS, STAPLES_BASELINE, MANABASE_BASELINE,
     IX_TAGS_JSON, COMMANDER_TIER_DATA] = await Promise.all([
     loadDataset('REFERENCE_SCORES'),
     loadDataset('REFERENCE_TIERS'),
-    loadDataset('PRECON_FINGERPRINTS'),
     loadDataset('STAPLES_BASELINE'),
     loadDataset('MANABASE_BASELINE'),
-    loadDataset('TRY_A_DECK_OPTIONS'),
-    loadDataset('KNOW_JSON'),
-    loadDataset('IMPACT_CANDS'),
     loadDataset('tags'),
     loadDataset('winrates'),
   ]);
   IX_TAGS = {blink: new Set(IX_TAGS_JSON['blink']), extraCombat: new Set(IX_TAGS_JSON['extra-combat'])};
-  for (const [name, knowledge] of Object.entries(KNOW_JSON.cards)) {
-    KNOW_MAP.set(name.toLowerCase(), knowledge);
-  }
+  await updateDataFreshness();
+}
+
+function availableSampleDecks(decks) {
+  return decks.filter(o => !o.awaitsCards ||
+    matchDecklist(parseDecklist(o.validationDecklist || o.decklist).entries, CARD_DB, indexes).notFound.length <= 2);
+}
+
+let deckLibraryReady, analysisDatasetsReady, knowledgeReady, impactCandidatesReady;
+
+function loadDeckLibrary() {
+  return deckLibraryReady ||= (async () => {
+    const { loadDataset } = await import('./src/data/load-dataset.ts');
+    const decks = await loadDataset('TRY_A_DECK_OPTIONS');
+    await databaseReady;
+    if (!dbReady) throw new Error('Card database is not ready.');
+    TRY_A_DECK_OPTIONS = availableSampleDecks(decks);
+  })();
+}
+
+function loadAnalysisDatasets() {
+  return analysisDatasetsReady ||= (async () => {
+    const { loadDataset } = await import('./src/data/load-dataset.ts');
+    const [fingerprints, metadata] = await Promise.all([
+      loadDataset('PRECON_FINGERPRINTS'),
+      loadDataset('TRY_A_DECK_METADATA'),
+    ]);
+    PRECON_FINGERPRINTS = fingerprints;
+    TRY_A_DECK_METADATA = availableSampleDecks(metadata);
+  })();
+}
+
+function loadKnowledge() {
+  return knowledgeReady ||= (async () => {
+    const { loadDataset } = await import('./src/data/load-dataset.ts');
+    KNOW_JSON = await loadDataset('KNOW_JSON');
+    for (const [name, knowledge] of Object.entries(KNOW_JSON.cards)) {
+      KNOW_MAP.set(name.toLowerCase(), knowledge);
+    }
+  })();
+}
+
+function loadImpactCandidates() {
+  return impactCandidatesReady ||= (async () => {
+    const { loadDataset } = await import('./src/data/load-dataset.ts');
+    IMPACT_CANDS = await loadDataset('IMPACT_CANDS');
+  })();
 }
 
 async function initDatabase() {
@@ -5216,14 +5256,6 @@ async function initDatabase() {
       SPELLBOOK_INDEX = null;
       window.__spellbookError = String(snapErr && snapErr.message || snapErr);
     }
-    // Precons announced before their cards reach the card database stay hidden until the cards are there (awaitsCards).
-    try {
-      for (let i = TRY_A_DECK_OPTIONS.length - 1; i >= 0; i--) {
-        const o = TRY_A_DECK_OPTIONS[i]; if (!o.awaitsCards) continue;
-        const nf = matchDecklist(parseDecklist(o.decklist).entries, CARD_DB, indexes).notFound;
-        if (nf.length > 2) TRY_A_DECK_OPTIONS.splice(i, 1);
-      }
-    } catch (e) { /* leave the list as it is */ }
     dbReady = true;
     window.__dbReady = true;
     window.__dbWatchdogFired = false;
@@ -5747,8 +5779,11 @@ function detectCommander(matched, commanderNamesFromParse) {
   return [scored[0].n];
 }
 
-function runAnalysis() {
+async function runAnalysis() {
   if (!dbReady) return;
+  if (!PRECON_FINGERPRINTS) setStatus('Loading analysis data...');
+  try { await loadAnalysisDatasets(); }
+  catch (e) { console.error(e); setStatus('Could not load analysis data: ' + e.message, true); return; }
   const raw = $('decklistInput').value;
   const sizeProblem = pmDeckListProblem(raw);
   if (sizeProblem) {
@@ -7801,8 +7836,14 @@ function ixGcNote() {
   if (key === '3' && held >= 3) return warn('Game Changer: would be your 4th, over the Bracket 3 limit of 3');
   return ' <span style="font-size:10.5px; color:var(--gold);">(Game Changer)</span>';
 }
-function ixShowSuggestions() {
+async function ixShowSuggestions() {
   if (!ixLastCtx) return;
+  showInfoModal('<h2>Cards you could add</h2>', '<p style="text-align:center; color:var(--text-soft); font-size:13px;">Loading...</p>');
+  const loadingOverlay = document.getElementById('tadOverlay');
+  try { await loadKnowledge(); }
+  catch (e) { console.error(e); if (loadingOverlay && loadingOverlay.isConnected) loadingOverlay.querySelector('p').textContent = 'Could not load suggestions: ' + e.message; return; }
+  if (!loadingOverlay || !loadingOverlay.isConnected || !ixLastCtx) return;
+  closeTryADeckModal();
   let data; try { data = buildInteractionSuggestions(ixLastCtx); } catch (e) { data = { items: [] }; }
   let ov = document.getElementById('ixSugOverlay'); if (ov) ov.remove();
   ov = document.createElement('div'); ov.id = 'ixSugOverlay';
@@ -10665,7 +10706,7 @@ function openDeckSummaryPopup(deck) {
   // outer list's generic delegation, since this popup is a standalone
   // layer with no container in common with wherever it was opened from.
   const openChartBtn = modal.querySelector('[data-action="open-chart"]');
-  if (openChartBtn) openChartBtn.addEventListener('click', () => {
+  if (openChartBtn) openChartBtn.addEventListener('click', async () => {
     if (!dbReady) { showToast('Card database still loading — try again in a moment.'); return; }
     $('decklistInput').value = deck.decklistText;
     if (deck.commander) $('commanderInput').value = deck.commander;
@@ -10674,7 +10715,7 @@ function openDeckSummaryPopup(deck) {
     closePopup();
     closeTryADeckModal(); // also close whatever this was opened from (e.g. My Profile) -- navigating away entirely, not just dismissing this popup
     setMode('single');
-    runAnalysis();
+    await runAnalysis();
     $('resultsSection').scrollIntoView({ behavior: 'smooth' });
   });
 }
@@ -10896,8 +10937,13 @@ function openPodDetailOverlay(pod, pods) {
 // deliberately stays null here -- there's no real Gathering behind this,
 // so Log Battle and everything after it correctly has nothing to attach
 // to and won't appear.
-function runSampleGathering() {
+async function runSampleGathering() {
   if (!dbReady) { showToast('Card database still loading — try again in a moment.'); return; }
+  showInfoModal('<h2>Sample table</h2>', '<p style="text-align:center; color:var(--text-soft); font-size:13px;">Loading...</p>');
+  const loadingOverlay = document.getElementById('tadOverlay');
+  try { await loadDeckLibrary(); }
+  catch (e) { console.error(e); if (loadingOverlay && loadingOverlay.isConnected) loadingOverlay.querySelector('p').textContent = 'Could not load the sample table: ' + e.message; return; }
+  if (!loadingOverlay || !loadingOverlay.isConnected) return;
   const pool = [...TRY_A_DECK_OPTIONS];
   const picks = [];
   while (picks.length < 6 && pool.length) {
@@ -12426,8 +12472,11 @@ function impactWireBody() {
 }
 
 async function openImpactCardsModal() {
-  try { await staticDatasetsReady; } catch (e) { showToast('Could not load impact cards: ' + e.message); return; }
   showInfoModal(`<h2 style="margin-bottom:4px;">Impact cards</h2><p class="tad-sub" style="margin-bottom:8px;">The cards that move Power beyond Game Changers</p>`, `<div id="impactBody">Loading…</div>`);
+  const loadingBody = document.getElementById('impactBody');
+  try { await Promise.all([loadImpactCandidates(), loadDeckLibrary()]); }
+  catch (e) { console.error(e); if (loadingBody && loadingBody.isConnected) loadingBody.textContent = 'Could not load impact cards: ' + e.message; return; }
+  if (!loadingBody || !loadingBody.isConnected) return;
   const m = document.querySelector('#tadOverlay .tad-modal');
   if (m) m.style.maxWidth = '560px';
   impactWireBody();
@@ -12834,7 +12883,6 @@ function renderTadDeckList(decks, opts) {
 }
 
 async function showTryADeckModal() {
-  try { await staticDatasetsReady; } catch (e) { showToast('Could not load the deck library: ' + e.message); return; }
   injectTryADeckStyles();
   closeTryADeckModal();
   tadNavState = { view: 'home' };
@@ -12848,6 +12896,11 @@ async function showTryADeckModal() {
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTryADeckModal(); });
+  modal.innerHTML = '<button class="tad-close" id="tadCloseBtn">Close &times;</button><h2>Try a Deck</h2><p style="text-align:center; color:var(--text-soft); font-size:13px;">Loading...</p>';
+  modal.querySelector('#tadCloseBtn').addEventListener('click', closeTryADeckModal);
+  try { await loadDeckLibrary(); }
+  catch (e) { console.error(e); if (overlay.isConnected) modal.querySelector('p').textContent = 'Could not load the deck library: ' + e.message; return; }
+  if (!overlay.isConnected) return;
   renderTryADeckModal();
 }
 
@@ -14621,8 +14674,13 @@ function renderPodRank(decks, avgSpark) {
   `;
 }
 
-function showPodDeckDetail(idx) {
+async function showPodDeckDetail(idx) {
   if (!lastPodDecks || !lastPodDecks[idx]) return;
+  showInfoModal('<h2>Deck detail</h2>', '<p style="text-align:center; color:var(--text-soft); font-size:13px;">Loading...</p>');
+  const loadingOverlay = document.getElementById('tadOverlay');
+  try { await loadAnalysisDatasets(); }
+  catch (e) { console.error(e); if (loadingOverlay && loadingOverlay.isConnected) loadingOverlay.querySelector('p').textContent = 'Could not load deck detail: ' + e.message; return; }
+  if (!loadingOverlay || !loadingOverlay.isConnected || !lastPodDecks || !lastPodDecks[idx]) return;
   const d = lastPodDecks[idx];
   const primary = d.winCons && d.winCons[0];
   const others = (d.winCons || []).slice(1);
@@ -15052,7 +15110,7 @@ const STAPLE_MIN_DECKS = 10; // appears in at least 10 of the built-in decks
 function getCardPopularity() {
   if (_cardPopularityCache) return _cardPopularityCache;
   const counts = new Map();
-  for (const opt of (typeof TRY_A_DECK_OPTIONS !== 'undefined' ? TRY_A_DECK_OPTIONS : [])) {
+  for (const opt of TRY_A_DECK_OPTIONS) {
     const inThisDeck = new Set();
     for (const line of String(opt.decklist || '').split('\n')) {
       const m = line.match(/^\s*\d+x?\s+(.+?)\s*$/);
@@ -15489,13 +15547,13 @@ function openDeckBuilderOverlay(opts) {
     setMode('single');
     saveCurrentDeck();
   });
-  document.getElementById('dbChartBtn').addEventListener('click', () => {
+  document.getElementById('dbChartBtn').addEventListener('click', async () => {
     if (!Object.keys(deckBuilderCards).length) { showToast('Add at least one card first.'); return; }
     $('decklistInput').value = deckBuilderToText();
     if (deckBuilderCommanderName) $('commanderInput').value = deckBuilderCommanderName;
     closeTryADeckModal();
     setMode('single');
-    runAnalysis();
+    await runAnalysis();
     $('resultsSection').scrollIntoView({ behavior: 'smooth' });
   });
 }
@@ -15640,9 +15698,15 @@ function pmWireCardSearch(cfg) {
     lastSig = sig;
     pmKeepInputInPlace(input, () => { results.innerHTML = html; });
   };
-  const render = () => {
+  let searchGeneration = 0;
+  const render = async () => {
+    const generation = ++searchGeneration;
     const q = input.value;
     if (q.trim().length < minChars) { setHtml('', ''); return; }
+    if (!TRY_A_DECK_OPTIONS) setHtml('<div class="pm-sr-note">Loading...</div>', 'loading');
+    try { await loadDeckLibrary(); }
+    catch (e) { console.error(e); if (generation === searchGeneration && input.isConnected) setHtml('<div class="pm-sr-note">Could not load card rankings. Try reloading.</div>', 'load-error'); return; }
+    if (generation !== searchGeneration || input.value !== q || !input.isConnected) return;
     const opts = cfg.getOpts ? cfg.getOpts() : null;
     let cards = searchCardsByName(q, cfg.filter ? limit * 3 : limit, opts);
     if (cfg.filter) cards = cards.filter(cfg.filter).slice(0, limit);
@@ -16682,7 +16746,7 @@ if (clearHistBtn) clearHistBtn.addEventListener('click', () => {
 });
 
 renderMatchLog();
-initDatabase();
+const databaseReady = initDatabase();
 
 // Replaced by refreshCloudDecksCache() (defined earlier, alongside
 // loadSavedDecks) now that saved decks live on Firebase only -- there is

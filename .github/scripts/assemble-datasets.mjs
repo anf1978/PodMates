@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { createManifest, datasetNames, verifyManifest } from "./dataset-files.mjs";
+import { datasetNames, upgradeManifest, verifyManifest } from "./dataset-files.mjs";
 
 const branch = process.argv[2] || "data";
 if (!/^[A-Za-z0-9._/-]+$/.test(branch)) throw new Error("Invalid data branch");
@@ -15,16 +15,24 @@ if (revision) {
   git("fetch", "--no-tags", "origin", revision);
   for (const name of datasetNames)
     files[`${name}.json`] = git("show", `${revision}:${name}.json`) + "\n";
-  manifest = JSON.parse(git("show", `${revision}:manifest.json`));
-  verifyManifest(files, manifest);
+  manifest = upgradeManifest(
+    files,
+    JSON.parse(git("show", `${revision}:manifest.json`)),
+    git("show", "-s", "--format=%cI", revision),
+    `Legacy publication ${branch}@${revision} (publication time)`,
+  );
 } else {
   console.warn(`Data branch ${branch} does not exist; using committed fallback snapshots.`);
   for (const name of datasetNames)
     files[`${name}.json`] = readFileSync(`public/data/${name}.json`, "utf8");
-  manifest = createManifest(files);
+  manifest = JSON.parse(readFileSync("public/data/manifest.json", "utf8"));
+  verifyManifest(files, manifest);
 }
 mkdirSync("dist/data", { recursive: true });
 for (const [name, contents] of Object.entries(files)) writeFileSync(`dist/data/${name}`, contents);
+const combined = JSON.parse(readFileSync("public/data/manifest.json", "utf8"));
+for (const name of datasetNames) combined.files[`${name}.json`] = manifest.files[`${name}.json`];
+writeFileSync("dist/data/manifest.json", JSON.stringify(combined, null, 2) + "\n");
 const provenance = {
   source: revision ? branch : "committed-fallback",
   revision: revision || git("rev-parse", "HEAD"),

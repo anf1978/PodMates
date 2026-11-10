@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { gunzipSync } from "node:zlib";
+import { datasetEntry } from "../../scripts/dataset-manifest.mjs";
 
 export const datasetNames = ["cards", "tags", "winrates"];
 
@@ -71,16 +72,27 @@ export function digest(contents) {
   return createHash("sha256").update(contents).digest("hex");
 }
 
-export function createManifest(files) {
+export function createManifest(files, generatedAt, source = "Committed extraction snapshot") {
   return {
     files: Object.fromEntries(
       datasetNames.map((name) => {
         const contents = files[`${name}.json`];
         validateDataset(name, JSON.parse(contents));
-        return [`${name}.json`, { sha256: digest(contents), bytes: Buffer.byteLength(contents) }];
+        return [`${name}.json`, datasetEntry(contents, source, generatedAt)];
       }),
     ),
   };
+}
+
+export function upgradeManifest(files, manifest, generatedAt, source) {
+  verifyManifest(files, manifest);
+  const defaults = createManifest(files, generatedAt, source);
+  for (const name of Object.keys(defaults.files)) {
+    const entry = manifest.files[name];
+    if (entry.version && entry.generatedAt && entry.source) defaults.files[name] = entry;
+    else console.warn(`Using stable publication time for legacy dataset metadata: ${name}`);
+  }
+  return defaults;
 }
 
 export function verifyManifest(files, manifest) {
@@ -91,6 +103,19 @@ export function verifyManifest(files, manifest) {
       manifest.files[name].bytes !== entry.bytes
     ) {
       throw new Error(`Dataset manifest mismatch: ${name}`);
+    }
+    const actual = manifest.files[name];
+    if (
+      ("generatedAt" in actual || "version" in actual || "source" in actual) &&
+      (typeof actual.version !== "string" ||
+        !actual.version ||
+        typeof actual.source !== "string" ||
+        !actual.source ||
+        typeof actual.generatedAt !== "string" ||
+        !/^\d{4}-\d\d-\d\dT/.test(actual.generatedAt) ||
+        !Number.isFinite(Date.parse(actual.generatedAt)))
+    ) {
+      throw new Error(`Invalid dataset metadata: ${name}`);
     }
   }
 }

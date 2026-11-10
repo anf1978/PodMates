@@ -2,6 +2,8 @@
 import assert from "node:assert/strict";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
+import { fileURLToPath } from "node:url";
+import { updateManifest } from "./dataset-manifest.mjs";
 
 const root = new URL("../", import.meta.url);
 const source = readFileSync(new URL("index.html", root), "utf8");
@@ -25,4 +27,9 @@ for (const [binding, file] of Object.entries({
   console.log(`${file}.json: ${Buffer.byteLength(json)} bytes`);
 }
 writeFileSync(new URL("index.html", root), migrated);
+updateManifest(
+  fileURLToPath(new URL("public/data/", root)),
+  ["cards", "tags", "winrates"],
+  "Bot-data extraction from index.html",
+);
 console.log(`index.html: ${Buffer.byteLength(source)} -> ${Buffer.byteLength(migrated)} bytes`);
