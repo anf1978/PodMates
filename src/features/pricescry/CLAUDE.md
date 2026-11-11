@@ -7,8 +7,11 @@ first; data plumbing is in `src/services/price-data.ts`, and the publishing side
 ## Loading
 
 - `index.ts` (public API, event listeners), `runtime.ts` (ports) and `pricescry.css` load with the page.
-- `access.ts`, `screen.ts` and every view are one lazy chunk, fetched by `import()` the first time someone
-  opens PriceScry. Don't import them from `index.ts` statically, or the chunk merges into the main bundle.
+- `access.ts`, `screen.ts` and every view are one lazy chunk (`pricescry-screen-*.js`), fetched the first time
+  someone opens PriceScry. `index.ts` reaches it only through `import("./pricescry-screen")`; never import the
+  lazy files statically from eager code, or they merge into the main bundle. Don't use `manualChunks` for this:
+  it pulls the whole app graph into the named chunk. The chunk imports shared code from main by hashed name, so
+  a main change re-downloads it on update (`tests/e2e/pwa.spec.ts` expects exactly that).
 - Entry: profile emits `pricescry:open`; Trades emits `pricescry:tab` ("ledger") after a save (ignored while the
   screen is closed). `legacy-globals.ts` publishes nothing; it supplies the ports (Ledger and Spoiler Bait mounts
   via their shims, the inline card picker, card-DB badges).

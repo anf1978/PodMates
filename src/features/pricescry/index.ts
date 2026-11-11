@@ -7,7 +7,7 @@ export { configurePriceScry, type PriceScryPorts } from "./runtime";
 
 /** Asks for the soft-gate password once per session, then opens the screen. */
 export async function requestPriceScryAccess(): Promise<void> {
-  const { requestAccess } = await import("./access");
+  const { requestAccess } = await import("./pricescry-screen");
   requestAccess();
 }
 
@@ -23,6 +23,6 @@ export function mount(): void {
   // A trade saved from a card page shows the Ledger tab, as before; nothing happens while the screen is closed.
   on("pricescry:tab", (tab) => {
     if (!document.getElementById("pricescryOverlay")) return;
-    void import("./screen").then(({ setTab }) => setTab(tab));
+    void import("./pricescry-screen").then(({ setTab }) => setTab(tab));
   });
 }

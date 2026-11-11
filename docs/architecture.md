@@ -436,7 +436,8 @@ Ledger behavior is repository-mocked in unit tests, not a live-account browser t
 `pricescry` owns the full-screen price tool: the soft password gate, Search and the card page (printing/
 finish pickers, SVG chart and readout, current prices, trade planner, facts), Movers, Signals (spoiler
 strip, prediction scoreboard, cheap-pick watch) and Radar. Only `index.ts`, `runtime.ts` and the CSS load with
-the page; `access.ts`, `screen.ts` and the views are a separate chunk loaded by dynamic `import()` on first open.
+the page; `access.ts`, `screen.ts` and the views are one `pricescry-screen` chunk, loaded on first open through
+`import("./pricescry-screen")`. A code update re-downloads it with main, whose shared chunk it imports.
 `services/price-data.ts` owns the published-data fetch/cache, change-point series, yen conversion, consensus
 price and `currentYen`, shared with Trades and Ledger; its `nameKey`/`fnv1a`/shard path and `plan.ts`'s
 `planTrade` stay KEEP-IN-SYNC copies of the pipeline functions (tests compare them) until p5-3. Profile opens
