@@ -13,6 +13,7 @@ export interface ErrorContext {
     | "deck-library"
     | "deck-export"
     | "card-scan"
+    | "deck-crafter"
     | "global-error"
     | "unhandled-rejection";
   userTriggered?: boolean;

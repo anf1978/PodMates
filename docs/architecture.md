@@ -246,21 +246,37 @@ nodes, which Chrome lays out differently from the original one-string markup.
 Moved so far: `deck-chart` (prefix `dc-`) — Structure & Legality, Mana Curve, Mana Base and Card Type
 Frequency & Curve; `try-a-deck` (`tad-`) — all library browsing/navigation; `export` (`export-`) —
 Commander/Deck text and clipboard dialog; `scan-cards` (`scan-`) — local Tesseract loading, bounded
-preprocessing, longest-name-first matching, selection and rescan lifecycle.
+preprocessing, longest-name-first matching, selection and rescan lifecycle; and `deck-crafter` (`db-`
+inside `.deck-crafter`) — drafts, commander/partner selection, identity filtering, card search, quantities,
+removal and save/chart handoff.
 
 The shared overlay and its former injected styles now live in `src/ui/tad-modal.ts` / `tad-modal.css`.
 The UI shim retains only the existing `openTadOverlay` / `closeTryADeckModal` names for unmoved callers;
 `injectTryADeckStyles` and its callers are gone. Feature `mount()` APIs take explicit callbacks. Their narrow
 `legacy-globals.ts` adapters bind the static deck-form controls, the lazy `loadDeckLibrary` gate, the current
-analysis and the still-inline Deck Crafter. The shared library gate and `TRY_A_DECK_OPTIONS` remain inline
-because gatherings and Deck Crafter still consume them. Only `showScanCardsModal` remains published by R1
-for Deck Crafter's Scan button. No feature imports another feature or talks directly to Firebase.
+analysis. The shared library gate and `TRY_A_DECK_OPTIONS` remain inline because gatherings and Deck Crafter
+still consume them. `src/services/deck-editing.ts` connects scan and Deck Crafter through explicitly
+registered typed callbacks; no scan/crafter globals remain. No feature imports another feature or talks
+directly to Firebase.
 
 Scanner files persist across dialog sessions, results reset on open, and obsolete asynchronous runs cannot
 write into a replacement dialog. OCR failures remain visible even when another photo succeeds (the legacy
 loop overwrote failures with “Done”). The shared error sink reports library/export/scan failures; preprocessing
 fallbacks are warnings and still pass the original or scaled image to OCR. All successful-flow copy, limits,
 colour filtering, full double-faced names and deck-form loading remain unchanged.
+
+Deck Crafter's pure state is
+independent of the DOM; lit templates preserve the existing markup and scoped CSS preserves the inline
+dimensions. The localStorage key `podmates-deck-builder-draft` and its `cards`, `commander`, `player` fields
+are unchanged. Storage failures report redacted warnings but do not prevent editing.
+
+The Deck Crafter adapter supplies the still-inline shared name ranking and save/chart orchestration,
+marked `TODO(p3-6)`. Shared ranking
+and the legacy picker remain inline for other unmoved features; Deck Crafter's picker uses typed lit
+rendering with the same ranking, touch selection, debounce and input scroll anchoring. It makes no
+Firebase calls itself. `tests/e2e/deck-crafter.spec.ts` covers partner selection, quantity edits, persisted
+draft restoration, draft/current-deck choices, signed-out save handoff and chart handoff.
+Everything else remains inline; see the line map in `CLAUDE.md`.
 
 ## Lint-enforced boundaries
 
@@ -303,7 +319,7 @@ ESLint does not inspect the inline scripts in `index.html`. TypeScript is strict
 
 Phase 3's exit criteria (no source file over ~500 lines, no globals, every `innerHTML` replaced) are not met
 while the inline app script exists. The remaining p3-5 feature moves (rest of Deck Chart,
-deck-crafter, auth/profile, pods, gatherings, chronicles, impact, spoiler-bait, trades, notifications,
+auth/profile, pods, gatherings, chronicles, impact, spoiler-bait, trades, notifications,
 ledger/comparison, themes, PriceScry) each delete inline code and the shim names it used. When the last caller of a
 shim name goes, delete the name; when the inline scripts are gone, `index.html` becomes static markup plus the
 `src/main.ts` tag, and `main.ts` boots theme → card DB (worker) → cloud → UI directly.

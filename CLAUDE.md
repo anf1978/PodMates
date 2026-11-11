@@ -48,8 +48,9 @@ CI runs `check` + e2e + rules tests on every PR (including stacked bases) and `m
   `tad-modal.ts` / `tad-modal.css` own the shared base/stacked dialogs, formerly injected by Try-a-Deck.
 - `src/styles/` — `tokens.css` (CSS variables) and `base.css`.
 - `src/features/<name>/` — one folder per feature: `state.ts`, `view.ts`/`panels/`, `<name>.css`, `*.test.ts`.
-  Moved: `deck-chart` (four panels), `try-a-deck`, `export` and `scan-cards`. R1 adapters supply the still-inline
-  deck form, shared library gate, analysis and Deck Crafter callbacks; features never read those globals directly.
+  Moved: `deck-chart` (four panels), `try-a-deck`, `export`, `scan-cards` and `deck-crafter`. Adapters supply
+  the still-inline deck form, shared library gate and analysis. Scan and Deck Crafter communicate through
+  `src/services/deck-editing.ts`; features never import each other or read legacy globals directly.
 - `**/legacy-globals.ts`, `src/services/cloud/{index,limits-global}.ts` — strangler shims publishing typed code
   on `window` for the inline scripts. Delete each name with its last inline caller.
 - `index.html` — markup, main CSS and the inline legacy scripts (everything not yet in `src/features`).
@@ -107,8 +108,8 @@ expanded chart panels, info dialog and account screens. The one exact contrast d
 |       ~Line | Region                                                       | Identifier to grep                                                                                     |
 | ----------: | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
 |        5–11 | CSP, synchronous sanitizer dependency and legacy boundary    | `Content-Security-Policy`, `rendering-security-script`                                                 |
-|          26 | Module entry                                                 | `src="./src/main.ts"`                                                                                  |
-|     27–1080 | Main CSS (Terraria × MTG Arena theme at ~545)                | `<style>` (first one), `Terraria x MTG Arena theme`                                                    |
+|          27 | Module entry                                                 | `src="./src/main.ts"`                                                                                  |
+|     28–1080 | Main CSS (Terraria × MTG Arena theme at ~545)                | `<style>` (first one), `Terraria x MTG Arena theme`                                                    |
 |   1081–1232 | Colour themes (runs in `<head>`)                             | `<script id="theme-script">`                                                                           |
 |   1244–1378 | Visual overhaul CSS                                          | `<style id="pm-visual-overhaul">`                                                                      |
 |   1380–1686 | `<body>` markup: auth bar, header, mode tabs, deck form      | `id="authBar"`, `<header>`, `class="mode-tabs"`                                                        |
@@ -116,7 +117,7 @@ expanded chart panels, info dialog and account screens. The one exact contrast d
 |        1561 | Result panels markup                                         | `id="resultsSection"`                                                                                  |
 |        1684 | Footer data freshness                                        | `dataFreshness`                                                                                        |
 |   1687–1716 | Engine/lookup/card-DB/Spellbook page bindings                | `<script id="engine-script">`, `lookup-script`, `data-script`, `combo-data-script`                     |
-|  1717–12244 | **App script** (UI + all unmoved features)                   | `<script id="app-script">`                                                                             |
+|  1717–11886 | **App script** (UI + all unmoved features)                   | `<script id="app-script">`                                                                             |
 |   1732–1940 | Reference corpus, percentiles, baselines, Try-a-Deck         | `REFERENCE_TIERS`, `STAPLES_BASELINE`, `let TRY_A_DECK_OPTIONS;`                                       |
 |   1982–2110 | Card-DB/Spellbook loaders, eager/lazy dataset gates          | `decompressCardDB`, `loadStaticDatasets`, `loadDeckLibrary`, `loadKnowledge`, `initDatabase`           |
 |        2126 | Size-limit wiring (values in `src/services/cloud/limits.ts`) | `---- Size limits`, `PM_INPUT_LIMIT_KEYS`                                                              |
@@ -141,12 +142,14 @@ expanded chart panels, info dialog and account screens. The one exact contrast d
 |   9361–9907 | Player / pod profile overlays                                | `function getPlayerRawDecksForProfile`, `function openPodProfileOverlay`                               |
 |       10065 | Pod deck detail                                              | `async function showPodDeckDetail`                                                                     |
 |       10340 | Saved data: decks, formations, chronicles                    | `SAVED DATA — decks`                                                                                   |
-| 10460–11160 | Deck Crafter (deck builder)                                  | `Build a Deck: search-and-add`, `function openDeckBuilderOverlay`                                      |
-|       11641 | My Data backup/restore                                       | `MY DATA — download/restore`                                                                           |
-|       11736 | Retired pod rosters (dead code)                              | `POD ROSTERS -- retired`                                                                               |
-| 12268–12415 | Notifications inbox                                          | `<script id="notif-script">`                                                                           |
+|       moved | Deck Crafter (deck builder)                                  | `src/features/deck-crafter/index.ts`, `src/services/deck-editing.ts`                                   |
+| 10460–10824 | Shared legacy card ranking and picker                        | `function searchCardsByName`, `function pmWireCardSearch`                                              |
+|       10829 | Saved deck naming and save orchestration                     | `function generateUniqueDeckName`, `function saveCurrentDeck`                                          |
+|       11285 | My Data backup/restore                                       | `MY DATA — download/restore`                                                                           |
+|       11380 | Retired pod rosters (dead code)                              | `POD ROSTERS -- retired`                                                                               |
+| 11910–12057 | Notifications inbox                                          | `<script id="notif-script">`                                                                           |
 
-Updated for R1 (remaining ranges approximate). Regenerate with:
+Updated for R1 + R2 (remaining ranges approximate). Regenerate with:
 
 ```sh
 grep -n -E '<script|</script>|<style|</style>|<body' index.html | cut -c1-120          # block boundaries

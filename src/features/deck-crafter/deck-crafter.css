@@ -1,0 +1,233 @@
+/* Deck Crafter's original dimensions and theme tokens, scoped to its dialog. */
+.deck-crafter .db-heading {
+  margin-bottom: 4px;
+}
+.deck-crafter .db-notice {
+  font-size: 12px;
+  color: var(--text-soft);
+  font-style: italic;
+  margin: 0 0 10px;
+}
+.deck-crafter .db-notice-button {
+  padding: 2px 8px;
+  font-size: 11px;
+  margin-left: 4px;
+}
+.deck-crafter .db-field {
+  margin-bottom: 14px;
+}
+.deck-crafter .db-label {
+  font-size: 11.5px;
+  color: var(--text-soft);
+  display: block;
+  margin-bottom: 4px;
+}
+.deck-crafter .db-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--bg-main);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 8px 10px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13.5px;
+}
+.deck-crafter .db-commander-search {
+  margin-top: 6px;
+}
+.deck-crafter .db-cards-field {
+  margin-bottom: 10px;
+}
+.deck-crafter .db-identity-row {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-soft);
+  cursor: pointer;
+}
+.deck-crafter .db-identity-visible {
+  display: flex;
+}
+.deck-crafter #dbIdentityToggle {
+  width: auto;
+  margin: 0;
+}
+.deck-crafter .db-gold {
+  color: var(--gold);
+}
+.deck-crafter .db-scan {
+  margin-top: 8px;
+  font-size: 12.5px;
+}
+.deck-crafter .db-count {
+  font-size: 11.5px;
+  color: var(--text-soft);
+  margin-bottom: 6px;
+}
+.deck-crafter .db-deck-list {
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 8px;
+  margin-bottom: 14px;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  transform: translateZ(0);
+}
+.deck-crafter .db-actions {
+  gap: 8px;
+}
+.deck-crafter .db-actions button {
+  flex: 1;
+}
+.deck-crafter .db-no-commander {
+  font-size: 13px;
+  color: var(--text-soft);
+  font-style: italic;
+}
+.deck-crafter .db-commander {
+  margin-bottom: 3px;
+}
+.deck-crafter .db-commander-name {
+  font-size: 13.5px;
+  color: var(--gold);
+}
+.deck-crafter .db-change {
+  padding: 2px 8px;
+  font-size: 11px;
+  margin-left: 6px;
+}
+.deck-crafter .db-partner {
+  padding: 3px 10px;
+  font-size: 12px;
+  margin-top: 4px;
+}
+.deck-crafter .db-pair-warning {
+  font-size: 11.5px;
+  color: var(--danger);
+  margin-top: 4px;
+}
+.deck-crafter .db-empty {
+  font-size: 12.5px;
+  color: var(--text-soft);
+  margin: 0;
+  text-align: center;
+}
+.deck-crafter .db-card-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--line);
+}
+.deck-crafter .db-color-warning {
+  color: var(--danger);
+  font-size: 12px;
+  margin-right: 4px;
+}
+.deck-crafter .db-card-name {
+  flex: 1;
+  font-size: 13px;
+}
+.deck-crafter .db-quantity {
+  width: 48px;
+  background: var(--bg-main);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 3px 5px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 12.5px;
+}
+.deck-crafter .db-remove {
+  padding: 3px 8px;
+  font-size: 11px;
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.deck-crafter .pm-sr {
+  display: flex;
+  flex-direction: column;
+  margin: 0 0 6px;
+  border: 1px solid var(--gold);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg-panel-raised);
+  box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.35);
+}
+.deck-crafter .pm-sr:empty {
+  display: none;
+}
+.deck-crafter .pm-sr-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  box-sizing: border-box;
+  padding: 10px 14px;
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: normal;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(212, 175, 55, 0.25);
+  user-select: none;
+  -webkit-user-select: none;
+}
+.deck-crafter .pm-sr-row:first-child {
+  border-top: 0;
+}
+.deck-crafter .pm-sr-row:hover,
+.deck-crafter .pm-sr-row:active {
+  background: var(--bg-main);
+}
+.deck-crafter .pm-sr-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.deck-crafter .pm-sr-row mark {
+  background: transparent;
+  color: var(--gold-bright, var(--gold));
+  font-weight: 700;
+}
+.deck-crafter .pm-sr-row small {
+  flex: none;
+  max-width: 42%;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 400;
+  text-align: right;
+}
+.deck-crafter .pm-sr-best {
+  box-shadow: inset 3px 0 0 var(--gold);
+}
+.deck-crafter .pm-sr-note {
+  padding: 12px 14px;
+  font-size: 14.5px;
+  color: var(--text-soft);
+}
+.deck-crafter .pm-sr-flash {
+  padding: 12px 14px;
+  font-size: 15.5px;
+  font-weight: 600;
+  color: var(--success-text);
+}
