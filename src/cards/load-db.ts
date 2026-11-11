@@ -4,7 +4,7 @@ import { decodeCardDatabase } from "./db-codec.js";
 import { buildLookupIndexes } from "./lookup.ts";
 import type { Card, WorkerMessage } from "./db.worker";
 
-export { buildLookupIndexes, decodeCardDatabase };
+export { buildLookupIndexes };
 
 type Progress = (message: string, percent: number) => void;
 type Database = {

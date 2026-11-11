@@ -2,7 +2,7 @@
 
 Commander (MTG) playgroup companion: deck analysis ("Deck Chart"), pod social features (MyPods) and the PriceScry
 price tool. Static web app (Vite + TypeScript) on GitHub Pages; Firebase Auth/Firestore; data built by GitHub
-Actions. **Mid-migration:** typed code lives in `src/`, but most UI is still inline in `index.html` (~6,200
+Actions. **Mid-migration:** typed code lives in `src/`, but the remaining UI is still inline in `index.html` (~5,450
 lines), reached through strangler shims.
 Full context: [docs/overview.md](docs/overview.md) · Architecture: [docs/architecture.md](docs/architecture.md) ·
 Terms: [docs/glossary.md](docs/glossary.md) · Plan: [docs/refactor-plan.md](docs/refactor-plan.md) ·
@@ -45,6 +45,8 @@ CI runs `check` + e2e + rules tests on every PR (including stacked bases) and `m
 - `src/services/scryfall.ts` — shared Scryfall JSON requests; `card-art.ts` — on-demand card images (memory cache).
 - `src/services/events.ts` — typed navigation, active-pod and trade events; adapters bridge unmoved consumers.
 - `src/services/deck-analysis.ts` — shared decklist analysis for comparison, profiles and saved-deck tables.
+- `src/services/card-db-boot.ts` — required datasets, card-DB boot and optional Spellbook decode/timeout;
+  one dynamic entry owns orchestration, with global assignments and boot UI still in the inline adapter.
 - `src/services/trade-ledger.ts` — shared lot accounting and current lots/marks for Ledger and trade dialogs.
 - `src/services/price-data.ts` — PriceScry's published data: cached fetches, shard helpers, yen and consensus prices.
 - `src/services/pwa.ts` — bounded initial SW registration and opt-in update prompt; Workbox config lives in
@@ -153,14 +155,15 @@ expanded chart panels, info dialog and account screens. The one exact contrast d
 |      1264 | Result panels markup                                           | `id="resultsSection"`                                                                        |
 |      1353 | Footer data freshness                                          | `dataFreshness`                                                                              |
 | 1356–1385 | Engine/lookup/card-DB/Spellbook page bindings                  | `<script id="engine-script">`, `lookup-script`, `data-script`, `combo-data-script`           |
-| 1386–6183 | **App script** (UI + all unmoved features)                     | `<script id="app-script">`                                                                   |
+| 1388–5409 | **App script** (UI + all unmoved features)                     | `<script id="app-script">`                                                                   |
 | 1412–1620 | Reference corpus, percentiles, baselines, Try-a-Deck           | `REFERENCE_TIERS`, `STAPLES_BASELINE`, `let TRY_A_DECK_OPTIONS;`                             |
-| 1662–1789 | Card-DB/Spellbook loaders, eager/lazy dataset gates            | `decompressCardDB`, `loadStaticDatasets`, `loadDeckLibrary`, `loadKnowledge`, `initDatabase` |
-|      1799 | Size-limit wiring (values in `src/services/cloud/limits.ts`)   | `---- Size limits`, `PM_INPUT_LIMIT_KEYS`                                                    |
-|      2246 | Chart request (calls the Deck Chart panels at ~2324)           | `async function runAnalysis`, `renderTypeTable(`, `renderLegality(`                          |
-| 2388–2520 | Result panels: win-con, radar chart, bracket                   | `function renderWinCondition`, `function renderChart(`, `function renderBracket`             |
-|      4046 | Synergy profile                                                | `function renderSynergyProfile`                                                              |
-|      4324 | Commander Centrality panel                                     | `function renderCommanderCentrality`                                                         |
+| 1655–1740 | Card-DB boot adapter and lazy dataset gates                     | `const cardDbBoot`, `loadDeckLibrary`, `loadKnowledge`, `initDatabase`                        |
+|   modules | Card-DB/Spellbook boot, required datasets and timeout           | `src/services/card-db-boot.ts`                                                              |
+|      1750 | Size-limit wiring (values in `src/services/cloud/limits.ts`)   | `---- Size limits`, `PM_INPUT_LIMIT_KEYS`                                                    |
+|      1865 | Chart request (calls the Deck Chart panels at ~1943)           | `async function runAnalysis`, `renderTypeTable(`, `renderLegality(`                          |
+| 2007–2139 | Result panels: win-con, radar chart, bracket                   | `function renderWinCondition`, `function renderChart(`, `function renderBracket`             |
+|      3665 | Synergy profile                                                | `function renderSynergyProfile`                                                              |
+|      3943 | Commander Centrality panel                                     | `function renderCommanderCentrality`                                                         |
 |   modules | Sign in / sign up, account bar and save guard                  | `src/features/auth/{index,view,state}.ts`                                                    |
 |   modules | My Profile, linked decks and public player/pod profiles        | `src/features/profile/`; temporary ports in `legacy-globals.ts`                              |
 |   modules | Chronicles history, notes, feedback, battle controls/watch     | `src/features/chronicles/{index,view,dialogs,state,battle,battle-view,watch}.ts`             |
@@ -176,14 +179,14 @@ expanded chart panels, info dialog and account screens. The one exact contrast d
 |   modules | Shared modal overlay + close                                   | `src/ui/tad-modal.ts`, `src/ui/tad-modal.css`                                                |
 |   modules | Ledger filters, P&L totals, open/closed lots and trade events  | `src/features/ledger/{index,state,view}.ts`                                                  |
 |   modules | Pod Comparison, balance guidance, charts and deck details      | `src/features/comparison/{index,state,guidance,view,balance-view,charts,detail}.ts`          |
-|      4899 | Saved data: decks, formations, chronicles                      | `SAVED DATA — decks`                                                                         |
+|      4487 | Saved data: decks, formations, chronicles                      | `SAVED DATA — decks`                                                                         |
 |   modules | Deck Crafter (deck builder)                                    | `src/features/deck-crafter/index.ts`, `src/services/deck-editing.ts`                         |
-|      5388 | Saved deck naming and save orchestration                       | `function generateUniqueDeckName`, `function saveCurrentDeck`                                |
-|      5844 | My Data backup/restore                                         | `MY DATA — download/restore`                                                                 |
-|      5939 | Retired pod rosters (dead code)                                | `POD ROSTERS -- retired`                                                                     |
+|      4614 | Saved deck naming and save orchestration                       | `function generateUniqueDeckName`, `function saveCurrentDeck`                                |
+|      5070 | My Data backup/restore                                         | `MY DATA — download/restore`                                                                 |
+|      5165 | Retired pod rosters (dead code)                                | `POD ROSTERS -- retired`                                                                     |
 |   modules | Notifications inbox, bell and device preferences               | `src/features/notifications/{index,state,storage,view}.ts`                                   |
 
-Updated for R1–R13 (remaining ranges approximate). Regenerate with:
+Updated for R14 slice 3 (remaining ranges approximate). Regenerate with:
 
 ```sh
 grep -n -E '<script|</script>|<style|</style>|<body' index.html | cut -c1-120          # block boundaries

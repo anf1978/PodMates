@@ -1382,7 +1382,7 @@ let CARD_DB_COMPRESSED_B64;
 </script>
 <script id="combo-data-script">// Commander Spellbook offline snapshot (v2, gzip+base64): combos that win or warp a game, plus two-card infinite loops (Bracket only), built by
 // .github/scripts/spellbook-snapshot.mjs and spellbook-compact.mjs. Snapshot date: 2026-11-02 (export version 7.3.4).
-// Decoded at startup by loadSpellbookSnapshot() in app-script. Shape: see spellbook-compact.mjs.
+// Decoded at startup by src/services/card-db-boot.ts. Shape: see spellbook-compact.mjs.
 let SPELLBOOK_SNAPSHOT_B64;
 </script>
 <script id="app-script">
@@ -1652,59 +1652,7 @@ function setDbLoadUI(state, message) {
   }
 }
 
-let decodeCardDatabase;
-function withTimeout(promise, ms, label) {
-  let timeoutId;
-  const timeout = new Promise((_, reject) => {
-    timeoutId = setTimeout(() => reject(new Error(`Timed out during: ${label} (waited ${Math.round(ms / 1000)}s)`)), ms);
-  });
-  return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId));
-}
-
-async function decompressCardDB(onProgress) {
-  return decodeCardDatabase(CARD_DB_COMPRESSED_B64, onProgress);
-}
-
-// Decodes the extracted Commander Spellbook snapshot and builds its lookup index. Never blocks the app:
-// on any failure the scores fall back to the curated combo list and the status line says so.
-async function loadSpellbookSnapshot() {
-  const { loadDataset } = await import('./src/data/load-dataset.ts');
-  SPELLBOOK_SNAPSHOT_B64 = await loadDataset('SPELLBOOK_SNAPSHOT_B64');
-  const binaryStr = atob(SPELLBOOK_SNAPSHOT_B64);
-  const bytes = new Uint8Array(binaryStr.length);
-  for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
-  const ds = new DecompressionStream('gzip');
-  const writer = ds.writable.getWriter();
-  writer.write(bytes);
-  writer.close();
-  const reader = ds.readable.getReader();
-  const chunks = [];
-  let total = 0;
-  for (;;) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); total += value.length; }
-  const merged = new Uint8Array(total);
-  let off = 0;
-  for (const c of chunks) { merged.set(c, off); off += c.length; }
-  const snap = JSON.parse(new TextDecoder().decode(merged));
-  SPELLBOOK_INDEX = buildSpellbookIndex(snap);
-  return snap;
-}
-
-const staticDatasetsReady = loadStaticDatasets();
-
-async function loadStaticDatasets() {
-  const { loadDataset, updateDataFreshness } = await import('./src/data/load-dataset.ts');
-  [REFERENCE_SCORES, REFERENCE_TIERS, STAPLES_BASELINE, MANABASE_BASELINE,
-    IX_TAGS_JSON, COMMANDER_TIER_DATA] = await Promise.all([
-    loadDataset('REFERENCE_SCORES'),
-    loadDataset('REFERENCE_TIERS'),
-    loadDataset('STAPLES_BASELINE'),
-    loadDataset('MANABASE_BASELINE'),
-    loadDataset('tags'),
-    loadDataset('winrates'),
-  ]);
-  IX_TAGS = {blink: new Set(IX_TAGS_JSON['blink']), extraCombat: new Set(IX_TAGS_JSON['extra-combat'])};
-  await updateDataFreshness();
-}
+const cardDbBoot = import('./src/services/card-db-boot.ts');
 
 function availableSampleDecks(decks) {
   return decks.filter(o => !o.awaitsCards ||
@@ -1747,35 +1695,36 @@ function loadKnowledge() {
 
 async function initDatabase() {
   try {
-    const databaseReady = import('./src/cards/load-db.ts').then(cardDb => {
-      buildLookupIndexes = cardDb.buildLookupIndexes;
-      decodeCardDatabase = cardDb.decodeCardDatabase;
-      return cardDb.loadCardDatabase((stage, percent) => window.__dbProgress(stage, percent));
+    const { bootCardDatabase } = await cardDbBoot;
+    await bootCardDatabase({
+      progress: (stage, percent) => window.__dbProgress(stage, percent),
+      staticDatasets: data => {
+        REFERENCE_SCORES = data.referenceScores;
+        REFERENCE_TIERS = data.referenceTiers;
+        STAPLES_BASELINE = data.staplesBaseline;
+        MANABASE_BASELINE = data.manabaseBaseline;
+        IX_TAGS_JSON = data.tags;
+        COMMANDER_TIER_DATA = data.commanderTiers;
+        IX_TAGS = {blink: new Set(IX_TAGS_JSON['blink']), extraCombat: new Set(IX_TAGS_JSON['extra-combat'])};
+      },
+      database: (database, buildIndexes) => {
+        CARD_DB = database.cards;
+        CARD_DB_COMPRESSED_B64 = database.compressed;
+        indexes = database.indexes;
+        buildLookupIndexes = buildIndexes;
+      },
+      loadingSpellbook: () => setDbLoadUI('', 'Loading the combo snapshot…'),
+      spellbookSource: source => { SPELLBOOK_SNAPSHOT_B64 = source; },
+      spellbook: index => { SPELLBOOK_INDEX = index; },
+      spellbookError: message => { window.__spellbookError = message; },
+      ready: message => {
+        dbReady = true;
+        window.__dbReady = true;
+        window.__dbWatchdogFired = false;
+        setDbLoadUI('ok', message);
+        $('chartBtn').disabled = false;
+      },
     });
-    const [, , , database] = await Promise.all([
-      import('./src/cards/legacy-globals.ts'),
-      import('./src/engine/legacy-globals.ts'),
-      staticDatasetsReady,
-      databaseReady,
-    ]);
-    CARD_DB = database.cards;
-    CARD_DB_COMPRESSED_B64 = database.compressed;
-    indexes = database.indexes;
-    if (!CARD_DB || !CARD_DB.length) {
-      throw new Error('CARD_DB missing or empty after decompression');
-    }
-    setDbLoadUI('', 'Loading the combo snapshot…');
-    try {
-      await withTimeout(loadSpellbookSnapshot(), 15000, 'combo snapshot load');
-    } catch (snapErr) {
-      SPELLBOOK_INDEX = null;
-      window.__spellbookError = String(snapErr && snapErr.message || snapErr);
-    }
-    dbReady = true;
-    window.__dbReady = true;
-    window.__dbWatchdogFired = false;
-    setDbLoadUI('ok', `Ready — ${CARD_DB.length.toLocaleString()} cards${SPELLBOOK_INDEX ? ' and ' + SPELLBOOK_INDEX.snap.c.length.toLocaleString() + ' combos (Spellbook lines that win, warp or loop)' : ''} loaded.` + (SPELLBOOK_INDEX ? '' : ' The combo snapshot could not be loaded, so only the built-in combo list is used.') + ' You can chart decks now.');
-    $('chartBtn').disabled = false;
   } catch (e) {
     window.__dbWatchdogFired = true;
     setDbLoadUI('err',

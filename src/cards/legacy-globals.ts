@@ -4,7 +4,7 @@
 //
 // It also bridges the page's card DB and deck library (still inline globals) to the ranked
 // search for the feature adapters, so features never read those globals themselves.
-// TODO(p3-6): replace the bridge with a typed card-DB store when initDatabase moves.
+// TODO(p3-6): replace the bridge when the page's card-DB and deck-library globals move.
 
 import { fuzzyFindCard, matchDecklist } from "./lookup.ts";
 import { parseDecklist } from "./parse-decklist.ts";

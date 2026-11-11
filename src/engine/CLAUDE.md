@@ -27,7 +27,8 @@ Import from `index.ts`; it is the public surface.
 its original global names for the inline scripts, dropping the context argument: each call builds (and
 memoises) a context from the page's `CARD_DB`, `SPELLBOOK_INDEX` and `COMMANDER_TIER_DATA`; typed
 callers can import that `pageContext()` instead of reading globals. It is imported by `src/main.ts` (so
-globals exist before `DOMContentLoaded` and the cloud modules) and is also awaited by `initDatabase`. Add a name there only when inline code needs it; delete names as callers move to
+globals exist before `DOMContentLoaded` and the cloud modules) and is also imported by the dynamic
+`services/card-db-boot.ts` entry before DB-ready. Add a name there only when inline code needs it; delete names as callers move to
 `src/features`.
 
 ## Golden tests

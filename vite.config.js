@@ -42,9 +42,7 @@ export default defineConfig({
         for (const [name, source] of [
           ["main", "./src/main.ts"],
           ["datasets", "./src/data/load-dataset.ts"],
-          ["cardDb", "./src/cards/load-db.ts"],
-          ["cardsLegacy", "./src/cards/legacy-globals.ts"],
-          ["engineLegacy", "./src/engine/legacy-globals.ts"],
+          ["cardDbBoot", "./src/services/card-db-boot.ts"],
         ]) {
           const loader = Object.values(bundle).find(
             (output) => output.type === "chunk" && output.isEntry && output.name === name,
@@ -151,9 +149,7 @@ export default defineConfig({
       input: {
         main: fileURLToPath(new URL("./src/main.ts", import.meta.url)),
         datasets: fileURLToPath(new URL("./src/data/load-dataset.ts", import.meta.url)),
-        cardDb: fileURLToPath(new URL("./src/cards/load-db.ts", import.meta.url)),
-        cardsLegacy: fileURLToPath(new URL("./src/cards/legacy-globals.ts", import.meta.url)),
-        engineLegacy: fileURLToPath(new URL("./src/engine/legacy-globals.ts", import.meta.url)),
+        cardDbBoot: fileURLToPath(new URL("./src/services/card-db-boot.ts", import.meta.url)),
       },
       preserveEntrySignatures: "strict",
     },

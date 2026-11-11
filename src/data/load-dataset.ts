@@ -109,7 +109,7 @@ function reportProgress(name: string) {
   }
 }
 
-// Spellbook stays a gzip/base64 JSON string; the legacy decoder still owns decompression.
+// Spellbook stays a gzip/base64 JSON string; services/card-db-boot owns decompression.
 export function loadDataset<T>(name: string): Promise<T> {
   if (!/^[A-Za-z0-9_-]+$/.test(name)) throw new Error(`Invalid dataset name: ${name}`);
   let promise = datasets.get(name);

@@ -4,8 +4,8 @@
 // profile, auth, gatherings, cloud, then pods.
 //
 // The colour-theme pre-paint script is src/features/themes/prepaint.ts, inlined into <head> at
-// build time because it must run before first paint. The card-database start-up is still inline; that code
-// dynamically imports src/data/load-dataset.ts, src/cards/load-db.ts and the card/engine shims.
+// build time because it must run before first paint. The inline card-database adapter dynamically
+// imports src/services/card-db-boot.ts; that service loads the DB, datasets and card/engine shims.
 // Each legacy-globals.ts only republishes typed modules on window for the inline scripts and is
 // deleted with its last inline caller. Add new behaviour to a typed module, not here.
 

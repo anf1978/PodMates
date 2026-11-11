@@ -147,15 +147,15 @@ by commit in the pipeline README; the manual Spellbook artifact builder remains.
 `SOFT_SYNERGIES`, `GAME_CHANGER_REASONS`, `DEFAULT_IMPACT_CARDS`) are in `src/data/*.ts`. Inputs come
 through an explicit `EngineContext`. `src/engine/legacy-globals.ts` republishes the old global names with a
 context built from the page's `CARD_DB`, `SPELLBOOK_INDEX` and `COMMANDER_TIER_DATA`; its exported
-`pageContext()` is the same memoised context for other shims. It is loaded by `src/main.ts` and also
-awaited by `initDatabase()`. ESLint keeps the engine pure: no page globals, no module-level `let`.
+`pageContext()` is the same memoised context for other shims. It is loaded by `src/main.ts` and the
+dynamic card-DB boot entry. ESLint keeps the engine pure: no page globals, no module-level `let`.
 
 ### Cards (`src/cards`)
 
 `tuple.ts` owns the published tuple layout: a `CardTuple` type, a named accessor per position and
 `cardFromTuple`, which `db-codec.js` uses instead of indexing a tuple. `lookup.ts` holds name normalisation,
 `buildLookupIndexes`, `levenshtein`, `fuzzyFindCard`, `getCard` and `matchDecklist`; `parse-decklist.ts`
-holds the decklist parser. `legacy-globals.ts` (imported by `initDatabase()` before DB-ready) republishes
+holds the decklist parser. `legacy-globals.ts` (imported by `services/card-db-boot.ts` before DB-ready) republishes
 `parseDecklist`, `matchDecklist` and `fuzzyFindCard`, the only names inline code still calls.
 
 `load-db.ts` starts `db.worker.ts`: the worker fetches the manifest-versioned `cards.json` URL resolved on
@@ -168,6 +168,15 @@ Real fetch/decode/index progress advances the bar and resets a 30-second stall d
 timeout. Worker errors and stalls terminate the worker and use the boot error UI.
 `load-db.ts` alone may import `services/report-error` to report that failure boundary; the worker, codec
 and engine-facing card modules keep their existing service-free import restrictions.
+
+`src/services/card-db-boot.ts` owns required dataset loading, freshness, DB orchestration and the optional
+Spellbook gzip/base64 decode/index with its 15-second deadline. Its single dynamic build entry replaces
+the separate `cardDb`, `cardsLegacy` and `engineLegacy` entries; it imports the card/engine shims before
+starting boot. Typed callbacks leave global assignments, `setDbLoadUI`, the chart-button state and
+`window.__db*` in the small inline adapter until their remaining readers move. Required failures reject
+through the redacted error sink into the unchanged boot error UI; optional snapshot failures keep the
+curated-combo fallback and its status/diagnostic message. Worker/fallback identity, progress and stall
+handling stay in `cards/load-db.ts`.
 
 ### Data (`src/data`, `public/data`)
 
@@ -184,7 +193,7 @@ watchdog). Each manifest entry has `version` (content hash prefix), ISO `generat
 old. Extraction scripts and refresh pipelines write metadata; deployment merges bot entries with static entries
 without resetting sibling dates.
 
-- **Eager** (`loadStaticDatasets()`): reference scores/tiers, staples/manabase baselines, tags and win-rates,
+- **Eager** (`services/card-db-boot.ts`): reference scores/tiers, staples/manabase baselines, tags and win-rates,
   because every complete analysis uses them; cards and Spellbook (Spellbook keeps its optional fallback). Required
   boot failures use the boot error UI. `tags.json` / `winrates.json` populate `IX_TAGS_JSON` / `IX_TAGS` and
   `COMMANDER_TIER_DATA` before DB-ready.
@@ -491,18 +500,16 @@ ESLint does not inspect the inline scripts in `index.html`. TypeScript is strict
 
 ## What is not done yet
 
-R14 moved card art/View Deck (`features/card-viewer`) and card ranking plus the shared picker
-(`cards/search.ts`, `ui/card-search.ts`). Remaining, in order, at about one ~800-line PR each:
+R14 moved card art/View Deck (`features/card-viewer`), card ranking plus the shared picker
+(`cards/search.ts`, `ui/card-search.ts`), and card-DB boot (`services/card-db-boot.ts`).
+Boot's global assignments and UI adapter remain inline for the current readers.
+Remaining, in order, at about one ~800-line PR each:
 
-1. **Card-DB boot:** move `loadStaticDatasets`, `loadSpellbookSnapshot`, `withTimeout` and the body of
-   `initDatabase` into `src/services/card-db-boot.ts`, loaded by one dynamic-import entry that replaces `cardDb`,
-   `cardsLegacy` and `engineLegacy`. Keep the global assignments, `setDbLoadUI` and `window.__db*` inline until
-   their readers move (`db-worker.spec.ts`, `smoke.spec.ts` and `rendering-security.spec.ts` read some of them).
-2. **Interaction suggestions** (`ix*`, `IXD`, `buildInteractionPackages`, ~1,300 lines).
-3. **Combos, synergy, centrality, key pieces, explainers** (~1,000 lines), then the card-viewer shim names.
-4. **`runAnalysis`, result panels, percentiles/reference** (~600 lines).
-5. **Saved decks, Load a Deck, My Data, decks table** (~900 lines), then `searchNorm` and the profile ports.
-6. Delete the remaining shims, make `index.html` static markup, ratchet lint, final `CLAUDE.md`.
+1. **Interaction suggestions** (`ix*`, `IXD`, `buildInteractionPackages`, ~1,300 lines).
+2. **Combos, synergy, centrality, key pieces, explainers** (~1,000 lines), then the card-viewer shim names.
+3. **`runAnalysis`, result panels, percentiles/reference** (~600 lines).
+4. **Saved decks, Load a Deck, My Data, decks table** (~900 lines), then `searchNorm` and the profile ports.
+5. Delete the remaining shims, make `index.html` static markup, ratchet lint, final `CLAUDE.md`.
 
 Phase 3's exit criteria (no source file over ~500 lines, no globals, every `innerHTML` replaced) are not met
 while the inline app script exists. The remaining work (rest of Deck Chart, saved-deck flows and the other inline helpers) deletes inline code and the shim names it used. When the last caller of a

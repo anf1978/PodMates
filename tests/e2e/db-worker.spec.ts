@@ -11,6 +11,7 @@ for (const mode of ["worker", "main-thread fallback"] as const) {
     if (mode === "main-thread fallback") {
       await page.addInitScript(() => Object.defineProperty(window, "Worker", { value: undefined }));
     }
+
     await page.goto("/");
     await expect(page.locator("#dbStatus")).toContainText(/^Ready .* cards.*loaded/);
     await expect(page.getByRole("button", { name: "Chart Deck", exact: true })).toBeEnabled();
@@ -29,3 +30,22 @@ for (const mode of ["worker", "main-thread fallback"] as const) {
     ).toBe(true);
   });
 }
+
+test("an invalid optional Spellbook snapshot keeps card analysis available", async ({ page }) => {
+  await page.route("**/data/SPELLBOOK_SNAPSHOT_B64.json*", (route) =>
+    route.fulfill({ json: "invalid base64!" }),
+  );
+  await page.goto("/");
+  await expect(page.locator("#dbStatus")).toContainText(
+    "The combo snapshot could not be loaded, so only the built-in combo list is used.",
+  );
+  await expect(page.getByRole("button", { name: "Chart Deck", exact: true })).toBeEnabled();
+  expect(
+    await page.evaluate(`(() => ({
+      ready: window.__dbReady,
+      spellbook: SPELLBOOK_INDEX,
+      error: typeof window.__spellbookError,
+      card: indexes.byExactName.get('sol ring').n,
+    }))()`),
+  ).toEqual({ ready: true, spellbook: null, error: "string", card: "Sol Ring" });
+});

@@ -15,7 +15,7 @@ import { scoreVersatility } from "./axes/versatility.ts";
 import { EARLY_COMBO_BY_TURN, detectBracket, earliestComboTurn } from "./brackets.ts";
 import { classifyCard } from "./classify.ts";
 import { COMBO_FINISH, COMBO_NEEDS_PAYOFF, comboDisplayWin, comboKind } from "./combo-outcomes.ts";
-import { buildSpellbookIndex, comboCardByName } from "./combos.ts";
+import { comboCardByName } from "./combos.ts";
 import { CENTRALITY_KEYWORDS, centralityPluralForms } from "./centrality-fed.ts";
 import { CENTRALITY_BANDS, CENTRALITY_WEIGHTS, COMMANDER_RULES } from "./centrality-rules.ts";
 import { computeCommanderCentrality } from "./centrality.ts";
@@ -68,7 +68,6 @@ const legacy = {
   IXPROP,
   SPARK_WEIGHTS,
   TABLE_VIBE_ARCHETYPES,
-  buildSpellbookIndex,
   centralityPluralForms,
   classifyCard,
   comboDisplayWin,
