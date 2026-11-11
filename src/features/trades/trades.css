@@ -1,0 +1,21 @@
+/* Trade-only layout; shared PriceScry controls still belong to the legacy shell. */
+.trades-modal .trades-title {
+  margin-bottom: 4px;
+}
+.trades-modal .trades-sub,
+.trades-modal .trades-input {
+  margin-bottom: 8px;
+}
+.trades-status {
+  min-height: 18px;
+}
+.trades-actions {
+  justify-content: flex-end;
+  gap: 10px;
+}
+.trades-confirm {
+  font-size: 14px;
+  color: var(--text-primary);
+  line-height: 1.6;
+  margin: 6px 0 20px;
+}

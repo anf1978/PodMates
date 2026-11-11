@@ -32,6 +32,7 @@ function sanitizeHtml(markup) {
 <link rel="stylesheet" href="./src/features/chronicles/chronicles.css">
 <link rel="stylesheet" href="./src/features/impact/impact.css">
 <link rel="stylesheet" href="./src/features/spoiler-bait/spoiler-bait.css">
+<link rel="stylesheet" href="./src/features/trades/trades.css">
 <script type="module" src="./src/main.ts"></script>
 <style>
   header{text-align:center; margin-bottom:30px;}
@@ -5469,26 +5470,7 @@ async function psRenderRadar() {
 // per sale, and the extra cost of buying. Paper lots are identical but use pretend money, so a strategy can be tested for a
 // whole spoiler season before any yen is risked. Open lots are marked at what they would NET if sold today (consensus price
 // less fees and shipping), not at the headline price, because that is the only number that is really yours.
-const PS_COSTS = { feePct: 10, shipYen: 230, packYen: 30 };   // Mercari's own tracked rate; keep in step with japanCostModel in pricescry-lib.mjs
 const PS_FINISH_NAMES = { nonfoil: 'non-foil', foil: 'foil', etched: 'etched foil' };
-const PS_TAGS = { riser: 'Riser pick', spoiler: 'Spoiler play', other: 'Other', '': 'No tag' };
-function psToInt(v) { const n = Number(String(v == null ? '' : v).replace(/[,\s¥]/g, '')); return Number.isFinite(n) ? Math.round(n) : NaN; }
-function psSellNet(s) {
-  const gross = s.qty * s.yen;
-  const fee = Math.floor((gross * (s.feePct != null ? s.feePct : PS_COSTS.feePct)) / 100);
-  return gross - fee - (s.shipYen != null ? s.shipYen : PS_COSTS.shipYen) - (s.packYen != null ? s.packYen : PS_COSTS.packYen);
-}
-function psLotMetrics(lot, markYen) {
-  const basisPer = lot.buyYen + (lot.buyExtraYen || 0) / lot.qty;
-  const sells = lot.sells || [];
-  const sold = sells.reduce((a, s) => a + s.qty, 0), openQty = lot.qty - sold;
-  const realized = sells.reduce((a, s) => a + psSellNet(s) - s.qty * basisPer, 0);
-  let net = null, unreal = null;
-  if (openQty > 0 && markYen != null) { net = psSellNet({ qty: openQty, yen: markYen }); unreal = net - openQty * basisPer; }
-  const lastSell = sells.map(s => s.date).sort().pop() || null;
-  return { basisPer, sold, openQty, realized, soldCost: sold * basisPer, closed: openQty === 0 && sold > 0, net, unreal, openCost: openQty * basisPer, lastSell,
-    days: lastSell ? Math.max(0, Math.round((new Date(lastSell) - new Date(lot.buyDate)) / 86400000)) : null };
-}
 function psLedgerStats(lots, marks) {
   const rows = lots.map(l => ({ lot: l, m: psLotMetrics(l, marks ? marks[l.id] : null) }));
   const closed = rows.filter(r => r.m.closed), open = rows.filter(r => r.m.openQty > 0);
@@ -5595,131 +5577,6 @@ async function psRenderLedger() {
   body.querySelectorAll('[data-ps-lotdel]').forEach(b => b.addEventListener('click', () => psConfirmDeleteLot(b.getAttribute('data-ps-lotdel'))));
 }
 
-function psOpenTradeForm(opts) {
-  const L = window.PM_LIMITS, today = new Date().toISOString().slice(0, 10);
-  const lot = opts.lot || null;
-  const v = lot ? { card: lot.card, paper: lot.paper, qty: lot.qty, yen: lot.buyYen, extra: lot.buyExtraYen || 0, date: lot.buyDate, shop: lot.shop || '', tag: lot.tag || '', note: lot.note || '', finish: lot.finish || '' }
-                : { card: opts.card || '', paper: !!opts.paper, qty: opts.qty || 1, yen: opts.yen != null ? Math.round(opts.yen) : '', extra: 0, date: today, shop: '', tag: opts.tag || '', note: '', finish: opts.finish || '' };
-  const soldQty = lot ? (lot.sells || []).reduce((a, x) => a + x.qty, 0) : 0;
-  const inp = 'class="ps-input" style="margin-bottom:8px;"';
-  const tagOpt = (k, l) => `<option value="${k}"${v.tag === k ? ' selected' : ''}>${l}</option>`;
-  const finOpt = (k, l) => `<option value="${k}"${v.finish === k ? ' selected' : ''}>${l}</option>`;
-  showInfoModal(`<h2 style="margin-bottom:4px;">${lot ? 'Edit trade' : (v.paper ? 'Paper trade' : 'Add a trade')}</h2><p class="tad-sub" style="margin-bottom:8px;">${lot ? (soldQty ? `${soldQty} already sold: you can't set "how many" below that. Sales are edited from the trade's list.` : 'Fix anything that was entered wrongly.') : `Record cards you bought${v.paper ? ' (pretend money)' : ''}. You can record the sale later.`}</p>`,
-    `<label class="ps-flabel">Card</label><input id="psTfCard" ${inp} maxlength="${L.tradeCard}" autocomplete="off" value="${escapeHtml(v.card)}" placeholder="Start typing a card name"><div id="psTfHits"></div>
-     <label class="ps-flabel"><input type="checkbox" id="psTfPaper" ${v.paper ? 'checked' : ''}> Paper trade (pretend money)</label>
-     <div class="ps-frow"><div><label class="ps-flabel">How many</label><input id="psTfQty" ${inp} inputmode="numeric" value="${v.qty}"></div>
-       <div><label class="ps-flabel">Price each (¥)</label><input id="psTfYen" ${inp} inputmode="numeric" value="${v.yen}" placeholder="e.g. 1200"></div></div>
-     <div class="ps-frow"><div><label class="ps-flabel">Bought on</label><input id="psTfDate" ${inp} value="${escapeHtml(v.date)}"></div>
-       <div><label class="ps-flabel">Extra cost (¥, total)</label><input id="psTfExtra" ${inp} inputmode="numeric" value="${v.extra}"></div></div>
-     <div class="ps-frow"><div><label class="ps-flabel">Version</label><select id="psTfFinish" ${inp}>${finOpt('', 'Not sure / any')}${finOpt('nonfoil', 'Non-foil')}${finOpt('foil', 'Foil')}${finOpt('etched', 'Etched foil')}</select></div>
-       <div><label class="ps-flabel">Shop (optional)</label><input id="psTfShop" ${inp} maxlength="${L.tradeShop}" value="${escapeHtml(v.shop)}" placeholder="Hareruya, Card Rush..."></div></div>
-     <label class="ps-flabel">Why (optional)</label><select id="psTfTag" ${inp}>${tagOpt('', 'No tag')}${tagOpt('riser', 'Riser pick')}${tagOpt('spoiler', 'Spoiler play')}${tagOpt('other', 'Other')}</select>
-     <input id="psTfNote" ${inp} maxlength="${L.tradeNote}" value="${escapeHtml(v.note)}" placeholder="Note: the thesis in a line">
-     <div id="psTfStatus" class="status" style="min-height:18px;"></div>
-     <div class="row" style="justify-content:flex-end; gap:10px;"><button id="psTfCancel" class="ghost">Cancel</button><button id="psTfSave">Save</button></div>`);
-  const $f = (id) => document.getElementById(id); let chosen = v.card;
-  const cardIn = $f('psTfCard'), hits = $f('psTfHits');
-  cardIn.addEventListener('input', () => { chosen = ''; });
-  pmWireCardSearch({ input: cardIn, results: hits, limit: 5, rowAttr: 'data-pick', clearOnPick: false, showType: false, onPick: async (c) => {
-    chosen = c.n; cardIn.value = chosen; hits.innerHTML = '';
-    if (!lot && $f('psTfPaper').checked && !$f('psTfYen').value) { const y = await psCurrentYen(chosen); if (y != null) $f('psTfYen').value = Math.round(y); }
-  } });
-  $f('psTfCancel').addEventListener('click', closeTryADeckModal);
-  $f('psTfSave').addEventListener('click', async () => {
-    const say = (m) => { const s = $f('psTfStatus'); s.className = 'status err'; s.textContent = m; };
-    const name = chosen || cardIn.value.trim(), qty = psToInt($f('psTfQty').value), yen = psToInt($f('psTfYen').value), extra = psToInt($f('psTfExtra').value), date = $f('psTfDate').value.trim();
-    if (!name) return say('Pick a card.');
-    if (!(qty >= 1 && qty <= L.tradeQtyMax)) return say(`How many: a whole number from 1 to ${L.tradeQtyMax}.`);
-    if (qty < soldQty) return say(`${soldQty} of these are already recorded as sold, so "how many" can't be less than ${soldQty}.`);
-    if (!(yen > 0 && yen <= L.tradeYenMax)) return say('Price each: a whole number of yen above zero.');
-    if (!(extra >= 0 && extra <= L.tradeYenMax)) return say('Extra cost: zero or more yen.');
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || isNaN(new Date(date))) return say('Date: use the form 2026-10-09.');
-    const btn = $f('psTfSave'); btn.disabled = true; $f('psTfStatus').className = 'status'; $f('psTfStatus').textContent = 'Saving…';
-    try {
-      await window.PodmatesCloud.saveTrade({ ...(lot || {}), card: name, key: pricescryNameKey(name), finish: $f('psTfFinish').value, paper: $f('psTfPaper').checked, qty, buyYen: yen, buyExtraYen: extra, buyDate: date, shop: $f('psTfShop').value.trim(), tag: $f('psTfTag').value, note: $f('psTfNote').value.trim(), sells: lot ? (lot.sells || []) : [] });
-      closeTryADeckModal(); showToast(lot ? 'Trade updated.' : 'Trade saved.'); psSetTab('ledger');
-    } catch (e) { btn.disabled = false; say('Could not save: ' + e.message); }
-  });
-}
-
-// "My price": what you actually see the card for in Japan today (Mercari, Hareruya...), so a position is valued on the market you trade in.
-function psOpenMarkForm(lotId) {
-  const lot = (psLedger.lots || []).find(l => l.id === lotId); if (!lot) return;
-  const L = window.PM_LIMITS, today = new Date().toISOString().slice(0, 10), inp = 'class="ps-input" style="margin-bottom:8px;"';
-  showInfoModal(`<h2 style="margin-bottom:4px;">My price check</h2><p class="tad-sub" style="margin-bottom:8px;">${escapeHtml(lot.card)}: the price you would really expect to get for one in Japan today (for example the going rate on Mercari). Leave it empty to go back to the shops-abroad estimate.</p>`,
-    `<div class="ps-frow"><div><label class="ps-flabel">Price each (¥)</label><input id="psMfYen" ${inp} inputmode="numeric" value="${lot.markYen != null ? lot.markYen : ''}" placeholder="e.g. 1800"></div>
-       <div><label class="ps-flabel">Seen on</label><input id="psMfDate" ${inp} value="${lot.markDate || today}"></div></div>
-     <div id="psMfStatus" class="status" style="min-height:18px;"></div>
-     <div class="row" style="justify-content:flex-end; gap:10px;"><button id="psMfCancel" class="ghost">Cancel</button><button id="psMfSave">Save</button></div>`);
-  const $f = (id) => document.getElementById(id);
-  $f('psMfCancel').addEventListener('click', closeTryADeckModal);
-  $f('psMfSave').addEventListener('click', async () => {
-    const say = (m) => { const s = $f('psMfStatus'); s.className = 'status err'; s.textContent = m; };
-    const raw = $f('psMfYen').value.trim(), yen = raw === '' ? null : psToInt(raw), date = $f('psMfDate').value.trim();
-    if (yen != null && !(yen > 0 && yen <= L.tradeYenMax)) return say('Price: a whole number of yen above zero, or leave empty.');
-    if (yen != null && (!/^\d{4}-\d{2}-\d{2}$/.test(date) || isNaN(new Date(date)))) return say('Date: use the form 2026-10-09.');
-    const btn = $f('psMfSave'); btn.disabled = true;
-    try { await window.PodmatesCloud.saveTrade({ ...lot, markYen: yen, markDate: yen == null ? '' : date }); closeTryADeckModal(); showToast(yen == null ? 'Price check removed.' : 'Price check saved.'); psSetTab('ledger'); }
-    catch (e) { btn.disabled = false; say('Could not save: ' + e.message); }
-  });
-}
-
-function psCsvCell(v) { const t = String(v == null ? '' : v); return /[",\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; }
-function psTradesCsv(lots) {
-  const head = ['card', 'type', 'version', 'qty', 'buy_price_each_yen', 'extra_cost_yen', 'bought_on', 'shop', 'reason', 'note', 'sold_qty', 'last_sale_on', 'realised_profit_yen', 'open_qty'];
-  const rows = lots.map(l => { const m = psLotMetrics(l, null); return [l.card, l.paper ? 'paper' : 'real', l.finish || '', l.qty, l.buyYen, l.buyExtraYen || 0, l.buyDate, l.shop || '', PS_TAGS[l.tag || ''], l.note || '', m.sold, m.lastSell || '', Math.round(m.realized), m.openQty]; });
-  return [head].concat(rows).map(r => r.map(psCsvCell).join(',')).join('\n') + '\n';
-}
-function psExportTrades(lots) {
-  if (!lots || !lots.length) { showToast('Nothing to export yet.'); return; }
-  const blob = new Blob(['﻿' + psTradesCsv(lots)], { type: 'text/csv;charset=utf-8' }), a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = 'pricescry-trades-' + new Date().toISOString().slice(0, 10) + '.csv';
-  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
-}
-
-async function psOpenSellForm(lotId, editIdx) {
-  const lot = (psLedger.lots || []).find(l => l.id === lotId); if (!lot) return;
-  const m = psLotMetrics(lot, null), L = window.PM_LIMITS, today = new Date().toISOString().slice(0, 10), now = psLedger.marks[lotId];
-  const ed = (editIdx != null && (lot.sells || [])[editIdx]) ? lot.sells[editIdx] : null, maxQty = m.openQty + (ed ? ed.qty : 0);
-  const inp = 'class="ps-input" style="margin-bottom:8px;"';
-  showInfoModal(`<h2 style="margin-bottom:4px;">${ed ? 'Edit sale' : 'Record a sale'}</h2><p class="tad-sub" style="margin-bottom:8px;">${escapeHtml(lot.card)}: ${maxQty} ${ed ? 'available for this sale' : 'left'}, bought at ¥${Math.round(m.basisPer).toLocaleString()} each (all costs in).</p>`,
-    `<div class="ps-frow"><div><label class="ps-flabel">How many sold</label><input id="psSfQty" ${inp} inputmode="numeric" value="${ed ? ed.qty : m.openQty}"></div>
-       <div><label class="ps-flabel">Sale price each (¥)</label><input id="psSfYen" ${inp} inputmode="numeric" value="${ed ? ed.yen : (now != null ? Math.round(now) : '')}"></div></div>
-     <div class="ps-frow"><div><label class="ps-flabel">Sold on</label><input id="psSfDate" ${inp} value="${ed ? escapeHtml(ed.date) : today}"></div>
-       <div><label class="ps-flabel">Mercari fee (%)</label><input id="psSfFee" ${inp} inputmode="decimal" value="${ed ? ed.feePct : PS_COSTS.feePct}"></div></div>
-     <div class="ps-frow"><div><label class="ps-flabel">Shipping (¥)</label><input id="psSfShip" ${inp} inputmode="numeric" value="${ed ? ed.shipYen : PS_COSTS.shipYen}"></div>
-       <div><label class="ps-flabel">Packing (¥)</label><input id="psSfPack" ${inp} inputmode="numeric" value="${ed ? ed.packYen : PS_COSTS.packYen}"></div></div>
-     <div id="psSfPreview" class="ps-note"></div><div id="psSfStatus" class="status" style="min-height:18px;"></div>
-     <div class="row" style="justify-content:flex-end; gap:10px;"><button id="psSfCancel" class="ghost">Cancel</button><button id="psSfSave">Save sale</button></div>`);
-  const $f = (id) => document.getElementById(id);
-  const read = () => ({ qty: psToInt($f('psSfQty').value), yen: psToInt($f('psSfYen').value), feePct: Number($f('psSfFee').value), shipYen: psToInt($f('psSfShip').value), packYen: psToInt($f('psSfPack').value), date: $f('psSfDate').value.trim() });
-  const preview = () => { const s = read(); if (!(s.qty >= 1 && s.yen > 0 && s.feePct >= 0)) { $f('psSfPreview').textContent = ''; return; } const net = psSellNet(s), profit = net - s.qty * m.basisPer; $f('psSfPreview').innerHTML = sanitizeHtml(`You would receive <b>¥${Math.round(net).toLocaleString()}</b> after fees and shipping: a profit of <b class="${profit >= 0 ? 'ps-up' : 'ps-down'}">${psFmtYenSigned(profit)}</b>.`); };
-  ['psSfQty', 'psSfYen', 'psSfFee', 'psSfShip', 'psSfPack'].forEach(id => $f(id).addEventListener('input', preview)); preview();
-  $f('psSfCancel').addEventListener('click', closeTryADeckModal);
-  $f('psSfSave').addEventListener('click', async () => {
-    const say = (t) => { const s = $f('psSfStatus'); s.className = 'status err'; s.textContent = t; };
-    const s = read();
-    if (!(s.qty >= 1 && s.qty <= maxQty)) return say(`How many sold: 1 to ${maxQty}.`);
-    if (!(s.yen > 0 && s.yen <= L.tradeYenMax)) return say('Sale price: a whole number of yen above zero.');
-    if (!(s.feePct >= 0 && s.feePct <= 30)) return say('Fee: a percentage from 0 to 30.');
-    if (!(s.shipYen >= 0 && s.packYen >= 0)) return say('Shipping and packing: zero or more yen.');
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(s.date) || isNaN(new Date(s.date))) return say('Date: use the form 2026-10-09.');
-    if (!ed && (lot.sells || []).length >= L.tradeSells) return say('That position already has the maximum number of sales recorded.');
-    const btn = $f('psSfSave'); btn.disabled = true; $f('psSfStatus').className = 'status'; $f('psSfStatus').textContent = 'Saving…';
-    try { await window.PodmatesCloud.saveTrade({ ...lot, sells: ed ? lot.sells.map((x, i) => (i === editIdx ? s : x)) : [...(lot.sells || []), s] }); closeTryADeckModal(); showToast(ed ? 'Sale updated.' : 'Sale recorded.'); psSetTab('ledger'); }
-    catch (e) { btn.disabled = false; say('Could not save: ' + e.message); }
-  });
-}
-function psConfirmRemoveSale(lotId, idx) {
-  const lot = (psLedger.lots || []).find(l => l.id === lotId); const x = lot && (lot.sells || [])[idx]; if (!x) return;
-  showActionConfirmModal(`Remove the sale of ${x.qty} × ${lot.card} on ${x.date}? The cards go back to being open. Are you sure?`, 'Yes, remove',
-    async () => { try { await window.PodmatesCloud.saveTrade({ ...lot, sells: lot.sells.filter((_, i) => i !== idx) }); showToast('Sale removed.'); psSetTab('ledger'); } catch (e) { showToast('Could not save: ' + e.message); } }, null, 'No');
-}
-function psConfirmDeleteLot(lotId) {
-  const lot = (psLedger.lots || []).find(l => l.id === lotId); if (!lot) return;
-  showActionConfirmModal(`Delete this ${lot.paper ? 'paper ' : ''}trade of ${lot.qty} × ${lot.card}? It disappears from your records and stats, and this can't be undone. Are you sure?`, 'Yes, delete',
-    async () => { try { await window.PodmatesCloud.deleteTrade(lotId); showToast('Trade deleted.'); psSetTab('ledger'); } catch (e) { showToast('Could not delete: ' + e.message); } }, null, 'No');
-}
 
 
 // ---- Trade planner on every card page -----------------------------------------------------------------

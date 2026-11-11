@@ -367,6 +367,22 @@ Replacing/dismissing a host retires pending renders, animation timers and global
 Tests cover authenticated votes/undo/move/unsort, source selection, filters, board ordering,
 account boundaries and teardown; offline Chromium covers the PriceScry sign-in gate.
 
+`trades` owns purchase/edit, local price checks, sale entry/edit/preview/removal, trade deletion and
+CSV export. Templates retain the existing dialog controls and PriceScry classes; form-only layout
+is in `trades.css`. The pure state helpers retain yen rounding, the sold-quantity floor, Mercari
+fees/shipping, cost basis and partial/closed-position accounting. Repository writes import
+`services/cloud/trades` directly without changing `users/{uid}/trades` fields or paths.
+
+The temporary adapter supplies the inline Ledger's current lots/marks, PriceScry price/name lookup,
+Ledger refresh and the shared ranked picker. It republishes only action/accounting names still
+called inline; unused CSV/sale-net helpers no longer become globals. Ledger rendering, filtering
+and statistics remain for R11; the planner and price lookup remain for R13. Async lookup/save
+completions cannot alter or dismiss a replacement dialog, and write errors report through the
+redacted sink while preserving the original form/toast messages. Repository-mocked tests cover
+purchase/edit, sale/edit/removal, mark removal, deletion, failure/retry and stale completions.
+Offline Chromium covers dialog validation, preview and cancellation without authenticated writes;
+the purchase, sale and price-check screenshots are byte-identical to their pre-extraction views.
+
 ## Lint-enforced boundaries
 
 `eslint.config.js` makes every rule an error (no warn-only rules remain):
@@ -408,7 +424,7 @@ ESLint does not inspect the inline scripts in `index.html`. TypeScript is strict
 
 Phase 3's exit criteria (no source file over ~500 lines, no globals, every `innerHTML` replaced) are not met
 while the inline app script exists. The remaining p3-5 feature moves (rest of Deck Chart,
-trades, notifications,
+notifications,
 ledger/comparison, themes, PriceScry) each delete inline code and the shim names it used. When the last caller of a
 shim name goes, delete the name; when the inline scripts are gone, `index.html` becomes static markup plus the
 `src/main.ts` tag, and `main.ts` boots theme → card DB (worker) → cloud → UI directly.
