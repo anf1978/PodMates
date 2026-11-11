@@ -20,6 +20,7 @@ import "./services/cloud/limits-global.ts";
 import "./features/profile/legacy-globals.ts";
 import "./features/auth/legacy-globals.ts";
 import "./features/gatherings/legacy-globals.ts";
+import "./features/chronicles/legacy-globals.ts";
 // Publishes window.PodmatesCloud, then dispatches "podmates-cloud-init".
 import "./services/cloud/index.ts";
 import "./features/pods/legacy-globals.ts";

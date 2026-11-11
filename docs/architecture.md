@@ -324,6 +324,16 @@ entry point used by offline browser tests remain published, each marked `TODO(p3
 Repository-mocked interaction tests cover authenticated host/RSVP/chart/end flows; offline
 e2e covers sample loading/cancellation and the six-deck handoff without authentication.
 
+`chronicles` (prefix `chronicles-`) owns the shared pod journal, newest-first Gathering-title grouping,
+historical entries, participant/leader edit visibility, notes, deletion, leader-only clearing and optional
+post-battle ratings/highlights. It uses cloud repositories directly and preserves document paths/fields.
+The three existing refresh/render/survey names remain in its shim for unmoved callers; modal confirmation
+and account guards are runtime ports, not cross-feature imports. Gathering lifecycle, battle snapshots and
+Log Battle belong to gatherings. Concurrent journal reads are scoped to the current account/pod so stale
+responses cannot overwrite a newer selection; read failures retain the empty-list fallback and report to
+the redacted error sink. Unit tests cover scope/permissions, notes and feedback writes and failures; the
+offline browser suite covers guest journal access/sign-in handoff and independent ratings/skip.
+
 ## Lint-enforced boundaries
 
 `eslint.config.js` makes every rule an error (no warn-only rules remain):

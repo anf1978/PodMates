@@ -51,7 +51,7 @@ CI runs `check` + e2e + rules tests on every PR (including stacked bases) and `m
 - `src/styles/` — `tokens.css` (CSS variables) and `base.css`.
 - `src/features/<name>/` — one folder per feature: `state.ts`, `view.ts`/`panels/`, `<name>.css`, `*.test.ts`.
   Moved: `deck-chart` (four panels), `try-a-deck`, `export`, `scan-cards`, `deck-crafter`, `auth`, `profile`,
-  `pods` and `gatherings`. Adapters supply
+  `pods`, `gatherings` and `chronicles`. Adapters supply
   the still-inline deck form, shared library gate and analysis. Scan and Deck Crafter communicate through
   `src/services/deck-editing.ts`; features never import each other or read legacy globals directly.
   Profile includes My Profile, linked decks,
@@ -60,6 +60,8 @@ CI runs `check` + e2e + rules tests on every PR (including stacked bases) and `m
   Gatherings owns host/lineups, RSVP, landing cards, waiting/live trays and sample tables; its runtime
   ports adapt the remaining comparison, battle/Chronicles controls and saved-deck picker.
   `src/services/events.ts` connects independent features without feature imports.
+  Chronicles owns the grouped journal, entry permissions/notes/deletion/clear and optional post-battle feedback;
+  Gathering lifecycle and Log Battle remain with gatherings. Its adapter retains only existing refresh/render/survey names.
 - `**/legacy-globals.ts`, `src/services/cloud/{index,limits-global}.ts` — strangler shims publishing typed code
   on `window` for the inline scripts. Delete each name with its last inline caller.
 - `index.html` — markup, main CSS and the inline legacy scripts (everything not yet in `src/features`).
@@ -139,6 +141,7 @@ expanded chart panels, info dialog and account screens. The one exact contrast d
 |      4661 | Commander Centrality panel                                     | `function renderCommanderCentrality`                                                         |
 |   modules | Sign in / sign up, account bar and save guard                  | `src/features/auth/{index,view,state}.ts`                                                    |
 |   modules | My Profile, linked decks and public player/pod profiles        | `src/features/profile/`; temporary ports in `legacy-globals.ts`                              |
+|   modules | Chronicles history, notes and battle feedback                  | `src/features/chronicles/{index,view,dialogs,state}.ts`                                      |
 | 4944–6116 | **PriceScry** (Search, Movers, Radar, Ledger, trades)          | `PriceScry -- card price history`, `PRICESCRY_PW_SHA256`, `function psRenderRadar`           |
 |      5455 | Spoiler Bait                                                   | `SPOILER BAIT -- swipe`                                                                      |
 |      6117 | Display settings (still inline for the themes session)         | `function renderDisplaySettings`                                                             |
@@ -157,7 +160,7 @@ expanded chart panels, info dialog and account screens. The one exact contrast d
 |      8752 | Retired pod rosters (dead code)                                | `POD ROSTERS -- retired`                                                                     |
 | 9217–9364 | Notifications inbox                                            | `<script id="notif-script">`                                                                 |
 
-Updated for R1–R5 (remaining ranges approximate). Regenerate with:
+Updated for R1–R6 (remaining ranges approximate). Regenerate with:
 
 ```sh
 grep -n -E '<script|</script>|<style|</style>|<body' index.html | cut -c1-120          # block boundaries

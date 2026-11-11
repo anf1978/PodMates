@@ -29,6 +29,7 @@ function sanitizeHtml(markup) {
 <link rel="stylesheet" href="./src/features/profile/public-profile.css">
 <link rel="stylesheet" href="./src/features/pods/pods.css">
 <link rel="stylesheet" href="./src/features/gatherings/gatherings.css">
+<link rel="stylesheet" href="./src/features/chronicles/chronicles.css">
 <script type="module" src="./src/main.ts"></script>
 <style>
   header{text-align:center; margin-bottom:30px;}
@@ -1542,18 +1543,7 @@ One card per line. Formats like &quot;1x Sol Ring&quot;, plain names, or Moxfiel
       </details>
     </div>
 
-    <div class="panel" id="matchHistoryPanel">
-      <details class="panel-collapsible">
-        <summary class="panel-toggle">Chronicles &amp; Stories</summary>
-        <div id="matchHistoryBody">
-          <p style="font-size:12.5px; color:var(--text-soft); margin:0 0 10px;">Your active pod's shared nights, grouped by Gathering, visible to every member. Capture lessons and fun — not just who won.</p>
-          <div id="matchLogArea" style="font-size:13px; color:var(--text-soft); max-height:520px; overflow-y:auto;"></div>
-          <div class="row" style="margin-top:12px;">
-            <button id="clearMatchHistoryBtn" class="ghost">Clear Chronicles</button>
-          </div>
-        </div>
-      </details>
-    </div>
+    <div class="panel" id="matchHistoryPanel"></div>
   </div>
 
   <div id="resultsSection">
@@ -7027,63 +7017,6 @@ async function runLogBattle() {
   }
 }
 
-// Fun and accuracy are both optional 1-5 ratings, best moment is optional
-// free text, and the whole thing can be skipped outright -- skipping
-// still counts as participating (the `participants` list on the Chronicle
-// entry already has everyone seated, written at Log Battle time, whether
-// or not they ever open this survey at all).
-function showFeedbackSurvey(podId, chronicleId) {
-  let fun = 0, accuracy = 0;
-  const { modal } = openTadOverlay();
-  modal.innerHTML = `
-    <button class="tad-close" id="tadCloseBtn">Close ×</button>
-    <h2 style="margin-bottom:4px;">How was the battle?</h2>
-    <p style="font-size:12.5px; color:var(--text-soft); margin:0 0 16px;">Totally optional — skip if you'd rather not.</p>
-    <div style="margin-bottom:14px;">
-      <label style="font-size:12px; color:var(--gold); display:block; margin-bottom:6px;">Fun</label>
-      <div id="funRatingRow" class="row" style="gap:6px;"></div>
-    </div>
-    <div style="margin-bottom:14px;">
-      <label style="font-size:12px; color:var(--gold); display:block; margin-bottom:6px;">Alignment accuracy</label>
-      <div id="accuracyRatingRow" class="row" style="gap:6px;"></div>
-    </div>
-    <div style="margin-bottom:16px;">
-      <label style="font-size:12px; color:var(--gold); display:block; margin-bottom:6px;">Best moment</label>
-      <textarea id="bestMomentInput" placeholder="Anything worth remembering?" style="width:100%; box-sizing:border-box; height:70px; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13px; resize:vertical;"></textarea>
-    </div>
-    <div class="row" style="gap:8px;">
-      <button id="skipFeedbackBtn" class="ghost" style="flex:1;">Skip</button>
-      <button id="submitFeedbackBtn" style="flex:1;">Submit</button>
-    </div>
-    <div id="feedbackStatus" style="font-size:12.5px; margin-top:8px;"></div>
-  `;
-  document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
-  document.getElementById('skipFeedbackBtn').addEventListener('click', closeTryADeckModal);
-
-  function renderRating(rowId, current, onPick) {
-    const row = document.getElementById(rowId);
-    row.innerHTML = sanitizeHtml([1, 2, 3, 4, 5].map(n => `<button type="button" data-rate="${n}" class="ghost" style="flex:1; padding:8px 0; ${n === current ? 'border-color:var(--gold); color:var(--gold);' : ''}">${n}</button>`).join(''));
-    row.querySelectorAll('[data-rate]').forEach(b => b.addEventListener('click', () => onPick(parseInt(b.getAttribute('data-rate'), 10))));
-  }
-  function setFun(n) { fun = n; renderRating('funRatingRow', fun, setFun); }
-  function setAccuracy(n) { accuracy = n; renderRating('accuracyRatingRow', accuracy, setAccuracy); }
-  renderRating('funRatingRow', fun, setFun);
-  renderRating('accuracyRatingRow', accuracy, setAccuracy);
-
-  document.getElementById('submitFeedbackBtn').addEventListener('click', async () => {
-    const statusEl = document.getElementById('feedbackStatus');
-    const bestMoment = (document.getElementById('bestMomentInput').value || '').trim();
-    try {
-      await window.PodmatesCloud.addChronicleFeedback(podId, chronicleId, { fun: fun || null, accuracy: accuracy || null, bestMoment });
-      closeTryADeckModal();
-      showToast('Thanks for the feedback!');
-    } catch (err) {
-      statusEl.textContent = 'Could not save: ' + err.message;
-      statusEl.className = 'status err';
-    }
-  });
-}
-
 function buildPodMismatchNotes(decks) {
   if (!decks || decks.length < 2) return [];
   const notes = [];
@@ -8909,209 +8842,12 @@ document.addEventListener('click', (e) => {
 const buildSavedDecksTableBtn = $('buildSavedDecksTableBtn');
 if (buildSavedDecksTableBtn) buildSavedDecksTableBtn.addEventListener('click', buildSavedDecksTable);
 
-// Chronicles now live entirely on Firebase, same in-memory-cache pattern
-// as everything else above. Entries get a real Firestore-generated ID
-// from the moment they're created; makeChronicleId below is only a
-// fallback for the rare case an entry is missing one.
-let cloudChroniclesCache = [];
-let chronicleViewerRole = 'member'; // my role in the pod whose Chronicles are showing: 'leader' | 'co-leader' | 'member'
-
-// May I edit or delete this entry? The players who were in that battle, and
-// the pod's leaders. Entries from before Gatherings existed have no player
-// list, so any pod member may manage those. (firestore.rules enforces the same
-// thing; this just decides which buttons to show.)
-function canEditChronicle(entry) {
-  const uid = window.PodmatesCloud && window.PodmatesCloud.uid;
-  if (!uid || !entry || !entry.id) return false;
-  if (chronicleViewerRole === 'leader' || chronicleViewerRole === 'co-leader') return true;
-  const players = Array.isArray(entry.participants) ? entry.participants : [];
-  return players.length === 0 || players.includes(uid);
-}
-
-function loadMatches() {
-  return cloudChroniclesCache;
-}
-
-async function refreshCloudChroniclesCache() {
-  const user = window.PodmatesCloud && window.PodmatesCloud.user;
-  if (!user || !currentPodViewId) {
-    // No account, or no active OurPod -- Chronicles now belongs to a pod,
-    // not an individual account, so there's nothing to load either way.
-    cloudChroniclesCache = [];
-    renderMatchLog();
-    return;
-  }
-  try {
-    cloudChroniclesCache = await window.PodmatesCloud.loadAllChronicles(currentPodViewId);
-  } catch (e) {
-    cloudChroniclesCache = [];
-  }
-  // My role decides whether I also see Edit/Delete on battles I wasn't in.
-  try {
-    const members = await window.PodmatesCloud.loadPodMembers(currentPodViewId);
-    const me = members.find(x => x.uid === user.uid);
-    chronicleViewerRole = (me && me.role) || 'member';
-  } catch (e) { chronicleViewerRole = 'member'; }
-  renderMatchLog();
-}
-
-function makeChronicleId() {
-  return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
-}
-
-// Add/edit the notes on a Chronicle entry. Players tend to add detail after
-// the games rather than mid-battle, so this is the "write it up afterwards" path.
-function openChronicleNotesEditor(entryId) {
-  const entry = loadMatches().find(m => m.id === entryId);
-  if (!entry || !currentPodViewId) return;
-  const limit = window.PM_LIMITS.notes;
-  showInfoModal(
-    `<h2 style="margin-bottom:4px;">${entry.notes ? 'Edit notes' : 'Add notes'}</h2><p class="tad-sub" style="margin-bottom:8px;">${escapeHtml(entry.date || '')}</p>`,
-    `<textarea id="chronicleNotesInput" maxlength="${limit}" placeholder="What happened? Anything worth remembering?" style="width:100%; box-sizing:border-box; height:120px; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px; color:var(--text-primary); font-family:inherit; font-size:14px;">${escapeHtml(entry.notes || '')}</textarea>
-     <div id="chronicleNotesCount" style="font-size:11.5px; color:var(--text-dim); text-align:right; margin-top:2px;"></div>
-     <div id="chronicleNotesStatus" class="status" style="min-height:18px;"></div>
-     <div class="row" style="justify-content:flex-end; gap:10px; margin-top:8px;">
-       <button id="chronicleNotesCancelBtn" class="ghost">Cancel</button>
-       <button id="chronicleNotesSaveBtn">Save notes</button>
-     </div>`
-  );
-  const input = document.getElementById('chronicleNotesInput');
-  const counter = document.getElementById('chronicleNotesCount');
-  const status = document.getElementById('chronicleNotesStatus');
-  const saveBtn = document.getElementById('chronicleNotesSaveBtn');
-  const updateCount = () => { counter.textContent = `${input.value.length} / ${limit}`; };
-  input.addEventListener('input', updateCount); updateCount();
-  document.getElementById('chronicleNotesCancelBtn').addEventListener('click', closeTryADeckModal);
-  saveBtn.addEventListener('click', async () => {
-    saveBtn.disabled = true; status.className = 'status'; status.textContent = 'Saving…';
-    try {
-      await window.PodmatesCloud.updateChronicleNotes(currentPodViewId, entryId, input.value);
-      closeTryADeckModal();
-      showToast('Notes saved.');
-      await refreshCloudChroniclesCache();
-    } catch (err) {
-      status.className = 'status err'; status.textContent = 'Could not save: ' + err.message;
-      saveBtn.disabled = false;
-    }
-  });
-  input.focus();
-}
-
-function confirmDeleteChronicle(entryId) {
-  const entry = loadMatches().find(m => m.id === entryId);
-  if (!entry || !currentPodViewId) return;
-  const what = (entry.decks || []).map(d => d.commander || d.name).filter(Boolean).slice(0, 4).join(', ');
-  showActionConfirmModal(
-    `Delete this Chronicle entry${entry.date ? ' from ' + entry.date : ''}${what ? ' (' + what + ')' : ''}? Its notes and ratings go with it, and this can't be undone. Are you sure?`,
-    'Yes, delete',
-    async () => {
-      try {
-        await window.PodmatesCloud.deleteChronicleEntry(currentPodViewId, entryId);
-        showToast('Entry deleted.');
-        await refreshCloudChroniclesCache();
-      } catch (err) {
-        showToast('Could not delete: ' + err.message);
-      }
-    },
-    null,
-    'No'
-  );
-}
-
-function renderMatchLog() {
-  const area = $('matchLogArea');
-  if (!area) return;
-  // One click listener for every entry's buttons (the list is redrawn often,
-  // so listening on the container means it never has to be re-attached).
-  if (!area.dataset.chronWired) {
-    area.dataset.chronWired = '1';
-    area.addEventListener('click', (e) => {
-      const edit = e.target.closest('[data-chron-edit]');
-      if (edit) { openChronicleNotesEditor(edit.getAttribute('data-chron-edit')); return; }
-      const del = e.target.closest('[data-chron-del]');
-      if (del) confirmDeleteChronicle(del.getAttribute('data-chron-del'));
-    });
-  }
-  const matches = loadMatches();
-  if (!matches.length) {
-    area.innerHTML = '<em>No chapters yet -- host a Gathering, chart a battle, and Log Battle to start your Chronicles.</em>';
-    return;
-  }
-  // Grouped by gatheringTitle -- entries from before Log Battle existed
-  // (the old standalone "Add to Chronicles" flow) have no gathering
-  // attached, so they fall under a catch-all heading rather than being
-  // dropped or breaking the grouping. Groups come out newest-first
-  // automatically, since `matches` itself is already sorted that way and
-  // each group's heading is placed the first time one of its entries is
-  // encountered.
-  const groups = {};
-  const order = [];
-  matches.forEach(m => {
-    const title = m.gatheringTitle || 'Earlier Chronicles';
-    if (!groups[title]) { groups[title] = []; order.push(title); }
-    groups[title].push(m);
-  });
-
-  area.innerHTML = sanitizeHtml(order.map(title => {
-    const entriesHtml = groups[title].map(m => {
-      const decks = (m.decks || []).map(d => {
-        const cmd = d.commander || d.name || '?';
-        const player = d.player ? ` (${escapeHtml(d.player)})` : '';
-        return `<strong>${escapeHtml(cmd)}</strong>${player} · Spark ${escapeHtml(String(d.spark))}`;
-      }).join(' · ');
-      // Only the numeric ratings get averaged -- averaging free text isn't
-      // meaningful, so best moments are shown as a collected list instead,
-      // which doubles as a little highlight reel for the Gathering.
-      const responses = m.feedbackResponses || [];
-      const funVals = responses.map(r => r.fun).filter(v => typeof v === 'number');
-      const accVals = responses.map(r => r.accuracy).filter(v => typeof v === 'number');
-      const avgFun = funVals.length ? (funVals.reduce((s, v) => s + v, 0) / funVals.length).toFixed(1) : null;
-      const avgAcc = accVals.length ? (accVals.reduce((s, v) => s + v, 0) / accVals.length).toFixed(1) : null;
-      const moments = responses.map(r => r.bestMoment).filter(Boolean);
-      return `<div style="padding:10px 0; border-bottom:1px dashed var(--line);">
-        <div style="font-size:12px; color:var(--text-soft); margin-bottom:2px;">${escapeHtml(m.date || '')}</div>
-        <div>${decks}</div>
-        ${(avgFun || avgAcc) ? `<div style="color:var(--gold); margin-top:4px; font-size:12.5px;">${avgFun ? `Fun: ${avgFun}/5` : ''}${avgFun && avgAcc ? ' · ' : ''}${avgAcc ? `Alignment: ${avgAcc}/5` : ''} (${responses.length} response${responses.length === 1 ? '' : 's'})</div>` : ''}
-        ${moments.length ? `<div style="color:var(--text-soft); margin-top:4px; font-style:italic;">${moments.map(escapeHtml).join(' · ')}</div>` : ''}
-        ${m.notes ? `<div style="color:var(--text-soft); margin-top:2px;">${escapeHtml(m.notes)}</div>` : ''}
-        ${canEditChronicle(m) ? `<div style="margin-top:6px; display:flex; gap:16px;">
-          <button type="button" data-chron-edit="${escapeHtml(m.id)}" style="background:none; border:none; padding:4px 0; color:var(--gold); font-size:12.5px; cursor:pointer; text-decoration:underline;">${m.notes ? 'Edit notes' : 'Add notes'}</button>
-          <button type="button" data-chron-del="${escapeHtml(m.id)}" style="background:none; border:none; padding:4px 0; color:var(--danger); font-size:12.5px; cursor:pointer; text-decoration:underline;">Delete</button>
-        </div>` : ''}
-      </div>`;
-    }).join('');
-    return `<div style="margin-bottom:18px;">
-      <div style="font-family:'Cinzel',Georgia,serif; font-size:13px; letter-spacing:0.05em; text-transform:uppercase; color:var(--gold); margin-bottom:8px; padding-bottom:4px; border-bottom:1px solid var(--line-strong);">${escapeHtml(title)}</div>
-      ${entriesHtml}
-    </div>`;
-  }).join(''));
-}
-
 // Wire save/load
 const saveBtn = $('saveDeckBtn');
 if (saveBtn) saveBtn.addEventListener('click', saveCurrentDeck);
 const loadBtn = $('loadDeckBtn');
 if (loadBtn) loadBtn.addEventListener('click', showLoadDeckModal);
 
-const clearHistBtn = $('clearMatchHistoryBtn');
-if (clearHistBtn) clearHistBtn.addEventListener('click', () => {
-  if (!requireAccountToSave('chronicles')) return;
-  if (!currentPodViewId) return; // nothing to clear without an active OurPod
-  if (chronicleViewerRole !== 'leader' && chronicleViewerRole !== 'co-leader') {
-    showToast("Only the pod's leaders can clear all Chronicles. You can still delete entries from battles you played in.");
-    return;
-  }
-  showConfirmModal('Clear all Chronicles entries for this pod? This cannot be undone, and affects everyone in the pod.', async () => {
-    try {
-      await window.PodmatesCloud.clearAllChronicles(currentPodViewId);
-      await refreshCloudChroniclesCache();
-    } catch (e) {
-      showToast('Could not clear: ' + e.message);
-    }
-  });
-});
-
-renderMatchLog();
 const databaseReady = initDatabase();
 
 // Module scripts (required for Firebase) always finish loading AFTER

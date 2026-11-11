@@ -58,6 +58,7 @@ export default defineConfig({
           "./src/features/profile/public-profile.css",
           "./src/features/pods/pods.css",
           "./src/features/gatherings/gatherings.css",
+          "./src/features/chronicles/chronicles.css",
         ]) {
           const reference = this.emitFile({
             type: "asset",
