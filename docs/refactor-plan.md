@@ -150,7 +150,9 @@ flowchart LR
   DATA["weekly data job"] -->|publishes data| DEP
 ```
 
-`main` gets branch protection (CI must pass; no direct pushes or web uploads).
+**Revised (ADR 0001):** after the refactor, sessions push straight to `main` with no PR and no preview. Deploy runs
+only after CI passes on the pushed commit, so a broken push never reaches the live site. No branch protection that
+blocks pushes, and no web uploads.
 
 ## 5. Setting the repo up for Claude
 
@@ -213,7 +215,7 @@ are broken into one-PR session prompts in [docs/prompts/](./prompts/00-README.md
 | 1.2 | **Golden harness for the engine:** the engine and lookup blocks are DOM-free, so a test can extract them from `index.html`, run them in a Node `vm` with the decoded card DB, and snapshot `analyzeDeck` + all five axis scores for the 174 embedded sample decks. Uses a pinned card-DB fixture (only the cards those decks need) so weekly data refreshes don't move the goalposts. |
 | 1.3 | Playwright smoke test: page loads, DB ready, "Try a Deck" → chart → radar and panels render, no console errors. |
 | 1.4 | `ci.yml` on every PR: lint, golden, e2e. `deploy.yml` builds and deploys via Actions (Pages "GitHub Actions" source). |
-| 1.5 | Branch protection on `main`; friend moves to Claude Code (iOS app, cloud sessions) + PRs (D1). |
+| 1.5 | Friend moves to Claude Code (iOS app, cloud sessions) pushing to `main` (D1, revised: no PRs, no branch protection that blocks pushes; deploy gated on CI in p6-1). |
 
 **Exit:** `npm run check` is green and is the definition of "done" for every change.
 
@@ -296,7 +298,7 @@ Recommended option in **bold**.
 
 | # | Decision | Options |
 |---|---|---|
-| D1 | Development workflow | **Claude Code cloud sessions from the iOS app + PRs, reviewed in the GitHub app** · keep chat + web upload (blocks most of this plan) |
+| D1 | Development workflow | **Decided: Claude Code cloud sessions from the iOS app, pushing to `main`; deploy gated on CI** · PRs reviewed in the GitHub app (original recommendation) · keep chat + web upload (blocks most of this plan) |
 | D2 | UI approach | **Vanilla + lit-html templates** · Preact/React rewrite (better AI fluency, much bigger rewrite) · Svelte |
 | D3 | PriceScry's place | **Same repo, own lazy-loaded feature + own pipelines folder** · separate repo/app |
 | D4 | Hosting | **Stay on GitHub Pages (deploy via Actions) + service worker** · Firebase Hosting (headers, PR preview channels — already on Firebase) · Cloudflare Pages |
