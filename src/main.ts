@@ -1,6 +1,6 @@
 // The page's one module entry. index.html loads it from <head>, so like every module it runs
 // after the document is parsed and before DOMContentLoaded. The imports evaluate in this order,
-// which the inline scripts rely on: UI primitives, Deck Chart panels, engine, size limits, cloud.
+// which the inline scripts rely on: UI primitives, feature adapters, engine, size limits, cloud.
 //
 // The theme script and the card-database start-up are still inline in index.html; that code
 // dynamically imports src/data/load-dataset.ts, src/cards/load-db.ts and the card/engine shims.
@@ -9,6 +9,9 @@
 
 import "./ui/legacy-globals.ts";
 import "./features/deck-chart/legacy-globals.ts";
+import "./features/try-a-deck/legacy-globals.ts";
+import "./features/export/legacy-globals.ts";
+import "./features/scan-cards/legacy-globals.ts";
 import "./engine/legacy-globals.ts";
 // Limits first and on their own, so local deck analysis keeps them even if Firebase fails.
 import "./services/cloud/limits-global.ts";

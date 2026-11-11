@@ -48,6 +48,10 @@ export default defineConfig({
           "./src/styles/tokens.css",
           "./src/styles/base.css",
           "./src/features/deck-chart/deck-chart.css",
+          "./src/ui/tad-modal.css",
+          "./src/features/try-a-deck/try-a-deck.css",
+          "./src/features/export/export.css",
+          "./src/features/scan-cards/scan-cards.css",
         ]) {
           const reference = this.emitFile({
             type: "asset",

@@ -1,0 +1,28 @@
+.tad-modal h2.export-title {
+  margin-bottom: 8px;
+}
+.export-description {
+  font-size: 12.5px;
+  color: var(--text-soft);
+  margin: 0 0 12px;
+}
+.export-text {
+  width: 100%;
+  box-sizing: border-box;
+  height: 260px;
+  background: var(--bg-main);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 10px;
+  color: var(--text-primary);
+  font-family: monospace;
+  font-size: 12.5px;
+  resize: vertical;
+}
+.row.export-actions {
+  margin-top: 10px;
+}
+.export-status {
+  font-size: 12.5px;
+  margin-top: 6px;
+}

@@ -1,0 +1,54 @@
+.tad-modal h2.scan-title {
+  margin-bottom: 10px;
+}
+.scan-subtitle {
+  font-size: 12px;
+  color: var(--text-soft);
+  margin: -4px 0 10px;
+}
+.scan-instructions {
+  font-size: 13px;
+  color: var(--text-soft);
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+.scan-instructions p {
+  margin: 0 0 8px;
+}
+.scan-instructions p:last-child {
+  margin: 0;
+}
+.scan-instructions ul {
+  margin: 0 0 8px 18px;
+  padding: 0;
+}
+.scan-photo-actions {
+  margin-bottom: 12px;
+}
+.scan-status {
+  font-size: 12.5px;
+  color: var(--text-soft);
+  margin-bottom: 10px;
+}
+.scan-actions {
+  margin-top: 14px;
+}
+.scan-empty {
+  font-size: 13px;
+  color: var(--text-soft);
+  padding: 6px 0;
+}
+.scan-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+.scan-result input {
+  cursor: pointer;
+}
+.scan-card-name {
+  flex: 1;
+  font-size: 13px;
+}

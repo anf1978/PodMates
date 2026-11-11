@@ -11,6 +11,7 @@ import { setStatusText } from "./status.ts";
 import { selectTab, tabsByAttribute } from "./tabs.ts";
 import { showToast } from "./toast.ts";
 import { setupIconTooltips } from "./tooltip.ts";
+import { openTadOverlay, closeTryADeckModal } from "./tad-modal";
 
 const pmUi = Object.freeze({
   openModal,
@@ -30,6 +31,10 @@ declare global {
     setDeckMgmtStatus: (message: string, isError?: unknown) => void;
     setupIconTooltipsFor: (scope?: ParentNode | null) => void;
     ordinalSuffix: typeof ordinal;
+    // TODO(p3-6): drop with the last unmoved legacy modal caller.
+    openTadOverlay: typeof openTadOverlay;
+    // TODO(p3-6): drop with the last unmoved legacy modal caller.
+    closeTryADeckModal: typeof closeTryADeckModal;
     // TODO(p3-6): drop once the profile, PriceScry and Deck Chart string builders are moved.
     MANA_COLOR_STYLE: typeof MANA_COLOR_STYLE;
     manaSymbol: typeof manaSymbolHtml;
@@ -48,3 +53,5 @@ window.ordinalSuffix = ordinal;
 window.MANA_COLOR_STYLE = MANA_COLOR_STYLE;
 window.manaSymbol = manaSymbolHtml;
 window.cardNameLink = cardNameLinkHtml;
+window.openTadOverlay = openTadOverlay;
+window.closeTryADeckModal = closeTryADeckModal;

@@ -8,7 +8,8 @@ async function screenshot(page: Page, info: TestInfo, name: string) {
   if (!dir) return;
   await mkdir(dir, { recursive: true });
   const path = join(dir, `${name}.png`);
-  await page.screenshot({ path });
+  await page.mouse.move(0, 0);
+  await page.locator("#tadOverlay .tad-modal").screenshot({ path, animations: "disabled" });
   await info.attach(name, { path, contentType: "image/png" });
 }
 
@@ -71,7 +72,7 @@ test("scan accumulates matches, respects selection and rescans the same photo", 
   await page.route("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js", (route) =>
     route.fulfill({
       contentType: "application/javascript",
-      body: `window.Tesseract = { recognize: async () => ({ data: { text: "Sol Ring Arcane Signet Llanowar Elves" } }) };`,
+      body: `window.Tesseract = { recognize: async () => ({ data: { text: "Sol Ring Arcane Signet" } }) };`,
     }),
   );
   await page.goto("/");
@@ -88,14 +89,15 @@ test("scan accumulates matches, respects selection and rescans the same photo", 
       "base64",
     ),
   });
-  await expect(page.locator("#scanCardsStatus")).toContainText("found 3 new card(s)");
+  await expect(page.locator("#scanCardsStatus")).toContainText("found 2 new card(s)");
   await page.locator("#scanCardsRescanBtn").click();
-  await expect(page.locator("[data-scan-result-index]")).toHaveCount(3);
+  await expect(page.locator("#scanCardsStatus")).toContainText("found 2 new card(s)");
+  await expect(page.locator("[data-scan-result-index]")).toHaveCount(2);
   await page.locator("[data-scan-result-index]").first().uncheck();
   await screenshot(page, info, "scan-results");
   await page.locator("#scanCardsAddToDeckBtn").click();
   await expect(page.locator("#dbDeckList")).toContainText("Sol Ring");
-  await expect(page.locator("#dbDeckList")).not.toContainText("Llanowar Elves");
+  await expect(page.locator("#dbDeckList")).not.toContainText("Arcane Signet");
   await page.locator("#dbScanBtn").click();
   await expect(page.locator("#scanCardsRescanBtn")).toBeEnabled();
   await page.locator("#scanCardsRescanBtn").click();

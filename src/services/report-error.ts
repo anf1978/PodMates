@@ -10,6 +10,9 @@ export interface ErrorContext {
     | "app-update"
     | "card-database"
     | "card-art"
+    | "deck-library"
+    | "deck-export"
+    | "card-scan"
     | "global-error"
     | "unhandled-rejection";
   userTriggered?: boolean;

@@ -6,13 +6,13 @@ are in [CLAUDE.md](../CLAUDE.md); domain terms in the [glossary](glossary.md).
 
 ## Big picture
 
-PodMates is a static Vite site. `index.html` is still about 13,100 lines: static markup, the main
+PodMates is a static Vite site. `index.html` is still about 12,400 lines: static markup, the main
 CSS and the inline legacy scripts (theme, card-DB start-up, the app script with every unmoved feature, the
 notifications inbox). Typed code lives in `src/`, and the inline scripts reach it in two ways:
 
 1. **`src/main.ts`**, the one `<script type="module">` in `<head>`. Like every module it runs after the
    document is parsed and before `DOMContentLoaded`. Its imports evaluate in a fixed order: UI
-   primitives, Deck Chart panels, engine, size limits, cloud.
+   primitives, feature adapters, engine, size limits, cloud.
 2. **Dynamic `import()`** from the inline start-up code (`initDatabase` and the dataset gates) for
    `src/data/load-dataset.ts`, `src/cards/load-db.ts` and the card/engine shims.
 
@@ -229,7 +229,7 @@ return raw markup on purpose: a list of names joined by `", "` must stay one tex
 text layout shifts by a hundredth of a pixel.
 
 Overlays open through `modal.ts`, which owns Escape, the Tab trap, focus restore, body scroll lock and
-stacking; looks come from the overlay's own classes. In `index.html`, `openTadOverlay(opts)` wraps it for every
+stacking; looks come from the overlay's own classes. `src/ui/tad-modal.ts`'s `openTadOverlay(opts)` wraps it for every
 `.tad-overlay`/`.tad-modal` dialog: a base layer (`#tadOverlay`) replaces the open one, `{ stacked: true, id }`
 layers on top, and `onDismiss` keeps the backdrop/Escape behaviour. Close with `closeTryADeckModal()` or
 `pmUi.closeModal(el)`, not `el.remove()`. Set dialog width through `modalStyle`; assigning `style.cssText`
@@ -244,7 +244,23 @@ string templates with each rendered text run as a **single interpolation**: `` h
 nodes, which Chrome lays out differently from the original one-string markup.
 
 Moved so far: `deck-chart` (prefix `dc-`) — Structure & Legality, Mana Curve, Mana Base and Card Type
-Frequency & Curve. Everything else is still in the inline app script; see the line map in `CLAUDE.md`.
+Frequency & Curve; `try-a-deck` (`tad-`) — all library browsing/navigation; `export` (`export-`) —
+Commander/Deck text and clipboard dialog; `scan-cards` (`scan-`) — local Tesseract loading, bounded
+preprocessing, longest-name-first matching, selection and rescan lifecycle.
+
+The shared overlay and its former injected styles now live in `src/ui/tad-modal.ts` / `tad-modal.css`.
+The UI shim retains only the existing `openTadOverlay` / `closeTryADeckModal` names for unmoved callers;
+`injectTryADeckStyles` and its callers are gone. Feature `mount()` APIs take explicit callbacks. Their narrow
+`legacy-globals.ts` adapters bind the static deck-form controls, the lazy `loadDeckLibrary` gate, the current
+analysis and the still-inline Deck Crafter. The shared library gate and `TRY_A_DECK_OPTIONS` remain inline
+because gatherings and Deck Crafter still consume them. Only `showScanCardsModal` remains published by R1
+for Deck Crafter's Scan button. No feature imports another feature or talks directly to Firebase.
+
+Scanner files persist across dialog sessions, results reset on open, and obsolete asynchronous runs cannot
+write into a replacement dialog. OCR failures remain visible even when another photo succeeds (the legacy
+loop overwrote failures with “Done”). The shared error sink reports library/export/scan failures; preprocessing
+fallbacks are warnings and still pass the original or scaled image to OCR. All successful-flow copy, limits,
+colour filtering, full double-faced names and deck-form loading remain unchanged.
 
 ## Lint-enforced boundaries
 
@@ -279,11 +295,14 @@ ESLint does not inspect the inline scripts in `index.html`. TypeScript is strict
   fails any other external request. Console errors and page errors always fail. Other specs cover the modal system,
   lazy data and the DB worker. The opt-in `db-boot.perf.spec.ts` (`PM_BOOT_BENCHMARK=1`, `--workers=1`) reports
   mobile boot blocking time under Pixel 5 emulation, 6x CPU slowdown, 150 ms latency and 200,000 bytes/s.
+  `r1-features.spec.ts` covers release/style/archetype navigation, clipboard export and mocked client-side OCR
+  through the real file input, checkboxes, rescan and Deck Crafter handoff. Set `PM_R1_SCREENSHOTS` to an
+  artifact directory to capture the six main dialog views without committing screenshot baselines.
 
 ## What is not done yet
 
 Phase 3's exit criteria (no source file over ~500 lines, no globals, every `innerHTML` replaced) are not met
-while the inline app script exists. The remaining p3-5 feature moves (rest of Deck Chart, try-a-deck/export/scan,
+while the inline app script exists. The remaining p3-5 feature moves (rest of Deck Chart,
 deck-crafter, auth/profile, pods, gatherings, chronicles, impact, spoiler-bait, trades, notifications,
 ledger/comparison, themes, PriceScry) each delete inline code and the shim names it used. When the last caller of a
 shim name goes, delete the name; when the inline scripts are gone, `index.html` becomes static markup plus the

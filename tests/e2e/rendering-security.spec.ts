@@ -17,18 +17,28 @@ test("CSP permits import/price connections, OCR scripts, blob workers and Wasm",
   await page.route("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js", (route) =>
     route.fulfill({
       contentType: "application/javascript",
-      body: "window.Tesseract = { fixture: true };",
+      body: "window.Tesseract = { fixture: true, recognize: async () => ({ data: { text: '' } }) };",
     }),
   );
   await page.goto("/");
   await expect(page.locator("#dbStatus")).toContainText(/^Ready /);
+  await page.locator("#openDeckBuilderBtn").click();
+  await page.locator("#dbScanBtn").click();
+  await page.locator("#scanCardsFileInput").setInputFiles({
+    name: "cards.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=",
+      "base64",
+    ),
+  });
+  await expect(page.locator("#scanCardsStatus")).toContainText("Done");
   expect(
     await page.evaluate(`(async () => {
     const responses = await Promise.all([
       fetch('https://spring-unit-49d9.anthony-ef7.workers.dev/?deckUrl=test'),
       fetch('https://raw.githubusercontent.com/anf1978/PodMates/pricescry-data/radar.json')
     ]);
-    await loadTesseractScript();
     await WebAssembly.compile(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0]));
     await new Promise((resolve, reject) => {
       const url = URL.createObjectURL(new Blob(['postMessage("ready")'], { type: 'text/javascript' }));
