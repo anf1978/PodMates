@@ -148,8 +148,9 @@ These need console access, a decision, or repo-admin rights. Do them alongside t
 - **Any time in Phase 0:** recover the missing pieces (plan 0.3, Appendix B): Worker source, `know-build.cjs`,
   `impact-cands.cjs`, corpus scripts, Firestore indexes. Commit them as-is, or paste them into a session and ask it to
   commit them unchanged at the paths in plan §4.3. (`firestore.rules` is already at the repo root.)
-- **At checkpoint A (after merging up to `p1-5`):** branch protection on `main` (CI required, no direct pushes), then
-  switch GitHub Pages source to "GitHub Actions" (plan 1.5).
+- **At checkpoint A (after merging up to `p1-5`):** switch GitHub Pages source to "GitHub Actions" (plan 1.5). Don't
+  add branch protection that blocks direct pushes: the weekly data bots push to `main`, and after p6-1 the friend's
+  sessions do too (ADR 0001). Blocking force-pushes and deletion of `main` is fine.
 - **At each checkpoint and at the end:** review, then `gh stack merge <PR>` (see [merge checkpoints](#merge-checkpoints)).
 - **Phase 4:** decide the PriceScry access model (D3/D7). **Later:** history rewrite (D6).
 
