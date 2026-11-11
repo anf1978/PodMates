@@ -8,6 +8,40 @@ the task in `docs/prompts/<file>`"*), and the session follows the [stacking proc
 run several sessions at the same time; each one waits for its predecessor where needed. Review the PRs as they
 arrive and merge the stack at the [checkpoints](#merge-checkpoints).
 
+## Current status (read this first, 2026-11-11)
+
+**Merged to `main`:** everything up to and including `p5-2-workflows-tidy`, except the work below. `p3-6-remove-shims`
+(#25) ran early as a **scoped** pass after only `p3-5-01`, so the old shims and globals are still in `index.html`.
+There are no open PRs, and there are **no Claude hooks** in the repo (removed in #24; never add them back).
+
+**Remaining sessions**, a fresh linear stack starting from `main`. This list replaces the
+[stack order](#stack-order) table for them. A session's predecessor is the row above it; the first one bases on
+`main`.
+
+| # | Branch | Prompt | Predecessor |
+|---|---|---|---|
+| R1 | `p3-5-02-try-a-deck-export-scan` | [p3-5](./p3-5-feature-template.md), FEATURE = `try-a-deck`, `export`, `scan-cards` | `main` |
+| R2 | `p3-5-03-deck-crafter` | p3-5, FEATURE = `deck-crafter` | R1 |
+| R3 | `p3-5-04-auth-profile` | p3-5, FEATURE = `auth`, `profile` | R2 |
+| R4 | `p3-5-05-pods` | p3-5, FEATURE = `pods` | R3 |
+| R5 | `p3-5-06-gatherings` | p3-5, FEATURE = `gatherings` | R4 |
+| R6 | `p3-5-07-chronicles` | p3-5, FEATURE = `chronicles` | R5 |
+| R7 | `p3-5-08-impact` | p3-5, FEATURE = `impact` | R6 |
+| R8 | `p3-5-09-spoiler-bait` | p3-5, FEATURE = `spoiler-bait` | R7 |
+| R9 | `p3-5-10-trades` | p3-5, FEATURE = `trades` | R8 |
+| R10 | `p3-5-11-notifications` | p3-5, FEATURE = `notifications` | R9 |
+| R11 | `p3-5-12-ledger-comparison` | p3-5, FEATURE = `ledger`, `comparison` | R10 |
+| R12 | `p3-5-13-themes` | p3-5, FEATURE = `themes` | R11 |
+| R13 | `p3-5-14-pricescry` | p3-5, FEATURE = `pricescry` | R12 |
+| R14 | `p3-6-remove-shims-2` | [p3-6](./p3-6-remove-shims.md): finish what #25 deferred (see `docs/architecture.md`, "What is not done yet") | R13 |
+| R15 | `p5-3-shared-code` | [p5-3](./p5-3-shared-code.md) | R14 |
+| R16 | `p6-1-phone-first-delivery` | [p6-1](./p6-1-phone-first-delivery.md), **last** | R15 |
+
+Sessions can **work** in parallel and rebase onto their predecessor before submitting (step 2 of the
+[stacking procedure](#stacking-procedure)). Expect small rebase conflicts in shared files (`CLAUDE.md` map,
+`legacy-globals.ts`, `vite.config`, e2e specs); keep both sides. After R16 merges, the stacked-PR workflow ends and
+sessions push straight to `main` (ADR 0001).
+
 ## Order and dependencies
 
 Sessions on the same row can **work** in parallel, but their PRs still join the stack in the order of the

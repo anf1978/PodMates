@@ -38,10 +38,11 @@ Don't add branch protection that blocks direct pushes. It would also block the w
    Check that pushing to `main` works from the cloud sandbox. If the Claude GitHub app's permissions block it,
    document the human step (repo access for the Claude app) in `docs/phone-workflow.md`.
 3. **Cloud-session bootstrap.**
-   - In `.claude/settings.json`, add a `SessionStart` hook that runs only when `CLAUDE_CODE_REMOTE=true`. It runs
-     `npm ci`, then tries `npx playwright install chromium`. If that fails, it prints one line: "e2e runs in CI
-     only".
-   - Make sure the `Stop` hook runs only the fast `npm run check`, not e2e or the emulator.
+   - **No hooks** (removed on purpose in #24; don't add any). Instead, document the Claude cloud **environment setup
+     script** in `docs/phone-workflow.md` (a human pastes it once into the Claude environment settings): `npm ci`,
+     then `npx playwright install chromium || echo "e2e runs in CI only"`.
+   - `CLAUDE.md` already tells sessions to run `npm run check` before finishing; make sure it says "before every
+     push" too.
    - If the sandbox's default network allowlist blocks something it needs, list the domains in
      `docs/phone-workflow.md` as a human step (Claude environment settings). Don't work around it.
 4. **CI output a phone can read.**
