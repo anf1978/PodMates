@@ -1,0 +1,49 @@
+/* Ledger-only lot controls; common PriceScry styles remain with the shell until R13. */
+.ledger-content {
+  display: contents;
+}
+.ps-lot {
+  background: var(--bg-panel-raised);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 10px 12px;
+  margin-top: 6px;
+  font-size: 13.5px;
+}
+.ps-lotline {
+  font-size: 12.5px;
+  color: var(--text-soft);
+  margin-top: 3px;
+}
+.ps-lotbtns {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.ps-mini {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  font-size: 11px;
+  padding: 1px 8px;
+  margin-left: 6px;
+  color: inherit;
+  cursor: pointer;
+}
+.ps-sale {
+  opacity: 0.9;
+}
+.ps-lotbtns button {
+  padding: 5px 14px;
+  font-size: 12.5px;
+}
+.ps-tag {
+  color: var(--text-dim);
+}
+.ledger-spacer {
+  flex: 1;
+}
+.ledger-cost-note {
+  margin-top: 12px;
+}
