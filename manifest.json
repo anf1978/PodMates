@@ -1,0 +1,25 @@
+{
+  "files": {
+    "cards.json": {
+      "version": "223fb9807ea0",
+      "generatedAt": "2026-11-11T03:16:47.864Z",
+      "sha256": "223fb9807ea01c4c4a9c15f5afe1a1da2f4303979baa61910b2538ba9cb86498",
+      "bytes": 2939147,
+      "source": "Scryfall Oracle Cards"
+    },
+    "tags.json": {
+      "version": "06ab328639b4",
+      "generatedAt": "2026-11-11T03:16:47.868Z",
+      "sha256": "06ab328639b44863a3064f8b22b0e5ff2a5168839f266ad9b27b2a81f42920fd",
+      "bytes": 4821,
+      "source": "Scryfall function tags"
+    },
+    "winrates.json": {
+      "version": "0f6fb252e33c",
+      "generatedAt": "2026-11-10T14:22:23.370Z",
+      "sha256": "0f6fb252e33c8a16174825dade42ef0e57e18b1e7e652e263470717017e2ac5a",
+      "bytes": 85415,
+      "source": "Committed extraction snapshot"
+    }
+  }
+}
