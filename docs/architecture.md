@@ -273,10 +273,10 @@ independent of the DOM; lit templates preserve the existing markup and scoped CS
 dimensions. The localStorage key `podmates-deck-builder-draft` and its `cards`, `commander`, `player` fields
 are unchanged. Storage failures report redacted warnings but do not prevent editing.
 
-The Deck Crafter adapter supplies the still-inline shared name ranking and save/chart orchestration,
-marked `TODO(p3-6)`. Shared ranking
-and the legacy picker remain inline for other unmoved features; Deck Crafter's picker uses typed lit
-rendering with the same ranking, touch selection, debounce and input scroll anchoring. It makes no
+The Deck Crafter adapter supplies the page's card DB, ranked search (`src/cards/search.ts`) and the
+still-inline save/chart orchestration, marked `TODO(p3-6)`. Deck Crafter keeps its own typed picker
+(scoped `.deck-crafter .pm-sr*` styles); PriceScry and trades use the shared `src/ui/card-search.ts`
+picker with the same ranking, touch selection, debounce and input scroll anchoring. It makes no
 Firebase calls itself. `tests/e2e/deck-crafter.spec.ts` covers partner selection, quantity edits, persisted
 draft restoration, draft/current-deck choices, signed-out save handoff and chart handoff.
 Also moved: `auth` (prefix `auth-`) — sign-up/log-in, provider and password-reset flows, the
@@ -362,7 +362,7 @@ pod requests. Expected nomination-permission failures keep the existing read-onl
 through the redacted error sink.
 
 The only Impact global is `mountImpactChart`, temporarily called by the inline radar renderer.
-Its adapter supplies the current analysis, library gate and shared ranked picker/scroll anchoring;
+Its adapter supplies the current analysis, library gate and ranked search; scroll anchoring comes from `ui/card-search`;
 no feature imports another feature. The obsolete inline Impact state/loader and the engine shim's
 unused Impact constants/helpers are removed. Tests cover Steward/Co-Steward edits, member nominations,
 reason escaping, undo/reset, stale loads and score isolation; Chromium covers the chart entry point,
@@ -388,7 +388,7 @@ fees/shipping, cost basis and partial/closed-position accounting. Repository wri
 `services/cloud/trades` directly without changing `users/{uid}/trades` fields or paths.
 
 The temporary adapter supplies PriceScry price/name lookup, Ledger refresh and the shared ranked
-picker. Ledger requests trade actions through typed `trades:*` events, never another feature's
+picker (`ui/card-search` over the page card DB). Ledger requests trade actions through typed `trades:*` events, never another feature's
 imports or globals. `services/trade-ledger.ts` owns the shared accounting and current lot/mark
 snapshot (and `toInt`/`TradeDraft`); `trades/state.ts` re-exports its existing API for the dialogs.
 Price/name lookup comes from `services/price-data.ts`, and PriceScry opens purchases through the
@@ -443,7 +443,7 @@ the page; `access.ts`, `screen.ts` and the views are one `pricescry-screen` chun
 price and `currentYen`, shared with Trades and Ledger; its `nameKey`/`fnv1a`/shard path and `plan.ts`'s
 `planTrade` stay KEEP-IN-SYNC copies of the pipeline functions (tests compare them) until p5-3. Profile opens
 the screen with `pricescry:open`, Trades returns to the Ledger tab with `pricescry:tab`, and the adapter
-supplies the Ledger/Spoiler Bait mounts, the legacy card picker and card-DB badges through ports. Views
+supplies the Ledger/Spoiler Bait mounts, the shared card picker and card-DB badges through ports. Views
 replace `#psBody` wholesale like the inline screen did (the Ledger and Spoiler Bait ports replace its children
 too), and cached tabs re-render synchronously so the modal focus trap cannot run during "Loading…" and
 reset the scroll. `pricescry.css` loads before the main stylesheet, so the tab/range buttons restate their
@@ -492,8 +492,7 @@ ESLint does not inspect the inline scripts in `index.html`. TypeScript is strict
 ## What is not done yet
 
 Phase 3's exit criteria (no source file over ~500 lines, no globals, every `innerHTML` replaced) are not met
-while the inline app script exists. The remaining work (rest of Deck Chart, the shared
-card picker, saved-deck flows and the other inline helpers) deletes inline code and the shim names it used. When the last caller of a
+while the inline app script exists. The remaining work (rest of Deck Chart, saved-deck flows and the other inline helpers) deletes inline code and the shim names it used. When the last caller of a
 shim name goes, delete the name; when the inline scripts are gone, `index.html` becomes static markup plus the
 `src/main.ts` tag (plus the inlined theme pre-paint script, which must stay synchronous), and `main.ts` boots
 card DB (worker) → cloud → UI directly.

@@ -1,15 +1,13 @@
-// Temporary ports to unmoved chart state and ranked search; no cloud shim access.
+// Temporary ports to unmoved chart state and the page's card DB; no cloud shim access.
 import { mount, mountImpactChart } from "./index";
 import type { ChartAnalysis } from "./state";
 import type { ImpactPorts } from "./runtime";
+import { searchLoadedCards } from "../../cards/legacy-globals";
 
 declare const currentAgg: ChartAnalysis["agg"] | null;
 declare const currentScores: ChartAnalysis["scores"] | null;
 declare const currentCommandSpark: number;
 declare const loadDeckLibrary: ImpactPorts["loadLibrary"];
-declare const searchCardsByName: ImpactPorts["search"];
-declare const pmInjectSearchStyles: ImpactPorts["searchStyles"];
-declare const pmKeepInputInPlace: ImpactPorts["anchor"];
 
 mount({
   analysis: () =>
@@ -17,9 +15,7 @@ mount({
       ? { agg: currentAgg, scores: currentScores, spark: currentCommandSpark }
       : null,
   loadLibrary: () => loadDeckLibrary(),
-  search: (query, limit) => searchCardsByName(query, limit),
-  searchStyles: () => pmInjectSearchStyles(),
-  anchor: (input, change) => pmKeepInputInPlace(input, change),
+  search: (query, limit) => searchLoadedCards(query, limit),
 });
 
 const legacy = {

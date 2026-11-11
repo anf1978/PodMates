@@ -136,7 +136,8 @@ test("Impact and sample-table entry points await their data without boot-time re
   await expect(page.locator("#impactBody")).not.toContainText("Loading");
   await expect(page.locator("[data-impact-more]")).toBeVisible();
   expect(requested.filter((path) => path === "/data/IMPACT_CANDS.json")).toHaveLength(1);
-  expect(await page.evaluate("getCardPopularity().size")).toBeGreaterThan(0);
+  // Rankings come from the loaded library (src/cards/search.ts cardPopularity).
+  expect(await page.evaluate("TRY_A_DECK_OPTIONS.length")).toBeGreaterThan(0);
   await page.evaluate("loadAnalysisDatasets()");
   expect(await page.evaluate("TRY_A_DECK_METADATA.map(deck => deck.key)")).toEqual(
     await page.evaluate("TRY_A_DECK_OPTIONS.map(deck => deck.key)"),
@@ -170,7 +171,8 @@ test("card search waits for library rankings and discards a superseded query", a
     release();
     await expect(page.locator("#dbCardResults")).toContainText("Arcane Signet");
     await expect(page.locator("#dbCardResults")).not.toContainText("Sol Ring");
-    expect(await page.evaluate("getCardPopularity().size")).toBeGreaterThan(0);
+    // Rankings come from the loaded library (src/cards/search.ts cardPopularity).
+    expect(await page.evaluate("TRY_A_DECK_OPTIONS.length")).toBeGreaterThan(0);
   } finally {
     release();
   }

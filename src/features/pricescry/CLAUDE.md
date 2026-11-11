@@ -14,7 +14,7 @@ first; data plumbing is in `src/services/price-data.ts`, and the publishing side
   a main change re-downloads it on update (`tests/e2e/pwa.spec.ts` expects exactly that).
 - Entry: profile emits `pricescry:open`; Trades emits `pricescry:tab` ("ledger") after a save (ignored while the
   screen is closed). `legacy-globals.ts` publishes nothing; it supplies the ports (Ledger and Spoiler Bait mounts
-  via their shims, the inline card picker, card-DB badges).
+  via their shims, the shared `ui/card-search` picker over the page card DB, card-DB badges).
 
 ## Data branch
 

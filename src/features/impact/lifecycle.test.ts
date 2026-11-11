@@ -78,8 +78,6 @@ beforeEach(() => {
         g: false,
         b: false,
       })),
-    searchStyles: vi.fn(),
-    anchor: (_input, change) => change(),
   });
 });
 afterEach(() => {

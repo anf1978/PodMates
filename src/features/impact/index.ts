@@ -3,6 +3,7 @@ import "./impact.css";
 import { html, nothing, render } from "../../ui/html";
 import { openTadOverlay, closeTryADeckModal } from "../../ui/tad-modal";
 import { showToast } from "../../ui/toast";
+import { keepInputInPlace } from "../../ui/card-search";
 import { getCurrentUser } from "../../services/cloud/session";
 import * as cloud from "../../services/cloud/impact";
 import { loadDataset } from "../../data/load-dataset";
@@ -257,8 +258,7 @@ export async function openImpactCardsModal(): Promise<void> {
       .search(input.value, 8)
       .filter((c) => !effective.has(c.n.toLowerCase()) && !isDefault(c.n))
       .slice(0, 6);
-    ports.searchStyles();
-    ports.anchor(input, () =>
+    keepInputInPlace(input, () =>
       render(
         hits.length
           ? hits

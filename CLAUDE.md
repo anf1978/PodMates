@@ -37,7 +37,7 @@ CI runs `check` + e2e + rules tests on every PR (including stacked bases) and `m
 - `src/main.ts` — the page's one module entry: imports the shims in order (UI, feature adapters, engine, limits,
   profile, auth, gatherings, chronicles, cloud, pods), then mounts notifications.
 - `src/engine/` — pure scoring/analysis. No DOM, network or globals. Read [src/engine/CLAUDE.md](src/engine/CLAUDE.md).
-- `src/cards/` — card tuples (`tuple.ts`), DB worker + codec, lookup, decklist parser.
+- `src/cards/` — card tuples (`tuple.ts`), DB worker + codec, lookup, decklist parser, ranked name search (`search.ts`).
 - `src/data/` — curated tables (`combos.ts`, `game-changers.ts`, …) and the dataset loader (`load-dataset.ts`).
 - `src/services/cloud/` — the **only** place that talks to Firebase; one repository per Firestore area.
 - `src/services/report-error.ts` — central redacted error sink, user-action toast and global error listeners.
@@ -49,7 +49,8 @@ CI runs `check` + e2e + rules tests on every PR (including stacked bases) and `m
 - `src/services/price-data.ts` — PriceScry's published data: cached fetches, shard helpers, yen and consensus prices.
 - `src/services/pwa.ts` — bounded initial SW registration and opt-in update prompt; Workbox config lives in
   `vite.config.js`. `scripts/sw-kill-switch.js` is the documented emergency replacement, not a normal asset.
-- `src/ui/` — shared primitives: `html.ts` (lit-html), modal, toast, status, tooltip, tabs, radar, mana symbols.
+- `src/ui/` — shared primitives: `html.ts` (lit-html), modal, toast, status, tooltip, tabs, radar, mana symbols,
+  the card search list (`card-search.ts`/`.css`; the caller supplies ranking and the card DB).
   `tad-modal.ts` / `tad-modal.css` own the shared base/stacked dialogs, formerly injected by Try-a-Deck.
 - `src/styles/` — `tokens.css` (CSS variables) and `base.css`.
 - `src/features/<name>/` — one folder per feature: `state.ts`, `view.ts`/`panels/`, `<name>.css`, `*.test.ts`.
@@ -68,7 +69,7 @@ CI runs `check` + e2e + rules tests on every PR (including stacked bases) and `m
   Chronicle snapshot construction, Log/Repeat/New Battle controls and result watching also live there.
   Its adapter retains only existing journal-refresh/render and battle-control/watch names.
   Impact owns the list/reasons, nominations/ideas, lazy candidates and separate Pod view; its adapter only
-  supplies current chart state and the shared legacy card picker. Standard scores never use pod proposals.
+  supplies current chart state. Standard scores never use pod proposals.
   Card viewer owns View Deck, the type galleries, single-card art and commander portraits; its adapter binds the
   View Deck button and keeps four names for runAnalysis, the delegated click handler and Key Pieces thumbnails.
   Spoiler Bait owns swipe/filter/votes/lists and the pod board; its only shim is `sbMount` for the PriceScry
@@ -177,7 +178,6 @@ expanded chart panels, info dialog and account screens. The one exact contrast d
 |   modules | Pod Comparison, balance guidance, charts and deck details      | `src/features/comparison/{index,state,guidance,view,balance-view,charts,detail}.ts`          |
 |      4899 | Saved data: decks, formations, chronicles                      | `SAVED DATA — decks`                                                                         |
 |   modules | Deck Crafter (deck builder)                                    | `src/features/deck-crafter/index.ts`, `src/services/deck-editing.ts`                         |
-| 5167–5383 | Shared legacy card ranking and picker                          | `function searchCardsByName`, `function pmWireCardSearch`                                    |
 |      5388 | Saved deck naming and save orchestration                       | `function generateUniqueDeckName`, `function saveCurrentDeck`                                |
 |      5844 | My Data backup/restore                                         | `MY DATA — download/restore`                                                                 |
 |      5939 | Retired pod rosters (dead code)                                | `POD ROSTERS -- retired`                                                                     |

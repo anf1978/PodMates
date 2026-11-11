@@ -8,19 +8,18 @@ import {
   confirmDeleteLot,
 } from "./index";
 import { exportTrades } from "./csv";
-import type { TradesPorts } from "./runtime";
 import { ledgerSnapshot } from "../../services/trade-ledger";
 import { emit, on } from "../../services/events";
 import { currentYen, nameKey } from "../../services/price-data";
-
-declare const pmWireCardSearch: TradesPorts["wireSearch"];
+import { pageCardSource } from "../../cards/legacy-globals";
+import { wireCardSearch } from "../../ui/card-search";
 
 mount({
   lots: () => ledgerSnapshot.lots || [],
   mark: (id) => ledgerSnapshot.marks[id],
   currentYen,
   nameKey,
-  wireSearch: (options) => pmWireCardSearch(options),
+  wireSearch: (options) => wireCardSearch({ ...options, source: pageCardSource }),
   refresh: () => emit("pricescry:tab", "ledger"),
 });
 
