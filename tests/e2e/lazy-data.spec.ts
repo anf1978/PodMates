@@ -152,7 +152,7 @@ test("card search waits for library rankings and discards a superseded query", a
   try {
     await page.goto("/");
     await expect(page.locator("#dbStatus")).toContainText(/^Ready /);
-    await page.evaluate("openDeckBuilderOverlay({ blank: true })");
+    await page.locator("#openDeckBuilderBtn").click();
     await page.locator("#dbCardSearch").fill("Sol");
     await expect(page.locator("#dbCardResults")).toContainText("Loading...");
     await page.locator("#dbCardSearch").fill("Arcane");
