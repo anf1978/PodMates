@@ -3,16 +3,19 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import * as cloud from "../../services/cloud/chronicles";
 import { loadPodMembers } from "../../services/cloud/members";
+import { logBattle } from "../../services/cloud/gatherings";
 import { reportError } from "../../services/report-error";
 import { closeTryADeckModal } from "../../ui/tad-modal";
 import {
   configureChronicles,
   mount,
   refreshCloudChroniclesCache,
+  runLogBattle,
   showFeedbackSurvey,
 } from "./index";
 import {
   canEditChronicle,
+  battleEntry,
   emptyState,
   feedbackSummary,
   groupChronicles,
@@ -29,6 +32,7 @@ vi.mock("../../services/cloud/chronicles", () => ({
   addChronicleFeedback: vi.fn(),
 }));
 vi.mock("../../services/cloud/members", () => ({ loadPodMembers: vi.fn() }));
+vi.mock("../../services/cloud/gatherings", () => ({ logBattle: vi.fn() }));
 vi.mock("../../services/report-error", () => ({ reportError: vi.fn() }));
 vi.mock("../../ui/toast", () => ({ showToast: vi.fn() }));
 
@@ -49,6 +53,35 @@ function entry(overrides: Partial<Chronicle> = {}): Chronicle {
 }
 
 describe("journal state", () => {
+  it("snapshots battle identity, full partner names, guest players and one-decimal Spark", () => {
+    expect(
+      battleEntry(
+        {
+          podId: "pod-a",
+          gatheringId: "g1",
+          gatheringTitle: "Wednesday",
+          participants: [{ uid: "me" }],
+        },
+        [
+          { commanders: ["A", "B"], commandSpark: 6.26, style: "Engine", uid: "me" },
+          { name: "Guest commander", playerName: "Guest", commandSpark: 4, style: "Combat" },
+        ],
+        123,
+      ),
+    ).toEqual({
+      createdAt: 123,
+      date: new Date(123).toLocaleString(),
+      notes: "",
+      gatheringId: "g1",
+      gatheringTitle: "Wednesday",
+      participants: ["me"],
+      decks: [
+        { commander: "A / B", player: "", uid: "me", spark: "6.3", style: "Engine" },
+        { commander: "Guest commander", player: "Guest", uid: null, spark: "4.0", style: "Combat" },
+      ],
+    });
+  });
+
   it("preserves newest-first group order and includes older entries and arbitrary titles", () => {
     const newest = entry({ id: "new", gatheringTitle: "__proto__" });
     const older = entry({ id: "old", gatheringTitle: null });
@@ -90,6 +123,11 @@ describe("journal interactions", () => {
   const confirm = vi.fn<(message: string, action: () => Promise<void>) => void>();
   const confirmDelete = vi.fn<(message: string, action: () => Promise<void>) => void>();
   const requireAccount = vi.fn(() => true);
+  const battle = vi.fn(() => ({
+    context: { podId: "pod-a", gatheringId: "g1", participants: [{ uid: "me" }] },
+    decks: [{ commanderLabel: "Atraxa", commandSpark: 6.3, style: "Engine" }],
+  }));
+  const battleLogged = vi.fn(() => true);
   const click = (selector: string): void =>
     document.querySelector<HTMLButtonElement>(selector)!.click();
 
@@ -98,13 +136,39 @@ describe("journal interactions", () => {
     fake.user = { uid: "me" };
     podId = "pod-a";
     document.body.innerHTML = '<div id="matchHistoryPanel" class="panel"></div>';
-    configureChronicles({ podId: () => podId, confirm, confirmDelete, requireAccount });
+    configureChronicles({
+      podId: () => podId,
+      confirm,
+      confirmDelete,
+      requireAccount,
+      battle,
+      battleLogged,
+    });
     vi.mocked(cloud.loadAllChronicles).mockResolvedValue([entry()]);
     vi.mocked(loadPodMembers).mockResolvedValue([]);
     mount();
     await refreshCloudChroniclesCache();
   });
   afterEach(closeTryADeckModal);
+
+  it("logs the captured battle through the repository before updating controls and opening feedback", async () => {
+    vi.mocked(logBattle).mockResolvedValueOnce("new-battle");
+    await runLogBattle();
+    expect(logBattle).toHaveBeenCalledWith(
+      "pod-a",
+      "g1",
+      expect.objectContaining({ gatheringId: "g1", participants: ["me"] }),
+    );
+    expect(battleLogged).toHaveBeenCalledWith(battle.mock.results[0].value.context, "new-battle");
+    expect(document.querySelector("#feedbackStatus")).not.toBeNull();
+  });
+
+  it("does not replace another dialog when a logged battle is no longer active", async () => {
+    vi.mocked(logBattle).mockResolvedValueOnce("old-battle");
+    battleLogged.mockReturnValueOnce(false);
+    await runLogBattle();
+    expect(document.querySelector("#tadOverlay")).toBeNull();
+  });
 
   it("escapes journal content and saves notes to the pod that opened the editor", async () => {
     vi.mocked(cloud.loadAllChronicles).mockResolvedValue([

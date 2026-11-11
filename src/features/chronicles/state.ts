@@ -1,6 +1,7 @@
 // Pure history grouping, participant permissions and optional feedback summaries.
 import type {
   ChronicleDoc,
+  ChronicleInput,
   FeedbackResponse,
   MemberRole,
   WithId,
@@ -19,6 +20,46 @@ export interface ChroniclesState {
   entries: Chronicle[];
   role: MemberRole;
   uid: string | null;
+}
+
+export interface ChronicleBattle {
+  podId: string;
+  gatheringId: string;
+  gatheringTitle?: string;
+  participants: Array<{ uid: string | null }>;
+  loggedChronicleId?: string | null;
+}
+
+export interface ChronicleBattleDeck {
+  commanderLabel?: string;
+  commanders?: string[];
+  name?: string;
+  playerName?: string;
+  uid?: string | null;
+  commandSpark: number;
+  style: string;
+}
+
+export function battleEntry(
+  battle: ChronicleBattle,
+  decks: ChronicleBattleDeck[],
+  createdAt = Date.now(),
+): ChronicleInput {
+  return {
+    createdAt,
+    date: new Date(createdAt).toLocaleString(),
+    notes: "",
+    decks: decks.map((deck) => ({
+      commander: deck.commanderLabel || (deck.commanders || []).join(" / ") || deck.name,
+      player: deck.playerName || "",
+      uid: deck.uid || null,
+      spark: deck.commandSpark.toFixed(1),
+      style: deck.style,
+    })),
+    gatheringId: battle.gatheringId,
+    gatheringTitle: battle.gatheringTitle,
+    participants: battle.participants.map((participant) => participant.uid),
+  };
 }
 
 export function emptyState(uid: string | null = null): ChroniclesState {

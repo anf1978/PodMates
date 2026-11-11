@@ -3,12 +3,20 @@ import * as chronicles from "../../services/cloud/chronicles";
 import { loadPodMembers } from "../../services/cloud/members";
 import { getCurrentUser } from "../../services/cloud/session";
 import { PM_LIMITS } from "../../services/cloud/limits";
+import { logBattle } from "../../services/cloud/gatherings";
 import { reportError } from "../../services/report-error";
 import { render } from "../../ui/html";
 import { openTadOverlay, closeTryADeckModal } from "../../ui/tad-modal";
 import { showToast } from "../../ui/toast";
 import { feedbackTemplate, notesTemplate, ratingTemplate } from "./dialogs";
-import { emptyState, chronicleDeck, type ChroniclesState } from "./state";
+import {
+  emptyState,
+  chronicleDeck,
+  battleEntry,
+  type ChroniclesState,
+  type ChronicleBattle,
+  type ChronicleBattleDeck,
+} from "./state";
 import { historyTemplate, panelTemplate } from "./view";
 import "./chronicles.css";
 
@@ -17,6 +25,8 @@ export interface ChroniclesRuntime {
   requireAccount: (what: string) => boolean;
   confirm: (message: string, action: () => Promise<void>) => void;
   confirmDelete: (message: string, action: () => Promise<void>) => void;
+  battle: () => { context: ChronicleBattle; decks: ChronicleBattleDeck[] } | null;
+  battleLogged: (context: ChronicleBattle, chronicleId: string) => boolean;
 }
 
 let runtime: ChroniclesRuntime;
@@ -141,6 +151,23 @@ function clearHistory(): void {
       }
     },
   );
+}
+
+export async function runLogBattle(): Promise<void> {
+  const battle = runtime.battle();
+  if (!battle) return;
+  const { context, decks } = battle;
+  try {
+    const chronicleId = await logBattle(
+      context.podId,
+      context.gatheringId,
+      battleEntry(context, decks),
+    );
+    if (runtime.battleLogged(context, chronicleId)) showFeedbackSurvey(context.podId, chronicleId);
+  } catch (error) {
+    reportError(error, { operation: "cloud", userTriggered: true });
+    showToast("Could not log the battle: " + errorMessage(error));
+  }
 }
 
 export function showFeedbackSurvey(podId: string, chronicleId: string): void {

@@ -6990,33 +6990,6 @@ async function runStartNewBattle() {
   openLiveGatheringOverlay(podId, gatheringId);
 }
 
-async function runLogBattle() {
-  if (!currentBattleContext || !lastPodDecks) return;
-  const entry = {
-    createdAt: Date.now(),
-    date: new Date().toLocaleString(),
-    notes: '',
-    decks: lastPodDecks.map(d => ({
-      commander: d.commanderLabel || (d.commanders || []).join(' / ') || d.name,
-      player: d.playerName || '',
-      uid: d.uid || null, // who this deck belonged to; names can repeat, uids cannot
-      spark: d.commandSpark.toFixed(1),
-      style: d.style
-    })),
-    gatheringId: currentBattleContext.gatheringId,
-    gatheringTitle: currentBattleContext.gatheringTitle,
-    participants: currentBattleContext.participants.map(p => p.uid),
-  };
-  try {
-    const chronicleId = await window.PodmatesCloud.logBattle(currentBattleContext.podId, currentBattleContext.gatheringId, entry);
-    currentBattleContext.loggedChronicleId = chronicleId;
-    renderBattleControls();
-    showFeedbackSurvey(currentBattleContext.podId, chronicleId);
-  } catch (err) {
-    showToast('Could not log the battle: ' + err.message);
-  }
-}
-
 function buildPodMismatchNotes(decks) {
   if (!decks || decks.length < 2) return [];
   const notes = [];

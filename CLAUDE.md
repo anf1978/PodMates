@@ -61,7 +61,8 @@ CI runs `check` + e2e + rules tests on every PR (including stacked bases) and `m
   ports adapt the remaining comparison, battle/Chronicles controls and saved-deck picker.
   `src/services/events.ts` connects independent features without feature imports.
   Chronicles owns the grouped journal, entry permissions/notes/deletion/clear and optional post-battle feedback;
-  Gathering lifecycle and Log Battle remain with gatherings. Its adapter retains only existing refresh/render/survey names.
+  Chronicle snapshot construction and Log Battle also live there; Gathering lifecycle controls remain at their
+  existing boundary. Its adapter retains only existing refresh/render/log/survey names.
 - `**/legacy-globals.ts`, `src/services/cloud/{index,limits-global}.ts` — strangler shims publishing typed code
   on `window` for the inline scripts. Delete each name with its last inline caller.
 - `index.html` — markup, main CSS and the inline legacy scripts (everything not yet in `src/features`).

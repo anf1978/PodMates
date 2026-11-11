@@ -327,9 +327,10 @@ e2e covers sample loading/cancellation and the six-deck handoff without authenti
 `chronicles` (prefix `chronicles-`) owns the shared pod journal, newest-first Gathering-title grouping,
 historical entries, participant/leader edit visibility, notes, deletion, leader-only clearing and optional
 post-battle ratings/highlights. It uses cloud repositories directly and preserves document paths/fields.
-The three existing refresh/render/survey names remain in its shim for unmoved callers; modal confirmation
-and account guards are runtime ports, not cross-feature imports. Gathering lifecycle, battle snapshots and
-Log Battle belong to gatherings. Concurrent journal reads are scoped to the current account/pod so stale
+The four existing refresh/render/log/survey names remain in its shim for unmoved callers; modal confirmation,
+account guards and the current battle are runtime ports, not cross-feature imports. Chronicle snapshot
+construction and Log Battle use the Gathering repository, while lifecycle controls remain at their existing
+boundary. Concurrent journal reads are scoped to the current account/pod so stale
 responses cannot overwrite a newer selection; read failures retain the empty-list fallback and report to
 the redacted error sink. Unit tests cover scope/permissions, notes and feedback writes and failures; the
 offline browser suite covers guest journal access/sign-in handoff and independent ratings/skip.
