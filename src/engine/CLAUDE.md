@@ -43,7 +43,7 @@ snapshot covers the full analysis and all five axis scores. A refactor must leav
 - `npm run golden:fixture` re-pins fixtures from the local data files and proves full-data parity;
   run it only deliberately.
 - `mana.test.ts` checks that `mana.ts` agrees with the copy between the `SHARED MANA-PRODUCTION LOGIC`
-  banners in `.github/scripts/build-card-db.mjs`. Change both together and keep the banners.
+  banners in `pipelines/card-db/build-card-db.mjs`. Change both together and keep the banners.
 
 ## Calibration notes (from the code)
 

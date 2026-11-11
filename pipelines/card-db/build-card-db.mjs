@@ -35,8 +35,8 @@
 // (mana value, rarity) in their place, which broke it. They are worked out
 // here from each card's rules text -- see the shared block below.
 
-import { readFileSync, writeFileSync } from 'fs';
-import { gzipSync, gunzipSync } from 'zlib';
+import { readInputAsText, writeCompressedJson } from "../lib/io.mjs";
+import { isMain } from "../lib/cli.mjs";
 
 const MIN_PLAUSIBLE_CARD_COUNT = 5000;
 // The real figure is ~2,000 cards that produce mana. If far fewer come out,
@@ -52,7 +52,7 @@ const MIN_PLAUSIBLE_BACK_FACE_COUNT = 800;
 
 // ===== BEGIN SHARED MANA-PRODUCTION LOGIC =====
 // This block is IDENTICAL in two places and must stay that way:
-//   1. .github/scripts/build-card-db.mjs  (computes the values at database-build time)
+//   1. pipelines/card-db/build-card-db.mjs  (computes the values at database-build time)
 //   2. src/engine/mana.ts                 (typed copy: fallback for a database built before these fields existed)
 // mana.test.ts runs both copies over every pinned card and fails if they disagree.
 // Scryfall has no "what mana does this make" field that separates real mana
@@ -70,51 +70,58 @@ const MIN_PLAUSIBLE_BACK_FACE_COUNT = 800;
 // adds C. Only real mana abilities count: Treasure/Spawn/Powerstone makers,
 // abilities granted to other permanents ("quoted" text), reminder text, and
 // mana doublers all correctly produce nothing.
-const MANA_ORDER = 'WUBRGC';
+const MANA_ORDER = "WUBRGC";
 function canonManaColors(colorSet) {
-  let out = '';
+  let out = "";
   for (const c of MANA_ORDER) if (colorSet.has(c)) out += c;
   return out;
 }
 function analyzeManaFace(typeLine, oracleText) {
-  const tl = String(typeLine || '').toLowerCase();
+  const tl = String(typeLine || "").toLowerCase();
   const isLand = /\bland\b/.test(tl);
   const isSpell = /\b(instant|sorcery)\b/.test(tl);
   const isAura = /\baura\b/.test(tl);
-  let text = String(oracleText || '');
+  let text = String(oracleText || "");
   // Reminder text in (parentheses) explains rules; it is not the card's own
   // ability -- except on lands, where "({T}: Add {G}.)" can be the only place
   // the ability is written.
-  if (!isLand) text = text.replace(/\([^)]*\)/g, '');
+  if (!isLand) text = text.replace(/\([^)]*\)/g, "");
   // Text in "quotes" is an ability granted to a token or another permanent.
-  text = text.replace(/["\u201C][^"\u201D]*["\u201D]/g, '');
+  text = text.replace(/["\u201C][^"\u201D]*["\u201D]/g, "");
 
-  const sustained = new Set(), oneShot = new Set();
+  const sustained = new Set(),
+    oneShot = new Set();
   const oneShotCost = /sacrifice (this|it)\b|exile (this card|it) from your hand/i;
-  const ANY_COLOR = /\bany (one )?(color|type)\b|any combination of colors|different colors|of that color|chosen color|any of (those|the exiled card's|the|this [a-z]+'s) colors?|each color among/i;
+  const ANY_COLOR =
+    /\bany (one )?(color|type)\b|any combination of colors|different colors|of that color|chosen color|any of (those|the exiled card's|the|this [a-z]+'s) colors?|each color among/i;
 
   const absorb = (clause, set) => {
     const symRe = /\{([WUBRGC])\}|\{([WUBRG])\/([WUBRG])\}/g;
     let m;
     while ((m = symRe.exec(clause))) {
-      if (m[1]) set.add(m[1]); else { set.add(m[2]); set.add(m[3]); }
+      if (m[1]) set.add(m[1]);
+      else {
+        set.add(m[2]);
+        set.add(m[3]);
+      }
     }
     if (ANY_COLOR.test(clause)) {
-      for (const c of 'WUBRG') set.add(c);
-      if (/\bany type\b/i.test(clause)) set.add('C');
+      for (const c of "WUBRG") set.add(c);
+      if (/\bany type\b/i.test(clause)) set.add("C");
     }
   };
 
-  for (const line of text.split('\n')) {
+  for (const line of text.split("\n")) {
     const addRe = /\badd\s+([^.]*)/gi;
     let m;
     if (isSpell) {
       while ((m = addRe.exec(line))) absorb(m[1], oneShot);
       continue;
     }
-    const colon = line.indexOf(':');
+    const colon = line.indexOf(":");
     if (colon !== -1) {
-      const cost = line.slice(0, colon), effect = line.slice(colon + 1);
+      const cost = line.slice(0, colon),
+        effect = line.slice(colon + 1);
       const target = oneShotCost.test(cost) ? oneShot : sustained;
       while ((m = addRe.exec(effect))) absorb(m[1], target);
     } else if (isAura) {
@@ -127,14 +134,14 @@ function analyzeManaFace(typeLine, oracleText) {
   // Basic land types carry an intrinsic mana ability (Dryad Arbor, Jasconian
   // Isle, Snow-Covered basics, "Forest Dryad"...). Skipped on combined
   // "A // B" type lines, where the subtype could belong to the other face.
-  if (isLand && !tl.includes('//')) {
-    const dash = tl.indexOf('\u2014');
-    const sub = dash === -1 ? '' : tl.slice(dash + 1);
-    if (/\bplains\b/.test(sub)) sustained.add('W');
-    if (/\bisland\b/.test(sub)) sustained.add('U');
-    if (/\bswamp\b/.test(sub)) sustained.add('B');
-    if (/\bmountain\b/.test(sub)) sustained.add('R');
-    if (/\bforest\b/.test(sub)) sustained.add('G');
+  if (isLand && !tl.includes("//")) {
+    const dash = tl.indexOf("\u2014");
+    const sub = dash === -1 ? "" : tl.slice(dash + 1);
+    if (/\bplains\b/.test(sub)) sustained.add("W");
+    if (/\bisland\b/.test(sub)) sustained.add("U");
+    if (/\bswamp\b/.test(sub)) sustained.add("B");
+    if (/\bmountain\b/.test(sub)) sustained.add("R");
+    if (/\bforest\b/.test(sub)) sustained.add("G");
   }
   return { sustained: canonManaColors(sustained), oneShot: canonManaColors(oneShot) };
 }
@@ -143,14 +150,15 @@ function analyzeManaFace(typeLine, oracleText) {
 // A card that has BOTH a sustained and a one-shot ability (Crystal Vein) counts
 // as a normal source of its sustained colors.
 function combineManaFaces(faceResults) {
-  const s = new Set(), o = new Set();
+  const s = new Set(),
+    o = new Set();
   for (const r of faceResults) {
     for (const c of r.sustained) s.add(c);
     for (const c of r.oneShot) o.add(c);
   }
   if (s.size) return { pm: canonManaColors(s), rt: 0 };
   if (o.size) return { pm: canonManaColors(o), rt: 1 };
-  return { pm: '', rt: 0 };
+  return { pm: "", rt: 0 };
 }
 // ===== END SHARED MANA-PRODUCTION LOGIC =====
 
@@ -158,30 +166,35 @@ function combineManaFaces(faceResults) {
 // cards (spell // land), split cards and adventures can be played as either
 // half, so their production is combined. Transforming cards only reach their
 // back face after transforming, so only the front face counts for those.
-const UNION_FACE_LAYOUTS = new Set(['modal_dfc', 'split', 'adventure']);
+const UNION_FACE_LAYOUTS = new Set(["modal_dfc", "split", "adventure"]);
 
 function manaProductionFor(card) {
-  const faces = (card.card_faces && card.card_faces.length) ? card.card_faces : null;
+  const faces = card.card_faces && card.card_faces.length ? card.card_faces : null;
   if (!faces) return combineManaFaces([analyzeManaFace(card.type_line, card.oracle_text)]);
   const used = UNION_FACE_LAYOUTS.has(card.layout) ? faces : [faces[0]];
-  return combineManaFaces(used.map(f => analyzeManaFace(f.type_line || card.type_line, f.oracle_text)));
+  return combineManaFaces(
+    used.map((f) => analyzeManaFace(f.type_line || card.type_line, f.oracle_text)),
+  );
 }
 
 function encodePips(manaCost) {
-  if (!manaCost) return '';
+  if (!manaCost) return "";
   const halfPips = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
   const symbolRe = /\{([^}]+)\}/g;
   let match;
   while ((match = symbolRe.exec(manaCost))) {
     const sym = match[1];
-    if (sym === 'C') { halfPips.C += 2; continue; }
-    const colors = sym.split('/').filter(s => 'WUBRG'.includes(s));
+    if (sym === "C") {
+      halfPips.C += 2;
+      continue;
+    }
+    const colors = sym.split("/").filter((s) => "WUBRG".includes(s));
     if (!colors.length) continue;
     const share = 2 / colors.length;
     for (const c of colors) halfPips[c] += share;
   }
-  let out = '';
-  for (const c of ['W', 'U', 'B', 'R', 'G', 'C']) {
+  let out = "";
+  for (const c of ["W", "U", "B", "R", "G", "C"]) {
     const v = Math.round(halfPips[c]);
     if (v > 0) out += c + v;
   }
@@ -189,103 +202,147 @@ function encodePips(manaCost) {
 }
 
 function cardToTuple(card) {
-  const face = (card.card_faces && card.card_faces.length) ? card.card_faces[0] : card;
-  const name = card.name || '';
-  const typeLine = card.type_line || face.type_line || '';
-  const oracleText = card.oracle_text || face.oracle_text || '';
-  const manaCost = card.mana_cost || face.mana_cost || '';
-  const colorIdentity = (card.color_identity || []).join('');
-  const cmc = typeof card.cmc === 'number' ? card.cmc : 0;
+  const face = card.card_faces && card.card_faces.length ? card.card_faces[0] : card;
+  const name = card.name || "";
+  const typeLine = card.type_line || face.type_line || "";
+  const oracleText = card.oracle_text || face.oracle_text || "";
+  const manaCost = card.mana_cost || face.mana_cost || "";
+  const colorIdentity = (card.color_identity || []).join("");
+  const cmc = typeof card.cmc === "number" ? card.cmc : 0;
   const pips = encodePips(manaCost);
-  const rarity = card.rarity || '';
+  const rarity = card.rarity || "";
   const { pm, rt } = manaProductionFor(card);
-  const power = String(card.power != null ? card.power : (face.power != null ? face.power : ''));
-  const toughness = String(card.toughness != null ? card.toughness : (face.toughness != null ? face.toughness : ''));
-  const notLegal = card.legalities && card.legalities.commander === 'not_legal' ? 1 : 0;
-  const loyalty = String(card.loyalty != null ? card.loyalty : (face.loyalty != null ? face.loyalty : ''));
-  const back = (card.card_faces && card.card_faces.length > 1) ? card.card_faces[1] : null;
-  const backText = back ? (back.oracle_text || '') : '';
-  const backType = back ? (back.type_line || '') : '';
-  return [name, typeLine, oracleText, manaCost, colorIdentity, cmc, pips, rarity, pm, rt, power, toughness, notLegal, loyalty, backText, backType];
+  const power = String(card.power != null ? card.power : face.power != null ? face.power : "");
+  const toughness = String(
+    card.toughness != null ? card.toughness : face.toughness != null ? face.toughness : "",
+  );
+  const notLegal = card.legalities && card.legalities.commander === "not_legal" ? 1 : 0;
+  const loyalty = String(
+    card.loyalty != null ? card.loyalty : face.loyalty != null ? face.loyalty : "",
+  );
+  const back = card.card_faces && card.card_faces.length > 1 ? card.card_faces[1] : null;
+  const backText = back ? back.oracle_text || "" : "";
+  const backType = back ? back.type_line || "" : "";
+  return [
+    name,
+    typeLine,
+    oracleText,
+    manaCost,
+    colorIdentity,
+    cmc,
+    pips,
+    rarity,
+    pm,
+    rt,
+    power,
+    toughness,
+    notLegal,
+    loyalty,
+    backText,
+    backType,
+  ];
 }
 
-function readInputAsText(path) {
-  const buf = readFileSync(path);
-  const isGzip = buf.length >= 2 && buf[0] === 0x1f && buf[1] === 0x8b;
-  const raw = isGzip ? gunzipSync(buf) : buf;
-  return { text: raw.toString('utf8'), wasGzipped: isGzip };
-}
-
-function build(bulkFilePath, outPath) {
+/** @param {string} bulkFilePath @param {string} outPath */
+export function build(bulkFilePath, outPath) {
   const { text, wasGzipped } = readInputAsText(bulkFilePath);
-  console.log(wasGzipped ? 'Input was gzip-compressed -- decompressed before parsing.' : 'Input was plain text.');
+  console.log(
+    wasGzipped
+      ? "Input was gzip-compressed -- decompressed before parsing."
+      : "Input was plain text.",
+  );
 
   const cards = [];
   const gc = [];
   const banned = [];
   const seenNames = new Set();
 
-  const lines = text.split('\n');
-  for (const rawLine of lines) {
-    const trimmed = rawLine.trim().replace(/,$/, '');
-    if (!trimmed || trimmed === '[' || trimmed === ']') continue;
+  const lines = text.split("\n");
+  for (const [index, rawLine] of lines.entries()) {
+    const trimmed = rawLine.trim().replace(/,$/, "");
+    if (!trimmed || trimmed === "[" || trimmed === "]") continue;
     let card;
-    try { card = JSON.parse(trimmed); } catch (e) { continue; }
-    if (!card || card.object !== 'card') continue;
-    if (card.layout === 'token' || card.layout === 'art_series') continue;
+    try {
+      card = JSON.parse(trimmed);
+    } catch (cause) {
+      throw new Error(`Malformed card input at line ${index + 1}`, { cause });
+    }
+    if (!card || card.object !== "card") continue;
+    if (card.layout === "token" || card.layout === "art_series") continue;
     if (seenNames.has(card.name)) continue;
     seenNames.add(card.name);
 
     cards.push(cardToTuple(card));
     if (card.game_changer === true) gc.push(card.name);
-    if (card.legalities && card.legalities.commander === 'banned') banned.push(card.name);
+    if (card.legalities && card.legalities.commander === "banned") banned.push(card.name);
   }
 
   if (cards.length < MIN_PLAUSIBLE_CARD_COUNT) {
-    throw new Error(`Only parsed ${cards.length} cards, expected at least ${MIN_PLAUSIBLE_CARD_COUNT}. Refusing to write output.`);
+    throw new Error(
+      `Only parsed ${cards.length} cards, expected at least ${MIN_PLAUSIBLE_CARD_COUNT}. Refusing to write output.`,
+    );
   }
-  const producerCount = cards.filter(t => t[8]).length;
-  const oneShotCount = cards.filter(t => t[9] === 1).length;
+  const producerCount = cards.filter((t) => t[8]).length;
+  const oneShotCount = cards.filter((t) => t[9] === 1).length;
   if (producerCount < MIN_PLAUSIBLE_PRODUCER_COUNT) {
-    throw new Error(`Only ${producerCount} cards were detected as mana producers, expected at least ${MIN_PLAUSIBLE_PRODUCER_COUNT}. Refusing to write output.`);
+    throw new Error(
+      `Only ${producerCount} cards were detected as mana producers, expected at least ${MIN_PLAUSIBLE_PRODUCER_COUNT}. Refusing to write output.`,
+    );
   }
 
-  const powerCount = cards.filter(t => t[10] !== '').length;
-  const notLegalCount = cards.filter(t => t[12] === 1).length;
+  const powerCount = cards.filter((t) => t[10] !== "").length;
+  const notLegalCount = cards.filter((t) => t[12] === 1).length;
   if (powerCount < MIN_PLAUSIBLE_POWER_COUNT) {
-    throw new Error(`Only ${powerCount} cards have a power value, expected at least ${MIN_PLAUSIBLE_POWER_COUNT}. Refusing to write output.`);
+    throw new Error(
+      `Only ${powerCount} cards have a power value, expected at least ${MIN_PLAUSIBLE_POWER_COUNT}. Refusing to write output.`,
+    );
   }
   if (notLegalCount < MIN_PLAUSIBLE_NOT_LEGAL_COUNT) {
-    throw new Error(`Only ${notLegalCount} cards are flagged not Commander-legal, expected at least ${MIN_PLAUSIBLE_NOT_LEGAL_COUNT}. Refusing to write output.`);
+    throw new Error(
+      `Only ${notLegalCount} cards are flagged not Commander-legal, expected at least ${MIN_PLAUSIBLE_NOT_LEGAL_COUNT}. Refusing to write output.`,
+    );
   }
 
-  const loyaltyCount = cards.filter(t => t[13] !== '').length;
-  const backFaceCount = cards.filter(t => t[14] !== '').length;
+  const loyaltyCount = cards.filter((t) => t[13] !== "").length;
+  const backFaceCount = cards.filter((t) => t[14] !== "").length;
   if (loyaltyCount < MIN_PLAUSIBLE_LOYALTY_COUNT) {
-    throw new Error(`Only ${loyaltyCount} cards have a loyalty value, expected at least ${MIN_PLAUSIBLE_LOYALTY_COUNT}. Refusing to write output.`);
+    throw new Error(
+      `Only ${loyaltyCount} cards have a loyalty value, expected at least ${MIN_PLAUSIBLE_LOYALTY_COUNT}. Refusing to write output.`,
+    );
   }
   if (backFaceCount < MIN_PLAUSIBLE_BACK_FACE_COUNT) {
-    throw new Error(`Only ${backFaceCount} cards have a back-face text, expected at least ${MIN_PLAUSIBLE_BACK_FACE_COUNT}. Refusing to write output.`);
+    throw new Error(
+      `Only ${backFaceCount} cards have a back-face text, expected at least ${MIN_PLAUSIBLE_BACK_FACE_COUNT}. Refusing to write output.`,
+    );
   }
 
   const payload = { cards, gc, banned };
-  const json = JSON.stringify(payload);
-  const gzipped = gzipSync(Buffer.from(json, 'utf8'));
-  const b64 = gzipped.toString('base64');
-
-  writeFileSync(outPath, b64, 'utf8');
-  return { cardCount: cards.length, gcCount: gc.length, bannedCount: banned.length, producerCount, oneShotCount, powerCount, notLegalCount, loyaltyCount, backFaceCount, b64Length: b64.length };
+  const b64Length = writeCompressedJson(outPath, payload);
+  return {
+    cardCount: cards.length,
+    gcCount: gc.length,
+    bannedCount: banned.length,
+    producerCount,
+    oneShotCount,
+    powerCount,
+    notLegalCount,
+    loyaltyCount,
+    backFaceCount,
+    b64Length,
+  };
 }
 
-const [, , bulkFilePath, outPath] = process.argv;
-if (!bulkFilePath) {
-  console.error('Usage: node build-card-db.mjs <scryfall-bulk-file> [output-file]');
-  process.exit(1);
-}
-try {
-  const stats = build(bulkFilePath, outPath || 'card-db-compressed.b64');
-  console.log('Build complete:', stats);
-} catch (err) {
-  console.error('Build failed:', err.message);
-  process.exit(1);
+if (isMain(import.meta.url)) {
+  const [, , bulkFilePath, outPath] = process.argv;
+  if (!bulkFilePath) {
+    console.error("Usage: node build-card-db.mjs <scryfall-bulk-file> [output-file]");
+    process.exit(1);
+  }
+  try {
+    const stats = build(bulkFilePath, outPath || "card-db-compressed.b64");
+    console.log("Build complete:", stats);
+  } catch (err) {
+    console.error("Build failed:", err.message);
+    process.exit(1);
+  }
 }

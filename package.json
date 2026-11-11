@@ -10,7 +10,7 @@
     "build": "vite build",
     "budget": "node scripts/bundle-budget.mjs",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p pipelines/tsconfig.json",
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run --exclude \"tests/e2e/**\" --exclude \"firebase/**\"",

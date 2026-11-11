@@ -9,8 +9,8 @@ import {
   upgradeManifest,
   validateDataset,
   verifyManifest,
-} from "../.github/scripts/dataset-files.mjs";
-import { snapshotManifest } from "../scripts/dataset-manifest.mjs";
+} from "../pipelines/lib/dataset-files.mjs";
+import { snapshotManifest } from "../pipelines/lib/dataset-manifest.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 
@@ -18,6 +18,11 @@ it("static extraction writes metadata and a hashed manifest without embedding de
   const temporary = mkdtempSync(join(tmpdir(), "podmates-extract-test-"));
   try {
     cpSync(join(root, "scripts"), join(temporary, "scripts"), { recursive: true });
+    mkdirSync(join(temporary, "pipelines", "lib"), { recursive: true });
+    cpSync(
+      join(root, "pipelines", "lib", "dataset-manifest.mjs"),
+      join(temporary, "pipelines", "lib", "dataset-manifest.mjs"),
+    );
     const datasets = {
       SPELLBOOK_SNAPSHOT_B64: "unchanged-encoding",
       KNOW_JSON: { lists: [], cards: {} },
@@ -114,7 +119,7 @@ it("publishes isolated orphan data revisions, preserves sibling datasets, and as
     snapshotManifest(join(repo, "public", "data"));
     expect(readFileSync(snapshotManifestPath, "utf8")).toBe(snapshotBefore);
     const run = (script: string, ...args: string[]) =>
-      execFileSync(process.execPath, [join(root, ".github", "scripts", script), ...args], {
+      execFileSync(process.execPath, [join(root, "pipelines", "lib", script), ...args], {
         cwd: repo,
         env: {
           ...process.env,

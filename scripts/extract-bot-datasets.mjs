@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { fileURLToPath } from "node:url";
-import { updateManifest } from "./dataset-manifest.mjs";
+import { updateManifest } from "../pipelines/lib/dataset-manifest.mjs";
 
 const root = new URL("../", import.meta.url);
 const source = readFileSync(new URL("index.html", root), "utf8");

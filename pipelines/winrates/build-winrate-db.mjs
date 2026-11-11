@@ -7,10 +7,13 @@
 //
 // Usage: node build-winrate-db.mjs [output-file]
 
-import { writeFileSync } from 'fs';
+import { writeFileSync } from "fs";
+import { getJson, sleep } from "../lib/http.mjs";
+import { isMain } from "../lib/cli.mjs";
 
-const API_BASE = 'https://playgroup.gg/api/public/v1';
-const USER_AGENT = 'PodMates/1.0 (+https://github.com/anf1978/PodMates; MTG Commander deck analysis tool)';
+const API_BASE = "https://playgroup.gg/api/public/v1";
+const USER_AGENT =
+  "PodMates/1.0 (+https://github.com/anf1978/PodMates; MTG Commander deck analysis tool)";
 // Comfortably under the stated 400/minute limit rather than pushing right
 // up against it -- this is a weekly background job with no reason to be
 // aggressive about it.
@@ -39,80 +42,106 @@ const MIN_DECKS = 10;
 const MIN_PLAUSIBLE_COUNT = 500;
 const MAX_PLAUSIBLE_COUNT = 5000;
 
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
 function tierFor(winRate) {
-  if (winRate >= 35) return 'S';
-  if (winRate >= 30) return 'A';
-  if (winRate >= 23) return 'B';
-  if (winRate >= 18) return 'C';
-  return 'D';
+  if (winRate >= 35) return "S";
+  if (winRate >= 30) return "A";
+  if (winRate >= 23) return "B";
+  if (winRate >= 18) return "C";
+  return "D";
 }
 
 async function fetchCommander(id) {
-  const res = await fetch(`${API_BASE}/commanders/${id}`, {
-    headers: { 'User-Agent': USER_AGENT, 'Accept': 'application/json' },
+  return getJson(`${API_BASE}/commanders/${id}`, {
+    userAgent: USER_AGENT,
+    retryDelay: (_attempt, response) => {
+      const seconds = Number(response.headers.get("Retry-After") || 5);
+      return Number.isFinite(seconds) && seconds >= 0 ? seconds * 1000 : 5000;
+    },
   });
-  if (res.status === 404) return null;
-  if (res.status === 429) {
-    const retryAfter = parseInt(res.headers.get('Retry-After') || '5', 10);
-    console.log(`Rate limited, waiting ${retryAfter}s before retrying id ${id}...`);
-    await sleep(retryAfter * 1000);
-    return fetchCommander(id); // retry the same id after waiting
-  }
-  if (!res.ok) throw new Error(`Unexpected status ${res.status} for commander id ${id}`);
-  return res.json();
 }
 
-async function build(outPath) {
+/**
+ * @typedef {{name: string, global_rank: number, stats?: {games_count?: number, decks_count?: number, win_rate?: number}}} Commander
+ */
+
+/** @param {Commander} card */
+export function commanderRow(card) {
+  const stats = card.stats || {};
+  if ((stats.games_count || 0) < MIN_GAMES || (stats.decks_count || 0) < MIN_DECKS) return null;
+  if (
+    !card.name ||
+    !Number.isFinite(stats.win_rate) ||
+    stats.win_rate < 0 ||
+    stats.win_rate > 100 ||
+    !Number.isInteger(stats.games_count) ||
+    !Number.isInteger(card.global_rank) ||
+    card.global_rank < 1
+  ) {
+    throw new Error("Malformed qualifying commander response");
+  }
+  return {
+    n: card.name,
+    t: tierFor(stats.win_rate),
+    w: stats.win_rate,
+    g: stats.games_count,
+    r: card.global_rank,
+  };
+}
+
+/**
+ * @param {string} outPath
+ * @param {{fetchCommander?: (id: number) => Promise<Commander | null>, sleep?: (ms: number) => Promise<unknown>}} dependencies
+ */
+export async function build(outPath, dependencies = {}) {
+  const fetchNext = dependencies.fetchCommander || fetchCommander;
+  const pause = dependencies.sleep || sleep;
   const results = [];
   let consecutiveMisses = 0;
   let id = 1;
   let checked = 0;
 
   while (consecutiveMisses < CONSECUTIVE_MISS_LIMIT) {
-    const card = await fetchCommander(id);
+    const card = await fetchNext(id);
     checked++;
     if (!card) {
       consecutiveMisses++;
     } else {
       consecutiveMisses = 0;
-      const stats = card.stats || {};
-      if ((stats.games_count || 0) >= MIN_GAMES && (stats.decks_count || 0) >= MIN_DECKS) {
-        results.push({
-          n: card.name,
-          t: tierFor(stats.win_rate),
-          w: stats.win_rate,
-          g: stats.games_count,
-          r: card.global_rank,
-        });
-      }
+      const row = commanderRow(card);
+      if (row) results.push(row);
     }
     id++;
-    await sleep(DELAY_MS);
-    if (checked % 200 === 0) console.log(`Checked ${checked} ids (up to ${id - 1}), ${results.length} qualifying so far...`);
+    await pause(DELAY_MS);
+    if (checked % 200 === 0)
+      console.log(
+        `Checked ${checked} ids (up to ${id - 1}), ${results.length} qualifying so far...`,
+      );
   }
 
-  console.log(`Stopped after ${CONSECUTIVE_MISS_LIMIT} consecutive misses, highest id checked: ${id - 1}`);
+  console.log(
+    `Stopped after ${CONSECUTIVE_MISS_LIMIT} consecutive misses, highest id checked: ${id - 1}`,
+  );
 
   if (results.length < MIN_PLAUSIBLE_COUNT || results.length > MAX_PLAUSIBLE_COUNT) {
     throw new Error(
       `Got ${results.length} qualifying commanders, expected between ${MIN_PLAUSIBLE_COUNT} and ${MAX_PLAUSIBLE_COUNT}. ` +
-      `Refusing to write output -- something is wrong with the scan rather than trusting this result.`
+        `Refusing to write output -- something is wrong with the scan rather than trusting this result.`,
     );
   }
 
   results.sort((a, b) => a.r - b.r); // by global rank, matching how this data is presented elsewhere in the app
   const json = JSON.stringify(results);
-  writeFileSync(outPath, `${json}\n`, 'utf8');
+  writeFileSync(outPath, `${json}\n`, "utf8");
   return { count: results.length, highestIdChecked: id - 1 };
 }
 
-const [, , outPath] = process.argv;
-try {
-  const stats = await build(outPath || 'winrates.json');
-  console.log('Build complete:', stats);
-} catch (err) {
-  console.error('Build failed:', err.message);
-  process.exit(1);
+if (isMain(import.meta.url)) {
+  const [, , outPath] = process.argv;
+  try {
+    const stats = await build(outPath || "winrates.json");
+    console.log("Build complete:", stats);
+  } catch (err) {
+    console.error("Build failed:", err.message);
+    process.exit(1);
+  }
 }

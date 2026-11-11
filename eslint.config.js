@@ -3,7 +3,7 @@ import noUnsanitized from "eslint-plugin-no-unsanitized";
 import { renderingPlugin, renderingRules } from "./scripts/rendering-lint.mjs";
 
 const legacyFiles = [
-  ".github/scripts/**/*.mjs",
+  "pipelines/**/*.mjs",
   "deck-link-sync-worker.js",
   "spellbook-compact-2026-11-10.mjs",
 ];

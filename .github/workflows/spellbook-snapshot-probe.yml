@@ -30,7 +30,7 @@ jobs:
           ls -l variants.json
 
       - name: Build the snapshot and the stats
-        run: node .github/scripts/spellbook-snapshot.mjs variants.json out
+        run: node pipelines/spellbook/spellbook-snapshot.mjs variants.json out
 
       - name: Attach the results to this run
         uses: actions/upload-artifact@v4

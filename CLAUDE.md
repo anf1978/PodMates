@@ -52,7 +52,7 @@ CI runs `check` + e2e + rules tests on every PR (including stacked bases) and `m
   on `window` for the inline scripts. Delete each name with its last inline caller.
 - `index.html` — markup, main CSS and the inline legacy scripts (everything not yet in `src/features`).
 - `public/data/` — committed dataset snapshots (generated); `public/` — icons and manifest.
-- `.github/scripts/` — Node data pipelines run by Actions (move to `pipelines/` in p5-1).
+- `pipelines/` — typed Node data builders and shared helpers run by Actions; see `pipelines/README.md`.
 - `firebase/` — unchanged Firestore rules, emulator-only config and rules tests; read `firebase/CLAUDE.md`.
 - `tests/golden/` (engine snapshots) · `tests/e2e/` (Playwright) · `scripts/` (extraction/manifest tools).
 
@@ -161,11 +161,11 @@ p, r, pm, rt, pw, tg, x, ly, ob, bt`), matching `build-card-db.mjs`. Use its acc
   moves every deck. Never as a side effect.
 - **Pod "Impact card" edits only affect the separate "Pod view" line** under the radar, never the main scores.
 - **The PriceScry password is a soft gate**, not security. Don't put anything sensitive behind it.
-- PriceScry helpers `nameKey()`, `fnv1a()`, `shardOf()` are duplicated in `.github/scripts/pricescry-lib.mjs`
+- PriceScry helpers `nameKey()`, `fnv1a()`, `shardOf()` are duplicated in `pipelines/lib/pricescry-lib.mjs`
   (grep `helpers kept identical to`); change both or neither, or price shards stop resolving.
 - `mana.ts` mirrors the `SHARED MANA-PRODUCTION LOGIC` block in `build-card-db.mjs`; `mana.test.ts` checks both.
 - **Be polite to external APIs:** Scryfall, Playgroup.gg and tcgcsv rate-limit and asked for identified traffic —
-  keep the User-Agent headers and delays in `.github/scripts/*` and the workflows.
+  keep the User-Agent headers and delays in `pipelines/` and the workflows.
 - **lit text runs:** keep each rendered text run one interpolation (`` html`${pct}%` `` is two text nodes and shifts
   Chrome's layout by a hundredth of a pixel). Feature CSS is a `<link>` in `index.html` **and** an entry in
   `vite.config.js`'s stylesheet loop; a new build entry goes in both lists there.

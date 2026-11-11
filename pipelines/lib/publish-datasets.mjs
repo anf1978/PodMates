@@ -8,7 +8,7 @@ import {
   validateDataset,
   verifyManifest,
 } from "./dataset-files.mjs";
-import { datasetEntry } from "../../scripts/dataset-manifest.mjs";
+import { datasetEntry } from "./dataset-manifest.mjs";
 
 const [kind, input, tagsPath] = process.argv.slice(2);
 if (!["cards", "winrates"].includes(kind) || !input) {

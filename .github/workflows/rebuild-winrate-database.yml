@@ -31,7 +31,7 @@ jobs:
           node-version: 22
 
       - name: Build the win-rate database
-        run: node .github/scripts/build-winrate-db.mjs new-winrate-data.json
+        run: node pipelines/winrates/build-winrate-db.mjs new-winrate-data.json
 
       - name: Publish validated data files
-        run: node .github/scripts/publish-datasets.mjs winrates new-winrate-data.json
+        run: node pipelines/lib/publish-datasets.mjs winrates new-winrate-data.json

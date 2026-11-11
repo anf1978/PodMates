@@ -52,7 +52,7 @@ jobs:
           ls -l default-cards.jsonl.gz
 
       - name: Run the bulk jump backtest
-        run: node .github/scripts/pricescry-bulkjump.mjs default-cards.jsonl.gz pricescry-data bulkjump-out
+        run: node pipelines/pricescry/pricescry-bulkjump.mjs default-cards.jsonl.gz pricescry-data bulkjump-out
 
       - name: Keep the report
         uses: actions/upload-artifact@v4

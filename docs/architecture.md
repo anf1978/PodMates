@@ -123,6 +123,16 @@ from the Pages deployment.
 `src/shared/` (code shared with the pipelines) does not exist yet; p5-3 creates it, and the lint rules already
 allow importing it.
 
+### Pipelines (`pipelines/`)
+
+Node `.mjs` builders are grouped into `card-db/`, `winrates/`, `spellbook/` and `pricescry/`.
+Shared HTTP, gzip/file I/O, manifest, publication and assembly helpers live in `lib/`.
+Their separate `tsconfig.json` enables JSDoc `checkJs` through `npm run typecheck`; Vitest
+builder fixtures and the former PriceScry self-tests run in `npm run check`. Inputs,
+outputs, schedules, named secrets and production-write cautions are in
+[`pipelines/README.md`](../pipelines/README.md). Builders write data, never application source.
+Unrecovered knowledge/reference builders have not been fabricated.
+
 ### Engine (`src/engine`)
 
 `analyzeDeck` and everything it calls are strictly typed modules; curated tables (`HARD_COMBOS`,
@@ -178,7 +188,7 @@ without resetting sibling dates.
 
 Weekly workflows publish validated `cards.json`, `tags.json` and `winrates.json` on the `data` branch;
 deploy copies them into `dist/data/` and records exact revision/hashes in `build-manifest.json`.
-Branch-dispatched rebuilds use `data-<source-branch>`. Publish/assemble helpers in `.github/scripts/` validate
+Branch-dispatched rebuilds use `data-<source-branch>`. Publish/assemble helpers in `pipelines/lib/` validate
 shapes/counts and SHA-256 manifests; publication is lease-protected and serialized. Legacy hash-only publications
 use their stable Git publication time until refreshed, never deploy time. `scripts/extract-bot-datasets.mjs`
 reproduces the fallback snapshots and pins win-rates for golden tests. `node scripts/generate-data-manifest.mjs`
@@ -241,7 +251,7 @@ Frequency & Curve. Everything else is still in the inline app script; see the li
   allowed only in the shims and `load-dataset.ts` (event-handler properties such as `self.onmessage` are fine).
 - **`max-lines` 500** (blank lines and comments excluded) for `src/` and `tests/`; curated `src/data` tables are
   exempt. Aim for about 400.
-- Pipelines (`.github/scripts`), the deck-sync Worker and the one-off Spellbook script use the recommended rules
+- Pipelines (`pipelines/`), the deck-sync Worker and the one-off Spellbook script use the recommended rules
   as errors, allowing unused parameters, ignored catch bindings and `cond ? a++ : b++`.
 
 ESLint does not inspect the inline scripts in `index.html`. TypeScript is strict; `allowJs` stays on (with

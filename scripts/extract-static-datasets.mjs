@@ -5,7 +5,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
-import { updateManifest, writeDeckMetadata } from "./dataset-manifest.mjs";
+import { updateManifest, writeDeckMetadata } from "../pipelines/lib/dataset-manifest.mjs";
 
 const root = new URL("../", import.meta.url);
 const args = process.argv.slice(2);

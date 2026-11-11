@@ -221,7 +221,7 @@ preferences. **Saved decks are cloud-only:** they are stored in Firestore (`user
 so saving needs a real (non-anonymous) account, decks are available on any device you sign in on, and there is no
 offline copy. The only local copy is one the user downloads via _My Data_ backup.
 
-### 3.6 Data pipelines (`.github/workflows` + `.github/scripts`)
+### 3.6 Data pipelines (`.github/workflows` + `pipelines/`)
 
 | Workflow                                            | Trigger                | What it does                                                                                      | Output                                                           |
 | --------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |

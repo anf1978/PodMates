@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { gunzipSync } from "node:zlib";
-import { datasetEntry } from "../../scripts/dataset-manifest.mjs";
+import { datasetEntry } from "./dataset-manifest.mjs";
 
 export const datasetNames = ["cards", "tags", "winrates"];
 

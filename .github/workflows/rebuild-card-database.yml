@@ -44,7 +44,7 @@ jobs:
         run: curl --fail --silent --show-error -L "$BULK_URL" -o scryfall-bulk.jsonl
 
       - name: Build the compressed database
-        run: node .github/scripts/build-card-db.mjs scryfall-bulk.jsonl new-card-db.b64
+        run: node pipelines/card-db/build-card-db.mjs scryfall-bulk.jsonl new-card-db.b64
 
       # Function tags (blink, extra combat) feed the Key Interactions panel.
       # If Scryfall's tag search is down this step is allowed to fail: the
@@ -52,12 +52,12 @@ jobs:
       - name: Fetch Scryfall function tags
         id: tags
         continue-on-error: true
-        run: node .github/scripts/fetch-function-tags.mjs function-tags.json
+        run: node pipelines/card-db/fetch-function-tags.mjs function-tags.json
 
       - name: Publish validated data files
         run: |
           if [ '${{ steps.tags.outcome }}' = success ]; then
-            node .github/scripts/publish-datasets.mjs cards new-card-db.b64 function-tags.json
+            node pipelines/lib/publish-datasets.mjs cards new-card-db.b64 function-tags.json
           else
-            node .github/scripts/publish-datasets.mjs cards new-card-db.b64
+            node pipelines/lib/publish-datasets.mjs cards new-card-db.b64
           fi

@@ -45,7 +45,7 @@ jobs:
       - name: Assemble published datasets and record provenance
         env:
           DATA_REF: ${{ github.ref != 'refs/heads/main' && inputs.data_ref || 'data' }}
-        run: node .github/scripts/assemble-datasets.mjs "$DATA_REF"
+        run: node pipelines/lib/assemble-datasets.mjs "$DATA_REF"
       - run: npm run budget
       - uses: actions/upload-pages-artifact@v3
         with:

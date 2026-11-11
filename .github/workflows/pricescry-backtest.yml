@@ -52,7 +52,7 @@ jobs:
           ls -l default-cards.jsonl.gz
 
       - name: Run the backtest
-        run: node .github/scripts/pricescry-backtest.mjs default-cards.jsonl.gz pricescry-data backtest-out
+        run: node pipelines/pricescry/pricescry-backtest.mjs default-cards.jsonl.gz pricescry-data backtest-out
 
       - name: Keep the report
         uses: actions/upload-artifact@v4

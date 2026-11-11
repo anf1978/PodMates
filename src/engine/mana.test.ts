@@ -13,7 +13,7 @@ type ManaLogic = {
 // falls back to the typed copy for older databases. Both must give the same answer.
 function loadBuildCopy(): ManaLogic {
   const source = readFileSync(
-    new URL("../../.github/scripts/build-card-db.mjs", import.meta.url),
+    new URL("../../pipelines/card-db/build-card-db.mjs", import.meta.url),
     "utf8",
   );
   const start = "// ===== BEGIN SHARED MANA-PRODUCTION LOGIC =====";

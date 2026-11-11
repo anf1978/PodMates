@@ -20,7 +20,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: pricescry-daily      # shares the daily job's lock, so the two never publish over each other
+  group: pricescry-daily # shares the daily job's lock, so the two never publish over each other
   cancel-in-progress: false
 
 jobs:
@@ -47,7 +47,6 @@ jobs:
         with:
           node-version: 22
 
-
       - name: Download MTGJSON files
         run: |
           UA="PodMatesPriceScry/1.0 (+https://github.com/anf1978/PodMates)"
@@ -56,20 +55,20 @@ jobs:
           ls -l AllIdentifiers.json.gz AllPrices.json.gz
 
       - name: Look at the identifiers file (structure check)
-        run: node .github/scripts/pricescry-mtgjson.mjs peek AllIdentifiers.json.gz
+        run: node pipelines/pricescry/pricescry-mtgjson.mjs peek AllIdentifiers.json.gz
 
       - name: Look at the prices file (structure check)
-        run: node .github/scripts/pricescry-mtgjson.mjs peek AllPrices.json.gz
+        run: node pipelines/pricescry/pricescry-mtgjson.mjs peek AllPrices.json.gz
 
       - name: Build the card-id link
-        run: node .github/scripts/pricescry-mtgjson.mjs build-map AllIdentifiers.json.gz pricescry-data
+        run: node pipelines/pricescry/pricescry-mtgjson.mjs build-map AllIdentifiers.json.gz pricescry-data
 
       - name: Add the price history
-        run: node .github/scripts/pricescry-mtgjson.mjs prices AllPrices.json.gz pricescry-data
+        run: node pipelines/pricescry/pricescry-mtgjson.mjs prices AllPrices.json.gz pricescry-data
 
       - name: Recompute the movers from all shops
-        continue-on-error: true   # if this fails the earlier Scryfall-only movers list is still published
-        run: node .github/scripts/pricescry-movers.mjs pricescry-data
+        continue-on-error: true # if this fails the earlier Scryfall-only movers list is still published
+        run: node pipelines/pricescry/pricescry-movers.mjs pricescry-data
 
       - name: Publish to the pricescry-data branch
         run: |

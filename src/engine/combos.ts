@@ -13,7 +13,7 @@ export function comboSlotsMatch(namesInDeck: ReadonlySet<string>, combo: Curated
 
 // ---- Commander Spellbook offline snapshot ---------------------------------
 // A compact copy of Commander Spellbook's combos that WIN or WARP a game, embedded in the page
-// (see the "combo-data-script" block and .github/scripts/spellbook-snapshot.mjs). The app sets
+// (see the "combo-data-script" block and pipelines/spellbook/spellbook-snapshot.mjs). The app sets
 // ctx.spellbook at startup; with it null (a failed decode) analyzeDeck simply
 // finds only the curated HARD_COMBOS. Snapshot combo = [cardIdx[], code, outcomeIdx, popLog] where
 // code = class (2 win, 1 warp) + 4 if infinite.

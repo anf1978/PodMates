@@ -2,7 +2,7 @@ import type { CardRecord } from "../cards/tuple.ts";
 
 // ---- Mana production: read from the database, derive from text if absent ----
 // The card database now stores two fields per card, computed at build time by
-// .github/scripts/build-card-db.mjs using the shared logic below:
+// pipelines/card-db/build-card-db.mjs using the shared logic below:
 //   pm - colors of mana the card can make ("" if none), e.g. "WG"
 //   rt - true when that mana is one-shot only (rituals, Lotus Petal...)
 // Cards from a database built before those fields existed have neither, so
@@ -10,7 +10,7 @@ import type { CardRecord } from "../cards/tuple.ts";
 // result has the same shape.
 // ===== BEGIN SHARED MANA-PRODUCTION LOGIC =====
 // This block is IDENTICAL in two places and must stay that way:
-//   1. .github/scripts/build-card-db.mjs  (computes the values at database-build time)
+//   1. pipelines/card-db/build-card-db.mjs  (computes the values at database-build time)
 //   2. src/engine/mana.ts                 (typed copy: fallback for a database built before these fields existed)
 // mana.test.ts runs both copies over every pinned card and fails if they disagree.
 // Scryfall has no "what mana does this make" field that separates real mana

@@ -1,4 +1,4 @@
-// The positional card tuple published by .github/scripts/build-card-db.mjs, plus the
+// The positional card tuple published by pipelines/card-db/build-card-db.mjs, plus the
 // only named accessors allowed to read it -- nothing else may index a tuple directly.
 // Positions are append-only: never reorder or reuse one, and keep the length guards so
 // cards from an older publication keep reporting `undefined` for fields added later.
