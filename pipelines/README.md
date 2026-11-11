@@ -17,6 +17,9 @@ Workflow definitions stay in `.github/workflows/`; paths below are relative to t
   Publication uses `lib/publish-datasets.mjs`: `data` on main, otherwise `data-<source-branch>`,
   retaining validated sibling datasets and manifest dates.
 - Traffic: identified requests, 120 ms between Scryfall search pages; bounded transient retries.
+- The manual `scryfall-tags.yml` research export runs `scryfall-tags.mjs`, preserving
+  all 19 tags and full printed names in `scryfall-tags.json`. It is not replaced by
+  the two-tag, normalized front-face export used by the app.
 
 ## Commander win-rates (`winrates/`)
 
@@ -49,14 +52,13 @@ Workflow definitions stay in `.github/workflows/`; paths below are relative to t
 - Outputs: gzip card shards, index, FX rates, movers, radar, shadow/cheap-watch logs
   and evaluation data in the supplied data directory. `pricescry-lib.mjs` now lives
   in `lib/`; its name normalization/hash/shard helpers still mirror the inline app.
-- Schedule: `pricescry-daily.yml`, daily 06:30 UTC and manual. **Daily and backfill
-  still publish to production `pricescry-data`, even when dispatched on a feature branch.**
-  They share their existing concurrency lock; do not dispatch them merely to validate a move.
-- Manual workflows: `pricescry-backfill.yml` imports MTGJSON history and publishes;
-  `pricescry-backtest.yml` and `pricescry-bulkjump.yml` read history and upload reports;
-  `pricescry-probe.yml` makes one request to its `url` input and uploads the response.
+- Schedule: `pricescry-daily.yml`, daily 06:30 UTC and manual. **Daily still
+  publishes to production `pricescry-data`, even when dispatched on a feature branch.**
+  Its production concurrency lock is unchanged; do not dispatch it merely to validate changes.
+- Manual workflows: `pricescry-backtest.yml` and `pricescry-bulkjump.yml` read history
+  and upload reports. The one-off probes/backfill are archived below.
   Study/risers/sim/link helpers support local research and tests; no extra schedules.
-- Secrets: automatic `GITHUB_TOKEN` (write for daily/backfill, read for reports/probe);
+- Secrets: automatic `GITHUB_TOKEN` (write for daily, read for reports);
   optional `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `ANTHROPIC_API_KEY` for radar.
   Never print secret values. Existing tcgcsv/Scryfall/MTGJSON User-Agents, spacing,
   retries and refusal handling remain in their provider-specific collectors.
@@ -76,6 +78,42 @@ Workflow definitions stay in `.github/workflows/`; paths below are relative to t
   production Pages deployment separately uses its existing OIDC permissions.
 - `http.mjs` owns identified JSON requests with polite bounded retry delays;
   `io.mjs` owns gzip input and gzip/base64 JSON writing; `cli.mjs` guards import-safe CLIs.
+
+## Workflow maintenance
+
+Every Scryfall bulk consumer uses `.github/actions/scryfall-bulk/action.yml`.
+`lib/scryfall-bulk.mjs` resolves fresh metadata on every run, prefers JSONL, streams
+the download and preserves file-level gzip (consumers detect magic bytes). It sends
+the project User-Agent, spaces requests, retries transient HTTP failures up to four
+attempts, honors Retry-After (stopping if the requested wait exceeds 60 seconds)
+and stops on refusal. Failed/empty
+downloads never enter the cache. Cache keys include type, upstream timestamp and URL;
+there is no stale restore-prefix fallback. HTTP Content-Encoding is decoded by fetch.
+
+The weekly rebuilds intentionally remain separate: routing two schedules through one
+workflow adds conditions without removing distinct builder/publication steps. Keeping
+them preserves Monday 06:00 cards/tags, 07:00 win-rates, manual selective rebuilds and
+the two existing `workflow_run` deployment triggers. Their shared publication lock
+continues to serialize writes.
+
+All third-party Actions are pinned to full commit SHAs with version comments.
+Permissions are explicit per job; data/report workflows have concurrency groups.
+Dependabot checks both Actions and npm weekly.
+
+### Archived one-off workflows
+
+These definitions last lived at commit
+[`d35ef2d57d894eadfb7191f9f40f26a9a49955ea`](https://github.com/anf1978/PodMates/tree/d35ef2d57d894eadfb7191f9f40f26a9a49955ea/.github/workflows).
+Their local pipeline scripts are retained; restoring a publishing workflow needs review.
+
+| Deleted workflow             | Purpose / replacement                                                                                                  |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `pricescry-probe.yml`        | One-URL response capture for source investigation; local `pricescry/pricescry-probe.mjs` remains.                      |
+| `pricescry-tcgcsv-probe.yml` | One-off tcgcsv endpoints/network investigation; production collector is `pricescry/pricescry-tcgplayer.mjs`.           |
+| `pricescry-backfill.yml`     | Run-once MTGJSON historical import into production; `pricescry/pricescry-mtgjson.mjs` remains for deliberate recovery. |
+
+`spellbook-snapshot-probe.yml` is **not superseded**: it remains the only manual
+artifact builder for the Commander Spellbook snapshot, never a baseline publisher.
 
 ## Knowledge and reference corpus (not recovered)
 

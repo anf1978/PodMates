@@ -53,6 +53,8 @@ CI runs `check` + e2e + rules tests on every PR (including stacked bases) and `m
 - `index.html` — markup, main CSS and the inline legacy scripts (everything not yet in `src/features`).
 - `public/data/` — committed dataset snapshots (generated); `public/` — icons and manifest.
 - `pipelines/` — typed Node data builders and shared helpers run by Actions; see `pipelines/README.md`.
+- `.github/actions/scryfall-bulk/` — shared current-export download/cache; all Scryfall bulk workflows use it.
+  Actions are SHA-pinned and Dependabot maintains Actions/npm updates.
 - `firebase/` — unchanged Firestore rules, emulator-only config and rules tests; read `firebase/CLAUDE.md`.
 - `tests/golden/` (engine snapshots) · `tests/e2e/` (Playwright) · `scripts/` (extraction/manifest tools).
 

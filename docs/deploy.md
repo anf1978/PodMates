@@ -13,8 +13,8 @@ upload a seven-day `playwright-report` artifact.
 `.github/workflows/deploy.yml` builds with Node 22 and Vite, uploads **only `dist/`** as the
 `github-pages` artifact, then publishes with `actions/deploy-pages`. The deployment job alone gets
 `pages: write` and `id-token: write`; builds get `contents: read`. The `pages` concurrency group
-serializes runs without cancelling a deployment in progress. Actions are pinned to major versions;
-SHA pinning is deferred to p5-2.
+serializes runs without cancelling a deployment in progress. Third-party actions are pinned to full
+commit SHAs with version comments; Dependabot checks Actions and npm updates weekly.
 
 Pushes to `main` deploy automatically. Manual runs build by default without publishing; publishing
 requires selecting `main` and enabling the **deploy** input. A manual run on any other branch cannot

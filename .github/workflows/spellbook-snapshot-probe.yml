@@ -8,32 +8,37 @@ name: Spellbook Snapshot Build (run on demand; download the result from the run 
 on:
   workflow_dispatch:
 
-permissions:
-  contents: read
+permissions: {}
+
+concurrency:
+  group: spellbook-snapshot-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - name: Get this repository (for the script)
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
 
       - name: Download the export once
         run: |
           UA="PodMatesSpellbook/1.0 (+https://github.com/anf1978/PodMates)"
-          curl -sS -L -w "\nHTTP %{http_code}, %{size_download} bytes, %{time_total}s\n" -H "User-Agent: $UA" -o variants.json https://json.commanderspellbook.com/variants.json
+          curl --fail -sS -L -w "\nHTTP %{http_code}, %{size_download} bytes, %{time_total}s\n" -H "User-Agent: $UA" -o variants.json https://json.commanderspellbook.com/variants.json
           ls -l variants.json
 
       - name: Build the snapshot and the stats
         run: node pipelines/spellbook/spellbook-snapshot.mjs variants.json out
 
       - name: Attach the results to this run
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: spellbook-snapshot
           path: out/

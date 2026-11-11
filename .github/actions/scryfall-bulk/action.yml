@@ -1,0 +1,43 @@
+name: Scryfall bulk download
+description: Resolve and cache a current Scryfall bulk export, preserving plain/gzip encoding
+inputs:
+  type:
+    description: Scryfall bulk type (oracle_cards or default_cards)
+    required: true
+  path:
+    description: Destination file (consumers detect gzip by magic bytes)
+    required: true
+outputs:
+  path:
+    description: Downloaded bulk file
+    value: ${{ inputs.path }}
+runs:
+  using: composite
+  steps:
+    - name: Resolve current export
+      id: metadata
+      shell: bash
+      env:
+        BULK_TYPE: ${{ inputs.type }}
+      run: node pipelines/lib/scryfall-bulk.mjs metadata "$BULK_TYPE"
+    - name: Cache the exact export
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      id: cache
+      with:
+        path: ${{ steps.metadata.outputs.path }}
+        key: scryfall-bulk-v1-${{ runner.os }}-${{ steps.metadata.outputs.key }}
+    - name: Download on cache miss
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        BULK_URI: ${{ steps.metadata.outputs.uri }}
+        BULK_CACHE_PATH: ${{ steps.metadata.outputs.path }}
+      run: node pipelines/lib/scryfall-bulk.mjs download "$BULK_URI" "$BULK_CACHE_PATH"
+    - name: Copy bulk export
+      shell: bash
+      env:
+        BULK_CACHE_PATH: ${{ steps.metadata.outputs.path }}
+        BULK_PATH: ${{ inputs.path }}
+      run: |
+        mkdir -p "$(dirname "$BULK_PATH")"
+        cp -- "$BULK_CACHE_PATH" "$BULK_PATH"
