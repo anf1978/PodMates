@@ -100,11 +100,16 @@ test("pasted analysis loads only fingerprints/metadata; suggestions load knowled
     await page.getByRole("button", { name: /Cards you could add/ }).click();
     await expect(page.locator("#tadOverlay .tad-modal")).toContainText("Loading...");
     release();
-    await expect(page.getByRole("dialog", { name: "Cards you could add" })).toBeVisible();
+    // The loading dialog shares this name (it is labelled by the same heading), so wait for the
+    // suggestions sheet itself, which is only built after the knowledge data has loaded.
+    const suggestions = page
+      .locator("#ixSugOverlay")
+      .getByRole("dialog", { name: "Cards you could add" });
+    await expect(suggestions).toBeVisible();
     expect(await page.evaluate("KNOW_MAP.size")).toBeGreaterThan(0);
     await page.locator("#ixSugClose").click();
     await page.getByRole("button", { name: /Cards you could add/ }).click();
-    await expect(page.getByRole("dialog", { name: "Cards you could add" })).toBeVisible();
+    await expect(suggestions).toBeVisible();
     expect(requested.filter((path) => path === "/data/KNOW_JSON.json")).toHaveLength(1);
   } finally {
     release();
