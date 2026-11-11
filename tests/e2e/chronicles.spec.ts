@@ -13,24 +13,24 @@ test("pod chronicles stay readable as a guest and clearing opens optional sign-i
   await expect(page.locator("#clearMatchHistoryBtn")).toBeFocused();
 });
 
-test("battle feedback keeps ratings independent and can be skipped without cloud writes", async ({
-  page,
-}) => {
+test("battle controls confirm logging and keep post-battle choices host-only", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator("#dbStatus")).toContainText(/^Ready /);
-  // Host/non-host result callers share this remaining legacy entry point.
-  await page.evaluate("showFeedbackSurvey('fixture-pod', 'fixture-battle')");
-  await expect(page.getByRole("dialog")).toHaveAccessibleName("How was the battle?");
-  await page.locator("#funRatingRow [data-rate='4']").click();
-  await page.locator("#bestMomentInput").fill("One life left!");
-  await page.locator("#accuracyRatingRow [data-rate='5']").click();
-  await expect(page.locator("#funRatingRow .chronicles-rating-selected")).toHaveText("4");
-  await expect(page.locator("#accuracyRatingRow .chronicles-rating-selected")).toHaveText("5");
-  await expect(page.locator("#bestMomentInput")).toHaveValue("One life left!");
-  await test.info().attach("feedback", {
-    body: await page.getByRole("dialog").screenshot(),
-    contentType: "image/png",
-  });
-  await page.getByRole("button", { name: "Skip", exact: true }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  // Feed the existing comparison handoff without authenticating or writing to Firestore.
+  await page.evaluate(`(() => {
+    currentBattleContext = { podId: 'fixture-pod', gatheringId: 'fixture-battle',
+      isHost: true, participants: [] };
+    document.getElementById('podResultsSection').style.display = 'block';
+    renderBattleControls();
+  })()`);
+  await page.getByRole("button", { name: "Log Battle", exact: true }).click();
+  await expect(page.getByRole("dialog")).toContainText("This can’t be undone.");
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.locator("#logBattleBtn")).toBeFocused();
+  await page.evaluate(`currentBattleContext.loggedChronicleId = 'logged'; renderBattleControls();`);
+  await expect(page.locator("#repeatBattleBtn")).toBeVisible();
+  await expect(page.locator("#startNewBattleBtn")).toBeVisible();
+  await page.evaluate(`currentBattleContext.isHost = false; renderBattleControls();`);
+  await expect(page.locator("#battleControlsArea")).toContainText("thanks for playing");
+  await expect(page.locator("#repeatBattleBtn")).toHaveCount(0);
 });

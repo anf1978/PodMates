@@ -28,6 +28,9 @@ export interface ChronicleBattle {
   gatheringTitle?: string;
   participants: Array<{ uid: string | null }>;
   loggedChronicleId?: string | null;
+  ignoreChronicleId?: string | null;
+  isHost?: boolean;
+  hostName?: string;
 }
 
 export interface ChronicleBattleDeck {
@@ -38,6 +41,7 @@ export interface ChronicleBattleDeck {
   uid?: string | null;
   commandSpark: number;
   style: string;
+  color?: string;
 }
 
 export function battleEntry(

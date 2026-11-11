@@ -319,7 +319,7 @@ Pods emits typed `gatherings:host`, `gatherings:sample` and `gatherings:paint` e
 requests a pod refresh through `pods:refresh`. Neither imports the other feature.
 The gathering adapter supplies the still-inline library/analysis gate, comparison results,
 battle context/controls and saved-deck picker. Battle logging, feedback and results polling
-remain with the Chronicles extraction. Only the existing live-tray name and the sample
+are owned by Chronicles. Only the existing live-tray name and the sample
 entry point used by offline browser tests remain published, each marked `TODO(p3-6)`.
 Repository-mocked interaction tests cover authenticated host/RSVP/chart/end flows; offline
 e2e covers sample loading/cancellation and the six-deck handoff without authentication.
@@ -327,13 +327,17 @@ e2e covers sample loading/cancellation and the six-deck handoff without authenti
 `chronicles` (prefix `chronicles-`) owns the shared pod journal, newest-first Gathering-title grouping,
 historical entries, participant/leader edit visibility, notes, deletion, leader-only clearing and optional
 post-battle ratings/highlights. It uses cloud repositories directly and preserves document paths/fields.
-The four existing refresh/render/log/survey names remain in its shim for unmoved callers; modal confirmation,
-account guards and the current battle are runtime ports, not cross-feature imports. Chronicle snapshot
-construction and Log Battle use the Gathering repository, while lifecycle controls remain at their existing
-boundary. Concurrent journal reads are scoped to the current account/pod so stale
+Five existing journal-refresh/render and battle-control/watch names remain in its shim for unmoved callers;
+modal confirmation, account guards, comparison analysis and the current battle are runtime ports, not
+cross-feature imports. Chronicle snapshots, Log/Repeat/New Battle and End Gathering result controls
+use the Gathering repository directly. The result watcher ignores pending writes and previous-battle IDs,
+disposes subscriptions/timers and rejects stale completions; the eight-second read fallback is unchanged.
+Concurrent journal reads are scoped to the current account/pod so stale
 responses cannot overwrite a newer selection; read failures retain the empty-list fallback and report to
 the redacted error sink. Unit tests cover scope/permissions, notes and feedback writes and failures; the
-offline browser suite covers guest journal access/sign-in handoff and independent ratings/skip.
+offline browser suite covers guest journal access/sign-in handoff, Log Battle confirmation and host-only
+post-battle controls. Repository-mocked tests also cover independent ratings/skip, guest-safe repeat,
+new/end writes and realtime/fallback teardown.
 
 ## Lint-enforced boundaries
 

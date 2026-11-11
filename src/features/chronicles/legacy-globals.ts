@@ -1,18 +1,20 @@
 // Temporary ports for the unmoved pod refresh and Gathering battle-result callers.
-import {
-  configureChronicles,
-  mount,
-  refreshCloudChroniclesCache,
-  renderMatchLog,
-  runLogBattle,
-  showFeedbackSurvey,
-} from "./index";
+import { configureChronicles, mount, refreshCloudChroniclesCache, renderMatchLog } from "./index";
+import { renderBattleControls, startResultsPolling, stopResultsPolling } from "./battle";
 import type { ChronicleBattle, ChronicleBattleDeck } from "./state";
 
 declare const currentPodViewId: string | null;
-declare const currentBattleContext: ChronicleBattle | null;
-declare const lastPodDecks: ChronicleBattleDeck[] | null;
-declare const renderBattleControls: () => void;
+declare let currentBattleContext: ChronicleBattle | null;
+declare let lastPodDecks: ChronicleBattleDeck[] | null;
+declare const dbReady: boolean;
+declare const analyzeOneList: (
+  list: string,
+  player: string,
+  commander: string,
+) => ChronicleBattleDeck | null;
+declare const POD_COLORS: readonly string[];
+declare const renderPodAnalysisResults: (decks: ChronicleBattleDeck[]) => void;
+declare const openLiveGatheringOverlay: (podId: string, gatheringId: string) => void;
 declare const requireAccountToSave: (what: string) => boolean;
 declare const showConfirmModal: (message: string, action: () => Promise<void>) => void;
 declare const showActionConfirmModal: (
@@ -39,6 +41,20 @@ configureChronicles({
     renderBattleControls();
     return true;
   },
+  context: () => currentBattleContext,
+  setContext: (context) => {
+    currentBattleContext = context;
+  },
+  clearDecks: () => {
+    lastPodDecks = null;
+  },
+  ready: () => dbReady,
+  analyze: (list, player, commander) => analyzeOneList(list, player, commander),
+  colors: POD_COLORS,
+  results: (decks) => renderPodAnalysisResults(decks),
+  openGathering: (podId, gatheringId) => openLiveGatheringOverlay(podId, gatheringId),
+  confirmAction: (message, label, action) =>
+    showActionConfirmModal(message, label, action, null, "Cancel"),
 });
 
 const legacy = {
@@ -46,10 +62,12 @@ const legacy = {
   refreshCloudChroniclesCache,
   // TODO(p3-6): the legacy comparison renderer refreshes the journal.
   renderMatchLog,
-  // TODO(p3-6): the legacy battle controls still invoke Log Battle.
-  runLogBattle,
-  // TODO(p3-6): Gathering battle-result callers still open the survey.
-  showFeedbackSurvey,
+  // TODO(p3-6): Gathering/comparison callers still draw the current battle controls.
+  renderBattleControls,
+  // TODO(p3-6): Gathering/comparison callers still start result watching.
+  startResultsPolling,
+  // TODO(p3-6): comparison mode changes still stop result watching.
+  stopResultsPolling,
 };
 type ChroniclesLegacy = typeof legacy;
 declare global {

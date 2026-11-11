@@ -18,9 +18,10 @@ import {
   type ChronicleBattleDeck,
 } from "./state";
 import { historyTemplate, panelTemplate } from "./view";
+import { configureBattle, type BattleRuntime } from "./battle";
 import "./chronicles.css";
 
-export interface ChroniclesRuntime {
+export interface ChroniclesRuntime extends BattleRuntime {
   podId: () => string | null;
   requireAccount: (what: string) => boolean;
   confirm: (message: string, action: () => Promise<void>) => void;
@@ -35,6 +36,7 @@ let refreshVersion = 0;
 
 export function configureChronicles(value: ChroniclesRuntime): void {
   runtime = value;
+  configureBattle(value, showFeedbackSurvey, runLogBattle);
 }
 
 export function renderMatchLog(): void {

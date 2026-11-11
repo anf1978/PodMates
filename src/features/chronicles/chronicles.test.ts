@@ -143,6 +143,15 @@ describe("journal interactions", () => {
       requireAccount,
       battle,
       battleLogged,
+      context: () => null,
+      setContext: vi.fn(),
+      clearDecks: vi.fn(),
+      ready: () => true,
+      analyze: vi.fn(),
+      colors: ["red"],
+      results: vi.fn(),
+      openGathering: vi.fn(),
+      confirmAction: vi.fn(),
     });
     vi.mocked(cloud.loadAllChronicles).mockResolvedValue([entry()]);
     vi.mocked(loadPodMembers).mockResolvedValue([]);

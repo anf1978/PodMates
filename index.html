@@ -1361,24 +1361,11 @@ h1 {
   text-decoration-color: var(--gold);
 }
 
-/* Brief attention pop for "Battle logged. What's next?" -- plays once on
-   appearance, then settles at normal size/opacity. Meant to draw the eye
-   for a moment after just having accomplished something, not to linger. */
-@keyframes pm-battle-logged-pop {
-  0%   { opacity: 0; transform: scale(0.9); text-shadow: 0 0 0 rgba(var(--gold-rgb),0); }
-  40%  { opacity: 1; transform: scale(1.06); text-shadow: 0 0 16px rgba(var(--gold-rgb),0.6); }
-  100% { opacity: 1; transform: scale(1); text-shadow: 0 0 8px rgba(var(--gold-rgb),0.25); }
-}
-.pm-battle-logged-pop {
-  animation: pm-battle-logged-pop 0.6s ease-out;
-}
-
 /* ---- Respect reduced motion: disable the decorative animation, keep
    every functional transition (hover/focus feedback, toast fade) intact
    since those aren't the kind of motion this preference is about. ---- */
 @media (prefers-reduced-motion: reduce) {
   body::after { animation: none; }
-  .pm-battle-logged-pop { animation: none; }
 }
 
 </style>
@@ -6839,155 +6826,6 @@ function renderPodAnalysisResults(decks) {
   $('podResultsSection').style.display = 'block';
   $('podResultsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
   return { avgSpark, spread };
-}
-
-// ---- Log Battle, feedback, and the light polling that lets a non-host
-// player's results page pick up "the host logged this" without needing
-// its own tray-style live connection --------------------------------
-
-let resultsPollTimer = null;
-let resultsUnsub = null; // stops the live listener on the Gathering behind the results page
-function stopResultsPolling() {
-  if (resultsPollTimer) { clearInterval(resultsPollTimer); resultsPollTimer = null; }
-  if (resultsUnsub) { try { resultsUnsub(); } catch (e) { /* already stopped */ } resultsUnsub = null; }
-}
-// Same idea as the tray: a live listener so the "host logged this battle"
-// signal (and with it the rating survey) reaches players in about a second,
-// with the old 8-second check kept as a fallback.
-function startResultsPolling() {
-  stopResultsPolling();
-  const handle = (gathering) => {
-    if (!currentBattleContext || currentBattleContext.loggedChronicleId) { stopResultsPolling(); return; }
-    if (!gathering || gathering.status === 'ended') { stopResultsPolling(); return; }
-    if (gathering.lastLoggedChronicleId && gathering.lastLoggedChronicleId !== currentBattleContext.loggedChronicleId && gathering.lastLoggedChronicleId !== currentBattleContext.ignoreChronicleId) {
-      currentBattleContext.loggedChronicleId = gathering.lastLoggedChronicleId;
-      stopResultsPolling();
-      renderBattleControls();
-      // Only the host actually clicked Log Battle -- everyone else gets
-      // the survey popped up here, the moment they hear about it, rather
-      // than needing to do anything themselves first.
-      if (!currentBattleContext.isHost) showFeedbackSurvey(currentBattleContext.podId, gathering.lastLoggedChronicleId);
-    }
-  };
-  const fallbackToPolling = () => {
-    if (resultsUnsub) { try { resultsUnsub(); } catch (e) { /* ignore */ } resultsUnsub = null; }
-    if (resultsPollTimer) return;
-    resultsPollTimer = setInterval(async () => {
-      if (!currentBattleContext || currentBattleContext.loggedChronicleId) { stopResultsPolling(); return; }
-      let gathering;
-      try {
-        gathering = await window.PodmatesCloud.loadGathering(currentBattleContext.podId, currentBattleContext.gatheringId);
-      } catch (e) { return; } // transient -- try again next tick
-      handle(gathering);
-    }, 8000);
-  };
-  if (!currentBattleContext || !window.PodmatesCloud || typeof window.PodmatesCloud.watchGathering !== 'function') { fallbackToPolling(); return; }
-  try {
-    resultsUnsub = window.PodmatesCloud.watchGathering(currentBattleContext.podId, currentBattleContext.gatheringId,
-      (gathering, meta) => { if (meta && meta.hasPendingWrites) return; handle(gathering); }, fallbackToPolling);
-  } catch (e) { fallbackToPolling(); }
-}
-
-function renderBattleControls() {
-  const area = document.getElementById('battleControlsArea');
-  if (!area) return;
-  if (!currentBattleContext) { area.innerHTML = ''; return; }
-  if (currentBattleContext.loggedChronicleId) {
-    if (!currentBattleContext.isHost) {
-      area.innerHTML = `<div class="panel" style="text-align:center; padding:14px;"><p style="font-size:13.5px; color:var(--text-soft); margin:0;">Battle logged — thanks for playing!</p></div>`;
-      return;
-    }
-    // The three closing paths, host-only, matching the original design.
-    // Repeat Battle and Start New Battle both write to Firestore so the
-    // data is correct for everyone -- but per the same "check on demand"
-    // approach used throughout this build, other players pick up the
-    // change by reopening Join Gathering rather than being yanked back in
-    // automatically, since their own polling already stopped the moment
-    // this battle was logged.
-    area.innerHTML = `
-      <div class="panel" style="padding:14px;">
-        <p class="pm-battle-logged-pop" style="font-family:'Cinzel',Georgia,serif; font-size:15.5px; color:var(--gold); margin:0 0 12px; text-align:center; font-weight:600;">Battle logged. What's next?</p>
-        <div class="row" style="gap:8px;">
-          <button id="repeatBattleBtn" class="ghost" style="flex:1;">Repeat Battle</button>
-          <button id="startNewBattleBtn" class="ghost" style="flex:1;">Start New Battle</button>
-        </div>
-        <button id="endGatheringFromResultsBtn" class="ghost" style="width:100%; margin-top:8px; border-color:var(--danger); color:var(--danger); font-size:12.5px;">End Gathering</button>
-      </div>
-    `;
-    document.getElementById('repeatBattleBtn').addEventListener('click', runRepeatBattle);
-    document.getElementById('startNewBattleBtn').addEventListener('click', runStartNewBattle);
-    document.getElementById('endGatheringFromResultsBtn').addEventListener('click', () => {
-      showActionConfirmModal('End this Gathering? Everyone still seated will see it\u2019s over next time they check -- this doesn\u2019t delete anything, it just closes it out.', 'End Gathering', async () => {
-        try {
-          await window.PodmatesCloud.endGathering(currentBattleContext.podId, currentBattleContext.gatheringId);
-          currentBattleContext = null;
-          area.innerHTML = '';
-          showToast('Gathering ended.');
-        } catch (err) {
-          showToast('Could not end the Gathering: ' + err.message);
-        }
-      });
-    });
-    return;
-  }
-  if (!currentBattleContext.isHost) {
-    area.innerHTML = sanitizeHtml(`<p style="text-align:center; font-size:12px; color:var(--text-soft); margin:0;">Waiting for ${escapeHtml(currentBattleContext.hostName || 'the host')} to log this battle.</p>`);
-    return;
-  }
-  area.innerHTML = `<button id="logBattleBtn" class="ghost" style="width:100%; margin-bottom:14px; border-color:var(--gold); color:var(--gold);">Log Battle</button>`;
-  const btn = document.getElementById('logBattleBtn');
-  if (btn) btn.addEventListener('click', () => {
-    showActionConfirmModal('End the current battle and log it to your pod\u2019s Chronicles? This can\u2019t be undone.', 'Log Battle', runLogBattle);
-  });
-}
-
-// Same decks, same seats -- re-charts using whatever's currently in the
-// Gathering's seats (unchanged since the last chart) and gives this new
-// pass its own fresh Log Battle opportunity, mainly useful for recording
-// "we played this matchup again" for the Chronicles record.
-async function runRepeatBattle() {
-  if (!currentBattleContext || !dbReady) return;
-  let gathering;
-  try {
-    gathering = await window.PodmatesCloud.loadGathering(currentBattleContext.podId, currentBattleContext.gatheringId);
-  } catch (err) { showToast('Could not repeat the battle: ' + err.message); return; }
-  if (!gathering) { showToast('This Gathering could not be found.'); return; }
-  const seatKeys = ['0', '1', '2', '3', '4', '5'];
-  const decks = [];
-  for (const k of seatKeys) {
-    const seat = gathering.seats && gathering.seats[k];
-    if (!seat || !seat.uid || !seat.deck || !seat.deck.list) continue;
-    const result = analyzeOneList(seat.deck.list, seat.displayName || '', seat.deck.commander || '');
-    if (result) { result.uid = seat.guest ? null : seat.uid; result.color = POD_COLORS[decks.length % POD_COLORS.length]; decks.push(result); }
-  }
-  if (decks.length < 2) { showToast('Not enough decks loaded to repeat this battle.'); return; }
-  try { await window.PodmatesCloud.markGatheringCharted(currentBattleContext.podId, currentBattleContext.gatheringId); }
-  catch (e) { /* non-fatal -- results still render locally either way */ }
-  currentBattleContext.ignoreChronicleId = gathering.lastLoggedChronicleId || currentBattleContext.loggedChronicleId || null;
-  currentBattleContext.loggedChronicleId = null;
-  renderPodAnalysisResults(decks);
-  renderBattleControls();
-  startResultsPolling();
-}
-
-// Clears every seat's deck selection (who's sitting where is untouched)
-// and takes the host straight back into the live tray to re-pick. Other
-// players see the cleared seats next time they reopen Join Gathering.
-async function runStartNewBattle() {
-  if (!currentBattleContext) return;
-  try {
-    await window.PodmatesCloud.resetGatheringDecks(currentBattleContext.podId, currentBattleContext.gatheringId);
-  } catch (err) {
-    showToast('Could not start a new battle: ' + err.message);
-    return;
-  }
-  const { podId, gatheringId } = currentBattleContext;
-  currentBattleContext = null;
-  lastPodDecks = null;
-  const area = document.getElementById('battleControlsArea');
-  if (area) area.innerHTML = '';
-  $('podResultsSection').style.display = 'none';
-  openLiveGatheringOverlay(podId, gatheringId);
 }
 
 function buildPodMismatchNotes(decks) {
