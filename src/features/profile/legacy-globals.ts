@@ -10,6 +10,7 @@ import type { CardRecord } from "../../cards/tuple";
 import type { LookupIndexes } from "../../cards/lookup";
 import { openTadOverlay, closeTryADeckModal } from "../../ui/tad-modal";
 import { emit } from "../../services/events";
+import { fetchCardImageUrl } from "../../services/card-art";
 
 declare const showConfirmModal: ProfileRuntime["confirm"];
 declare const dbReady: boolean;
@@ -33,7 +34,6 @@ declare const pmRenderDecksTable: (id: string) => void;
 declare const setMode: (mode: string) => void;
 declare const runAnalysis: () => Promise<void>;
 declare const analyzeOneList: PublicProfileRuntime["analyzeOneList"];
-declare const fetchCardImageUrl: PublicProfileRuntime["fetchCardImageUrl"];
 declare const POD_COLORS: readonly string[];
 declare const showActionConfirmModal: PublicProfileRuntime["showActionConfirmModal"];
 

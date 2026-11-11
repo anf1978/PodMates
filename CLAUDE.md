@@ -42,7 +42,7 @@ CI runs `check` + e2e + rules tests on every PR (including stacked bases) and `m
 - `src/services/cloud/` — the **only** place that talks to Firebase; one repository per Firestore area.
 - `src/services/report-error.ts` — central redacted error sink, user-action toast and global error listeners.
   Use `reportError(error, { operation, userTriggered })`; preserve rejection/return contracts.
-- `src/services/scryfall.ts` — shared Scryfall JSON requests, including the legacy inline callers.
+- `src/services/scryfall.ts` — shared Scryfall JSON requests; `card-art.ts` — on-demand card images (memory cache).
 - `src/services/events.ts` — typed navigation, active-pod and trade events; adapters bridge unmoved consumers.
 - `src/services/deck-analysis.ts` — shared decklist analysis for comparison, profiles and saved-deck tables.
 - `src/services/trade-ledger.ts` — shared lot accounting and current lots/marks for Ledger and trade dialogs.
@@ -55,7 +55,7 @@ CI runs `check` + e2e + rules tests on every PR (including stacked bases) and `m
 - `src/features/<name>/` — one folder per feature: `state.ts`, `view.ts`/`panels/`, `<name>.css`, `*.test.ts`.
   Moved: `deck-chart` (four panels), `try-a-deck`, `export`, `scan-cards`, `deck-crafter`, `auth`, `profile`,
   `pods`, `gatherings`, `chronicles`, `impact`, `spoiler-bait`, `trades`, `notifications`, `ledger`, `comparison`,
-  `themes` and `pricescry`.
+  `themes`, `pricescry` and `card-viewer`.
   Adapters supply the still-inline deck form, shared library gate and analysis. Scan and Deck Crafter communicate through
   `src/services/deck-editing.ts`; features never import each other or read legacy globals directly.
   Profile includes My Profile, linked decks,
@@ -69,6 +69,8 @@ CI runs `check` + e2e + rules tests on every PR (including stacked bases) and `m
   Its adapter retains only existing journal-refresh/render and battle-control/watch names.
   Impact owns the list/reasons, nominations/ideas, lazy candidates and separate Pod view; its adapter only
   supplies current chart state and the shared legacy card picker. Standard scores never use pod proposals.
+  Card viewer owns View Deck, the type galleries, single-card art and commander portraits; its adapter binds the
+  View Deck button and keeps four names for runAnalysis, the delegated click handler and Key Pieces thumbnails.
   Spoiler Bait owns swipe/filter/votes/lists and the pod board; its only shim is `sbMount` for the PriceScry
   adapter, which passes signals, day, pod and card-navigation callback explicitly.
   Trades owns purchase/edit, price checks, sales/edit/removal, deletion and CSV export.
@@ -154,9 +156,6 @@ expanded chart panels, info dialog and account screens. The one exact contrast d
 | 1412–1620 | Reference corpus, percentiles, baselines, Try-a-Deck           | `REFERENCE_TIERS`, `STAPLES_BASELINE`, `let TRY_A_DECK_OPTIONS;`                             |
 | 1662–1789 | Card-DB/Spellbook loaders, eager/lazy dataset gates            | `decompressCardDB`, `loadStaticDatasets`, `loadDeckLibrary`, `loadKnowledge`, `initDatabase` |
 |      1799 | Size-limit wiring (values in `src/services/cloud/limits.ts`)   | `---- Size limits`, `PM_INPUT_LIMIT_KEYS`                                                    |
-|      1863 | Card art (Scryfall, on demand)                                 | `CARD ART — fetched on demand`                                                               |
-|      1933 | Card lookup                                                    | `async function lookup(name)`                                                                |
-|      1991 | View Deck gallery                                              | `VIEW DECK — full visual gallery`                                                            |
 |      2246 | Chart request (calls the Deck Chart panels at ~2324)           | `async function runAnalysis`, `renderTypeTable(`, `renderLegality(`                          |
 | 2388–2520 | Result panels: win-con, radar chart, bracket                   | `function renderWinCondition`, `function renderChart(`, `function renderBracket`             |
 |      4046 | Synergy profile                                                | `function renderSynergyProfile`                                                              |
@@ -172,6 +171,7 @@ expanded chart panels, info dialog and account screens. The one exact contrast d
 |   modules | Impact cards + "Pod view" line                                 | `src/features/impact/{index,state,view,repository}.ts`                                       |
 |   modules | Trade purchase, price check, sale actions and CSV              | `src/features/trades/{index,state,view,csv}.ts`                                              |
 |   modules | Try-a-Deck, export and scan cards                              | `src/features/{try-a-deck,export,scan-cards}/index.ts`                                       |
+|   modules | Card art, View Deck, type galleries, commander portraits       | `src/services/card-art.ts`, `src/features/card-viewer/`                                      |
 |   modules | Shared modal overlay + close                                   | `src/ui/tad-modal.ts`, `src/ui/tad-modal.css`                                                |
 |   modules | Ledger filters, P&L totals, open/closed lots and trade events  | `src/features/ledger/{index,state,view}.ts`                                                  |
 |   modules | Pod Comparison, balance guidance, charts and deck details      | `src/features/comparison/{index,state,guidance,view,balance-view,charts,detail}.ts`          |

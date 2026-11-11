@@ -1,0 +1,121 @@
+/* Card art: View Deck and type galleries, single-card art and the commander portraits.
+   Selectors that compete with .tad-modal h2 or the global button rules carry the extra
+   specificity the former inline styles had. */
+.tad-modal .cv-loading,
+.tad-modal .cv-art-area {
+  text-align: center;
+  color: var(--text-soft);
+  font-size: 13px;
+}
+.tad-modal .cv-title {
+  margin-bottom: 4px;
+}
+.tad-modal .cv-art-title {
+  margin-bottom: 12px;
+  font-size: 16px;
+}
+.tad-modal .cv-summary {
+  font-size: 12px;
+  color: var(--text-soft);
+  margin: 0 0 16px;
+}
+.cv-section {
+  margin-bottom: 20px;
+}
+.cv-section-title {
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 6px;
+}
+.cv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
+}
+.cv-tile {
+  position: relative;
+}
+.cv-tile-img {
+  width: 100%;
+  display: block;
+  border: 1.5px solid var(--line);
+  border-radius: 0;
+}
+.cv-qty {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(15, 12, 10, 0.85);
+  color: var(--gold-bright);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border: 1px solid var(--gold);
+}
+.cv-placeholder {
+  aspect-ratio: 0.717;
+  background: var(--bg-slot, var(--bg-main));
+  border: 1.5px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  text-align: center;
+}
+.cv-placeholder-name {
+  font-size: 11px;
+  color: var(--text-soft);
+}
+.cv-art-img {
+  max-width: 100%;
+  border: 2px solid var(--line-strong);
+  border-radius: 0;
+}
+.cv-flip-row {
+  margin-top: 10px;
+}
+button.cv-flip.cv-flip {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  background: rgba(15, 12, 10, 0.88);
+  color: var(--gold-bright);
+  border: 1px solid var(--gold);
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+.cv-hero {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.cv-hero-slot {
+  display: none;
+  width: 200px;
+  max-width: 42vw;
+  aspect-ratio: 0.717;
+  overflow: hidden;
+  border: 2px solid var(--line-strong);
+  border-radius: 0;
+  background: var(--bg-slot, var(--bg-main));
+}
+.cv-hero-slot.cv-shown {
+  display: block;
+  position: relative;
+}
+.cv-hero-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}

@@ -13,6 +13,7 @@ import "./ui/legacy-globals.ts";
 import "./features/deck-chart/legacy-globals.ts";
 import "./features/try-a-deck/legacy-globals.ts";
 import "./features/export/legacy-globals.ts";
+import "./features/card-viewer/legacy-globals.ts";
 import "./features/scan-cards/legacy-globals.ts";
 import "./features/deck-crafter/legacy-globals.ts";
 import "./features/impact/legacy-globals.ts";

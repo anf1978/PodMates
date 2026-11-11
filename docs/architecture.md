@@ -39,7 +39,7 @@ flowchart TB
 ### Build
 
 `vite.config.js`'s `preserve-legacy-html` plugin keeps `index.html`'s inline scripts and artwork unchanged.
-It builds six entries (`main`, `datasets`, `cardDb`, `cardsLegacy`, `engineLegacy`, `scryfall`), substitutes each
+It builds five entries (`main`, `datasets`, `cardDb`, `cardsLegacy`, `engineLegacy`), substitutes each
 `./src/…` URL in the HTML with its hashed chunk, and emits the linked stylesheets as hashed assets. Rollup
 keeps one module instance across chunks, so a shim imported both by `main.ts` and by an inline `import()` runs
 once. A missing loader entry fails the build. See [deploy.md](deploy.md) for Pages deployment.
@@ -83,8 +83,8 @@ deduplicated. `src/main.ts` installs `error` and `unhandledrejection` listeners 
 defaults. Background/best-effort cloud failures remain non-blocking but no longer disappear silently.
 Optional offline-cache registration failures remain warnings so online use is unaffected.
 
-`src/services/scryfall.ts` handles JSON/network/HTTP failures for inline art via a build-substituted
-dynamic import and for Spoiler Bait via a direct import. Expected no-match 404s remain normal results for named/search lookups;
+`src/services/scryfall.ts` handles JSON/network/HTTP failures for card art (`src/services/card-art.ts`)
+and Spoiler Bait, both through direct imports. Expected no-match 404s remain normal results for named/search lookups;
 other failures report before the existing fallback UI runs. Card-DB worker errors report on the main thread
 and still reject into the boot error UI.
 
@@ -250,7 +250,8 @@ Frequency & Curve; `try-a-deck` (`tad-`) — all library browsing/navigation; `e
 Commander/Deck text and clipboard dialog; `scan-cards` (`scan-`) — local Tesseract loading, bounded
 preprocessing, longest-name-first matching, selection and rescan lifecycle; and `deck-crafter` (`db-`
 inside `.deck-crafter`) — drafts, commander/partner selection, identity filtering, card search, quantities,
-removal and save/chart handoff.
+removal and save/chart handoff; and `card-viewer` (`cv-`) — View Deck, Card Type Frequency galleries,
+single-card art and the commander portraits, over the in-memory Scryfall art cache in `src/services/card-art.ts`.
 
 The shared overlay and its former injected styles now live in `src/ui/tad-modal.ts` / `tad-modal.css`.
 The UI shim retains only the existing `openTadOverlay` / `closeTryADeckModal` names for unmoved callers;
