@@ -491,6 +491,19 @@ ESLint does not inspect the inline scripts in `index.html`. TypeScript is strict
 
 ## What is not done yet
 
+R14 moved card art/View Deck (`features/card-viewer`) and card ranking plus the shared picker
+(`cards/search.ts`, `ui/card-search.ts`). Remaining, in order, at about one ~800-line PR each:
+
+1. **Card-DB boot:** move `loadStaticDatasets`, `loadSpellbookSnapshot`, `withTimeout` and the body of
+   `initDatabase` into `src/services/card-db-boot.ts`, loaded by one dynamic-import entry that replaces `cardDb`,
+   `cardsLegacy` and `engineLegacy`. Keep the global assignments, `setDbLoadUI` and `window.__db*` inline until
+   their readers move (`db-worker.spec.ts`, `smoke.spec.ts` and `rendering-security.spec.ts` read some of them).
+2. **Interaction suggestions** (`ix*`, `IXD`, `buildInteractionPackages`, ~1,300 lines).
+3. **Combos, synergy, centrality, key pieces, explainers** (~1,000 lines), then the card-viewer shim names.
+4. **`runAnalysis`, result panels, percentiles/reference** (~600 lines).
+5. **Saved decks, Load a Deck, My Data, decks table** (~900 lines), then `searchNorm` and the profile ports.
+6. Delete the remaining shims, make `index.html` static markup, ratchet lint, final `CLAUDE.md`.
+
 Phase 3's exit criteria (no source file over ~500 lines, no globals, every `innerHTML` replaced) are not met
 while the inline app script exists. The remaining work (rest of Deck Chart, saved-deck flows and the other inline helpers) deletes inline code and the shim names it used. When the last caller of a
 shim name goes, delete the name; when the inline scripts are gone, `index.html` becomes static markup plus the
