@@ -1,10 +1,11 @@
-import { setImmediate } from "node:timers/promises";
 import { afterEach, describe, expect, it } from "vitest";
 import { simulateMarket, PLANTED } from "./pricescry-sim.mjs";
 import { effectTable, walkForward, japanCostModel } from "./pricescry-study.mjs";
+import { yieldToEventLoop } from "./yield-to-event-loop.mjs";
 
-// Drain worker RPC messages between CPU-bound simulations on slower CI runners.
-afterEach(() => setImmediate());
+// Let the Vitest worker read its RPC replies between tests and, in the long effect-table tests,
+// between seeds, so no synchronous stretch approaches the 60 s RPC timeout (see the helper).
+afterEach(yieldToEventLoop);
 
 const SEEDS = [11, 22, 33, 44, 55];
 const mean = (values) => values.reduce((sum, value) => sum + value, 0) / values.length;
@@ -26,13 +27,14 @@ const WALK_FORWARD_OPTIONS = {
 describe("study effect estimates", () => {
   it(
     "finds planted effects with the right sign and size while rarely flagging null groups",
-    () => {
+    async () => {
       let found = 0;
       let plantedTotal = 0;
       let falseFlag = 0;
       let nullTotal = 0;
       const errors = [];
       for (const seed of SEEDS) {
+        await yieldToEventLoop();
         const { src, events, truth } = simulateMarket({ seed, nEvents: 110 });
         const { rows } = effectTable(events, src, {
           placeboReps: 100,
@@ -65,11 +67,12 @@ describe("study effect estimates", () => {
 
   it(
     "does not invent patterns in markets with no planted effects",
-    () => {
+    async () => {
       let runsWithAny = 0;
       let flagged = 0;
       let tested = 0;
       for (const seed of SEEDS) {
+        await yieldToEventLoop();
         const { src, events } = simulateMarket({ seed: seed + 100, nEvents: 110, effects: NOISE });
         const { rows } = effectTable(events, src, {
           placeboReps: 100,

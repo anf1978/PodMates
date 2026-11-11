@@ -166,6 +166,10 @@ p, r, pm, rt, pw, tg, x, ly, ob, bt`), matching `build-card-db.mjs`. Use its acc
 - PriceScry helpers `nameKey()`, `fnv1a()`, `shardOf()` are duplicated in `pipelines/lib/pricescry-lib.mjs`
   (grep `helpers kept identical to`); change both or neither, or price shards stop resolving.
 - `mana.ts` mirrors the `SHARED MANA-PRODUCTION LOGIC` block in `build-card-db.mjs`; `mana.test.ts` checks both.
+- **CPU-bound tests must yield.** Vitest's worker RPC times out after 60 s and replies are only read in the
+  event loop's poll phase, so a long synchronous stretch fails the run with `Timeout calling "onTaskUpdate"`
+  even when every test passes. Use `await yieldToEventLoop()` (`pipelines/pricescry/yield-to-event-loop.mjs`)
+  between simulations; a single `setImmediate` does not reach the poll phase.
 - **Be polite to external APIs:** Scryfall, Playgroup.gg and tcgcsv rate-limit and asked for identified traffic —
   keep the User-Agent headers and delays in `pipelines/` and the workflows.
 - **lit text runs:** keep each rendered text run one interpolation (`` html`${pct}%` `` is two text nodes and shifts
