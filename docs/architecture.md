@@ -132,7 +132,7 @@ builder fixtures and the former PriceScry self-tests run in `npm run check`. Inp
 outputs, schedules, named secrets and production-write cautions are in
 [`pipelines/README.md`](../pipelines/README.md). Builders write data, never application source.
 Unrecovered knowledge/reference builders have not been fabricated.
-All Scryfall bulk workflows use the SHA-pinned composite action in
+All Scryfall bulk workflows use the shared composite action in
 `.github/actions/scryfall-bulk/` and its streaming `pipelines/lib/scryfall-bulk.mjs`
 helper. Current upstream revisions are cached without stale fallback; consumers
 retain plain/gzip magic-byte handling. Weekly schedules and deployment triggers
