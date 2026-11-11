@@ -5,3 +5,5 @@ playwright-report/
 playwright/.cache/
 test-results/
 blob-report/
+*-debug.log
+*-debug.*.log

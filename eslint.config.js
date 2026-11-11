@@ -78,10 +78,14 @@ export default tseslint.config(
     rules: noUnsanitized.configs.recommended.rules,
   },
   {
-    ignores: ["src/services/cloud/**", "src/ui/html.ts"],
+    ignores: ["src/services/cloud/**", "src/ui/html.ts", "firebase/**"],
     rules: {
       "no-restricted-imports": ["error", { patterns: [firebaseOnlyInCloud, litHtmlOnlyViaUi] }],
     },
+  },
+  {
+    files: ["firebase/**/*.ts"],
+    rules: { "no-restricted-imports": ["error", { patterns: [litHtmlOnlyViaUi] }] },
   },
   {
     files: ["src/services/cloud/**"],

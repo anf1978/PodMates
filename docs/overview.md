@@ -212,6 +212,9 @@ pods/{podId}
   settings/impactCards      pod's diff against the default impact list
 ```
 
+Security rules are versioned at `firebase/firestore.rules` with emulator tests. The deployed
+console configuration and real index export still need human verification.
+
 Browser storage: `localStorage` (`podmates-theme`, `pm_ja_hint`, `pm_notif_prefs_*`, `pm_notif_seen_*`,
 `pm-sb-rarities`, `podmates_last_signin`) and `sessionStorage` (`pricescryUnlocked`). These hold only small
 preferences. **Saved decks are cloud-only:** they are stored in Firestore (`users/{uid}/decks`), never in the browser,
@@ -246,7 +249,6 @@ the committed snapshots are validated and used explicitly. Existing but invalid 
 
 ### 3.7 Things the app depends on that are _not_ in this repo
 
-- **Firestore security rules** (`firestore.rules`, referenced in comments) — the real security boundary.
 - **Cloudflare Worker source** (`worker.js`) for deck sync (`spring-unit-49d9.anthony-ef7.workers.dev`).
 - Build scripts `know-build.cjs`, `impact-cands.cjs`, and whatever produced the reference corpus/baselines.
 - Firebase console configuration (auth providers, indexes) and the Cloudflare account.

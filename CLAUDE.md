@@ -18,6 +18,7 @@ Node.js 22+. `npm ci` installs; `npx playwright install chromium` once for e2e (
 
 - `npm run dev` / `npm run build` / `npm run preview` — Vite dev server, production `dist/`, serve the build.
 - `npm run check` — typecheck + lint + unit + golden tests. **Must pass before you say you're done.**
+- `npm run test:rules` — Firestore emulator tests (Java 21+), separate from `check`; no rules deployment.
 - `npm run e2e` — Playwright (Chromium) on an isolated preview at port 4183; set `PM_E2E_PORT` to a free port
   when another session is testing. Not part of `check`.
 - `npm run typecheck`, `npm run lint`, `npm test` — one check at a time.
@@ -27,7 +28,7 @@ Node.js 22+. `npm ci` installs; `npx playwright install chromium` once for e2e (
 - `npx prettier --write <files>` on the files you changed. Not `npm run format` (reformats unrelated files),
   and never on `index.html`.
 
-CI runs `check` + e2e on every PR (including stacked bases) and `main`; see `.github/workflows/{ci,deploy}.yml`.
+CI runs `check` + e2e + rules tests on every PR (including stacked bases) and `main`; see `.github/workflows/{ci,deploy}.yml`.
 
 ## Map
 
@@ -44,7 +45,8 @@ CI runs `check` + e2e on every PR (including stacked bases) and `main`; see `.gi
   on `window` for the inline scripts. Delete each name with its last inline caller.
 - `index.html` — markup, main CSS and the inline legacy scripts (everything not yet in `src/features`).
 - `public/data/` — committed dataset snapshots (generated); `public/` — icons and manifest.
-- `.github/scripts/` — Node data pipelines run by Actions (move to `pipelines/` in p5-1). `firestore.rules`.
+- `.github/scripts/` — Node data pipelines run by Actions (move to `pipelines/` in p5-1).
+- `firebase/` — unchanged Firestore rules, emulator-only config and rules tests; read `firebase/CLAUDE.md`.
 - `tests/golden/` (engine snapshots) · `tests/e2e/` (Playwright) · `scripts/` (extraction/manifest tools).
 
 ## Rules

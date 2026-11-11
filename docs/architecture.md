@@ -124,7 +124,11 @@ table formations, chronicles, trades, impact, spoiler votes, activity) mirroring
 (bundled from npm). `api.ts` assembles the unchanged `window.PodmatesCloud` surface; `index.ts` publishes it and
 dispatches `podmates-cloud-init`. `limits.ts` holds `PM_LIMITS`, published first by `limits-global.ts` so
 local analysis keeps its limits even if Firebase fails. Tests mock `./firebase` with `testing/fake-firebase.ts`.
-The rules file is `firestore.rules` at the repo root.
+The unchanged rules file is `firebase/firestore.rules`. `firebase/firebase.json` is emulator-only;
+the indexes file is a placeholder pending a human console export. Sessions never deploy rules.
+`npm run test:rules` (Java 21+) runs a separate CI job against `demo-podmates-rules`.
+See [rule-branch coverage and known security gaps](../firebase/coverage.md); expected-failure
+tests record unresolved policy/limit gaps rather than changing the deployed behavior.
 
 ### UI primitives (`src/ui`) and global styles (`src/styles`)
 
@@ -163,7 +167,8 @@ Frequency & Curve. Everything else is still in the inline app script; see the li
 
 `eslint.config.js` makes every rule an error (no warn-only rules remain):
 
-- Layer imports as in the table above; features never import each other; Firebase only in `services/cloud`;
+- Layer imports as in the table above; features never import each other; Firebase only in `services/cloud`
+  and the isolated `firebase/` rules-test tooling;
   lit-html only through `src/ui/html.ts`; `no-unsanitized` everywhere.
 - **No new globals:** in `src/`, assigning to `window`/`globalThis`/`self` or `Object.assign(window, …)` is
   allowed only in the shims and `load-dataset.ts` (event-handler properties such as `self.onmessage` are fine).
