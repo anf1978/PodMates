@@ -1,0 +1,56 @@
+/* Comparison's lazy deck-detail modal; shared modal geometry stays in src/ui. */
+.comparison-loading {
+  text-align: center;
+  color: var(--text-soft);
+  font-size: 13px;
+}
+.tad-modal h2.comparison-detail-title {
+  margin-bottom: 2px;
+}
+.tad-modal .tad-sub.comparison-detail-sub {
+  margin-bottom: 0;
+}
+.comparison-detail-section {
+  margin-bottom: 14px;
+}
+.comparison-detail-label {
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 4px;
+}
+.comparison-detail-value {
+  font-size: 15px;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.comparison-detail-text {
+  font-size: 13px;
+  color: var(--text-soft);
+  margin-top: 2px;
+}
+.comparison-detail-others {
+  font-size: 12px;
+  color: var(--text-soft);
+  margin-top: 6px;
+}
+.comparison-detail-pod {
+  font-size: 12px;
+  color: var(--text-soft);
+  margin-top: 4px;
+}
+.comparison-discrepancy {
+  font-size: 13px;
+  font-weight: 600;
+}
+.comparison-underbuilt {
+  color: var(--gold);
+}
+.comparison-overbuilt {
+  color: var(--danger);
+}
+.comparison-matched {
+  color: var(--success-text);
+}

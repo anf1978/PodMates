@@ -64,6 +64,7 @@ export default defineConfig({
           "./src/features/trades/trades.css",
           "./src/features/notifications/notifications.css",
           "./src/features/comparison/comparison.css",
+          "./src/features/comparison/detail.css",
           "./src/features/ledger/ledger.css",
         ]) {
           const reference = this.emitFile({

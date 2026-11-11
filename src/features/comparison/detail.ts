@@ -1,4 +1,5 @@
 // Deck detail uses the shared modal and guards the asynchronous dataset handoff.
+import "./detail.css";
 import { html, nothing, render, type TemplateResult } from "../../ui/html";
 import { closeTryADeckModal, openTadOverlay } from "../../ui/tad-modal";
 import { reportError } from "../../services/report-error";
