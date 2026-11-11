@@ -1,13 +1,9 @@
 // TODO(p3-6): adapt shared inline dialogs/navigation and publish only surviving legacy pod names.
-import { on as onAppEvent } from "../../services/events";
-import type { PodMember } from "../../services/cloud/types";
+import { emit as emitAppEvent, on as onAppEvent } from "../../services/events";
 import { openTadOverlay, closeTryADeckModal } from "../../ui/tad-modal";
 import { mount } from "./index";
-import type { OpenGathering } from "./integration";
 import type { Pod } from "./state";
 
-declare function runSampleGathering(): void;
-declare function openHostGatheringOverlay(pod: Pod, members: PodMember[]): void;
 declare function openSpoilerBaitOverlay(pod: Pod): void;
 declare function refreshCloudChroniclesCache(): void;
 declare function setMode(mode: string): void;
@@ -18,17 +14,10 @@ declare function showActionConfirmModal(
   onConfirm: () => void,
   onCancel?: () => void,
 ): void;
-declare function paintOpenGatherings(
-  area: HTMLElement,
-  all: OpenGathering[],
-  uid: string | null,
-): void;
 
 const panel = document.querySelector<HTMLElement>("#podMode > .panel");
 if (!panel) throw new Error("Missing MyPods panel");
 
-onAppEvent("gatherings:sample", () => runSampleGathering());
-onAppEvent("gatherings:host", ({ pod, members }) => openHostGatheringOverlay(pod, members));
 onAppEvent("spoilers:open", (pod) => openSpoilerBaitOverlay(pod));
 onAppEvent("pods:active", () => refreshCloudChroniclesCache());
 onAppEvent("pods:navigate", () => {
@@ -42,7 +31,11 @@ const feature = mount(panel, {
   confirm: (message, onConfirm) => showConfirmModal(message, onConfirm),
   actionConfirm: (message, label, onConfirm, onCancel) =>
     showActionConfirmModal(message, label, onConfirm, onCancel),
-  paintOpenGatherings: (area, all, uid) => paintOpenGatherings(area, all, uid),
+  paintOpenGatherings: (area, gatherings, uid) =>
+    emitAppEvent("gatherings:paint", { area, gatherings, uid }),
+});
+onAppEvent("pods:refresh", () => {
+  void feature.renderPanel();
 });
 
 declare global {

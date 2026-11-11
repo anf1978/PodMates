@@ -3,6 +3,8 @@ import "./gatherings.css";
 import { openHostGatheringOverlay as host } from "./host";
 import { paintOpenGatherings as paint } from "./landing";
 import { openLiveGatheringOverlay, stopGatheringPolling } from "./view";
+import { runSampleGathering } from "./view";
+import { on } from "../../services/events";
 import type { LandingGathering, Member } from "./state";
 export { configureGatherings, type GatheringRuntime } from "./runtime";
 export {
@@ -25,5 +27,19 @@ export function paintOpenGatherings(
   paint(area, all, uid, openLiveGatheringOverlay);
 }
 export function mount(): () => void {
-  return stopGatheringPolling;
+  const cleanups = [
+    on("gatherings:host", ({ pod, members }) => {
+      void openHostGatheringOverlay(pod, members);
+    }),
+    on("gatherings:sample", () => {
+      void runSampleGathering();
+    }),
+    on("gatherings:paint", ({ area, gatherings, uid }) =>
+      paintOpenGatherings(area, gatherings, uid || ""),
+    ),
+  ];
+  return () => {
+    cleanups.forEach((off) => off());
+    stopGatheringPolling();
+  };
 }

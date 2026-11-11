@@ -119,10 +119,11 @@ export async function openLiveGatheringOverlay(podId: string, id: string): Promi
   const { modal } = openTadOverlay({ onDismiss: close });
   render(
     html`<button class="tad-close" id="tadCloseBtn" @click=${close}>Close ×</button>
-      <div id="gatheringTrayContent"><p class="g-loading">Loading…</p></div>`,
+      <div id="gatheringTrayContent"></div>`,
     modal,
   );
   const content = modal.querySelector<HTMLElement>("#gatheringTrayContent")!;
+  render(html`<p class="g-loading">Loading…</p>`, content);
   await renderLiveGatheringTray(podId, id);
   if (!content.isConnected) return;
   stopWatch = watchTray(podId, id, content, (g) => {
@@ -265,7 +266,7 @@ export async function runSampleGathering(): Promise<void> {
     showToast("Card database still loading — try again in a moment.");
     return;
   }
-  const { modal } = openTadOverlay({ modalId: "tadModal" });
+  const { modal } = openTadOverlay({ modalStyle: "max-width:460px" });
   render(
     html`<button class="tad-close" id="tadCloseBtn" @click=${closeTryADeckModal}>Close ×</button>
       <h2>Sample table</h2>

@@ -51,7 +51,7 @@ export function addSelect(
             type="button"
             class="ghost g-f12"
             data-gcancel
-            @click=${() => render(addSelect(k, members, onAdd), wrap)}
+            @click=${() => render(selectTemplate(), wrap)}
           >
             ×
           </button>
@@ -68,13 +68,17 @@ export function addSelect(
       deck: null,
     });
   };
-  return html`<div data-add-wrap class="g-mt6">
-    <select data-add-seat=${k} class="g-input g-full g-input-small g-f125" @change=${change}>
+  const selectTemplate = (): TemplateResult =>
+    html` <select data-add-seat=${k} class="g-input g-full g-input-small g-f125" @change=${change}>
       <option value="">${label}</option>
       ${members.map((m) => html`<option value=${m.uid}>${m.displayLabel || m.displayName || "Podmate"}</option>`)}
       <option value="__guest__">+ Add a guest (no account)…</option>
-    </select>
-  </div>`;
+    </select>`;
+  const wrap = document.createElement("div");
+  wrap.setAttribute("data-add-wrap", "");
+  wrap.className = "g-mt6";
+  render(selectTemplate(), wrap);
+  return html`${wrap}`;
 }
 
 export async function gatheringRsvp(

@@ -6,13 +6,13 @@ are in [CLAUDE.md](../CLAUDE.md); domain terms in the [glossary](glossary.md).
 
 ## Big picture
 
-PodMates is a static Vite site. `index.html` is still about 10,200 lines: static markup, the main
+PodMates is a static Vite site. `index.html` is still about 9,400 lines: static markup, the main
 CSS and the inline legacy scripts (theme, card-DB start-up, the app script with every unmoved feature, the
 notifications inbox). Typed code lives in `src/`, and the inline scripts reach it in two ways:
 
 1. **`src/main.ts`**, the one `<script type="module">` in `<head>`. Like every module it runs after the
    document is parsed and before `DOMContentLoaded`. Its imports evaluate in a fixed order: UI
-   primitives, feature adapters, engine, size limits, profile, auth, cloud, MyPods.
+   primitives, feature adapters, engine, size limits, profile, auth, gatherings, cloud, MyPods.
 2. **Dynamic `import()`** from the inline start-up code (`initDatabase` and the dataset gates) for
    `src/data/load-dataset.ts`, `src/cards/load-db.ts` and the card/engine shims.
 
@@ -306,6 +306,23 @@ Only `renderOurPodPanel`, `openPodDetailOverlay` and the `currentPodViewId` acce
 for unmoved callers. Repeated renders dispose old subscriptions; unmount also invalidates pending
 loads and removes the active overlay. Pending URL invitations require explicit consent after sign-in,
 and declined invitations cannot be retried by later auth events.
+
+Also moved: `gatherings` (prefix `g-`) — hosting and saved lineups, guests, invite delivery
+confirmation, RSVP and landing cards, waiting/live seats, end warnings and sample tables.
+`state.ts` owns pure seating, stale-invite and reply rules. `host.ts`, `waiting.ts` and `view.ts`
+split the dialogs; `tray.ts` shares seat controls; `watch.ts` owns one listener with an
+eight-second polling fallback. Closing or replacing a tray stops its listener/timer, and
+obsolete loads cannot paint a newer tray. Live updates never overwrite an end confirmation.
+No Firestore paths or fields changed, and missing legacy RSVP fields still mean accepted.
+
+Pods emits typed `gatherings:host`, `gatherings:sample` and `gatherings:paint` events; gatherings
+requests a pod refresh through `pods:refresh`. Neither imports the other feature.
+The gathering adapter supplies the still-inline library/analysis gate, comparison results,
+battle context/controls and saved-deck picker. Battle logging, feedback and results polling
+remain with the Chronicles extraction. Only the existing live-tray name and the sample
+entry point used by offline browser tests remain published, each marked `TODO(p3-6)`.
+Repository-mocked interaction tests cover authenticated host/RSVP/chart/end flows; offline
+e2e covers sample loading/cancellation and the six-deck handoff without authentication.
 
 ## Lint-enforced boundaries
 

@@ -1,7 +1,7 @@
 // The page's one module entry. index.html loads it from <head>, so like every module it runs
 // after the document is parsed and before DOMContentLoaded. The imports evaluate in this order,
 // which the inline scripts rely on: UI primitives, feature adapters, engine, size limits,
-// profile, auth, cloud, then pods.
+// profile, auth, gatherings, cloud, then pods.
 //
 // The theme script and the card-database start-up are still inline in index.html; that code
 // dynamically imports src/data/load-dataset.ts, src/cards/load-db.ts and the card/engine shims.

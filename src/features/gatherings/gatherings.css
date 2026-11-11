@@ -1,5 +1,5 @@
 /* Gatherings retain the legacy layout; static presentation lives here, not in templates. */
-.g-input {
+.tad-modal .g-input {
   background: var(--bg-main);
   border: 1px solid var(--line);
   border-radius: 3px;
@@ -9,7 +9,7 @@
   font-size: 13px;
   box-sizing: border-box;
 }
-.g-input-small {
+.tad-modal .g-input-small {
   padding: 7px 9px;
 }
 .g-full {
@@ -36,16 +36,20 @@
 .g-f125 {
   font-size: 12.5px;
 }
+.tad-modal .g-input.g-f125 {
+  font-size: 12.5px;
+}
 .g-f13 {
   font-size: 13px;
 }
 .g-f135 {
   font-size: 13.5px;
 }
-.g-mb2 {
+.tad-modal h2.g-mb2 {
   margin-bottom: 2px;
 }
-.g-mb4 {
+.g-mb4,
+.tad-modal h2.g-mb4 {
   margin-bottom: 4px;
 }
 .g-mb6 {
@@ -54,7 +58,8 @@
 .g-mb8 {
   margin-bottom: 8px;
 }
-.g-mb10 {
+.g-mb10,
+.tad-modal h2.g-mb10 {
   margin-bottom: 10px;
 }
 .g-mb12 {
@@ -84,7 +89,7 @@
 .g-danger {
   color: var(--danger);
 }
-.g-danger-button {
+.tad-modal .g-danger-button {
   border-color: var(--danger);
   color: var(--danger);
 }
@@ -261,14 +266,14 @@
   opacity: 0.85;
   font-size: 12px;
 }
-.g-wait-card,
-.g-accepted-card {
+.g-wait-card.ghost,
+.g-accepted-card.ghost {
   width: 100%;
   margin-bottom: 10px;
   border-color: var(--gold);
   text-align: left;
 }
-.g-accepted-card {
+.g-accepted-card.ghost {
   border-color: var(--leaf);
 }
 .g-invited-card {

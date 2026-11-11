@@ -2,16 +2,11 @@
 import {
   configureGatherings,
   mount,
-  openHostGatheringOverlay,
   openLiveGatheringOverlay,
-  openGatheringSeatDeckPicker,
-  paintOpenGatherings,
-  renderLiveGatheringTray,
   runSampleGathering,
-  stopGatheringPolling,
-  gatheringRsvp,
   type GatheringRuntime,
 } from "./index";
+import { emit } from "../../services/events";
 import type { BattleContext, ChartDeck } from "./runtime";
 
 declare const dbReady: boolean;
@@ -22,7 +17,6 @@ declare const POD_COLORS: readonly string[];
 declare const renderPodAnalysisResults: (decks: ChartDeck[]) => void;
 declare const renderBattleControls: () => void;
 declare const startResultsPolling: () => void;
-declare const renderOurPodPanel: () => void;
 declare const setMode: (mode: string) => void;
 declare const showActionConfirmModal: GatheringRuntime["confirm"];
 declare const showLoadDeckModal: GatheringRuntime["pickDeck"];
@@ -45,31 +39,22 @@ configureGatherings({
     renderBattleControls();
     if (context) startResultsPolling();
   },
-  refreshPods: () => renderOurPodPanel(),
+  refreshPods: () => emit("pods:refresh", undefined),
   confirm: (...args) => showActionConfirmModal(...args),
   pickDeck: (target) => showLoadDeckModal(target),
 });
 
 const legacy = {
-  // TODO(p3-6): the pod detail view still opens host setup.
-  openHostGatheringOverlay,
   // TODO(p3-6): pods, notifications and the deck picker still open the live tray.
   openLiveGatheringOverlay,
-  // TODO(p3-6): the My Pods sample button is still inline.
+  // TODO(p3-6): the offline browser entry-point test still invokes this legacy name.
   runSampleGathering,
-  // TODO(p3-6): the pod landing list still hands over open gatherings.
-  paintOpenGatherings,
 };
-// These are module exports for later migration, not additional window publications.
-export {
-  openGatheringSeatDeckPicker,
-  renderLiveGatheringTray,
-  stopGatheringPolling,
-  gatheringRsvp,
-};
-type Legacy = typeof legacy;
 declare global {
-  interface Window extends Legacy {}
+  interface Window {
+    openLiveGatheringOverlay: typeof openLiveGatheringOverlay;
+    runSampleGathering: typeof runSampleGathering;
+  }
 }
 Object.assign(window, legacy);
 mount();
