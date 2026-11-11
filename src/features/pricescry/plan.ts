@@ -1,87 +1,11 @@
-// Trade planner on every card page. planTrade is a copy of planTrade in pipelines/pricescry/pricescry-study.mjs
-// (KEEP IN SYNC; plan.test.ts compares the two). You supply the chance the card reaches the target; the planner
-// turns it into a decision made BEFORE buying: the most to pay, the target, where to review and how much to risk,
-// all after Mercari costs.
+// Trade planner on every card page. You supply the chance the card reaches the target; planTrade
+// (src/shared/trade-plan.ts, shared with the study pipeline) turns it into a decision made BEFORE buying: the most
+// to pay, the target, where to review and how much to risk, all after Mercari costs.
 import { html, nothing, type TemplateResult } from "../../ui/html";
 import { toInt } from "../../services/trade-ledger";
 import type { PriceRecord } from "../../services/price-data";
+import { planTrade } from "../../shared/trade-plan";
 import { recentReprints } from "./state";
-
-export interface PlanInput {
-  priceYen: number;
-  refYen: number;
-  pHit: number;
-  hitMult?: number;
-  missReturn?: number;
-  bankrollYen?: number | null;
-}
-
-export function planTrade(o: PlanInput) {
-  const p = {
-    hitMult: 2,
-    missReturn: -0.1,
-    margin: 0.1,
-    stopPct: 0.3,
-    days: 14,
-    kellyFraction: 0.25,
-    maxStakePct: 0.05,
-    feePct: 10,
-    shipYen: 230,
-    packYen: 30,
-    bankrollYen: null as number | null,
-    ...o,
-  };
-  const E = p.priceYen,
-    T = p.refYen * p.hitMult;
-  // What lands in your hands from one sale, and profit as a share of what you paid.
-  const netYen = (sale: number): number =>
-    sale - Math.floor((sale * p.feePct) / 100) - p.shipYen - p.packYen;
-  const fr = (entry: number, sale: number): number => (netYen(sale) - entry) / entry;
-  const hitF = fr(E, T),
-    missF = fr(E, E * (1 + p.missReturn));
-  const ev = (entry: number): number =>
-    p.pHit * fr(entry, T) + (1 - p.pHit) * fr(entry, entry * (1 + p.missReturn));
-  // The highest price at which the expected return still clears the margin.
-  let maxEntryYen: number | null = null;
-  for (let k = 0; k <= 600; k++) {
-    const entry = T * Math.pow(0.995, k);
-    if (entry < 1) break;
-    if (ev(entry) >= p.margin) {
-      maxEntryYen = Math.floor(entry / 10) * 10;
-      break;
-    }
-  }
-  const breakEvenP = hitF > missF ? Math.min(1, Math.max(0, -missF / (hitF - missF))) : null;
-  const evNow = ev(E);
-  const verdict =
-    evNow >= p.margin ? "buy" : maxEntryYen !== null && E > maxEntryYen ? "too_high" : "pass";
-  let stakePct = 0;
-  // No stake unless the plan says buy: a thin or negative edge gets nothing. Kelly: share of money to risk.
-  if (verdict === "buy" && hitF > 0) {
-    const l = Math.max(0, -missF),
-      f = l > 0 ? p.pHit / l - (1 - p.pHit) / hitF : Infinity;
-    stakePct = f > 0 ? Math.min(p.maxStakePct, p.kellyFraction * f) : 0;
-  }
-  const stakeYen = p.bankrollYen ? Math.floor(p.bankrollYen * stakePct) : null;
-  return {
-    entryYen: E,
-    targetYen: Math.round(T),
-    stopYen: Math.round(E * (1 - p.stopPct)),
-    days: p.days,
-    netIfHitYen: Math.round(netYen(T) - E),
-    netIfMissYen: Math.round(netYen(E * (1 + p.missReturn)) - E),
-    hitPct: hitF,
-    missPct: missF,
-    ev: evNow,
-    evYen: Math.round(evNow * E),
-    breakEvenP,
-    maxEntryYen,
-    verdict,
-    stakePct,
-    stakeYen,
-    cards: stakeYen != null ? Math.floor(stakeYen / E) : null,
-  };
-}
 
 export interface PlanFields {
   chance: string;

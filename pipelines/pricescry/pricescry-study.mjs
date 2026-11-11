@@ -118,81 +118,8 @@ export function japanCostModel(o = {}) {
 }
 
 // ---- the trade plan: buy limit, target, exit and stake ------------------------------------------------
-// For ONE card, given how likely you think it is to reach a target, this works out what a disciplined trader would decide
-// BEFORE buying, all in yen and all after Mercari costs:
-//   - the most you should pay (the "buy limit"): above it, the odds no longer pay for the costs and the risk;
-//   - the target price to list at, and a price at which to stop and review;
-//   - whether buying now is worth it at today's price, and the chance you need for it to break even;
-//   - how much of your money to put on it: a quarter of the Kelly amount, capped, so one miss cannot hurt.
-// Two outcomes are modelled: it HITS (sells at refYen x hitMult) or it MISSES (ends missReturn from where you bought,
-// e.g. -0.10 for ten percent down). Real outcomes are a spread, so treat this as a disciplined rule of thumb, not a forecast.
-// refYen is the price BEFORE the news; if the price has already risen when you buy (priceYen above refYen), less of the
-// move is left for you, and the plan says so.
-// KEEP IN SYNC: planTrade in src/features/pricescry/plan.ts is a copy of this function; plan.test.ts compares them.
-export function planTrade(o) {
-  const p = {
-    refYen: o.priceYen,
-    hitMult: 2,
-    missReturn: -0.1,
-    margin: 0.1,
-    stopPct: 0.3,
-    days: 14,
-    kellyFraction: 0.25,
-    maxStakePct: 0.05,
-    feePct: 10,
-    shipYen: 230,
-    packYen: 30,
-    bankrollYen: null,
-    ...o,
-  };
-  const E = p.priceYen,
-    T = p.refYen * p.hitMult;
-  const netYen = (sale) => sale - Math.floor((sale * p.feePct) / 100) - p.shipYen - p.packYen; // what lands in your hands from one sale
-  const fr = (entry, sale) => (netYen(sale) - entry) / entry; // profit as a share of what you paid
-  const hitF = fr(E, T),
-    missF = fr(E, E * (1 + p.missReturn));
-  const ev = (entry) =>
-    p.pHit * fr(entry, T) + (1 - p.pHit) * fr(entry, entry * (1 + p.missReturn));
-  let maxEntryYen = null; // the highest price at which the expected return still clears the margin
-  for (let k = 0; k <= 600; k++) {
-    const entry = T * Math.pow(0.995, k);
-    if (entry < 1) break;
-    if (ev(entry) >= p.margin) {
-      maxEntryYen = Math.floor(entry / 10) * 10;
-      break;
-    }
-  }
-  const breakEvenP = hitF > missF ? Math.min(1, Math.max(0, -missF / (hitF - missF))) : null;
-  const evNow = ev(E);
-  const verdict =
-    evNow >= p.margin ? "buy" : maxEntryYen !== null && E > maxEntryYen ? "too_high" : "pass";
-  let stakePct = 0;
-  if (verdict === "buy" && hitF > 0) {
-    // no stake unless the plan says buy: a thin or negative edge gets nothing
-    const l = Math.max(0, -missF),
-      f = l > 0 ? p.pHit / l - (1 - p.pHit) / hitF : Infinity; // Kelly: share of money to risk
-    stakePct = f > 0 ? Math.min(p.maxStakePct, p.kellyFraction * f) : 0;
-  }
-  const stakeYen = p.bankrollYen ? Math.floor(p.bankrollYen * stakePct) : null;
-  return {
-    entryYen: E,
-    targetYen: Math.round(T),
-    stopYen: Math.round(E * (1 - p.stopPct)),
-    days: p.days,
-    netIfHitYen: Math.round(netYen(T) - E),
-    netIfMissYen: Math.round(netYen(E * (1 + p.missReturn)) - E),
-    hitPct: hitF,
-    missPct: missF,
-    ev: evNow,
-    evYen: Math.round(evNow * E),
-    breakEvenP,
-    maxEntryYen,
-    verdict,
-    stakePct,
-    stakeYen,
-    cards: stakeYen != null ? Math.floor(stakeYen / E) : null,
-  };
-}
+// planTrade lives in src/shared/trade-plan.ts, shared with the card page's planner. Re-exported for the risers engine.
+export { planTrade } from "../../src/shared/trade-plan.ts";
 
 // ---- observations ------------------------------------------------------------------
 const popBucket = (er) => (er == null ? 3 : er <= 2000 ? 0 : er <= 10000 ? 1 : 2);

@@ -14,7 +14,7 @@ Deploy: [docs/deploy.md](docs/deploy.md) · Decisions (Proposed until human agre
 
 ## Commands
 
-Node.js 22+. `npm ci` installs; `npx playwright install chromium` once for e2e (`--with-deps` on Linux CI).
+Node.js 22.18+ (pipelines run `src/shared/*.ts` with built-in type stripping). `npm ci` installs; `npx playwright install chromium` once for e2e (`--with-deps` on Linux CI).
 
 - `npm run dev` / `npm run build` / `npm run preview` — Vite dev server, production `dist/`, serve the build.
 - `npm run check` — typecheck + lint + unit + golden tests. **Must pass before you say you're done.**
@@ -46,6 +46,11 @@ CI runs `check` + e2e + rules tests on every PR (including stacked bases) and `m
   feature's ports. `battle.ts` (current battle + compared decks), `mode.ts` (Deck Chart / MyPods tabs),
   `active-pod.ts` and `analysis.ts` are the shared cross-feature pieces. Import order is behaviour (listener order).
 - `src/engine/` — pure scoring/analysis. No DOM, network or globals. Read [src/engine/CLAUDE.md](src/engine/CLAUDE.md).
+- `src/shared/` — code run by **both** the app and the pipelines: PriceScry name key/shard hash/day numbers/
+  consensus (`pricescry.ts`), the trade plan (`trade-plan.ts`) and mana production (`mana-production.ts`). Node
+  runs these files directly (built-in type stripping, Node 22.18+), so only erasable TypeScript, `.ts` on
+  relative imports, no DOM or Node APIs; lint keeps it a leaf. `pipelines/lib/shared-runtime.test.mjs` runs them
+  under plain `node`.
 - `src/cards/` — card tuples (`tuple.ts`), DB worker + codec, lookup, decklist parser, ranked name search (`search.ts`).
 - `src/data/` — curated tables (`combos.ts`, `game-changers.ts`, …) and the dataset loader (`load-dataset.ts`).
 - `src/services/` — shared state and behaviour below the features:
@@ -114,9 +119,11 @@ p, r, pm, rt, pw, tg, x, ly, ob, bt`), matching `build-card-db.mjs`. Use its acc
   moves every deck. Never as a side effect.
 - **Pod "Impact card" edits only affect the separate "Pod view" line** under the radar, never the main scores.
 - **The PriceScry password is a soft gate**, not security. Don't put anything sensitive behind it.
-- PriceScry helpers `nameKey()`, `fnv1a()`, `shardOf()` are duplicated in `pipelines/lib/pricescry-lib.mjs` and
-  `src/services/price-data.ts` (grep `KEEP IN SYNC`); change both or neither, or price shards stop resolving.
-- `mana.ts` mirrors the `SHARED MANA-PRODUCTION LOGIC` block in `build-card-db.mjs`; `mana.test.ts` checks both.
+- **PriceScry shard hashing is a published contract.** `nameKey()`/`fnv1a()`/`shardOf()` in `src/shared/pricescry.ts`
+  decide which `cards/NNN.json.gz` holds a card; changing them strands every published shard. Their tests pin
+  fixed vectors; never update those to make a change pass.
+- `src/shared/mana-production.ts` decides each card's `pm`/`rt` in the card-DB build and the engine's fallback;
+  its test pins a digest over every fixture card face.
 - **`src/app/` import order is behaviour.** `main.ts` imports the wiring modules in the order the old page
   registered its listeners (page-wide delegates first, MyPods last). Don't make one wiring module import another
   that mounts something; shared pieces (`battle.ts`, `active-pod.ts`, `mode.ts`, `analysis.ts`) have no side effects.

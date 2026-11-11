@@ -35,14 +35,13 @@ first; data plumbing is in `src/services/price-data.ts`, and the publishing side
 - Series keys: Scryfall `u`/`e` (non-foil US/EU), `uf`/`ef`, `ue`; MTGJSON `x` + provider (`t`/`c`/`k`/`m`) +
   kind (`r` retail, `b` buylist) + finish (`n`/`f`/`e`). MTGJSON wins for US/EU when present (back-filled history).
 
-## KEEP IN SYNC
+## Shared with the pipelines
 
-- `nameKey()`, `fnv1a()` and `shardPath()` in `src/services/price-data.ts` = `nameKey()`, `fnv1a()`,
-  `shardFile(shardOf())` in `pipelines/lib/pricescry-lib.mjs`. Change both or neither: a different hash makes every
-  published shard unreachable. `consensusCents()` follows `consensusAt()` there.
-- `planTrade()` in `plan.ts` = `planTrade()` in `pipelines/pricescry/pricescry-study.mjs`.
-- `src/services/price-data.test.ts` and `plan.test.ts` compare each pair. p5-3 replaces the copies with one shared
-  module; until then, edit both sides in the same PR.
+- `src/shared/pricescry.ts` holds the one copy of `nameKey()`, `fnv1a()`, `shardOf()`/`shardFile()`, day numbers,
+  `valueAt()` and the consensus price (`consensusAt()`); `services/price-data.ts` wraps them (`shardPath`,
+  `consensusCents`) and `pipelines/lib/pricescry-lib.mjs` re-exports them. A different hash makes every published
+  shard unreachable: `src/shared/pricescry.test.ts` pins shard numbers for known names.
+- `src/shared/trade-plan.ts` holds `planTrade()`, used by `plan.ts` and `pipelines/pricescry/pricescry-study.mjs`.
 
 ## The password is a soft gate
 

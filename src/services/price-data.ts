@@ -1,10 +1,20 @@
 // PriceScry's published price data: cached fetches from the pricescry-data branch, change-point series,
 // yen conversion and the consensus price. Shared by the PriceScry screen, Trades and Ledger.
-// Data model and shard layout: src/features/pricescry/CLAUDE.md.
+// Data model and shard layout: src/features/pricescry/CLAUDE.md. The name key, shard hash, day numbers and
+// consensus rules come from src/shared/pricescry.ts, the same code the publishing pipelines run.
+import {
+  consensusAt,
+  dayIndex,
+  makeEurUsd,
+  nameKey,
+  shardFile,
+  shardOf,
+  valueAt,
+} from "../shared/pricescry";
+
+export { dayIndex, isoFromDayIndex as isoFromDay, nameKey, valueAt } from "../shared/pricescry";
 
 export const PRICE_DATA_BASE = "https://raw.githubusercontent.com/anf1978/PodMates/pricescry-data/";
-const SHARDS = 512;
-const EPOCH_MS = Date.UTC(2020, 0, 1);
 
 /** Change points: `[[day, value], …]` means "value from that day until the next point". */
 export type Series = readonly (readonly [number, number])[];
@@ -50,46 +60,9 @@ export const priceMarket: { index: PriceIndex | null; fx: FxData | null } = {
   fx: null,
 };
 
-// ---- helpers kept identical to pipelines/lib/pricescry-lib.mjs ------------
-// KEEP IN SYNC: nameKey(), fnv1a() and the shard path match nameKey(), fnv1a() and shardOf() there, or the
-// page looks for cards in the wrong files. price-data.test.ts compares them.
-export function nameKey(name: unknown): string {
-  return (
-    String(name == null ? "" : name)
-      .normalize("NFKC")
-      .replace(/[\u0000-\u001F\u007F​-‏⁠﻿]/g, "")
-      .replace(/[‘’]/g, "'")
-      .replace(/\s+/g, " ")
-      .trim()
-      .toLowerCase()
-  );
-}
-export function fnv1a(str: string): number {
-  const bytes = new TextEncoder().encode(str);
-  let h = 0x811c9dc5;
-  for (let i = 0; i < bytes.length; i++) {
-    h ^= bytes[i]!;
-    h = Math.imul(h, 0x01000193) >>> 0;
-  }
-  return h >>> 0;
-}
+/** The published shard file holding the card with this `nameKey()`. */
 export function shardPath(key: string): string {
-  return "cards/" + String(fnv1a(key) % SHARDS).padStart(3, "0") + ".json.gz";
-}
-export function dayIndex(iso: string): number {
-  const [y, m, d] = String(iso).slice(0, 10).split("-").map(Number) as [number, number, number];
-  return Math.round((Date.UTC(y, m - 1, d) - EPOCH_MS) / 86400000);
-}
-export function isoFromDay(d: number): string {
-  return new Date(EPOCH_MS + d * 86400000).toISOString().slice(0, 10);
-}
-export function valueAt(series: Series, day: number): number | undefined {
-  let v: number | undefined;
-  for (let i = 0; i < series.length; i++) {
-    if (series[i]![0] <= day) v = series[i]![1];
-    else break;
-  }
-  return v;
+  return shardFile(shardOf(key));
 }
 /** Yen per USD / EUR on a day: the nearest earlier published rate (weekends and holidays have none). */
 export function fxAt(fx: FxData | null, pair: string, day: number): number | null {
@@ -144,44 +117,10 @@ export async function fetchPriceData<T>(path: string): Promise<T> {
   return data as T;
 }
 
-/** The consensus price (middle across shops) in cents: same rules as consensusAt in pricescry-lib.mjs. */
+/** The consensus price (middle across shops) in cents, or null: `consensusAt` with fx.json's euro rate. */
 export function consensusCents(rec: PriceRecord, day: number, fx: FxData | null): number | null {
-  const eur = (): number => {
-    const e = fx && fx.pairs && fx.pairs.eurjpy,
-      u = fx && fx.pairs && fx.pairs.usdjpy;
-    if (!e || !u || !e.length || !u.length) return 1.1;
-    return (valueAt(e, day) ?? e[0]![1]) / (valueAt(u, day) ?? u[0]![1]);
-  };
-  const legacy: Record<string, [string, string | null]> = {
-    n: ["u", "e"],
-    f: ["uf", "ef"],
-    e: ["ue", null],
-  };
-  for (const f of ["n", "f"]) {
-    let best: number | null = null;
-    for (const p of rec.p) {
-      const vals: number[] = [];
-      const add = (mjKey: string, legKey: string | null, isEur: boolean): void => {
-        const mj = p.pr[mjKey];
-        const ser = mj && mj.length ? mj : legKey ? p.pr[legKey] : null;
-        if (!ser || !ser.length) return;
-        const v = valueAt(ser, day);
-        if (v == null || v <= 0) return;
-        vals.push(isEur ? Math.round(v * eur()) : v);
-      };
-      add("xtr" + f, legacy[f]![0], false);
-      add("xcr" + f, legacy[f]![1], true);
-      add("xkr" + f, null, false);
-      add("xmr" + f, null, false);
-      if (!vals.length) continue;
-      vals.sort((a, b) => a - b);
-      const m = vals.length >> 1,
-        med = vals.length % 2 ? vals[m]! : Math.round((vals[m - 1]! + vals[m]!) / 2);
-      if (best === null || med < best) best = med;
-    }
-    if (best !== null) return best;
-  }
-  return null;
+  const c = consensusAt(rec, day, makeEurUsd(fx));
+  return c ? c.price : null;
 }
 
 /** The card's consensus price now, in yen per card, or null (also before the screen loaded its index). */

@@ -125,8 +125,12 @@ from the Pages deployment.
 | `src/app/`             | Composition root: one wiring module per feature, plus cross-feature battle/mode/active-pod state | anything                                                                     |
 | `src/main.ts`          | Page boot entry                                                                                  | `app/` (in order), error handlers, notifications                             |
 
-`src/shared/` (code shared with the pipelines) does not exist yet; p5-3 creates it, and the lint rules already
-allow importing it.
+`src/shared/` holds code run by both the app and the pipelines (PriceScry name key/shard hash/consensus,
+`planTrade`, mana production). It imports nothing from other `src/` folders, no Node built-ins and no browser
+globals (lint). The pipelines import its `.ts` files by their real name and Node runs them with built-in type
+stripping (Node 22.18+; the workflows' `node-version: 22` resolves to a newer 22.x), so no build step or `tsx`
+install is needed and the files must stay erasable TypeScript. `pipelines/lib/shared-runtime.test.mjs` runs the
+pipelines in a plain `node` child process to catch syntax Node cannot strip.
 
 ### Pipelines (`pipelines/`)
 
@@ -465,8 +469,8 @@ strip, prediction scoreboard, cheap-pick watch) and Radar. Only `index.ts`, `run
 the page; `access.ts`, `screen.ts` and the views are one `pricescry-screen` chunk, loaded on first open through
 `import("./pricescry-screen")`. A code update re-downloads it with main, whose shared chunk it imports.
 `services/price-data.ts` owns the published-data fetch/cache, change-point series, yen conversion, consensus
-price and `currentYen`, shared with Trades and Ledger; its `nameKey`/`fnv1a`/shard path and `plan.ts`'s
-`planTrade` stay KEEP-IN-SYNC copies of the pipeline functions (tests compare them) until p5-3. Profile opens
+price and `currentYen`, shared with Trades and Ledger; the name key, shard hash, consensus rules and `planTrade`
+come from `src/shared/`, the same code the pipelines run. Profile opens
 the screen with `pricescry:open`, Trades returns to the Ledger tab with `pricescry:tab`, and `src/app/pricescry.ts`
 supplies the Ledger/Spoiler Bait mounts, the shared card picker and card-DB badges through ports. Views
 replace `#psBody` wholesale like the inline screen did (the Ledger and Spoiler Bait ports replace its children
@@ -528,8 +532,6 @@ interpolated data (`grep -rn innerHTML src` finds only comments).
 
 Still open, outside p3-6:
 
-- `src/shared/` (code shared with the pipelines, such as `db-codec.js` and the PriceScry KEEP-IN-SYNC helpers)
-  is p5-3.
 - Some `src/app/` ports cast between structurally different feature types (Try-a-Deck and Gathering library
   rows, comparison and Gathering decks) where the old untyped globals hid the difference; a shared typed model
   would remove the casts.

@@ -3,6 +3,8 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    // Pipelines import src/shared/*.ts by its real name; Node strips the types when it runs them.
+    "allowImportingTsExtensions": true,
     "allowJs": true,
     "checkJs": true,
     "noEmit": true,

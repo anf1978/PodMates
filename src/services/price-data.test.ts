@@ -1,58 +1,28 @@
-// The app-side PriceScry helpers must resolve the same shards and prices as the pipelines that publish them.
+// The page-side PriceScry helpers. Shard hashing and the consensus rules themselves are pinned in
+// src/shared/pricescry.test.ts; these check the page's wrappers around them.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import * as lib from "../../pipelines/lib/pricescry-lib.mjs";
 import {
   consensusCents,
   currentYen,
-  dayIndex,
   fetchPriceData,
   fmtPct,
   fmtYen,
-  fnv1a,
   isoFromDay,
-  nameKey,
   PriceDataError,
   priceMarket,
   shardPath,
-  valueAt,
   yen,
   type FxData,
   type PriceRecord,
 } from "./price-data";
 
-const NAMES = [
-  "Sol Ring",
-  "  Jace, the Mind Sculptor ",
-  "Lim-Dûl's Vault",
-  "Lim’Dûl‘s",
-  "Ｆｕｌｌｗｉｄｔｈ​",
-  "Fire // Ice",
-  "",
-];
-
-describe("shard helpers (KEEP IN SYNC with pricescry-lib.mjs)", () => {
-  it.each(NAMES)("matches the pipeline for %j", (name) => {
-    const key = nameKey(name);
-    expect(key).toBe(lib.nameKey(name));
-    expect(fnv1a(key)).toBe(lib.fnv1a(key));
-    expect(shardPath(key)).toBe(lib.shardFile(lib.shardOf(key)));
-  });
-  it("keeps known shard numbers stable", () => {
+describe("page price helpers", () => {
+  it("resolves the shard file a name key lives in", () => {
     expect(shardPath("sol ring")).toBe("cards/485.json.gz");
+    expect(shardPath("black lotus")).toBe("cards/203.json.gz");
   });
-  it("converts days and formats values", () => {
-    expect(dayIndex("2026-11-10")).toBe(lib.dayIndex("2026-11-10"));
-    expect(isoFromDay(2505)).toBe(lib.isoFromDayIndex(2505));
-    expect(
-      valueAt(
-        [
-          [10, 1],
-          [20, 2],
-        ],
-        15,
-      ),
-    ).toBe(1);
-    expect(valueAt([[10, 1]], 5)).toBeUndefined();
+  it("formats days and values", () => {
+    expect(isoFromDay(2505)).toBe("2026-11-10");
     expect(fmtYen(1234.6)).toBe("¥1,235");
     expect(fmtYen(null)).toBe("—");
     expect(fmtPct(12.345)).toBe("+12.3%");
@@ -73,31 +43,39 @@ describe("shard helpers (KEEP IN SYNC with pricescry-lib.mjs)", () => {
   });
 });
 
-describe("consensusCents (same rules as consensusAt)", () => {
+describe("consensusCents", () => {
   const fx: FxData = { pairs: { usdjpy: [[0, 1_500_000]], eurjpy: [[0, 1_650_000]] } };
-  const records: PriceRecord[] = [
-    {
-      n: "A",
-      p: [
-        {
-          id: "1",
-          s: "a",
-          sn: "A",
-          cn: "1",
-          pr: { u: [[0, 300]], e: [[0, 200]], xkrn: [[0, 350]] },
-        },
-        { id: "2", s: "b", sn: "B", cn: "2", pr: { xtrn: [[0, 500]], xmrn: [[0, 450]] } },
-      ],
-    },
-    {
-      n: "Foil only",
-      p: [{ id: "3", s: "c", sn: "C", cn: "3", pr: { uf: [[0, 900]], ef: [[5, 800]] } }],
-    },
-    { n: "Nothing", p: [{ id: "4", s: "d", sn: "D", cn: "4", pr: { u: [[0, 0]] } }] },
+  const records: [PriceRecord, number | null][] = [
+    [
+      {
+        n: "A",
+        p: [
+          {
+            id: "1",
+            s: "a",
+            sn: "A",
+            cn: "1",
+            pr: { u: [[0, 300]], e: [[0, 200]], xkrn: [[0, 350]] },
+          },
+          { id: "2", s: "b", sn: "B", cn: "2", pr: { xtrn: [[0, 500]], xmrn: [[0, 450]] } },
+        ],
+      },
+      300,
+    ],
+    [
+      {
+        n: "Foil only",
+        p: [{ id: "3", s: "c", sn: "C", cn: "3", pr: { uf: [[0, 900]], ef: [[5, 800]] } }],
+      },
+      890,
+    ],
+    [{ n: "Nothing", p: [{ id: "4", s: "d", sn: "D", cn: "4", pr: { u: [[0, 0]] } }] }, null],
   ];
-  it.each(records)("matches the pipeline for $n", (rec) => {
-    const expected = lib.consensusAt(rec, 10, () => 1_650_000 / 1_500_000);
-    expect(consensusCents(rec, 10, fx)).toBe(expected ? expected.price : null);
+  it.each(records)("prices %j", (rec, expected) => {
+    expect(consensusCents(rec, 10, fx)).toBe(expected);
+  });
+  it("uses the default euro rate without fx.json", () => {
+    expect(consensusCents(records[1]![0], 10, null)).toBe(890);
   });
 });
 

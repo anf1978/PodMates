@@ -122,6 +122,45 @@ export default tseslint.config(
     },
   },
   {
+    // src/shared is imported by the app AND run by Node in the pipelines (built-in type stripping),
+    // so it is a leaf: only its own files, no Node built-ins and no browser globals.
+    files: ["src/shared/**/*.{ts,js,mjs}"],
+    ignores: ["src/shared/**/*.test.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "../**",
+                "node:*",
+                "fs",
+                "path",
+                "zlib",
+                "crypto",
+                "os",
+                "url",
+                "child_process",
+              ],
+              message:
+                "src/shared imports only its own files: no other src/ folder, no Node built-ins.",
+            },
+          ],
+        },
+      ],
+      "no-restricted-globals": [
+        "error",
+        ...["window", "document", "self", "localStorage", "sessionStorage", "navigator", "location"]
+          .concat(["process", "Buffer", "require", "__dirname", "__filename"])
+          .map((name) => ({
+            name,
+            message: "src/shared runs in the browser and in Node; pass environment data in.",
+          })),
+      ],
+    },
+  },
+  {
     // The main-thread DB failure boundary reports once; worker/codec/lookup stay service-free.
     files: ["src/cards/load-db.ts"],
     rules: {

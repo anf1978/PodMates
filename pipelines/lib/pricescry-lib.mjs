@@ -1,4 +1,4 @@
-// PriceScry shared helpers (used by the snapshot/fx scripts AND mirrored in src/services/price-data.ts).
+// PriceScry pipeline helpers (snapshot, fx, movers, study...). The helpers the page also needs come from src/shared/pricescry.ts.
 //
 // DATA MODEL
 //   Prices are stored as CHANGE POINTS, not a value per day: a series like
@@ -10,48 +10,27 @@
 //   Cards are grouped into 512 shard files by a hash of the card name, so the
 //   page only downloads the small file holding the card being viewed.
 //
-// KEEP IN SYNC: nameKey(), fnv1a(), shardOf() are copied into src/services/price-data.ts.
-// If you change them here, change them there, or the page will look for cards in the
-// wrong files. src/services/price-data.test.ts compares the two (consensusAt too).
+// The name key, shard hash, day numbers, change-point lookup and consensus price live in
+// src/shared/pricescry.ts, one copy shared with the page (Node runs it with built-in type stripping).
+// Changing the hash or SHARDS makes every published shard unreachable.
+import { valueAt, consensusAt } from "../../src/shared/pricescry.ts";
+export {
+  EPOCH_MS,
+  SHARDS,
+  dayIndex,
+  isoFromDayIndex,
+  nameKey,
+  fnv1a,
+  shardOf,
+  shardFile,
+  valueAt,
+  makeEurUsd,
+  sourceValuesAt,
+  consensusAt,
+} from "../../src/shared/pricescry.ts";
 
-export const EPOCH_MS = Date.UTC(2020, 0, 1);
-export const SHARDS = 512;
-
-export function dayIndex(iso) {
-  const [y, m, d] = String(iso).slice(0, 10).split("-").map(Number);
-  return Math.round((Date.UTC(y, m - 1, d) - EPOCH_MS) / 86400000);
-}
-export function isoFromDayIndex(d) {
-  return new Date(EPOCH_MS + d * 86400000).toISOString().slice(0, 10);
-}
 export function todayIso() {
   return new Date().toISOString().slice(0, 10);
-}
-
-// Case, spacing and invisible characters never change which card a name means.
-export function nameKey(name) {
-  return String(name == null ? "" : name)
-    .normalize("NFKC")
-    .replace(/[\u0000-\u001F\u007F\u200B-\u200F\u2060\uFEFF]/g, "")
-    .replace(/[\u2018\u2019]/g, "'")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
-}
-export function fnv1a(str) {
-  const bytes = new TextEncoder().encode(str);
-  let h = 0x811c9dc5;
-  for (let i = 0; i < bytes.length; i++) {
-    h ^= bytes[i];
-    h = Math.imul(h, 0x01000193) >>> 0;
-  }
-  return h >>> 0;
-}
-export function shardOf(key) {
-  return fnv1a(key) % SHARDS;
-}
-export function shardFile(n) {
-  return `cards/${String(n).padStart(3, "0")}.json.gz`;
 }
 
 // "12.34" -> 1234. Missing or unparseable -> null.
@@ -74,16 +53,6 @@ export function applyPoint(series, day, value) {
   } // a re-run on the same day just overwrites
   if (last[1] !== value) series.push([day, value]);
 }
-// Value in force on `day`, or undefined if the series had not started yet.
-export function valueAt(series, day) {
-  let v;
-  for (let i = 0; i < series.length; i++) {
-    if (series[i][0] <= day) v = series[i][1];
-    else break;
-  }
-  return v;
-}
-
 // Scryfall price field -> short series key
 export const PRICE_KEYS = {
   usd: "u",
@@ -189,63 +158,7 @@ export function guardRetail(pricesByProvider, eurUsd = 1.1, factor = 5, minGapUs
 }
 
 // ---- consensus price across shops -------------------------------------------------------------
-// One shop's price can be wrong or move on a handful of copies. The consensus for a printing on a day is the MIDDLE
-// (median) of the shops that price it: TCGplayer, Cardmarket (euros converted to dollars), Card Kingdom, Manapool.
-// TCGplayer is never counted twice: when MTGJSON's TCGplayer series exists, Scryfall's (which comes from the same
-// shop) is ignored. A card's consensus is that of its cheapest non-foil printing (foil only if it has no non-foil price),
-// because that is what a buyer would buy. Cards with no MTGJSON data at all keep the older Scryfall-only behaviour,
-// so nothing changes until the MTGJSON prices have been added.
-export function makeEurUsd(fx) {
-  // fx = the parsed fx.json; returns a function day -> dollars per euro
-  const eur = fx && fx.pairs && fx.pairs.eurjpy,
-    usd = fx && fx.pairs && fx.pairs.usdjpy;
-  if (!eur || !usd || !eur.length || !usd.length) return () => 1.1;
-  return (day) => {
-    const e = valueAt(eur, day) ?? eur[0][1],
-      u = valueAt(usd, day) ?? usd[0][1];
-    return e / u;
-  };
-}
-const FIN_LEGACY = {
-  n: { us: "u", eu: "e" },
-  f: { us: "uf", eu: "ef" },
-  e: { us: "ue", eu: null },
-};
-/** @param {(day: number) => number} eurUsd */
-export function sourceValuesAt(p, f, day, eurUsd = () => 1.1) {
-  const out = [];
-  const add = (src, mjSeries, legacyKey, isEur) => {
-    const ser = mjSeries && mjSeries.length ? mjSeries : legacyKey ? p.pr[legacyKey] : null;
-    if (!ser || !ser.length) return;
-    const v = valueAt(ser, day);
-    if (v == null || v <= 0) return; // undefined = history not started, null = no price that day
-    out.push({ src, cents: isEur ? Math.round(v * eurUsd(day)) : v });
-  };
-  add("tcgplayer", p.pr["xtr" + f], FIN_LEGACY[f].us, false);
-  add("cardmarket", p.pr["xcr" + f], FIN_LEGACY[f].eu, true);
-  add("cardkingdom", p.pr["xkr" + f], null, false);
-  add("manapool", p.pr["xmr" + f], null, false);
-  return out;
-}
-const medianOf = (a) => {
-  const s = [...a].sort((x, y) => x - y),
-    m = s.length >> 1;
-  return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2);
-};
-export function consensusAt(rec, day, eurUsd = () => 1.1) {
-  for (const f of ["n", "f"]) {
-    let best = null;
-    for (const p of rec.p) {
-      const vals = sourceValuesAt(p, f, day, eurUsd);
-      if (!vals.length) continue;
-      const price = medianOf(vals.map((v) => v.cents));
-      if (!best || price < best.price)
-        best = { price, n: vals.length, printing: p, finish: f, sources: vals };
-    }
-    if (best) return best;
-  }
-  return null;
-}
+// consensusAt / sourceValuesAt / makeEurUsd (the middle price across shops) are in src/shared/pricescry.ts.
 export const hasMjSeries = (rec) =>
   rec.p.some((p) => Object.keys(p.pr).some((k) => k.startsWith("x")));
 // The one function the movers list, the study engine and the riser engine read a card's price through.
