@@ -89,10 +89,12 @@ export function renderProfileSignInBox(): void {
 
 export async function renderProfileLinksSection(container: HTMLElement): Promise<void> {
   let doc = null;
-  try {
-    doc = await getMyRawUserDoc();
-  } catch (error) {
-    reportError(error, { operation: "cloud" });
+  if (getCurrentUser()) {
+    try {
+      doc = await getMyRawUserDoc();
+    } catch (error) {
+      reportError(error, { operation: "cloud" });
+    }
   }
   if (!container.isConnected) return;
   const archidekt = doc?.archidektProfileUrl || "";

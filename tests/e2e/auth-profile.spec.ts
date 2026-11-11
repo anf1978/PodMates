@@ -33,6 +33,8 @@ test("profile opens its optional account form without changing the deck form", a
   await page.locator("#authProfileBtn").evaluate((button: HTMLButtonElement) => button.click());
   const dialog = page.getByRole("dialog", { name: "My Profile", exact: true });
   await expect(dialog).toBeVisible();
+  await expect(page.locator("#profileArchidektInput")).toBeVisible();
+  await expect(page.locator("#profileMoxfieldInput")).toBeVisible();
   await expect(page.locator("#profileLinkedDecks")).toContainText("No decks saved yet");
   await test.info().attach("profile", {
     body: await dialog.screenshot(),

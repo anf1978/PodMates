@@ -149,6 +149,6 @@ export async function showProfileModal(options: ProfileOptions = {}): Promise<vo
   if (header && user)
     void renderPlayerProfileContent(header, user.uid, user.displayName || "You", runtime.podId());
   const links = find("profileLinksArea");
-  if (links && user) void renderProfileLinksSection(links);
+  if (links) void renderProfileLinksSection(links);
   setupIconTooltips(modal);
 }

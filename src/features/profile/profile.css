@@ -1,33 +1,33 @@
 /* My Profile and deck summaries, using the original token colours and geometry. */
-.profile-title {
+.tad-modal .profile-title {
   margin-bottom: 4px;
 }
-.profile-intro {
+.tad-modal .profile-intro {
   font-size: 12.5px;
   color: var(--text-soft);
   margin: 0 0 16px;
 }
-.profile-header-area {
+.tad-modal .profile-header-area {
   margin-bottom: 18px;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--line);
 }
-.profile-section {
+.tad-modal .profile-section {
   margin-bottom: 16px;
   padding-bottom: 14px;
   border-bottom: 1px solid var(--line);
 }
-.profile-label {
+.tad-modal .profile-label {
   font-size: 12px;
   color: var(--text-soft);
   display: block;
   margin-bottom: 6px;
 }
-.profile-row {
+.tad-modal .profile-row {
   gap: 8px;
   align-items: center;
 }
-.profile-input {
+.tad-modal .profile-input {
   flex: 1;
   background: var(--bg-main);
   border: 1px solid var(--line);
@@ -37,239 +37,239 @@
   font-family: inherit;
   font-size: 13.5px;
 }
-.profile-nowrap {
+.tad-modal .profile-nowrap {
   white-space: nowrap;
 }
-.profile-small-status {
+.tad-modal .profile-small-status {
   font-size: 12px;
   margin-top: 6px;
   min-height: 16px;
 }
-.profile-add-row {
+.tad-modal .profile-add-row {
   margin-bottom: 14px;
 }
-.profile-sync-status {
+.tad-modal .profile-sync-status {
   font-size: 12.5px;
   margin-bottom: 12px;
 }
-.profile-deck-details {
+.tad-modal .profile-deck-details {
   margin-bottom: 10px;
 }
-.profile-summary {
+.tad-modal .profile-summary {
   cursor: pointer;
   color: var(--gold);
   font-weight: 600;
   font-size: 13px;
 }
-.profile-count {
+.tad-modal .profile-count {
   color: var(--text-soft);
   font-weight: 400;
 }
-.profile-gap8 {
+.tad-modal .profile-gap8 {
   margin-top: 8px;
 }
-.profile-gap12 {
+.tad-modal .profile-gap12 {
   margin-top: 12px;
 }
-.profile-skip {
+.tad-modal .profile-skip {
   text-align: center;
   margin-top: 10px;
 }
-.profile-skip a {
+.tad-modal .profile-skip a {
   font-size: 12.5px;
   color: var(--text-soft);
   text-decoration: underline;
 }
-.profile-lower-section {
+.tad-modal .profile-lower-section {
   margin-top: 16px;
   padding-top: 14px;
   border-top: 1px solid var(--line);
 }
-.profile-bottom8 {
+.tad-modal .profile-bottom8 {
   margin-bottom: 8px;
 }
-.profile-min-status {
+.tad-modal .profile-min-status {
   min-height: 16px;
 }
-.profile-backup-hint {
+.tad-modal .profile-backup-hint {
   font-size: 12px;
   color: var(--text-soft);
   margin: 0 0 10px;
 }
-.profile-backup-button {
+.tad-modal .profile-backup-button {
   width: 100%;
   margin-bottom: 12px;
   font-size: 12.5px;
 }
-.profile-restore-file {
+.tad-modal .profile-restore-file {
   width: 100%;
   margin-bottom: 8px;
   font-size: 12.5px;
   color: var(--text-primary);
 }
-.profile-data-status {
+.tad-modal .profile-data-status {
   font-size: 12px;
   min-height: 16px;
 }
-.profile-price-button {
+.tad-modal .profile-price-button {
   width: 100%;
   font-size: 12.5px;
 }
-.profile-soft {
+.tad-modal .profile-soft {
   font-size: 12.5px;
   color: var(--text-soft);
 }
-.profile-empty {
+.tad-modal .profile-empty {
   font-size: 13px;
   color: var(--text-soft);
 }
-.profile-signin-row {
+.tad-modal .profile-signin-row {
   margin-bottom: 6px;
 }
-.profile-email {
+.tad-modal .profile-email {
   flex: 1;
   font-size: 14px;
   color: var(--text-primary);
   word-break: break-all;
 }
-.profile-signin-method {
+.tad-modal .profile-signin-method {
   font-size: 12.5px;
   color: var(--text-soft);
   margin-bottom: 8px;
 }
-.profile-reset-button {
+.tad-modal .profile-reset-button {
   font-size: 12.5px;
 }
-.profile-link-archidekt {
+.tad-modal .profile-link-archidekt {
   margin-bottom: 8px;
 }
-.profile-link-moxfield {
+.tad-modal .profile-link-moxfield {
   margin-bottom: 10px;
 }
-.profile-link-label {
+.tad-modal .profile-link-label {
   font-size: 11.5px;
   color: var(--text-soft);
   display: block;
   margin-bottom: 4px;
 }
-.profile-link-input {
+.tad-modal .profile-link-input {
   padding: 7px 9px;
   font-size: 13px;
 }
-.profile-visit {
+.tad-modal .profile-visit {
   padding: 6px 10px;
   font-size: 12px;
   white-space: nowrap;
   text-decoration: none;
   display: inline-block;
 }
-.profile-deck-row {
+.tad-modal .profile-deck-row {
   border-bottom: 1px solid var(--line);
   padding: 10px 0;
 }
-.profile-deck-top {
+.tad-modal .profile-deck-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 10px;
 }
-.profile-deck-title {
+.tad-modal .profile-deck-title {
   min-width: 0;
 }
-.profile-deck-subtitle {
+.tad-modal .profile-deck-subtitle {
   font-size: 11.5px;
   color: var(--text-soft);
   margin-top: 2px;
 }
-.profile-linked-hint {
+.tad-modal .profile-linked-hint {
   font-size: 11px;
   color: var(--text-dim);
   margin-top: 2px;
   font-style: italic;
 }
-.profile-deck-actions {
+.tad-modal .profile-deck-actions {
   display: flex;
   gap: 6px;
   flex-shrink: 0;
 }
-.profile-deck-action {
+.tad-modal .profile-deck-action {
   padding: 5px 10px;
   font-size: 12px;
 }
-.profile-deck-remove {
+.tad-modal .profile-deck-remove {
   border-color: var(--danger);
   color: var(--danger);
 }
-.profile-summary-error {
+.tad-modal .profile-summary-error {
   padding: 12px 0;
   font-size: 12.5px;
   color: var(--text-soft);
 }
-.profile-summary-body {
+.tad-modal .profile-summary-body {
   padding: 12px 0 6px;
 }
-.profile-summary-commander {
+.tad-modal .profile-summary-commander {
   font-size: 13px;
   color: var(--text-primary);
   margin-bottom: 2px;
 }
-.profile-summary-win {
+.tad-modal .profile-summary-win {
   font-size: 12.5px;
   color: var(--text-soft);
   margin-bottom: 10px;
 }
-.profile-scores {
+.tad-modal .profile-scores {
   display: flex;
   align-items: center;
   gap: 16px;
   margin-bottom: 12px;
 }
-.profile-score {
+.tad-modal .profile-score {
   text-align: center;
 }
-.profile-spark {
+.tad-modal .profile-spark {
   font-family: "Cinzel", Georgia, serif;
   font-size: 28px;
   font-weight: 700;
   color: var(--text-primary);
 }
-.profile-spark-label {
+.tad-modal .profile-spark-label {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--gold);
 }
-.profile-axes {
+.tad-modal .profile-axes {
   display: flex;
   gap: 12px;
   flex: 1;
   justify-content: space-around;
 }
-.profile-axis-value {
+.tad-modal .profile-axis-value {
   font-size: 16px;
   font-weight: 700;
   color: var(--gold-bright);
 }
-.profile-axis-label {
+.tad-modal .profile-axis-label {
   font-size: 9.5px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-soft);
 }
-.profile-original {
+.tad-modal .profile-original {
   text-align: center;
   margin-top: 8px;
 }
-.profile-original a {
+.tad-modal .profile-original a {
   font-size: 11.5px;
   color: var(--text-soft);
   text-decoration: underline;
 }
-.profile-summary-title {
+.tad-modal .profile-summary-title {
   margin-bottom: 4px;
   font-size: 17px;
 }
-.profile-loading {
+.tad-modal .profile-loading {
   text-align: center;
   color: var(--text-soft);
   font-size: 13px;
