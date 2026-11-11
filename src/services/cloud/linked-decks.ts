@@ -5,15 +5,16 @@ import { collection, db, deleteDoc, doc, getDoc, getDocs, setDoc } from "./fireb
 import { deckRef, loadAllDecks, saveDeck } from "./decks";
 import { PM_LIMITS } from "./limits";
 import { requireUser } from "./session";
-import { clampText, countDocs, deckListProblem, docExistsSafe, safeDocId } from "./shared";
+import {
+  clampText,
+  countDocs,
+  deckListProblem,
+  docExistsSafe,
+  safeDocId,
+  uniqueDeckName,
+} from "./shared";
 import type { DeckDoc, FetchedDeck, LinkedDeckDoc, WithId } from "./types";
 import { reportError } from "../report-error";
-
-declare global {
-  interface Window {
-    generateUniqueDeckName?: (name: string, existing: Set<string>) => string;
-  }
-}
 
 // Runs server-side (deck-link-sync-worker.js): neither site reliably allows a request made
 // directly from another website's browser code.
@@ -88,7 +89,7 @@ export async function addLinkedDeck(deckUrl: string) {
   const existingNames = new Set(
     Object.entries(existingDecks).map(([k, e]) => (e as { deckName?: string }).deckName || k),
   );
-  const finalName = window.generateUniqueDeckName!(sourceName, existingNames);
+  const finalName = uniqueDeckName(sourceName, existingNames);
 
   const id = `${d.platform}-${d.deckId}`;
   const linked: LinkedDeckDoc = {

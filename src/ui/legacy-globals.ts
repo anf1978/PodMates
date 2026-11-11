@@ -2,7 +2,6 @@
 // in index.html. `window.pmUi` is the typed surface; the other names are exactly the
 // functions those scripts already call. Add no behaviour here; delete it with the last caller.
 
-import { cardNameLinkHtml } from "./card-name.ts";
 import { closeAllModals, closeModal, openModal, openModals } from "./modal.ts";
 import { setStatusText } from "./status.ts";
 import { selectTab, tabsByAttribute } from "./tabs.ts";
@@ -30,8 +29,6 @@ declare global {
     openTadOverlay: typeof openTadOverlay;
     // TODO(p3-6): drop with the last unmoved legacy modal caller.
     closeTryADeckModal: typeof closeTryADeckModal;
-    // TODO(p3-6): drop with the saved-deck (Load a Deck) string builders.
-    cardNameLink: typeof cardNameLinkHtml;
   }
 }
 
@@ -42,6 +39,5 @@ window.setStatus = (message, isError) =>
 window.setDeckMgmtStatus = (message, isError) =>
   setStatusText(document.getElementById("deckMgmtStatus"), message, isError);
 window.setupIconTooltipsFor = (scope) => setupIconTooltips(scope ?? document);
-window.cardNameLink = cardNameLinkHtml;
 window.openTadOverlay = openTadOverlay;
 window.closeTryADeckModal = closeTryADeckModal;

@@ -46,3 +46,16 @@ export function currentChart(): Readonly<CurrentChart> {
 export function updateChart(patch: Partial<CurrentChart>): void {
   Object.assign(chart, patch);
 }
+
+let runner: (() => Promise<void>) | null = null;
+
+/** Deck Chart registers Chart Deck here, so other boundaries can chart the form's deck. */
+export function setChartRunner(run: () => Promise<void>): void {
+  runner = run;
+}
+
+/** Charts the deck in the Deck Chart form (as the Chart Deck button does). */
+export function runChart(): Promise<void> {
+  if (!runner) return Promise.reject(new Error("Deck Chart is not mounted."));
+  return runner();
+}

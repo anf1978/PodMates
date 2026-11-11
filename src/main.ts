@@ -1,7 +1,7 @@
 // The page's one module entry. index.html loads it from <head>, so like every module it runs
 // after the document is parsed and before DOMContentLoaded. The imports evaluate in this order,
 // which the inline scripts rely on: UI primitives, feature adapters, size limits,
-// profile, auth, gatherings, cloud, then pods.
+// profile, auth, gatherings, chronicles, saved decks, cloud, then pods.
 //
 // The colour-theme pre-paint script is src/features/themes/prepaint.ts, inlined into <head> at
 // build time because it must run before first paint. The inline card-database adapter dynamically
@@ -29,12 +29,15 @@ import "./features/profile/legacy-globals.ts";
 import "./features/auth/legacy-globals.ts";
 import "./features/gatherings/legacy-globals.ts";
 import "./features/chronicles/legacy-globals.ts";
+import "./features/saved-decks/legacy-globals.ts";
 // Publishes window.PodmatesCloud, then dispatches "podmates-cloud-init".
 import "./services/cloud/index.ts";
 import "./features/pods/legacy-globals.ts";
 import { installGlobalErrorHandlers } from "./services/report-error";
+import { installStickyCloseNet } from "./ui/sticky-close";
 import { mount as mountNotifications } from "./features/notifications";
 
 installGlobalErrorHandlers();
+installStickyCloseNet();
 const authBar = document.getElementById("authBar");
 if (authBar) mountNotifications(authBar);

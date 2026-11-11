@@ -7,6 +7,7 @@ import { reportError } from "../../services/report-error";
 import { html, render } from "../../ui/html";
 import { setupIconTooltips } from "../../ui/tooltip";
 import { loadAndMergeMyDecks } from "./decks";
+import { downloadMyDataBackup, restoreMyDataBackup } from "./backup";
 import { renderMyDecksList } from "./deck-list";
 import { renderProfileLinksSection, renderProfileSignInBox, errorMessage } from "./account";
 import { profileTemplate } from "./view";
@@ -60,7 +61,7 @@ export async function showProfileModal(options: ProfileOptions = {}): Promise<vo
   display?.addEventListener("toggle", () => {
     if (display.open) runtime.displaySettings(find("profileDisplayArea"));
   });
-  find("profileDownloadBackupBtn")?.addEventListener("click", runtime.downloadBackup);
+  find("profileDownloadBackupBtn")?.addEventListener("click", downloadMyDataBackup);
   find("profilePriceScryBtn")?.addEventListener("click", runtime.priceScry);
   const restore = find<HTMLInputElement>("profileRestoreFile");
   restore?.addEventListener("change", () => {
@@ -69,7 +70,7 @@ export async function showProfileModal(options: ProfileOptions = {}): Promise<vo
     const reader = new FileReader();
     reader.onload = async () => {
       try {
-        await runtime.restoreBackup(String(reader.result));
+        await restoreMyDataBackup(String(reader.result), runtime.requireAccount);
         const refreshed = await loadAndMergeMyDecks();
         if (modal.isConnected) renderMyDecksList(modal, refreshed);
       } catch (error) {

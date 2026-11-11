@@ -21,9 +21,11 @@ const user = vi.hoisted(() => ({
 vi.mock("../../services/cloud/session", () => ({
   getCurrentUser: () => user,
   describeUser: () => user,
+  isCloudReady: () => true,
 }));
 vi.mock("../../services/cloud/decks", () => ({
   loadAllDecks: vi.fn(async () => ({})),
+  loadPodmateDecksRaw: vi.fn(async () => ({})),
   saveDeck: vi.fn(),
   deleteDeck: vi.fn(),
 }));
@@ -79,8 +81,7 @@ beforeEach(() => {
     safeUrl: (raw) => (typeof raw === "string" && raw.startsWith("https://") ? raw : ""),
     buildTable: vi.fn(),
     displaySettings: vi.fn(),
-    downloadBackup: vi.fn(),
-    restoreBackup: vi.fn(),
+    requireAccount: () => true,
     priceScry: vi.fn(),
     chartDeck: vi.fn(),
     podId: () => null,

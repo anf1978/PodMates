@@ -2,19 +2,14 @@
 import { mount } from "./index";
 import type { CrafterPorts } from "./ports";
 import { findPageCard, pageRankingsLoaded, searchPageCards } from "../../cards/legacy-globals";
+import { showActionConfirmModal } from "../../ui/confirm";
+import { runChart } from "../../services/current-chart";
+import { emit } from "../../services/events";
 
 declare const dbReady: boolean;
-declare function showActionConfirmModal(
-  message: string,
-  label: string,
-  yes: () => void,
-  no: () => void,
-): void;
 declare let deckNameManuallyEdited: boolean;
 declare function autoFillDeckName(): void;
-declare function saveCurrentDeck(): void;
 declare function setMode(mode: string): void;
-declare function runAnalysis(): Promise<void>;
 
 const ports: CrafterPorts = {
   ready: () => dbReady,
@@ -26,9 +21,9 @@ const ports: CrafterPorts = {
     if (deckNameManuallyEdited) deckNameManuallyEdited = false;
     autoFillDeckName();
   },
-  saveDeck: () => saveCurrentDeck(),
+  saveDeck: () => emit("decks:save", undefined),
   setSingleMode: () => setMode("single"),
-  chart: () => runAnalysis(),
+  chart: () => runChart(),
 };
 
 mount(ports);

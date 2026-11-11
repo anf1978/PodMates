@@ -8,7 +8,7 @@
 
 import { fuzzyFindCard, matchDecklist } from "./lookup.ts";
 import { parseDecklist } from "./parse-decklist.ts";
-import { cardPopularity, searchCards, searchNorm, type SearchOptions } from "./search.ts";
+import { cardPopularity, searchCards, type SearchOptions } from "./search.ts";
 import type { CardRecord } from "./tuple.ts";
 
 declare const CARD_DB: CardRecord[] | undefined;
@@ -56,12 +56,9 @@ declare global {
     parseDecklist: typeof parseDecklist;
     fuzzyFindCard: typeof fuzzyFindCard;
     matchDecklist: typeof matchDecklist;
-    searchNorm: typeof searchNorm;
   }
 }
 
 window.parseDecklist = parseDecklist;
 window.fuzzyFindCard = fuzzyFindCard;
 window.matchDecklist = matchDecklist;
-// TODO(p3-6): saved-deck matching and the Load a Deck filter (inline) still call searchNorm.
-window.searchNorm = searchNorm;

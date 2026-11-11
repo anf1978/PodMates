@@ -37,6 +37,14 @@ export function deckListProblem(list: unknown): string {
   return "";
 }
 
+// A deck name that doesn't collide with any existing one, appending " (2)", " (3)", etc.
+export function uniqueDeckName(baseName: string, existingNames: Set<string>): string {
+  if (!existingNames.has(baseName)) return baseName;
+  let n = 2;
+  while (existingNames.has(`${baseName} (${n})`)) n++;
+  return `${baseName} (${n})`;
+}
+
 // The count/exists checks behind the size caps are a convenience, not a gate: if the network is
 // slow or the check fails, the save goes ahead (firestore.rules still holds the hard limits).
 export const capCheckTimeout = <T>(p: Promise<T>): Promise<T> =>

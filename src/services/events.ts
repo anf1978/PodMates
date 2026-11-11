@@ -2,6 +2,7 @@
 import type { PodDoc, PodMember, WithId } from "./cloud/types";
 import type { Gathering } from "./cloud/gatherings";
 import type { Lot, TradeDraft } from "./trade-ledger";
+import type { DeckPickTarget } from "./saved-decks";
 
 type AppEvents = {
   "trades:purchase": TradeDraft;
@@ -29,6 +30,10 @@ type AppEvents = {
   "pods:membership": undefined;
   "pods:open": { pod: WithId<PodDoc>; pods: WithId<PodDoc>[] };
   "pricescry:open": undefined;
+  /** Save the Deck Chart form's deck (Deck Crafter's Save). */
+  "decks:save": undefined;
+  /** Open Load a Deck for a Gathering seat. */
+  "decks:pick": DeckPickTarget;
   "pricescry:tab": "search" | "movers" | "signals" | "bait" | "radar" | "ledger";
   /** Deck Chart is charting these commanders (the portraits above the radar). */
   "chart:commanders": readonly string[];

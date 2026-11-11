@@ -1,4 +1,4 @@
-// Temporary ports to unmoved chart, display and backup UI; no feature-to-feature imports.
+// Temporary ports to unmoved chart, display and account UI; no feature-to-feature imports.
 import type { EngineContext } from "../../engine";
 import type { CardRecord } from "../../cards/tuple";
 import type { LookupIndexes } from "../../cards/lookup";
@@ -15,8 +15,8 @@ export interface ProfileRuntime {
   safeUrl: (raw: unknown) => string;
   buildTable: () => Promise<void>;
   displaySettings: (area: HTMLElement) => void;
-  downloadBackup: () => void;
-  restoreBackup: (text: string) => Promise<void>;
+  /** The account guard: false (and the sign-up prompt shown) when signed out. */
+  requireAccount: (what: string) => boolean;
   priceScry: () => void;
   chartDeck: (deck: ProfileDeck) => Promise<void>;
   podId: () => string | null;

@@ -199,10 +199,6 @@ describe("linked decks", () => {
       }),
     );
     vi.stubGlobal("fetch", fetchDeck);
-    vi.stubGlobal("window", {
-      generateUniqueDeckName: (name: string, taken: Set<string>) =>
-        taken.has(name) ? `${name} (2)` : name,
-    });
     fake.seed("users/u1/decks/old", { key: "My Deck", deckName: "My Deck", secret: false });
 
     const result = await addLinkedDeck("https://archidekt.com/decks/123");

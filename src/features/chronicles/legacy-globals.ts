@@ -2,6 +2,7 @@
 import { configureChronicles, mount, refreshCloudChroniclesCache, renderMatchLog } from "./index";
 import { renderBattleControls, startResultsPolling, stopResultsPolling } from "./battle";
 import type { ChronicleBattle, ChronicleBattleDeck } from "./state";
+import { showActionConfirmModal, showConfirmModal } from "../../ui/confirm";
 
 declare const currentPodViewId: string | null;
 declare let currentBattleContext: ChronicleBattle | null;
@@ -16,14 +17,6 @@ declare const POD_COLORS: readonly string[];
 declare const renderPodAnalysisResults: (decks: ChronicleBattleDeck[]) => void;
 declare const openLiveGatheringOverlay: (podId: string, gatheringId: string) => void;
 declare const requireAccountToSave: (what: string) => boolean;
-declare const showConfirmModal: (message: string, action: () => Promise<void>) => void;
-declare const showActionConfirmModal: (
-  message: string,
-  label: string,
-  action: () => Promise<void>,
-  cancel: null,
-  cancelLabel: string,
-) => void;
 
 configureChronicles({
   podId: () => currentPodViewId,

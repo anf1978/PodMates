@@ -4,14 +4,7 @@ import { openPriceScry } from "./pricescry-fixture";
 
 declare global {
   interface Window {
-    showActionConfirmModal(
-      message: string,
-      confirmLabel: string,
-      onConfirm: () => void,
-      onCancel?: () => void,
-    ): void;
     showSingleCardArtModal(name: string): Promise<void>;
-    __cancelled?: boolean;
   }
 }
 
@@ -99,20 +92,20 @@ test("Escape closes only the top stacked layer, and cancels an action confirm", 
   await expect(page.getByRole("dialog")).toHaveCount(0);
   expect(await bodyOverflow(page)).toBe("");
 
+  // Escape on an action confirm runs its Cancel: Deck Crafter's "Start New" (shown for a restored
+  // draft) reopens the builder.
   await page.evaluate(() =>
-    window.showActionConfirmModal(
-      "Leave?",
-      "Leave",
-      () => {},
-      () => {
-        window.__cancelled = true;
-      },
+    localStorage.setItem(
+      "podmates-deck-builder-draft",
+      JSON.stringify({ cards: { Island: 3 }, commander: "Talrand, Sky Summoner", player: "Sam" }),
     ),
   );
-  await expect(page.getByRole("dialog")).toContainText("Leave?");
+  await page.locator("#openDeckBuilderBtn").click();
+  await page.locator("#dbStartNewBtn").click();
+  await expect(page.getByRole("dialog")).toContainText("Start a new deck?");
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  expect(await page.evaluate(() => window.__cancelled)).toBe(true);
+  await expect(page.getByRole("dialog")).toHaveCount(1);
+  await expect(page.getByRole("heading", { name: "Deck Crafter", exact: true })).toBeVisible();
 });
 
 test("the full-screen PriceScry overlay locks scroll and closes on Escape", async ({ page }) => {

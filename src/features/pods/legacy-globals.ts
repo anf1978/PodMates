@@ -1,17 +1,11 @@
 // TODO(p3-6): adapt shared inline dialogs/navigation and publish only surviving legacy pod names.
 import { emit as emitAppEvent, on as onAppEvent } from "../../services/events";
 import { openTadOverlay, closeTryADeckModal } from "../../ui/tad-modal";
+import { showActionConfirmModal, showConfirmModal } from "../../ui/confirm";
 import { mount } from "./index";
 
 declare function refreshCloudChroniclesCache(): void;
 declare function setMode(mode: string): void;
-declare function showConfirmModal(message: string, onConfirm: () => void): void;
-declare function showActionConfirmModal(
-  message: string,
-  label: string,
-  onConfirm: () => void,
-  onCancel?: () => void,
-): void;
 
 const panel = document.querySelector<HTMLElement>("#podMode > .panel");
 if (!panel) throw new Error("Missing MyPods panel");

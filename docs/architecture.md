@@ -231,8 +231,10 @@ tests record unresolved policy/limit gaps rather than changing the deployed beha
 
 `src/ui/legacy-globals.ts` (via `src/main.ts`) publishes the typed surface as `window.pmUi` (`openModal`,
 `closeModal`, `selectTab`, `tabsByAttribute`) and the original names `showToast`,
-`setStatus`, `setDeckMgmtStatus`, `setupIconTooltipsFor`, `openTadOverlay`, `closeTryADeckModal` and
-`cardNameLink`. Inline code must not call these during parsing; the page-wide tooltip wiring waits for
+`setStatus`, `setDeckMgmtStatus`, `setupIconTooltipsFor`, `openTadOverlay` and `closeTryADeckModal`.
+`confirm.ts` holds the Delete and action confirms (imported by the adapters; no window names),
+`sticky-close.ts` the pinned-Close safety net that `main.ts` installs, and `decks-table.ts`/`.css` the
+sortable saved-decks table shared by Build Table and My Profile. Inline code must not call these during parsing; the page-wide tooltip wiring waits for
 `DOMContentLoaded`. `html.ts` re-exports lit-html; its `trustedHtml()` is the only raw-markup path, and ESLint
 forbids importing lit-html anywhere else. `tokens.css` and `base.css` are linked before the first inline
 `<style>`, so the cascade is unchanged.
@@ -523,16 +525,25 @@ R14 moved card art/View Deck (`features/card-viewer`), card ranking plus the sha
 reading plus "Cards you could add" (`features/deck-chart/interactions/`), and Key Pieces & Combos, Synergy,
 Track Record, Centrality and the explainers (`features/deck-chart/report.ts` and its folders), and
 `runAnalysis`, the remaining result panels and the reference/benchmark helpers (`features/deck-chart/`
-`run-analysis.ts` and `results/`, `engine/{reference,benchmarks}.ts`, `services/{reference-data,current-chart}.ts`).
+`run-analysis.ts` and `results/`, `engine/{reference,benchmarks}.ts`, `services/{reference-data,current-chart}.ts`),
+and Save Deck, Load a Deck and Build Table (`features/saved-decks`, with the deck caches, linked-mirror
+matching and table rows in `services/{saved-decks,linked-duplicates,deck-rows}.ts`), My Data
+(`features/profile/backup.ts`), the confirm dialogs and the sticky-Close net (`ui/`). Saved Decks takes
+`decks:save` (Deck Crafter) and `decks:pick` (Gathering seats) events; other boundaries chart the form's
+deck through `runChart()` in `services/current-chart.ts`. The `searchNorm`, `cardNameLink`,
+`showConfirmModal`/`showActionConfirmModal`, `showLoadDeckModal`, `saveCurrentDeck`, `runAnalysis` and
+`generateUniqueDeckName` page names are gone.
 Boot's global assignments and UI adapter remain inline for the current readers, as do the `IX_TAGS` and
 `KNOW_JSON` / `KNOW_MAP` globals the boot adapter and `loadKnowledge()` fill.
-Remaining, in order, at about one ~800-line PR each:
+Remaining:
 
-1. **Saved decks, Load a Deck, My Data, decks table** (~900 lines), then `searchNorm` and the profile ports.
-   The inline confirm dialogs and the sticky-Close safety net can move to `src/ui` with them, and so do the
-   deck-chart shim's last names (`runAnalysis` for the Deck Crafter/profile adapters, `hasChartResult` for
-   the inline `setMode`).
-2. Delete the remaining shims, make `index.html` static markup, ratchet lint, final `CLAUDE.md`.
+1. Delete the remaining shims, make `index.html` static markup, ratchet lint, final `CLAUDE.md`. What is
+   still inline: the card-DB boot adapter and its data globals, `escapeHtml`/`safeHttpUrl` (the cloud users
+   repository still reads `window.safeHttpUrl`), the input length limits, the card/type click delegate, the
+   deck form (Clear, auto-naming, `deckNameManuallyEdited`, the deck-link import and `lastImportedDeckUrl`),
+   `setMode` (which still reads `hasChartResult`) and the chronicles auth refresh. Several adapters still
+   read window names published by other shims (`requireAccountToSave`, `analyzeOneList`, `POD_COLORS`,
+   `openLiveGatheringOverlay`, `setMode`); those become direct imports or events once the inline code goes.
 
 Phase 3's exit criteria (no source file over ~500 lines, no globals, every `innerHTML` replaced) are not met
 while the inline app script exists. The remaining work (rest of Deck Chart, saved-deck flows and the other inline helpers) deletes inline code and the shim names it used. When the last caller of a

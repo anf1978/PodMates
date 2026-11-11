@@ -12,6 +12,7 @@ import {
   computeManaBaseBenchmark,
   computeSparkPercentile,
   computeStaplesDeviation,
+  computeTierPlacement,
   describeTierPlacement,
   referenceSetSummary,
   type ManaBaseBaseline,
@@ -88,6 +89,11 @@ export function sparkPercentile(value: number): number {
 
 export function tierPlacement(value: number, axisKey?: string): string {
   return describeTierPlacement(loaded().set, value, axisKey);
+}
+
+/** Command Spark's placement within each reference tier (precon, tuned, cEDH). */
+export function tierPlacements(value: number) {
+  return computeTierPlacement(loaded().set, value);
 }
 
 export function referenceSummary(): string {

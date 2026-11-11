@@ -53,3 +53,19 @@
   color: var(--gold);
   background: var(--bg-main);
 }
+/* Confirm dialogs (src/ui/confirm.ts). */
+.tad-modal .tad-confirm-text {
+  font-size: 14px;
+  color: var(--text-primary);
+  line-height: 1.6;
+  margin: 6px 0 20px;
+}
+.row.tad-confirm-actions {
+  justify-content: flex-end;
+  gap: 10px;
+}
+/* Beats button.ghost:hover, as the inline colours it replaces did. */
+.tad-modal button.ghost.tad-confirm-danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}

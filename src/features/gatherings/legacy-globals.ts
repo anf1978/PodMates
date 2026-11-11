@@ -7,6 +7,7 @@ import {
   type GatheringRuntime,
 } from "./index";
 import { emit } from "../../services/events";
+import { showActionConfirmModal } from "../../ui/confirm";
 import type { BattleContext, ChartDeck } from "./runtime";
 
 declare const dbReady: boolean;
@@ -18,8 +19,6 @@ declare const renderPodAnalysisResults: (decks: ChartDeck[]) => void;
 declare const renderBattleControls: () => void;
 declare const startResultsPolling: () => void;
 declare const setMode: (mode: string) => void;
-declare const showActionConfirmModal: GatheringRuntime["confirm"];
-declare const showLoadDeckModal: GatheringRuntime["pickDeck"];
 declare global {
   var currentBattleContext: BattleContext | null;
 }
@@ -41,7 +40,7 @@ configureGatherings({
   },
   refreshPods: () => emit("pods:refresh", undefined),
   confirm: (...args) => showActionConfirmModal(...args),
-  pickDeck: (target) => showLoadDeckModal(target),
+  pickDeck: (target) => emit("decks:pick", target),
 });
 
 const legacy = {
