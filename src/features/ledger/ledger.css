@@ -23,10 +23,10 @@
 }
 .ps-mini {
   background: none;
-  border: 1px solid var(--line);
-  border-radius: 3px;
+  border: 1px solid var(--border, var(--ledger-sale-border));
+  border-radius: 6px;
   font-size: 11px;
-  padding: 1px 8px;
+  padding: 1px 7px;
   margin-left: 6px;
   color: inherit;
   cursor: pointer;

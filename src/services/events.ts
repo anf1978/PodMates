@@ -1,8 +1,15 @@
 // Typed messages between otherwise independent feature boundaries.
 import type { PodDoc, PodMember, WithId } from "./cloud/types";
 import type { Gathering } from "./cloud/gatherings";
+import type { Lot } from "./trade-ledger";
 
 type AppEvents = {
+  "trades:purchase": { lot?: Lot };
+  "trades:mark": string;
+  "trades:sell": { id: string; index?: number };
+  "trades:remove-sale": { id: string; index: number };
+  "trades:remove-lot": string;
+  "trades:export": readonly Lot[];
   "profile:open": { welcome?: boolean };
   "auth:open": undefined;
   "gatherings:sample": undefined;

@@ -2,7 +2,7 @@
 
 Commander (MTG) playgroup companion: deck analysis ("Deck Chart"), pod social features (MyPods) and the PriceScry
 price tool. Static web app (Vite + TypeScript) on GitHub Pages; Firebase Auth/Firestore; data built by GitHub
-Actions. **Mid-migration:** typed code lives in `src/`, but most UI is still inline in `index.html` (~8,000
+Actions. **Mid-migration:** typed code lives in `src/`, but most UI is still inline in `index.html` (~7,100
 lines), reached through strangler shims.
 Full context: [docs/overview.md](docs/overview.md) · Architecture: [docs/architecture.md](docs/architecture.md) ·
 Terms: [docs/glossary.md](docs/glossary.md) · Plan: [docs/refactor-plan.md](docs/refactor-plan.md) ·
@@ -44,6 +44,8 @@ CI runs `check` + e2e + rules tests on every PR (including stacked bases) and `m
   Use `reportError(error, { operation, userTriggered })`; preserve rejection/return contracts.
 - `src/services/scryfall.ts` — shared Scryfall JSON requests, including the legacy inline callers.
 - `src/services/events.ts` — typed navigation and active-pod events; legacy adapters bridge unmoved consumers.
+- `src/services/deck-analysis.ts` — shared decklist analysis for comparison, profiles and saved-deck tables.
+- `src/services/trade-ledger.ts` — shared lot accounting and current lots/marks for Ledger and trade dialogs.
 - `src/services/pwa.ts` — bounded initial SW registration and opt-in update prompt; Workbox config lives in
   `vite.config.js`. `scripts/sw-kill-switch.js` is the documented emergency replacement, not a normal asset.
 - `src/ui/` — shared primitives: `html.ts` (lit-html), modal, toast, status, tooltip, tabs, radar, mana symbols.
@@ -51,7 +53,8 @@ CI runs `check` + e2e + rules tests on every PR (including stacked bases) and `m
 - `src/styles/` — `tokens.css` (CSS variables) and `base.css`.
 - `src/features/<name>/` — one folder per feature: `state.ts`, `view.ts`/`panels/`, `<name>.css`, `*.test.ts`.
   Moved: `deck-chart` (four panels), `try-a-deck`, `export`, `scan-cards`, `deck-crafter`, `auth`, `profile`,
-  `pods`, `gatherings`, `chronicles`, `impact`, `spoiler-bait`, `trades` and `notifications`. Adapters supply
+  `pods`, `gatherings`, `chronicles`, `impact`, `spoiler-bait`, `trades`, `notifications`, `ledger` and `comparison`.
+  Adapters supply
   the still-inline deck form, shared library gate and analysis. Scan and Deck Crafter communicate through
   `src/services/deck-editing.ts`; features never import each other or read legacy globals directly.
   Profile includes My Profile, linked decks,
@@ -67,10 +70,13 @@ CI runs `check` + e2e + rules tests on every PR (including stacked bases) and `m
   supplies current chart state and the shared legacy card picker. Standard scores never use pod proposals.
   Spoiler Bait owns swipe/filter/votes/lists and the pod board; its only shim is `sbMount` for inline
   PriceScry, which passes signals, day, pod and card-navigation callback explicitly.
-  Trades owns purchase/edit, price checks, sales/edit/removal, deletion, lot accounting and CSV export.
-  Its adapter supplies the remaining inline Ledger/PriceScry lookup, navigation and shared card picker.
+  Trades owns purchase/edit, price checks, sales/edit/removal, deletion and CSV export.
+  Its adapter supplies PriceScry lookup/navigation and the shared card picker; typed trade events connect Ledger.
   Notifications owns the in-app bell, merged activity feed and per-account device preferences. It uses
   typed pod-membership/navigation events and direct repositories; no notification globals remain.
+  Ledger owns filters, P&L totals and open/closed lots; its adapter only bridges PriceScry pricing/tab state.
+  Comparison owns Rule Zero, alignment/nudges, rankings, axes, pace and mini radars and deck details.
+  Its adapter supplies shared analysis inputs, lazy datasets and the existing battle-result state.
 - `**/legacy-globals.ts`, `src/services/cloud/{index,limits-global}.ts` — strangler shims publishing typed code
   on `window` for the inline scripts. Delete each name with its last inline caller.
 - `index.html` — markup, main CSS and the inline legacy scripts (everything not yet in `src/features`).
@@ -121,56 +127,56 @@ expanded chart panels, info dialog and account screens. The one exact contrast d
 | ~Line | Huge single line — do not print                 |  Size |
 | ----: | ----------------------------------------------- | ----: |
 |    13 | `<link rel="icon"` (inline base64 PNG)          | 11 KB |
-|  1347 | `<img src="data:image/jpeg;base64` (header art) | 25 KB |
+|  1327 | `<img src="data:image/jpeg;base64` (header art) | 25 KB |
 
 ### Line map (approximate — always re-grep the identifier)
 
 |     ~Line | Region                                                         | Identifier to grep                                                                           |
 | --------: | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
 |      5–11 | CSP, synchronous sanitizer dependency and legacy boundary      | `Content-Security-Policy`, `rendering-security-script`                                       |
-|        36 | Module entry                                                   | `src="./src/main.ts"`                                                                        |
-|   37–1050 | Main CSS (Terraria × MTG Arena theme at ~513)                  | `<style>` (first one), `Terraria x MTG Arena theme`                                          |
-| 1051–1202 | Colour themes (runs in `<head>`)                               | `<script id="theme-script">`                                                                 |
-| 1214–1335 | Visual overhaul CSS                                            | `<style id="pm-visual-overhaul">`                                                            |
-| 1337–1625 | `<body>` markup: auth bar anchor, header, mode tabs, deck form | `id="authBar"`, `<header>`, `class="mode-tabs"`                                              |
-| 1352–1396 | Card-DB progress + progress-stall watchdog                     | `dbLoadFill`, `window.__dbProgress`                                                          |
-|      1500 | Result panels markup                                           | `id="resultsSection"`                                                                        |
-|      1623 | Footer data freshness                                          | `dataFreshness`                                                                              |
-| 1626–1655 | Engine/lookup/card-DB/Spellbook page bindings                  | `<script id="engine-script">`, `lookup-script`, `data-script`, `combo-data-script`           |
-| 1656–7966 | **App script** (UI + all unmoved features)                     | `<script id="app-script">`                                                                   |
-| 1681–1889 | Reference corpus, percentiles, baselines, Try-a-Deck           | `REFERENCE_TIERS`, `STAPLES_BASELINE`, `let TRY_A_DECK_OPTIONS;`                             |
-| 1931–2059 | Card-DB/Spellbook loaders, eager/lazy dataset gates            | `decompressCardDB`, `loadStaticDatasets`, `loadDeckLibrary`, `loadKnowledge`, `initDatabase` |
-|      2075 | Size-limit wiring (values in `src/services/cloud/limits.ts`)   | `---- Size limits`, `PM_INPUT_LIMIT_KEYS`                                                    |
-|      2139 | Card art (Scryfall, on demand)                                 | `CARD ART — fetched on demand`                                                               |
-|      2209 | Card lookup                                                    | `async function lookup(name)`                                                                |
-|      2267 | View Deck gallery                                              | `VIEW DECK — full visual gallery`                                                            |
-|      2522 | Chart request (calls the Deck Chart panels at ~2599)           | `async function runAnalysis`, `renderTypeTable(`, `renderLegality(`                          |
-| 2664–2798 | Result panels: win-con, radar chart, bracket                   | `function renderWinCondition`, `function renderChart(`, `function renderBracket`             |
-|      4324 | Synergy profile                                                | `function renderSynergyProfile`                                                              |
-|      4602 | Commander Centrality panel                                     | `function renderCommanderCentrality`                                                         |
+|        38 | Module entry                                                   | `src="./src/main.ts"`                                                                        |
+|   39–1030 | Main CSS (Terraria × MTG Arena theme at ~495)                  | `<style>` (first one), `Terraria x MTG Arena theme`                                          |
+| 1031–1182 | Colour themes (runs in `<head>`)                               | `<script id="theme-script">`                                                                 |
+| 1194–1315 | Visual overhaul CSS                                            | `<style id="pm-visual-overhaul">`                                                            |
+| 1317–1571 | `<body>` markup: auth bar anchor, header, mode tabs, deck form | `id="authBar"`, `<header>`, `class="mode-tabs"`                                              |
+| 1334–1376 | Card-DB progress + progress-stall watchdog                     | `dbLoadFill`, `window.__dbProgress`                                                          |
+|      1480 | Result panels markup                                           | `id="resultsSection"`                                                                        |
+|      1569 | Footer data freshness                                          | `dataFreshness`                                                                              |
+| 1572–1601 | Engine/lookup/card-DB/Spellbook page bindings                  | `<script id="engine-script">`, `lookup-script`, `data-script`, `combo-data-script`           |
+| 1602–7135 | **App script** (UI + all unmoved features)                     | `<script id="app-script">`                                                                   |
+| 1627–1836 | Reference corpus, percentiles, baselines, Try-a-Deck           | `REFERENCE_TIERS`, `STAPLES_BASELINE`, `let TRY_A_DECK_OPTIONS;`                             |
+| 1878–2005 | Card-DB/Spellbook loaders, eager/lazy dataset gates            | `decompressCardDB`, `loadStaticDatasets`, `loadDeckLibrary`, `loadKnowledge`, `initDatabase` |
+|      2015 | Size-limit wiring (values in `src/services/cloud/limits.ts`)   | `---- Size limits`, `PM_INPUT_LIMIT_KEYS`                                                    |
+|      2079 | Card art (Scryfall, on demand)                                 | `CARD ART — fetched on demand`                                                               |
+|      2149 | Card lookup                                                    | `async function lookup(name)`                                                                |
+|      2207 | View Deck gallery                                              | `VIEW DECK — full visual gallery`                                                            |
+|      2462 | Chart request (calls the Deck Chart panels at ~2539)           | `async function runAnalysis`, `renderTypeTable(`, `renderLegality(`                          |
+| 2604–2736 | Result panels: win-con, radar chart, bracket                   | `function renderWinCondition`, `function renderChart(`, `function renderBracket`             |
+|      4262 | Synergy profile                                                | `function renderSynergyProfile`                                                              |
+|      4540 | Commander Centrality panel                                     | `function renderCommanderCentrality`                                                         |
 |   modules | Sign in / sign up, account bar and save guard                  | `src/features/auth/{index,view,state}.ts`                                                    |
 |   modules | My Profile, linked decks and public player/pod profiles        | `src/features/profile/`; temporary ports in `legacy-globals.ts`                              |
 |   modules | Chronicles history, notes, feedback, battle controls/watch     | `src/features/chronicles/{index,view,dialogs,state,battle,battle-view,watch}.ts`             |
-| 4884–5680 | **PriceScry** (Search, Movers, Radar, Ledger)                  | `PriceScry -- card price history`, `PRICESCRY_PW_SHA256`, `function psRenderRadar`           |
+| 4822–5547 | **PriceScry** (Search, Movers, Radar, planner)                 | `PriceScry -- card price history`, `PRICESCRY_PW_SHA256`, `function psRenderRadar`           |
 |   modules | Spoiler Bait swipe, votes, lists and pod board                 | `src/features/spoiler-bait/{index,state,view,data,gestures}.ts`                              |
-|      5681 | Display settings (still inline for the themes session)         | `function renderDisplaySettings`                                                             |
-|      1482 | MyPods mount point (implementation in `src/features/pods`)     | `MyPods mounts here`                                                                         |
+|      5548 | Display settings (still inline for the themes session)         | `function renderDisplaySettings`                                                             |
+|      1462 | MyPods mount point (implementation in `src/features/pods`)     | `MyPods mounts here`                                                                         |
 |   modules | Gatherings (host, RSVP, seats, live and sample)                | `src/features/gatherings/{index,host,waiting,view,landing,watch}.ts`                         |
 |   modules | Impact cards + "Pod view" line                                 | `src/features/impact/{index,state,view,repository}.ts`                                       |
 |   modules | Trade purchase, price check, sale actions and CSV              | `src/features/trades/{index,state,view,csv}.ts`                                              |
 |   modules | Try-a-Deck, export and scan cards                              | `src/features/{try-a-deck,export,scan-cards}/index.ts`                                       |
 |   modules | Shared modal overlay + close                                   | `src/ui/tad-modal.ts`, `src/ui/tad-modal.css`                                                |
-|      5941 | Pod Comparison (up to 6 decks)                                 | `POD COMPARISON`                                                                             |
-|      6407 | Pod deck detail                                                | `async function showPodDeckDetail`                                                           |
-|      6682 | Saved data: decks, formations, chronicles                      | `SAVED DATA — decks`                                                                         |
+|   modules | Ledger filters, P&L totals, open/closed lots and trade events   | `src/features/ledger/{index,state,view}.ts`                                                  |
+|   modules | Pod Comparison, balance guidance, charts and deck details     | `src/features/comparison/{index,state,guidance,view,balance-view,charts,detail}.ts`         |
+|      5851 | Saved data: decks, formations, chronicles                      | `SAVED DATA — decks`                                                                         |
 |   modules | Deck Crafter (deck builder)                                    | `src/features/deck-crafter/index.ts`, `src/services/deck-editing.ts`                         |
-| 6950–7166 | Shared legacy card ranking and picker                          | `function searchCardsByName`, `function pmWireCardSearch`                                    |
-|      7171 | Saved deck naming and save orchestration                       | `function generateUniqueDeckName`, `function saveCurrentDeck`                                |
-|      7627 | My Data backup/restore                                         | `MY DATA — download/restore`                                                                 |
-|      7722 | Retired pod rosters (dead code)                                | `POD ROSTERS -- retired`                                                                     |
+| 6119–6335 | Shared legacy card ranking and picker                          | `function searchCardsByName`, `function pmWireCardSearch`                                    |
+|      6340 | Saved deck naming and save orchestration                       | `function generateUniqueDeckName`, `function saveCurrentDeck`                                |
+|      6796 | My Data backup/restore                                         | `MY DATA — download/restore`                                                                 |
+|      6891 | Retired pod rosters (dead code)                                | `POD ROSTERS -- retired`                                                                     |
 |   modules | Notifications inbox, bell and device preferences               | `src/features/notifications/{index,state,storage,view}.ts`                                   |
 
-Updated for R1–R10 (remaining ranges approximate). Regenerate with:
+Updated for R1–R11 (remaining ranges approximate). Regenerate with:
 
 ```sh
 grep -n -E '<script|</script>|<style|</style>|<body' index.html | cut -c1-120          # block boundaries

@@ -306,16 +306,9 @@ function sanitizeHtml(markup) {
   .ps-mover:hover{border-color:var(--gold);}
   .ps-mover-name{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .ps-shops{display:block; font-size:11px; color:var(--text-dim);}
-  .ps-lot{background:var(--bg-panel-raised); border:1px solid var(--line); border-radius:3px; padding:10px 12px; margin-top:6px; font-size:13.5px;}
-  .ps-lotline{font-size:12.5px; color:var(--text-soft); margin-top:3px;}
   .ps-art-wrap{margin:8px 0 4px;}
   .ps-art{display:block; width:230px; max-width:62%; aspect-ratio:488 / 680; height:auto; border-radius:4.5% / 3.2%; background:var(--bg-panel-raised); box-shadow:0 2px 10px rgba(0,0,0,0.35);}
   .ps-art-note{margin-top:4px; font-size:11px;}
-  .ps-lotbtns{display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;}
-  .ps-mini{background:none; border:1px solid var(--line); border-radius:3px; font-size:11px; padding:1px 8px; margin-left:6px; color:inherit; cursor:pointer;}
-  .ps-sale{opacity:0.9;}
-  .ps-lotbtns button{padding:5px 14px; font-size:12.5px;}
-  .ps-tag{color:var(--text-dim);}
   .ps-flabel{display:block; font-size:12px; color:var(--text-soft); margin:6px 0 3px;}
   .ps-frow{display:flex; gap:10px;} .ps-frow>div{flex:1; min-width:0;}
   .ps-plan{margin:10px 0; background:var(--bg-panel-raised); border:1px solid var(--line); border-radius:3px; padding:8px 12px;}
@@ -337,7 +330,6 @@ function sanitizeHtml(markup) {
   .ps-signal small{color:var(--text-dim);}
   .ps-card-title{font-family:'Cinzel',Georgia,serif; color:var(--gold-bright); font-size:21px; margin:10px 0 4px;}
   .ps-badges{display:flex; gap:6px; flex-wrap:wrap; min-height:4px;}
-  .ps-mini{background:none;border:1px solid var(--border,#888);border-radius:6px;font-size:11px;padding:1px 7px;margin-left:6px;color:inherit;cursor:pointer}
 .ps-badge{font-size:11px; letter-spacing:0.05em; text-transform:uppercase; color:var(--gold); border:1px solid var(--gold); border-radius:2px; padding:2px 7px;}
   .ps-controls{display:flex; gap:8px; flex-wrap:wrap; margin:12px 0 4px;}
   .ps-controls select{flex:1; min-width:140px; background:var(--bg-panel-raised); border:1px solid var(--line); color:var(--text-primary); border-radius:3px; padding:8px; font-size:13px; font-family:inherit;}
@@ -5425,24 +5417,6 @@ async function psRenderRadar() {
 // per sale, and the extra cost of buying. Paper lots are identical but use pretend money, so a strategy can be tested for a
 // whole spoiler season before any yen is risked. Open lots are marked at what they would NET if sold today (consensus price
 // less fees and shipping), not at the headline price, because that is the only number that is really yours.
-const PS_FINISH_NAMES = { nonfoil: 'non-foil', foil: 'foil', etched: 'etched foil' };
-function psLedgerStats(lots, marks) {
-  const rows = lots.map(l => ({ lot: l, m: psLotMetrics(l, marks ? marks[l.id] : null) }));
-  const closed = rows.filter(r => r.m.closed), open = rows.filter(r => r.m.openQty > 0);
-  const wins = closed.filter(r => r.m.realized > 0), losses = closed.filter(r => r.m.realized <= 0);
-  const mean = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
-  const costClosed = closed.reduce((a, r) => a + r.m.soldCost, 0);
-  const marked = open.filter(r => r.m.net != null);
-  return {
-    closedN: closed.length, wins: wins.length, winRate: closed.length ? wins.length / closed.length : null,
-    avgWin: mean(wins.map(r => r.m.realized)), avgLoss: losses.length ? -mean(losses.map(r => r.m.realized)) : null,
-    expectancyYen: mean(closed.map(r => r.m.realized)), expectancyPct: costClosed ? closed.reduce((a, r) => a + r.m.realized, 0) / costClosed : null,
-    totalRealized: rows.reduce((a, r) => a + r.m.realized, 0), avgDays: mean(closed.map(r => r.m.days).filter(d => d != null)),
-    openN: open.length, openCost: open.reduce((a, r) => a + r.m.openCost, 0),
-    openNet: marked.length ? marked.reduce((a, r) => a + r.m.net, 0) : null, unrealized: marked.length ? marked.reduce((a, r) => a + r.m.unreal, 0) : null, unmarked: open.length - marked.length,
-    rows,
-  };
-}
 // The consensus price (middle across shops) in the page: same rules as consensusAt in pricescry-lib.mjs, which a test compares.
 function psConsensusCents(rec, day, fx) {
   const eur = () => { const e = fx && fx.pairs && fx.pairs.eurjpy, u = fx && fx.pairs && fx.pairs.usdjpy; if (!e || !u || !e.length || !u.length) return 1.1; return (pricescryValueAt(e, day) ?? e[0][1]) / (pricescryValueAt(u, day) ?? u[0][1]); };
@@ -5471,68 +5445,7 @@ async function psCurrentYen(cardName) {      // the card's consensus price now, 
   } catch (e) { return null; }
 }
 
-const psLedger = { lots: null, filter: 'all', marks: {}, refs: {} };
-function psSalesHtml(lot) {
-  const sells = lot.sells || []; if (!sells.length) return '';
-  return sells.map((x, i) => `<div class="ps-lotline ps-sale">Sold ${x.qty} × ¥${Math.round(x.yen).toLocaleString()} on ${escapeHtml(x.date)} <button type="button" class="ps-mini" data-ps-saleedit="${escapeHtml(lot.id)}:${i}">Edit</button><button type="button" class="ps-mini" data-ps-saledel="${escapeHtml(lot.id)}:${i}">Remove</button></div>`).join('');
-}
-function psFmtYenSigned(v) { return v == null ? '—' : (v > 0 ? '+' : v < 0 ? '−' : '') + '¥' + Math.abs(Math.round(v)).toLocaleString('en-US'); }
-async function psRenderLedger() {
-  const body = document.getElementById('psBody'); if (!body) return;
-  psState.rec = null;
-  const cloud = window.PodmatesCloud;
-  if (!cloud || !cloud.user || cloud.user.isAnonymous) { body.innerHTML = `<div class="ps-note">Sign in to keep a trade ledger. It is saved to your account, so it follows you between devices.</div>`; return; }
-  body.innerHTML = `<div class="ps-note">Loading…</div>`;
-  try { psLedger.lots = await cloud.loadTrades(); } catch (e) { body.innerHTML = sanitizeHtml(`<div class="ps-note">Couldn't load your ledger (${escapeHtml(e.message)}).</div>`); return; }
-  const shown = psLedger.lots.filter(l => psLedger.filter === 'all' || (psLedger.filter === 'paper') === !!l.paper);
-  // current prices for the open positions, in parallel
-  psLedger.marks = {}; psLedger.refs = {};
-  await Promise.all(shown.filter(l => psLotMetrics(l, null).openQty > 0).map(async l => { psLedger.refs[l.id] = await psCurrentYen(l.card); psLedger.marks[l.id] = l.markYen != null ? l.markYen : psLedger.refs[l.id]; }));
-  const st = psLedgerStats(shown, psLedger.marks);
-  const chips = [['all', 'All'], ['real', 'Real'], ['paper', 'Paper']].map(([k, l]) => `<button type="button" data-ps-lf="${k}" class="${psLedger.filter === k ? 'on' : ''}">${l}</button>`).join('');
-  const pct = (v) => (v == null ? '—' : (v >= 0 ? '+' : '−') + Math.abs(v * 100).toFixed(1) + '%');
-  const summary = `<div class="ps-stats">
-    <div class="ps-stat"><small>Realised profit</small><b class="${st.totalRealized > 0 ? 'ps-up' : st.totalRealized < 0 ? 'ps-down' : ''}">${psFmtYenSigned(st.totalRealized)}</b><span>after fees and shipping</span></div>
-    <div class="ps-stat"><small>Win rate</small><b>${st.winRate == null ? '—' : Math.round(st.winRate * 100) + '%'}</b><span>${st.closedN ? `${st.wins} of ${st.closedN} closed trades` : 'no closed trades yet'}</span></div>
-    <div class="ps-stat"><small>Average win / loss</small><b>${st.avgWin == null ? '—' : '¥' + Math.round(st.avgWin).toLocaleString()} / ${st.avgLoss == null ? '—' : '¥' + Math.round(st.avgLoss).toLocaleString()}</b></div>
-    <div class="ps-stat"><small>Expectancy per trade</small><b class="${st.expectancyYen > 0 ? 'ps-up' : st.expectancyYen < 0 ? 'ps-down' : ''}">${psFmtYenSigned(st.expectancyYen)}</b><span>${st.expectancyPct == null ? '' : pct(st.expectancyPct) + ' of money in'}</span></div>
-    <div class="ps-stat"><small>Open positions</small><b>${st.openN}</b><span>¥${Math.round(st.openCost).toLocaleString()} in</span></div>
-    <div class="ps-stat"><small>Unrealised (if sold today, after costs)</small><b class="${st.unrealized > 0 ? 'ps-up' : st.unrealized < 0 ? 'ps-down' : ''}">${psFmtYenSigned(st.unrealized)}</b>${st.unmarked ? `<span>${st.unmarked} without a current price</span>` : ''}</div>
-  </div>`;
-  const openRows = st.rows.filter(r => r.m.openQty > 0).map(r => `<div class="ps-lot">
-      <div><b>${escapeHtml(r.lot.card)}</b>${r.lot.paper ? ' <span class="ps-badge">paper</span>' : ''}${r.lot.tag ? ` <small class="ps-tag">${escapeHtml(PS_TAGS[r.lot.tag] || '')}</small>` : ''}</div>
-      <div class="ps-lotline">${r.m.openQty} × ¥${Math.round(r.m.basisPer).toLocaleString()} bought ${escapeHtml(r.lot.buyDate)}${r.lot.shop ? ' at ' + escapeHtml(r.lot.shop) : ''}${r.lot.finish ? ' · ' + escapeHtml(PS_FINISH_NAMES[r.lot.finish] || '') : ''}</div>
-      <div class="ps-lotline">Worth if sold today (net): <b>${r.m.net == null ? '—' : '¥' + Math.round(r.m.net).toLocaleString()}</b> <span class="${r.m.unreal > 0 ? 'ps-up' : r.m.unreal < 0 ? 'ps-down' : ''}">${psFmtYenSigned(r.m.unreal)}</span></div>
-      <div class="ps-lotline"><small>${r.lot.markYen != null ? `Using your price check: ¥${Math.round(r.lot.markYen).toLocaleString()} on ${escapeHtml(r.lot.markDate)}${psLedger.refs[r.lot.id] != null ? ` (shops abroad say about ¥${Math.round(psLedger.refs[r.lot.id]).toLocaleString()})` : ''}` : psLedger.refs[r.lot.id] != null ? 'Using the shops-abroad price converted to yen. Japanese prices can differ: add your own price check for a truer figure.' : 'No price found for this card yet. Add your own price check.'}</small></div>
-      ${r.lot.note ? `<div class="ps-lotline"><i>${escapeHtml(r.lot.note)}</i></div>` : ''}
-      ${psSalesHtml(r.lot)}
-      <div class="ps-lotbtns"><button type="button" data-ps-sell="${escapeHtml(r.lot.id)}">Sell</button><button type="button" class="ghost" data-ps-mark="${escapeHtml(r.lot.id)}">My price</button><button type="button" class="ghost" data-ps-edit="${escapeHtml(r.lot.id)}">Edit</button><button type="button" class="ghost" data-ps-lotdel="${escapeHtml(r.lot.id)}">Delete</button></div>
-    </div>`).join('');
-  const closedRows = st.rows.filter(r => r.m.closed).sort((a, b) => (a.m.lastSell < b.m.lastSell ? 1 : -1)).map(r => `<div class="ps-lot">
-      <div><b>${escapeHtml(r.lot.card)}</b>${r.lot.paper ? ' <span class="ps-badge">paper</span>' : ''} <span class="${r.m.realized > 0 ? 'ps-up' : 'ps-down'}">${psFmtYenSigned(r.m.realized)}</span> <small>(${pct(r.m.soldCost ? r.m.realized / r.m.soldCost : null)})</small></div>
-      <div class="ps-lotline">${r.lot.qty} × ¥${Math.round(r.m.basisPer).toLocaleString()} in, held ${r.m.days} day${r.m.days === 1 ? '' : 's'}, closed ${escapeHtml(r.m.lastSell)}${r.lot.finish ? ' · ' + escapeHtml(PS_FINISH_NAMES[r.lot.finish] || '') : ''}</div>
-      ${r.lot.note ? `<div class="ps-lotline"><i>${escapeHtml(r.lot.note)}</i></div>` : ''}
-      ${psSalesHtml(r.lot)}
-      <div class="ps-lotbtns"><button type="button" class="ghost" data-ps-edit="${escapeHtml(r.lot.id)}">Edit</button><button type="button" class="ghost" data-ps-lotdel="${escapeHtml(r.lot.id)}">Delete</button></div>
-    </div>`).join('');
-  const reasons = ['riser', 'spoiler', 'other', ''].map(tg => { const rs = st.rows.filter(r => r.m.closed && (r.lot.tag || '') === tg); if (!rs.length) return null; const w = rs.filter(r => r.m.realized > 0).length, tot = rs.reduce((a, r) => a + r.m.realized, 0); return `<div class="ps-lotline"><b>${escapeHtml(PS_TAGS[tg])}</b>: ${rs.length} closed, ${Math.round(w / rs.length * 100)}% won, ${psFmtYenSigned(tot)} in total, ${psFmtYenSigned(tot / rs.length)} per trade</div>`; }).filter(Boolean).join('');
-  body.innerHTML = sanitizeHtml(`<div class="ps-range">${chips}<span style="flex:1"></span><button type="button" class="ghost" id="psExportTrades">Export</button><button type="button" id="psAddTrade">+ Add trade</button></div>` + summary +
-    (reasons ? `<div class="ps-sigday">By reason</div><div class="ps-lot">${reasons}</div>` : '') +
-    `<div class="ps-sigday">Open positions</div>${openRows || '<div class="ps-note">None open. Add a real purchase, or a paper trade to test an idea with no money at risk.</div>'}` +
-    `<div class="ps-sigday">Closed trades</div>${closedRows || '<div class="ps-note">None yet.</div>'}` +
-    `<div class="ps-note" style="margin-top:12px;">Profit is counted after Mercari's 10% fee, ¥230 shipping and ¥30 packing per sale (editable when you record a sale), plus any extra cost of buying. Open positions are valued at what they would net if sold today. Paper trades use pretend money.</div>`);
-  body.querySelectorAll('[data-ps-lf]').forEach(b => b.addEventListener('click', () => { psLedger.filter = b.getAttribute('data-ps-lf'); psRenderLedger(); }));
-  document.getElementById('psAddTrade').addEventListener('click', () => psOpenTradeForm({}));
-  document.getElementById('psExportTrades').addEventListener('click', () => psExportTrades(shown));
-  body.querySelectorAll('[data-ps-edit]').forEach(b => b.addEventListener('click', () => { const lot = psLedger.lots.find(l => l.id === b.getAttribute('data-ps-edit')); if (lot) psOpenTradeForm({ lot }); }));
-  body.querySelectorAll('[data-ps-mark]').forEach(b => b.addEventListener('click', () => psOpenMarkForm(b.getAttribute('data-ps-mark'))));
-  body.querySelectorAll('[data-ps-saleedit]').forEach(b => b.addEventListener('click', () => { const [id, i] = b.getAttribute('data-ps-saleedit').split(':'); psOpenSellForm(id, Number(i)); }));
-  body.querySelectorAll('[data-ps-saledel]').forEach(b => b.addEventListener('click', () => { const [id, i] = b.getAttribute('data-ps-saledel').split(':'); psConfirmRemoveSale(id, Number(i)); }));
-  body.querySelectorAll('[data-ps-sell]').forEach(b => b.addEventListener('click', () => psOpenSellForm(b.getAttribute('data-ps-sell'))));
-  body.querySelectorAll('[data-ps-lotdel]').forEach(b => b.addEventListener('click', () => psConfirmDeleteLot(b.getAttribute('data-ps-lotdel'))));
-}
-
-
+// Ledger filters, totals, rows and sale actions: src/features/ledger/.
 
 // ---- Trade planner on every card page -----------------------------------------------------------------
 // Same maths as planTrade in pricescry-study.mjs (this is a copy; a test compares them). You supply the chance you think the

@@ -26,7 +26,7 @@ const legacy = {
   renderPodAnalysisResults: (decks: ComparisonDeck[]): { avgSpark: number; spread: number } => {
     decks.sort((a, b) => b.commandSpark - a.commandSpark);
     lastPodDecks = decks;
-    const result = view.show(decks);
+    const result = view.show(lastPodDecks);
     renderMatchLog();
     return result;
   },

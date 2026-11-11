@@ -234,19 +234,19 @@
   color: var(--text-primary);
 }
 .comparison-tier-S {
-  color: var(--gold-bright);
+  color: var(--comparison-tier-s);
 }
 .comparison-tier-A {
-  color: var(--gold);
+  color: var(--comparison-tier-a);
 }
 .comparison-tier-B {
-  color: var(--text-soft);
+  color: var(--comparison-tier-b);
 }
 .comparison-tier-C {
-  color: var(--bronze);
+  color: var(--comparison-tier-c);
 }
 .comparison-tier-D {
-  color: var(--danger);
+  color: var(--comparison-tier-d);
 }
 .comparison-winrate {
   font-size: 11.5px;
@@ -367,6 +367,8 @@
 }
 .comparison-mini-radar {
   max-width: 300px;
+  /* Match the legacy SVG's containing-block height without its invalid height="auto". */
+  height: 100%;
 }
 .comparison-loading {
   text-align: center;

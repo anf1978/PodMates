@@ -18,27 +18,26 @@ const yen = (value: number | null): string =>
   value == null ? "—" : "¥" + Math.round(value).toLocaleString();
 export const note = (text: string): TemplateResult => html`<div class="ps-note">${text}</div>`;
 function sales(lot: Lot, actions: Actions): TemplateResult[] {
-  return (lot.sells || []).map(
-    (s, i) =>
-      html`<div class="ps-lotline ps-sale">
-        ${`Sold ${s.qty} × ¥${Math.round(s.yen).toLocaleString()} on ${s.date}`}
-        <button
-          type="button"
-          class="ps-mini"
-          data-ps-saleedit=${`${lot.id}:${i}`}
-          @click=${() => actions.sell(lot.id, i)}
-        >
-          Edit</button
-        ><button
-          type="button"
-          class="ps-mini"
-          data-ps-saledel=${`${lot.id}:${i}`}
-          @click=${() => actions.removeSale(lot.id, i)}
-        >
-          Remove
-        </button>
-      </div>`,
-  );
+  return (lot.sells || []).map((s, i) => {
+    const text = `Sold ${s.qty} × ¥${Math.round(s.yen).toLocaleString()} on ${s.date} `;
+    return html`<div class="ps-lotline ps-sale">
+      ${text}<button
+        type="button"
+        class="ps-mini"
+        data-ps-saleedit=${`${lot.id}:${i}`}
+        @click=${() => actions.sell(lot.id, i)}
+      >
+        Edit</button
+      ><button
+        type="button"
+        class="ps-mini"
+        data-ps-saledel=${`${lot.id}:${i}`}
+        @click=${() => actions.removeSale(lot.id, i)}
+      >
+        Remove
+      </button>
+    </div>`;
+  });
 }
 function buttons(lot: Lot, open: boolean, a: Actions): TemplateResult {
   return html`<div class="ps-lotbtns">

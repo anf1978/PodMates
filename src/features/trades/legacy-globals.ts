@@ -8,43 +8,43 @@ import {
   confirmDeleteLot,
 } from "./index";
 import { exportTrades } from "./csv";
-import { lotMetrics, toInt, TAGS, type Lot } from "./state";
+import { toInt } from "./state";
 import type { TradesPorts } from "./runtime";
+import { ledgerSnapshot } from "../../services/trade-ledger";
+import { on } from "../../services/events";
 
-declare const psLedger: { lots: Lot[] | null; marks: Record<string, number | null> };
 declare const psCurrentYen: TradesPorts["currentYen"];
 declare const pricescryNameKey: TradesPorts["nameKey"];
 declare const pmWireCardSearch: TradesPorts["wireSearch"];
 declare function psSetTab(tab: string): void;
 
 mount({
-  lots: () => psLedger.lots || [],
-  mark: (id) => psLedger.marks[id],
+  lots: () => ledgerSnapshot.lots || [],
+  mark: (id) => ledgerSnapshot.marks[id],
   currentYen: (card) => psCurrentYen(card),
   nameKey: (card) => pricescryNameKey(card),
   wireSearch: (options) => pmWireCardSearch(options),
   refresh: () => psSetTab("ledger"),
 });
 
+on("trades:purchase", openTradeForm);
+on("trades:mark", openMarkForm);
+on("trades:sell", ({ id, index }) => openSellForm(id, index));
+on("trades:remove-sale", ({ id, index }) => confirmRemoveSale(id, index));
+on("trades:remove-lot", confirmDeleteLot);
+on("trades:export", exportTrades);
+
 const legacy = {
-  // TODO(p3-6): card detail, planner and Ledger still open purchase dialogs.
+  // TODO(p3-6): inline PriceScry card detail/planner still open purchase dialogs.
   psOpenTradeForm: openTradeForm,
-  // TODO(p3-6): Ledger still opens its price-check action.
+  // TODO(p3-6): the existing offline browser flow still opens the price-check action.
   psOpenMarkForm: openMarkForm,
-  // TODO(p3-6): Ledger still opens sale/edit actions.
+  // TODO(p3-6): the existing offline browser flow still opens the sale action.
   psOpenSellForm: openSellForm,
-  // TODO(p3-6): Ledger still owns sale removal buttons.
-  psConfirmRemoveSale: confirmRemoveSale,
-  // TODO(p3-6): Ledger still owns lot deletion buttons.
+  // TODO(p3-6): the existing offline browser flow still opens the delete confirmation.
   psConfirmDeleteLot: confirmDeleteLot,
-  // TODO(p3-6): Ledger still owns its CSV export button.
-  psExportTrades: exportTrades,
-  // TODO(p3-6): Ledger stats still use lot accounting.
-  psLotMetrics: lotMetrics,
   // TODO(p3-6): the inline planner still parses yen inputs.
   psToInt: toInt,
-  // TODO(p3-6): Ledger rows and reason statistics still use these labels.
-  PS_TAGS: TAGS,
 };
 type TradesLegacy = typeof legacy;
 declare global {

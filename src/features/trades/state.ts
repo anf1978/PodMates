@@ -1,11 +1,9 @@
 // Pure lot accounting and form transitions; Firestore field names stay unchanged.
 import { PM_LIMITS as L } from "../../services/cloud/limits";
-import type { TradeDoc, TradeSale, WithId } from "../../services/cloud/types";
-
-export type Lot = WithId<TradeDoc>;
-// Mercari defaults; keep in step with japanCostModel in pipelines/lib/pricescry-lib.mjs.
-export const COSTS = { feePct: 10, shipYen: 230, packYen: 30 };
-export const TAGS = { riser: "Riser pick", spoiler: "Spoiler play", other: "Other", "": "No tag" };
+import type { TradeDoc, TradeSale } from "../../services/cloud/types";
+import type { Lot } from "../../services/trade-ledger";
+export { COSTS, TAGS, lotMetrics, sellNet, signedYen } from "../../services/trade-ledger";
+export type { Lot };
 
 export interface TradeOptions {
   lot?: Lot;
@@ -113,51 +111,4 @@ export function withSale(lot: Lot, sale: TradeSale, editIdx?: number): Lot {
         ? lot.sells.map((s, i) => (i === editIdx ? sale : s))
         : [...(lot.sells || []), sale],
   };
-}
-
-export function sellNet(s: Pick<TradeSale, "qty" | "yen"> & Partial<TradeSale>): number {
-  const gross = s.qty * s.yen;
-  const fee = Math.floor((gross * (s.feePct ?? COSTS.feePct)) / 100);
-  return gross - fee - (s.shipYen ?? COSTS.shipYen) - (s.packYen ?? COSTS.packYen);
-}
-
-export function lotMetrics(lot: TradeDoc, markYen: number | null) {
-  const basisPer = lot.buyYen + (lot.buyExtraYen || 0) / lot.qty;
-  const sells = lot.sells || [];
-  const sold = sells.reduce((a, s) => a + s.qty, 0),
-    openQty = lot.qty - sold;
-  const realized = sells.reduce((a, s) => a + sellNet(s) - s.qty * basisPer, 0);
-  let net: number | null = null,
-    unreal: number | null = null;
-  if (openQty > 0 && markYen != null) {
-    net = sellNet({ qty: openQty, yen: markYen });
-    unreal = net - openQty * basisPer;
-  }
-  const lastSell =
-    sells
-      .map((s) => s.date)
-      .sort()
-      .pop() || null;
-  return {
-    basisPer,
-    sold,
-    openQty,
-    realized,
-    soldCost: sold * basisPer,
-    closed: openQty === 0 && sold > 0,
-    net,
-    unreal,
-    openCost: openQty * basisPer,
-    lastSell,
-    days: lastSell
-      ? Math.max(
-          0,
-          Math.round((new Date(lastSell).getTime() - new Date(lot.buyDate).getTime()) / 86400000),
-        )
-      : null,
-  };
-}
-
-export function signedYen(v: number): string {
-  return (v > 0 ? "+" : v < 0 ? "−" : "") + "¥" + Math.abs(Math.round(v)).toLocaleString("en-US");
 }

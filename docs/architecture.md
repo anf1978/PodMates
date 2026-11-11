@@ -6,7 +6,7 @@ are in [CLAUDE.md](../CLAUDE.md); domain terms in the [glossary](glossary.md).
 
 ## Big picture
 
-PodMates is a static Vite site. `index.html` is still about 8,000 lines: static markup, the main
+PodMates is a static Vite site. `index.html` is still about 7,100 lines: static markup, the main
 CSS and the inline legacy scripts (theme, card-DB start-up and the app script with every unmoved feature).
 Typed code lives in `src/`, and the inline scripts reach it in two ways:
 
@@ -374,10 +374,12 @@ is in `trades.css`. The pure state helpers retain yen rounding, the sold-quantit
 fees/shipping, cost basis and partial/closed-position accounting. Repository writes import
 `services/cloud/trades` directly without changing `users/{uid}/trades` fields or paths.
 
-The temporary adapter supplies the inline Ledger's current lots/marks, PriceScry price/name lookup,
-Ledger refresh and the shared ranked picker. It republishes only action/accounting names still
-called inline; unused CSV/sale-net helpers no longer become globals. Ledger rendering, filtering
-and statistics remain for R11; the planner and price lookup remain for R13. Async lookup/save
+The temporary adapter supplies PriceScry price/name lookup, Ledger refresh and the shared ranked
+picker. Ledger requests trade actions through typed `trades:*` events, never another feature's
+imports or globals. `services/trade-ledger.ts` owns the shared accounting and current lot/mark
+snapshot; `trades/state.ts` re-exports its existing API for the dialogs. Only inline PriceScry
+purchase/yen-parser names and existing browser-flow entry points remain global. The planner and
+price lookup remain for R13. Async lookup/save
 completions cannot alter or dismiss a replacement dialog, and write errors report through the
 redacted sink while preserving the original form/toast messages. Repository-mocked tests cover
 purchase/edit, sale/edit/removal, mark removal, deletion, failure/retry and stale completions.
@@ -396,6 +398,28 @@ events, not cross-feature imports. `window.pmNotif` and the last `openPodDetailO
 Storage and feed failures report through the redacted sink while remaining non-blocking.
 Repository-mocked tests cover authenticated badges, seen state, settings, routing, account isolation and
 teardown; offline Chromium covers the real dialog/settings/Escape lifecycle without cloud writes.
+
+`ledger` owns the PriceScry Ledger tab: All/Real/Paper filters, realised and unrealised totals,
+closed-trade expectancy/reason summaries, open/closed positions and sale/action buttons.
+It reads `cloud/session` and `cloud/trades` directly. Its PriceScry adapter supplies current yen
+pricing and clears the card-detail state on entry; pricing/consensus remain with PriceScry until R13.
+An owned display-contents root prevents a delayed repository/price response from replacing another tab.
+Generation/account checks also prevent publishing stale lots or marks into the shared snapshot.
+Tests cover partial-sale accounting, missing prices, filter/export/edit wiring, escaping, signed-out
+and repository-error states, account changes and tab replacement.
+
+`comparison` mounts the battle-result shell and owns Rule Zero, alignment, mismatches and optional
+nudges, seat rankings, axis tables, pace/interaction risks, mini radars and lazy deck-detail dialogs.
+`services/deck-analysis.ts` holds the unchanged decklist-to-analysis pipeline shared with profiles
+and saved-deck tables; it takes engine context, lookup indexes and commander detection explicitly.
+The adapter retains existing analysis/seat-colour/result names for those unmoved callers and supplies
+the current battle decks, journal refresh and lazy analysis datasets. Templates auto-escape text;
+fixed tier colours are tokens and only dynamic seat colours remain inline styles. SVG templates
+retain the original geometry, including the mini radar's containing-block height, without the
+invalid legacy `height="auto"` attribute. Dismissed/replaced details ignore late dataset completions.
+Offline Chromium exercises the real six-deck sample renderer, all panels, deck detail and mode
+restoration; Ledger's real tab/sign-in/reopen flow runs without authenticated RPCs. Authenticated
+Ledger behavior is repository-mocked in unit tests, not a live-account browser test.
 
 ## Lint-enforced boundaries
 
@@ -438,6 +462,6 @@ ESLint does not inspect the inline scripts in `index.html`. TypeScript is strict
 
 Phase 3's exit criteria (no source file over ~500 lines, no globals, every `innerHTML` replaced) are not met
 while the inline app script exists. The remaining p3-5 feature moves (rest of Deck Chart,
-ledger/comparison, themes, PriceScry) each delete inline code and the shim names it used. When the last caller of a
+themes, PriceScry) each delete inline code and the shim names it used. When the last caller of a
 shim name goes, delete the name; when the inline scripts are gone, `index.html` becomes static markup plus the
 `src/main.ts` tag, and `main.ts` boots theme → card DB (worker) → cloud → UI directly.
