@@ -11,6 +11,9 @@ export function showToast(message: string, durationMs = 6000): void {
     toast = document.createElement("div");
     toast.id = TOAST_ID;
     toast.className = "pm-toast";
+    toast.setAttribute("role", "status");
+    toast.setAttribute("aria-live", "polite");
+    toast.setAttribute("aria-atomic", "true");
     document.body.appendChild(toast);
   }
   const el = toast;

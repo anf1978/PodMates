@@ -37,7 +37,7 @@ flowchart TB
 ### Build
 
 `vite.config.js`'s `preserve-legacy-html` plugin keeps `index.html`'s inline scripts and artwork unchanged.
-It builds five entries (`main`, `datasets`, `cardDb`, `cardsLegacy`, `engineLegacy`), substitutes each
+It builds six entries (`main`, `datasets`, `cardDb`, `cardsLegacy`, `engineLegacy`, `scryfall`), substitutes each
 `./src/…` URL in the HTML with its hashed chunk, and emits the linked stylesheets as hashed assets. Rollup
 keeps one module instance across chunks, so a shim imported both by `main.ts` and by an inline `import()` runs
 once. A missing loader entry fails the build. See [deploy.md](deploy.md) for Pages deployment.
@@ -51,6 +51,40 @@ Offline DB boot uses the existing main-thread codec because its web worker is de
 Only previously requested lazy datasets are available offline. See [recovery and budget](deploy.md#emergency-kill-switch);
 the current card payload alone exceeds the plan's 1.5 MB target, so the documented interim CI ratchet is
 750 KB code / 3.5 MB including boot data, not a claim that §10 is met.
+
+### Accessibility
+
+`tests/e2e/accessibility.spec.ts` runs axe on the deck form, Try-a-Deck home/archetype list, chart
+(with result disclosures expanded), info dialog, sign-up and log-in. Full axe results are attached to the
+Playwright report. Serious/critical findings fail e2e, with one design-deferred exception below.
+No authenticated pod view is covered by the offline suite; this is not a full-app accessibility audit.
+
+The shared modal derives its accessible name from the current heading unless an explicit label was supplied.
+Replacing legacy dialog content updates that name and restores focus inside if the focused control was removed.
+Existing Escape, Tab trap, close and focus-return behavior remains covered. Auth inputs now have explicit
+accessible names and autocomplete hints; toasts use a polite live region.
+
+**Design-deferred:** teal `comboTag(..., 'warp')` badges have hardcoded `#06201f` text on `#3d8f8a`
+(4.45:1 at 10px bold, required 4.5:1). These colours are not theme tokens; changing them would be a visual
+design decision outside this pass. The test only waives `color-contrast` nodes marked
+`data-contrast-review="combo-warp"` with that exact colour pair and ratio; all other rules on those nodes
+still fail. The unfiltered findings remain in the report. Remove the marker and waiver once design approves
+an accessible colour pairing. Other themes and signed-in pod flows need a later audit.
+
+### Error reporting
+
+`src/services/report-error.ts` owns the consistent redacted console line and the single future remote-reporter
+extension point. Only a fixed operation, safe error category and severity reach the sink, never raw messages,
+stacks, deck links, document paths or credentials. User-triggered failures also show a generic plain-text toast.
+Reporting preserves rejection objects and the existing result shapes; an error crossing several boundaries is
+deduplicated. `src/main.ts` installs `error` and `unhandledrejection` listeners once without suppressing browser
+defaults. Background/best-effort cloud failures remain non-blocking but no longer disappear silently.
+Optional offline-cache registration failures remain warnings so online use is unaffected.
+
+`src/services/scryfall.ts` handles JSON/network/HTTP failures for the inline art and spoiler requests via
+a build-substituted dynamic import. Expected no-match 404s remain normal results for named/search lookups;
+other failures report before the existing fallback UI runs. Card-DB worker errors report on the main thread
+and still reject into the boot error UI.
 
 The build also emits the locked DOMPurify browser bundle as a same-origin asset. It loads synchronously
 before the legacy inline scripts, because some render during parsing, before module initialization.
@@ -114,6 +148,8 @@ preserves card identity. The `CARD_DB`, `CARD_DB_COMPRESSED_B64`, `indexes`, `bu
 on the main thread; without a main-thread `DecompressionStream` the existing unsupported-browser error shows.
 Real fetch/decode/index progress advances the bar and resets a 30-second stall deadline; there is no total-load
 timeout. Worker errors and stalls terminate the worker and use the boot error UI.
+`load-db.ts` alone may import `services/report-error` to report that failure boundary; the worker, codec
+and engine-facing card modules keep their existing service-free import restrictions.
 
 ### Data (`src/data`, `public/data`)
 

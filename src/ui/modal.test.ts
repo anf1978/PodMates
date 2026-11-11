@@ -22,6 +22,34 @@ afterEach(() => {
 });
 
 describe("openModal", () => {
+  it("labels legacy dialogs from their heading and keeps focus inside after navigation", async () => {
+    const modal = openModal();
+    const heading = document.createElement("h2");
+    heading.textContent = "Try a Deck";
+    modal.dialog.appendChild(heading);
+    await Promise.resolve();
+    expect(modal.dialog.getAttribute("aria-labelledby")).toBe(heading.id);
+    expect(heading.id).not.toBe("");
+
+    button("Browse", modal.dialog).focus();
+    const replacement = document.createElement("h2");
+    replacement.textContent = "By Archetype";
+    modal.dialog.replaceChildren(replacement);
+    await Promise.resolve();
+    expect(modal.dialog.getAttribute("aria-labelledby")).toBe(replacement.id);
+    expect(document.activeElement).toBe(modal.dialog);
+  });
+
+  it("keeps an explicit label instead of deriving one from content", async () => {
+    const modal = openModal({ label: "Card art" });
+    const heading = document.createElement("h2");
+    heading.textContent = "Sol Ring";
+    modal.dialog.appendChild(heading);
+    await Promise.resolve();
+    expect(modal.dialog.getAttribute("aria-label")).toBe("Card art");
+    expect(modal.dialog.hasAttribute("aria-labelledby")).toBe(false);
+  });
+
   it("builds the shared overlay markup and moves focus into the dialog", () => {
     const opener = button("Open");
     opener.focus();

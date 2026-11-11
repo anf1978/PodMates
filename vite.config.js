@@ -36,6 +36,7 @@ export default defineConfig({
           ["cardDb", "./src/cards/load-db.ts"],
           ["cardsLegacy", "./src/cards/legacy-globals.ts"],
           ["engineLegacy", "./src/engine/legacy-globals.ts"],
+          ["scryfall", "./src/services/scryfall.ts"],
         ]) {
           const loader = Object.values(bundle).find(
             (output) => output.type === "chunk" && output.isEntry && output.name === name,
@@ -123,6 +124,7 @@ export default defineConfig({
         cardDb: fileURLToPath(new URL("./src/cards/load-db.ts", import.meta.url)),
         cardsLegacy: fileURLToPath(new URL("./src/cards/legacy-globals.ts", import.meta.url)),
         engineLegacy: fileURLToPath(new URL("./src/engine/legacy-globals.ts", import.meta.url)),
+        scryfall: fileURLToPath(new URL("./src/services/scryfall.ts", import.meta.url)),
       },
       preserveEntrySignatures: "strict",
     },

@@ -2207,6 +2207,10 @@ function safeHttpUrl(raw) {
 // stale cached URL would be a worse outcome than just asking again.
 const cardImageCache = new Map();
 
+async function fetchScryfallJson(url, init, options) {
+  return (await import('./src/services/scryfall.ts')).fetchScryfallJson(url, init, options);
+}
+
 function normalizeCardNameForLookup(name) {
   return (name || '').trim().toLowerCase();
 }
@@ -2255,15 +2259,13 @@ function flipBtnHtml(otherUrl, big) {
     ? `<div style="margin-top:10px;"><button type="button" class="ghost" data-flip-btn data-alt="${escapeHtml(otherUrl)}">Flip card \u27F2</button></div>`
     : `<button type="button" data-flip-btn data-alt="${escapeHtml(otherUrl)}" aria-label="Flip card" title="Flip card" style="position:absolute; bottom:4px; left:4px; background:rgba(15,12,10,0.88); color:var(--gold-bright); border:1px solid var(--gold); border-radius:12px; font-size:13px; line-height:1; padding:4px 8px; cursor:pointer;">\u27F2</button>`;
 }
-async function fetchCardImageUrl(cardName, size) {
+async function fetchCardImageUrl(cardName, size, userTriggered = false) {
   size = size || 'normal'; // small | normal | large | art_crop | png
   const cacheKey = cardName + '|' + size;
   if (cardImageCache.has(cacheKey)) return cardImageCache.get(cacheKey);
 
   async function lookup(name) {
-    const res = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`);
-    if (!res.ok) return null;
-    return res.json();
+    return fetchScryfallJson(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`, undefined, { allowNotFound: true, userTriggered });
   }
 
   try {
@@ -2375,13 +2377,11 @@ async function fetchCardImagesBatch(cardNames, size) {
     const failed = [];
     await Promise.all(chunks.map(async (chunk) => {
       try {
-        const res = await fetch('https://api.scryfall.com/cards/collection', {
+        const data = await fetchScryfallJson('https://api.scryfall.com/cards/collection', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ identifiers: chunk.map(name => ({ name })) }),
-        });
-        if (!res.ok) { failed.push(...chunk); return; }
-        const data = await res.json();
+        }, { userTriggered: true });
         const results = data.data || [];
         chunk.forEach(reqName => {
           const reqLower = normalizeCardNameForLookup(reqName);
@@ -4282,7 +4282,7 @@ function comboChips(names, cmdrs, missing) {
 }
 function comboTag(text, kind) {
   const col = kind === 'win' ? 'background:var(--gold); color:#1a1208;' : kind === 'warp' ? 'background:#3d8f8a; color:#06201f;' : 'background:transparent; border:1px solid var(--line-strong); color:var(--text-soft);';
-  return `<span style="display:inline-block; ${col} font-size:10px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; border-radius:5px; padding:1px 6px; margin-right:5px;">${text}</span>`;
+  return `<span${kind === 'warp' ? ' data-contrast-review="combo-warp"' : ''} style="display:inline-block; ${col} font-size:10px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; border-radius:5px; padding:1px 6px; margin-right:5px;">${text}</span>`;
 }
 function comboDetailsBlock(cards, outcome, win, cmdrs, extra) {
   const steps = comboStepsFor(cards);
@@ -4997,13 +4997,13 @@ function renderAuthModal(modal, errorMsg) {
     ${errorMsg ? `<div class="status err" style="margin-bottom:12px;">${escapeHtml(errorMsg)}</div>` : ''}
     <div id="authFormFields">
       ${isSignup ? `<div class="row" style="margin-bottom:10px;">
-        <input id="authDisplayName" type="text" placeholder="Display name (e.g. Alex)" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
+        <input id="authDisplayName" type="text" aria-label="Display name" autocomplete="nickname" placeholder="Display name (e.g. Alex)" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
       </div>` : ''}
       <div class="row" style="margin-bottom:10px;">
-        <input id="authEmail" type="email" placeholder="Email" value="${escapeHtml(prefillEmail)}" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
+        <input id="authEmail" type="email" aria-label="Email" autocomplete="email" placeholder="Email" value="${escapeHtml(prefillEmail)}" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
       </div>
       <div class="row" style="margin-bottom:6px;">
-        <input id="authPassword" type="password" placeholder="Password" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
+        <input id="authPassword" type="password" aria-label="Password" autocomplete="${isSignup ? 'new-password' : 'current-password'}" placeholder="Password" style="flex:1; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px;">
       </div>
       ${!isSignup ? `<div style="text-align:right; margin-bottom:6px;"><a href="#" id="authForgotLink" style="font-size:12px; color:var(--gold); text-decoration:none;">Forgot password?</a></div>
       <div style="font-size:11.5px; color:var(--text-soft); line-height:1.5; margin-bottom:10px;">${rememberedEmail ? `Last signed in on this browser: <strong>${escapeHtml(rememberedEmail)}</strong> (${rememberedVia}). ` : ''}Not sure which email you used? Try "Continue with Google" below, or enter each address you might have used and click "Forgot password?". After you sign in, <em>My Profile</em> shows the email on your account.</div>` : '<div style="margin-bottom:10px;"></div>'}
@@ -5741,10 +5741,8 @@ async function sbFetchScryfallSpoilers() {
   let url = `https://api.scryfall.com/cards/search?q=${encodeURIComponent(q)}&order=spoiled&dir=desc&unique=cards`;
   const out = [], seen = new Set();
   for (let page = 0; page < 3 && url; page++) {
-    const res = await fetch(url);
-    if (res.status === 404) break;   // Scryfall answers 404 when nothing matches
-    if (!res.ok) throw new Error('Scryfall answered ' + res.status);
-    const j = await res.json();
+    const j = await fetchScryfallJson(url, undefined, { allowNotFound: true, userTriggered: true });
+    if (!j) break;   // Scryfall answers 404 when nothing matches
     for (const c of (j.data || [])) {
       const when = (c.preview && c.preview.previewed_at) || '';
       const fresh = when ? when >= since : (c.released_at || '') >= since;
@@ -5779,9 +5777,8 @@ async function sbEnrichRarity(cards) {
   try {
     for (let i = 0; i < need.length; i += 75) {
       const chunk = need.slice(i, i + 75);
-      const res = await fetch('https://api.scryfall.com/cards/collection', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifiers: chunk.map(c => ({ name: c.n })) }) });
-      if (!res.ok) return;
-      const j = await res.json(); const by = new Map((j.data || []).map(d => [String(d.name).toLowerCase(), d.rarity]));
+      const j = await fetchScryfallJson('https://api.scryfall.com/cards/collection', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifiers: chunk.map(c => ({ name: c.n })) }) });
+      const by = new Map((j.data || []).map(d => [String(d.name).toLowerCase(), d.rarity]));
       chunk.forEach(c => { const r = by.get(c.n.toLowerCase()) || by.get(String(c.n).split(' // ')[0].toLowerCase()); if (r) c.rarity = r; });
     }
   } catch (e) { /* no rarity: the filter simply stays hidden */ }
@@ -8671,7 +8668,7 @@ async function showSingleCardArtModal(name) {
   const closeArt = () => window.pmUi.closeModal(document.getElementById('tadArtOverlay'));
   document.getElementById('tadArtCloseBtn').addEventListener('click', closeArt);
 
-  const url = await fetchCardImageUrl(name, 'normal');
+  const url = await fetchCardImageUrl(name, 'normal', true);
   const artArea = document.getElementById('singleCardArtArea');
   if (!artArea) return; // popup was already closed before the fetch resolved
   if (!url) { artArea.textContent = 'Could not find art for this card.'; return; }

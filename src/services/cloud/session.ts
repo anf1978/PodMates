@@ -2,6 +2,7 @@
 // account, so there is no automatic anonymous sign-in on load. A visitor who hasn't signed up has
 // no Firebase user at all; the current user stays null until they do.
 import { auth, onAuthStateChanged, type User } from "./firebase";
+import { reportError } from "../report-error";
 
 export interface CloudUserSummary {
   uid: string;
@@ -37,7 +38,7 @@ onAuthStateChanged(auth, (user) => {
       try {
         cb();
       } catch (e) {
-        console.error(e);
+        reportError(e, { operation: "cloud" });
       }
     });
   }
@@ -45,7 +46,7 @@ onAuthStateChanged(auth, (user) => {
     try {
       cb(describeUser(user));
     } catch (e) {
-      console.error(e);
+      reportError(e, { operation: "cloud" });
     }
   });
 });

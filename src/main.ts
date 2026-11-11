@@ -14,3 +14,6 @@ import "./engine/legacy-globals.ts";
 import "./services/cloud/limits-global.ts";
 // Publishes window.PodmatesCloud, then dispatches "podmates-cloud-init".
 import "./services/cloud/index.ts";
+import { installGlobalErrorHandlers } from "./services/report-error";
+
+installGlobalErrorHandlers();

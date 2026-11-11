@@ -39,6 +39,9 @@ CI runs `check` + e2e + rules tests on every PR (including stacked bases) and `m
 - `src/cards/` — card tuples (`tuple.ts`), DB worker + codec, lookup, decklist parser.
 - `src/data/` — curated tables (`combos.ts`, `game-changers.ts`, …) and the dataset loader (`load-dataset.ts`).
 - `src/services/cloud/` — the **only** place that talks to Firebase; one repository per Firestore area.
+- `src/services/report-error.ts` — central redacted error sink, user-action toast and global error listeners.
+  Use `reportError(error, { operation, userTriggered })`; preserve rejection/return contracts.
+- `src/services/scryfall.ts` — shared Scryfall JSON requests, including the legacy inline callers.
 - `src/services/pwa.ts` — bounded initial SW registration and opt-in update prompt; Workbox config lives in
   `vite.config.js`. `scripts/sw-kill-switch.js` is the documented emergency replacement, not a normal asset.
 - `src/ui/` — shared primitives: `html.ts` (lit-html), modal, toast, status, tooltip, tabs, radar, mana symbols.
@@ -52,6 +55,10 @@ CI runs `check` + e2e + rules tests on every PR (including stacked bases) and `m
 - `.github/scripts/` — Node data pipelines run by Actions (move to `pipelines/` in p5-1).
 - `firebase/` — unchanged Firestore rules, emulator-only config and rules tests; read `firebase/CLAUDE.md`.
 - `tests/golden/` (engine snapshots) · `tests/e2e/` (Playwright) · `scripts/` (extraction/manifest tools).
+
+`tests/e2e/accessibility.spec.ts` enforces axe serious/critical findings on the deck form, Try-a-Deck,
+expanded chart panels, info dialog and account screens. The one exact contrast deferral is documented in
+`docs/architecture.md`; do not disable contrast globally or broaden it to new nodes/colours.
 
 ## Rules
 

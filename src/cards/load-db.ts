@@ -1,4 +1,5 @@
 import { datasetUrl, loadDataset } from "../data/load-dataset";
+import { reportError } from "../services/report-error";
 import { decodeCardDatabase } from "./db-codec.js";
 import { buildLookupIndexes } from "./lookup.ts";
 import type { Card, WorkerMessage } from "./db.worker";
@@ -26,6 +27,7 @@ export function loadCardDatabase(report: Progress): Promise<Database> {
       if (settled) return;
       settled = true;
       cleanup();
+      reportError(error, { operation: "card-database" });
       reject(error);
     };
     const progress: Progress = (message, percent) => {

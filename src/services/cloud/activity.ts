@@ -15,6 +15,7 @@ import { getCurrentUser } from "./session";
 import { actorName, clampText } from "./shared";
 import type { ActivityDoc, ActivityOptions, WithId } from "./types";
 import { loadUserDoc } from "./users";
+import { reportError } from "../report-error";
 
 export type ActivityItem = WithId<ActivityDoc> & { podId: string };
 
@@ -24,7 +25,8 @@ async function activityPodIds(uid: string): Promise<string[]> {
   try {
     const user = await loadUserDoc(uid);
     return user ? (user.podIds || []).slice(0, 40) : [];
-  } catch {
+  } catch (err) {
+    reportError(err, { operation: "cloud" });
     return [];
   }
 }
@@ -63,9 +65,12 @@ export async function logActivity(
     for (const podId of podIds) {
       const data = activityRecord(type, subject, o.ref, o.to);
       if (!data) return;
-      await setDoc(doc(activityCol(podId)), data).catch(() => {});
+      await setDoc(doc(activityCol(podId)), data).catch((err: unknown) =>
+        reportError(err, { operation: "cloud" }),
+      );
     }
-  } catch {
+  } catch (err) {
+    reportError(err, { operation: "cloud" });
     // best effort
   }
 }
@@ -80,7 +85,10 @@ export function watchActivity(podId: string, cb: (items: ActivityItem[]) => void
       snap.forEach((d) => out.push({ id: d.id, podId, ...(d.data() as ActivityDoc) }));
       cb(out);
     },
-    () => cb([]),
+    (err) => {
+      reportError(err, { operation: "cloud" });
+      cb([]);
+    },
   );
 }
 
@@ -99,7 +107,8 @@ export async function notify(
     if (!data) return false;
     await setDoc(doc(activityCol(podId)), data);
     return true;
-  } catch {
+  } catch (err) {
+    reportError(err, { operation: "cloud", userTriggered: true });
     return false;
   }
 }

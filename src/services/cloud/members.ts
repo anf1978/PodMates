@@ -3,6 +3,7 @@ import { collection, db, doc, getDocs } from "./firebase";
 import { requireUser } from "./session";
 import { capCheckTimeout, nameKey } from "./shared";
 import type { MemberDoc, PodMember } from "./types";
+import { reportError } from "../report-error";
 
 export const membersCol = (podId: string) => collection(db, "pods", podId, "members");
 export const memberRef = (podId: string, uid: string) => doc(db, "pods", podId, "members", uid);
@@ -27,7 +28,7 @@ export async function findNameConflict(
     });
     return hit;
   } catch (e) {
-    console.warn("Name check skipped:", (e as Error).message);
+    reportError(e, { operation: "cloud" });
     return null;
   }
 }

@@ -3,6 +3,7 @@
 // different seats at once can never wipe out each other's seat. (A merge set does NOT interpret
 // dotted keys as field paths -- it would create a stray top-level "seats.1" field.)
 // Statuses: proposed (waiting for replies) -> live -> ended, or proposed -> cancelled.
+import { reportError } from "../report-error";
 import {
   collection,
   db,
@@ -136,6 +137,7 @@ export function watchGathering(
         snap.metadata,
       ),
     (err) => {
+      reportError(err, { operation: "cloud" });
       if (onError) onError(err);
     },
   );
@@ -154,6 +156,7 @@ function watchList(
       onData(out);
     },
     (err) => {
+      reportError(err, { operation: "cloud" });
       if (onError) onError(err);
     },
   );
@@ -278,7 +281,7 @@ export async function goLiveGathering(podId: string, gatheringId: string): Promi
         ref: gatheringId,
       }),
     )
-    .catch(() => {});
+    .catch((err: unknown) => reportError(err, { operation: "cloud" }));
 }
 
 export async function endGathering(podId: string, gatheringId: string): Promise<void> {

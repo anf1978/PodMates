@@ -5,6 +5,7 @@ import { loadPodMembers } from "./members";
 import { requireUser } from "./session";
 import { safeDocId } from "./shared";
 import type { SpoilerVoteDoc } from "./types";
+import { reportError } from "../report-error";
 
 export const spoilerVotesCol = (uid: string) => collection(db, "users", uid, "spoilerVotes");
 const spoilerVoteRef = (uid: string, key: string) =>
@@ -42,6 +43,7 @@ export async function loadSpoilerVotes(uid: string): Promise<SpoilerVoteDoc[]> {
       .filter((v) => v && v.key && (v.vote === "like" || v.vote === "pass"));
   } catch (e) {
     if (uid === user.uid) throw e;
+    reportError(e, { operation: "cloud" });
     return []; // a podmate we cannot read just shows as empty
   }
 }

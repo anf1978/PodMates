@@ -1,6 +1,7 @@
 // pods/{podId}. Membership is tracked only on the pod document (memberIds, queried with
 // array-contains): a user can only write their own users/{uid} document, so a leader removing
 // someone could never update that person's doc. The pod document is the single source of truth.
+import { reportError } from "../report-error";
 import {
   arrayRemove,
   arrayUnion,
@@ -135,7 +136,7 @@ export async function loadMyPods(): Promise<Array<WithId<PodDoc>>> {
   setMyPodIds(
     user.uid,
     pods.map((p) => p.id),
-  ).catch(() => {});
+  ).catch((err: unknown) => reportError(err, { operation: "cloud" }));
   return pods;
 }
 

@@ -51,6 +51,7 @@ interface Entry {
   /** Where focus returns, nearest first: the opener, then whatever its own layer would restore. */
   restoreChain: HTMLElement[];
   open: boolean;
+  contentObserver?: MutationObserver;
 }
 
 interface ScrollLock {
@@ -76,6 +77,7 @@ const stack: Entry[] = [];
 const observedParents = new WeakSet<Node>();
 const listeningDocuments = new WeakSet<Document>();
 let scrollLock: ScrollLock | null = null;
+let headingId = 0;
 
 /** Opens a layer on top of any already open, and returns its handle. */
 export function openModal(options: ModalOptions = {}): ModalHandle {
@@ -138,6 +140,28 @@ export function openModal(options: ModalOptions = {}): ModalHandle {
 
   stack.push(entry);
   parent.appendChild(overlay);
+  if (role) {
+    entry.contentObserver = new MutationObserver(() => {
+      if (!entry.open) return;
+      if (!options.label) {
+        const heading = dialog.querySelector("h1,h2,h3,h4,h5,h6");
+        if (heading) {
+          if (!heading.id) {
+            do {
+              headingId += 1;
+            } while (doc.getElementById(`pm-dialog-heading-${headingId}`));
+            heading.id = `pm-dialog-heading-${headingId}`;
+          }
+          dialog.setAttribute("aria-labelledby", heading.id);
+        } else {
+          dialog.removeAttribute("aria-labelledby");
+        }
+      }
+      // Legacy navigation replaces the focused control along with the dialog's contents.
+      if (!doc.activeElement || doc.activeElement === doc.body) focusInto(dialog);
+    });
+    entry.contentObserver.observe(dialog, { childList: true, subtree: true });
+  }
   updateScrollLock(doc);
   focusInto(dialog);
   return entry.handle;
@@ -165,6 +189,7 @@ export function closeAllModals(): void {
 function finish(entry: Entry) {
   if (!entry.open) return;
   entry.open = false;
+  entry.contentObserver?.disconnect();
   const index = stack.indexOf(entry);
   if (index >= 0) stack.splice(index, 1);
   const doc = entry.handle.overlay.ownerDocument;

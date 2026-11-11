@@ -6,6 +6,7 @@ import { findNameConflict, memberRef } from "./members";
 import { loadMyPods } from "./pods";
 import { requireUser } from "./session";
 import type { PodDoc, WithId } from "./types";
+import { reportError } from "../report-error";
 
 export async function updateMyDisplayName(name: string | null | undefined): Promise<void> {
   const user = requireUser();
@@ -16,7 +17,8 @@ export async function updateMyDisplayName(name: string | null | undefined): Prom
   let pods: Array<WithId<PodDoc>> = [];
   try {
     pods = await loadMyPods();
-  } catch {
+  } catch (err) {
+    reportError(err, { operation: "cloud" });
     // the name is still checked against whichever pods did load
   }
   // Refuse the new name if a member of any of my pods already has it -- BEFORE anything is
@@ -39,7 +41,9 @@ export async function updateMyDisplayName(name: string | null | undefined): Prom
   await updateProfile(user, { displayName: trimmed });
   await Promise.all(
     pods.map((p) =>
-      setDoc(memberRef(p.id, user.uid), { displayName: trimmed }, { merge: true }).catch(() => {}),
+      setDoc(memberRef(p.id, user.uid), { displayName: trimmed }, { merge: true }).catch(
+        (err: unknown) => reportError(err, { operation: "cloud" }),
+      ),
     ),
   );
 }

@@ -16,6 +16,7 @@ import { PM_LIMITS } from "./limits";
 import { requireUser } from "./session";
 import { countDocs, deckListProblem, docExistsSafe, requireText, safeDocId } from "./shared";
 import type { DeckDoc, DeckInput, PodmateDeck, SavedDeck } from "./types";
+import { reportError } from "../report-error";
 
 export const decksCol = (uid: string) => collection(db, "users", uid, "decks");
 export const deckRef = (uid: string, id: string) => doc(db, "users", uid, "decks", id);
@@ -84,18 +85,25 @@ export async function deleteDeck(key: string, docIdOverride?: string): Promise<b
     let snap = null;
     try {
       snap = await getDoc(ref);
-    } catch {
+    } catch (err) {
+      reportError(err, { operation: "cloud" });
       snap = null;
     }
     if (snap && snap.exists()) {
       await deleteDoc(ref);
       found = true;
-      const again = await getDoc(ref).catch(() => null);
+      const again = await getDoc(ref).catch((err: unknown) => {
+        reportError(err, { operation: "cloud" });
+        return null;
+      });
       if (again && again.exists())
         throw new Error("The deck could not be deleted. Please try again.");
     }
   }
-  if (!found && ids.length) await deleteDoc(deckRef(user.uid, ids[0])).catch(() => {});
+  if (!found && ids.length)
+    await deleteDoc(deckRef(user.uid, ids[0])).catch((err: unknown) =>
+      reportError(err, { operation: "cloud" }),
+    );
   return found;
 }
 
@@ -118,7 +126,9 @@ export async function loadAllDecks(): Promise<Record<string, SavedDeck>> {
     // `where('secret', '==', false)` query can never match. Backfill it the next time its OWNER
     // views their own decks (always a legal self-write).
     if (d.secret === undefined) {
-      setDoc(docSnap.ref, { secret: false }, { merge: true }).catch(() => {});
+      setDoc(docSnap.ref, { secret: false }, { merge: true }).catch((err: unknown) =>
+        reportError(err, { operation: "cloud" }),
+      );
     }
   });
   return out;
@@ -130,7 +140,8 @@ export async function loadPodmateDecks(uid: string): Promise<Record<string, Podm
   requireUser();
   try {
     return await loadPodmateDecksRaw(uid);
-  } catch {
+  } catch (err) {
+    reportError(err, { operation: "cloud" });
     return {};
   }
 }

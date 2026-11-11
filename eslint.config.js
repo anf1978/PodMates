@@ -134,6 +134,31 @@ export default tseslint.config(
     },
   },
   {
+    // The main-thread DB failure boundary reports once; worker/codec/lookup stay service-free.
+    files: ["src/cards/load-db.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "../*/**",
+                "../../**",
+                "!../shared/**",
+                "!../data/load-dataset*",
+                "!../services/report-error",
+              ],
+              message: "Only load-db may use the shared error-reporting boundary.",
+            },
+            firebaseOnlyInCloud,
+            litHtmlOnlyViaUi,
+          ],
+        },
+      ],
+    },
+  },
+  {
     // UI primitives are shared by every feature, so they depend on nothing above them.
     files: ["src/ui/**/*.{ts,js,mjs}"],
     ignores: ["src/ui/html.ts"],

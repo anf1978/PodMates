@@ -5,6 +5,7 @@
 // trimmed instead, since refusing it would strand someone over something they didn't type.
 import { getCountFromServer, getDoc, type DocumentReference, type Query } from "./firebase";
 import { PM_LIMITS } from "./limits";
+import { reportError } from "../report-error";
 
 // Firestore document keys can't contain "/" -- deck keys are built as "Commander (Player)" and
 // names occasionally contain one (split cards, "Tymna / Kraum" partner pairs).
@@ -48,7 +49,7 @@ export async function countDocs(q: Query): Promise<number> {
   try {
     return (await capCheckTimeout(getCountFromServer(q))).data().count;
   } catch (e) {
-    console.warn("Size-cap count skipped:", (e as Error).message);
+    reportError(e, { operation: "cloud" });
     return 0;
   }
 }
@@ -57,7 +58,7 @@ export async function docExistsSafe(ref: DocumentReference): Promise<boolean> {
   try {
     return (await capCheckTimeout(getDoc(ref))).exists();
   } catch (e) {
-    console.warn("Size-cap check skipped:", (e as Error).message);
+    reportError(e, { operation: "cloud" });
     return true; // "assume it exists", so the cap is not applied
   }
 }

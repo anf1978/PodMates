@@ -7,6 +7,7 @@ import { PM_LIMITS } from "./limits";
 import { requireUser } from "./session";
 import { clampText, countDocs, deckListProblem, docExistsSafe, safeDocId } from "./shared";
 import type { DeckDoc, FetchedDeck, LinkedDeckDoc, WithId } from "./types";
+import { reportError } from "../report-error";
 
 declare global {
   interface Window {
@@ -32,10 +33,16 @@ export async function fetchDeckByLink(deckUrl: string): Promise<FetchDeckResult>
   try {
     const res = await fetch(`${SYNC_WORKER_URL}?deckUrl=${encodeURIComponent(deckUrl)}`);
     const data = await res.json();
-    if (!res.ok)
+    if (!res.ok) {
+      reportError(new Error("Sync request failed"), {
+        operation: "deck-sync",
+        userTriggered: true,
+      });
       return { ok: false, error: data.error || `Request failed (status ${res.status}).` };
+    }
     return { ok: true, deck: data };
   } catch (err) {
+    reportError(err, { operation: "deck-sync", userTriggered: true });
     return { ok: false, error: "Could not reach the sync service: " + (err as Error).message };
   }
 }
@@ -74,7 +81,10 @@ export async function addLinkedDeck(deckUrl: string) {
   const sourceName = sourceDeckName(d);
   // Linking is a deliberate one-time action, so a name collision is auto-disambiguated rather
   // than offering to overwrite a deck the person may not have been thinking about.
-  const existingDecks = await loadAllDecks().catch(() => ({}));
+  const existingDecks = await loadAllDecks().catch((err: unknown) => {
+    reportError(err, { operation: "cloud" });
+    return {};
+  });
   const existingNames = new Set(
     Object.entries(existingDecks).map(([k, e]) => (e as { deckName?: string }).deckName || k),
   );
@@ -97,7 +107,7 @@ export async function addLinkedDeck(deckUrl: string) {
     finalName,
     { commander: d.commander, list: d.decklistText, player: user.displayName || "", secret: false },
     linkedDeckMirrorId(d.platform, d.deckId),
-  ).catch(() => {}); // linking itself already succeeded -- don't fail the whole action over the mirror
+  ).catch((err: unknown) => reportError(err, { operation: "cloud" })); // best-effort mirror
   return { ok: true as const, deck: { ...d, name: finalName }, id, renamed: finalName !== d.name };
 }
 
@@ -132,7 +142,8 @@ export async function refreshLinkedDeck(id: string, deckUrl: string) {
       deckRef(user.uid, safeDocId(linkedDeckMirrorId(d.platform, d.deckId))),
     );
     if (existing.exists()) existingSecret = (existing.data() as DeckDoc).secret === true;
-  } catch {
+  } catch (err) {
+    reportError(err, { operation: "cloud" });
     // fall back to not-secret
   }
   await saveDeck(
@@ -144,7 +155,7 @@ export async function refreshLinkedDeck(id: string, deckUrl: string) {
       secret: existingSecret,
     },
     linkedDeckMirrorId(d.platform, d.deckId),
-  ).catch(() => {});
+  ).catch((err: unknown) => reportError(err, { operation: "cloud" }));
   return { ok: true as const, deck: d };
 }
 
@@ -152,7 +163,9 @@ export async function removeLinkedDeck(id: string): Promise<void> {
   const user = requireUser();
   await deleteDoc(linkedDeckRef(user.uid, id));
   // id is already `${platform}-${deckId}`, so the mirror's id can be reconstructed from it.
-  await deleteDoc(deckRef(user.uid, safeDocId(`linked-${id}`))).catch(() => {});
+  await deleteDoc(deckRef(user.uid, safeDocId(`linked-${id}`))).catch((err: unknown) =>
+    reportError(err, { operation: "cloud" }),
+  );
 }
 
 export async function loadLinkedDecks(): Promise<Array<WithId<LinkedDeckDoc>>> {

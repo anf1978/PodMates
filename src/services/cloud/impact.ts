@@ -2,6 +2,7 @@
 // to the Impact-card list. Only differences from the default list are stored, one map entry per
 // card, so two Co-Stewards editing different cards never overwrite each other. Used only for the
 // separate "Pod view" Power figure, never the main scores.
+import { reportError } from "../report-error";
 import {
   collection,
   db,
@@ -182,7 +183,7 @@ export async function nominateImpact(
         .filter((u): u is string => !!u && u !== user.uid);
       if (to.length) return logActivity("nomination", entry.card, { podIds: [podId], to });
     })
-    .catch(() => {});
+    .catch((err: unknown) => reportError(err, { operation: "cloud" }));
 }
 
 export async function withdrawNomination(podId: string, key: string): Promise<void> {

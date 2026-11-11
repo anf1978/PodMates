@@ -14,6 +14,7 @@ import {
 import { PM_LIMITS } from "./limits";
 import { describeUser, type CloudUserSummary } from "./session";
 import { clampText } from "./shared";
+import { reportError } from "../report-error";
 
 export type AuthResult =
   | { ok: true; user: CloudUserSummary | null; switchedToExisting?: true }
@@ -61,14 +62,17 @@ export async function signUpWithEmail(
     return { ok: true, user: describeUser(cred.user) };
   } catch (err) {
     if ((err as { code?: string }).code === "auth/email-already-in-use") {
+      reportError(err, { operation: "authentication" });
       // That email already has an account -- fall back to logging into it instead of failing.
       try {
         const cred = await signInWithEmailAndPassword(auth, email, password);
         return { ok: true, user: describeUser(cred.user), switchedToExisting: true };
       } catch (loginErr) {
+        reportError(loginErr, { operation: "authentication", userTriggered: true });
         return { ok: false, error: friendlyAuthError(loginErr) };
       }
     }
+    reportError(err, { operation: "authentication", userTriggered: true });
     return { ok: false, error: friendlyAuthError(err) };
   }
 }
@@ -78,6 +82,7 @@ export async function logInWithEmail(email: string, password: string): Promise<A
     const cred = await signInWithEmailAndPassword(auth, email, password);
     return { ok: true, user: describeUser(cred.user) };
   } catch (err) {
+    reportError(err, { operation: "authentication", userTriggered: true });
     return { ok: false, error: friendlyAuthError(err) };
   }
 }
@@ -87,6 +92,7 @@ export async function signInWithGoogle(): Promise<AuthResult> {
     const cred = await signInWithPopup(auth, googleProvider);
     return { ok: true, user: describeUser(cred.user) };
   } catch (err) {
+    reportError(err, { operation: "authentication", userTriggered: true });
     return { ok: false, error: friendlyAuthError(err) };
   }
 }
@@ -96,6 +102,7 @@ export async function signInWithYahoo(): Promise<AuthResult> {
     const cred = await signInWithPopup(auth, yahooProvider);
     return { ok: true, user: describeUser(cred.user) };
   } catch (err) {
+    reportError(err, { operation: "authentication", userTriggered: true });
     return { ok: false, error: friendlyAuthError(err) };
   }
 }
@@ -107,6 +114,7 @@ export async function resetPassword(
     await sendPasswordResetEmail(auth, email);
     return { ok: true };
   } catch (err) {
+    reportError(err, { operation: "authentication", userTriggered: true });
     return { ok: false, error: friendlyAuthError(err) };
   }
 }

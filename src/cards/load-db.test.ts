@@ -105,6 +105,7 @@ it("terminates a stalled worker and ignores late progress", async () => {
 it.each(["error", "onerror", "onmessageerror"] as const)(
   "surfaces %s and terminates the worker",
   async (kind) => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const { loadCardDatabase } = await import("./load-db");
     const promise = loadCardDatabase(vi.fn());
     const rejected = expect(promise).rejects.toThrow(/failed|receive/);
@@ -114,6 +115,9 @@ it.each(["error", "onerror", "onmessageerror"] as const)(
     else worker.onmessageerror();
     await rejected;
     expect(worker.terminate).toHaveBeenCalledTimes(1);
+    worker.onmessage({ data: { type: "error", message: "Late failure" } });
+    expect(error).toHaveBeenCalledExactlyOnceWith("[PodMates] card-database failed (error).");
+    error.mockRestore();
   },
 );
 

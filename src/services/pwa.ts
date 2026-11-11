@@ -1,3 +1,5 @@
+import { reportError } from "./report-error";
+
 let ready: Promise<void> | undefined;
 
 /** Bound first-install waiting: a broken SW must not block ordinary online boot. */
@@ -11,30 +13,45 @@ export function prepareOffline(): Promise<void> {
     };
     navigator.serviceWorker.addEventListener("controllerchange", finish);
     const timer = setTimeout(() => {
-      console.warn("PodMates: offline cache not ready; continuing online.");
+      reportError(new Error("Offline cache timed out"), {
+        operation: "offline-cache",
+        severity: "warning",
+      });
       finish();
     }, 5000);
-    void navigator.serviceWorker
-      .register(`${import.meta.env.BASE_URL}sw.js`, {
-        scope: import.meta.env.BASE_URL,
-        updateViaCache: "none",
-      })
+    void Promise.resolve()
+      .then(() =>
+        navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`, {
+          scope: import.meta.env.BASE_URL,
+          updateViaCache: "none",
+        }),
+      )
       .then((registration) => {
         const prompt = () => {
           if (registration.waiting && navigator.serviceWorker.controller) {
             void showUpdate(registration).catch((error: unknown) =>
-              console.error("PodMates: could not show the update prompt.", error),
+              reportError(error, { operation: "app-update", severity: "warning" }),
             );
           }
         };
         prompt();
         registration.addEventListener("updatefound", () => {
-          registration.installing?.addEventListener("statechange", prompt);
+          const installing = registration.installing;
+          installing?.addEventListener("statechange", () => {
+            if (installing.state === "redundant") {
+              reportError(new Error("Offline cache installation failed"), {
+                operation: "offline-cache",
+                severity: "warning",
+              });
+              finish();
+            }
+            prompt();
+          });
         });
         if (navigator.serviceWorker.controller) finish();
       })
       .catch((error: unknown) => {
-        console.warn("PodMates: offline cache registration failed.", error);
+        reportError(error, { operation: "offline-cache", severity: "warning" });
         finish();
       });
   }));
@@ -49,10 +66,14 @@ async function showUpdate(registration: ServiceWorkerRegistration): Promise<void
   banner.setAttribute("aria-label", "Application update");
   const reload = () => {
     if (!registration.waiting) return;
-    navigator.serviceWorker.addEventListener("controllerchange", () => location.reload(), {
-      once: true,
-    });
-    registration.waiting.postMessage({ type: "SKIP_WAITING" });
+    const changed = () => location.reload();
+    try {
+      navigator.serviceWorker.addEventListener("controllerchange", changed, { once: true });
+      registration.waiting.postMessage({ type: "SKIP_WAITING" });
+    } catch (err) {
+      navigator.serviceWorker.removeEventListener("controllerchange", changed);
+      reportError(err, { operation: "app-update", userTriggered: true });
+    }
   };
   render(
     html`<span role="status">New version available</span>
