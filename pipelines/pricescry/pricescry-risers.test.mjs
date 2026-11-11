@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { simulateMarket } from "./pricescry-sim.mjs";
+import { yieldToEventLoop } from "./yield-to-event-loop.mjs";
 import {
   riserAnatomy,
   riserScreen,
@@ -19,6 +20,10 @@ const STRONG = [
 ];
 const GATE = RISER_DEFAULTS.pShow;
 const TIMEOUT = 120_000;
+
+// Without a yield the whole file runs as one synchronous stretch, so the Vitest worker cannot read
+// its RPC replies until the end; let it do so between tests (see the helper).
+afterEach(yieldToEventLoop);
 
 const mk = (seed, extra = {}) =>
   simulateMarket({
