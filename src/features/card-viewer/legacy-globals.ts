@@ -1,13 +1,12 @@
 // Strangler adapter for the still-inline deck form, chart and Key Pieces panel. It binds View Deck
 // to the form and publishes only the names inline code still calls.
-// TODO(p3-6): delete each name with its caller (runAnalysis, the delegated card/type click
-// handler, enhanceKeyPiecesWithThumbnails).
+// TODO(p3-6): delete each name with its caller (runAnalysis and the delegated card/type click
+// handler).
 import { parseDecklist } from "../../cards/parse-decklist.ts";
 import { matchDecklist, type LookupIndexes } from "../../cards/lookup.ts";
 import type { CardRecord } from "../../cards/tuple.ts";
 import { parseCommanderField } from "../../engine/commanders.ts";
 import { pageContext } from "../../engine/legacy-globals.ts";
-import { fetchCardImagesBatch } from "../../services/card-art.ts";
 import { showToast } from "../../ui/toast.ts";
 import type { ViewerTile } from "./state.ts";
 import { renderCommanderHero, showDeckViewer, showSingleCardArt, showTypeCards } from "./index.ts";
@@ -43,7 +42,6 @@ const legacy = {
     if (entries) void showTypeCards(typeName, entries);
   },
   showSingleCardArtModal: (name: string): void => void showSingleCardArt(name),
-  fetchCardImagesBatch,
 };
 type CardViewerLegacy = typeof legacy;
 declare global {

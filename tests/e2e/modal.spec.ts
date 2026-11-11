@@ -4,7 +4,6 @@ import { openPriceScry } from "./pricescry-fixture";
 
 declare global {
   interface Window {
-    showInfoModal(headerHtml: string, bodyHtml: string): void;
     showActionConfirmModal(
       message: string,
       confirmLabel: string,
@@ -84,10 +83,10 @@ test("Try a Deck closes on Escape and returns focus to its button", async ({ pag
 test("Escape closes only the top stacked layer, and cancels an action confirm", async ({
   page,
 }) => {
-  await page.goto("/");
-  await expect(page.locator("#dbStatus")).toContainText(/^Ready .* cards.*loaded/);
+  await chartSample(page);
 
-  await page.evaluate(() => window.showInfoModal("<h2>Base</h2>", "<p>Under</p>"));
+  await page.locator("#resultsSection button.info-btn:visible").first().click();
+  await expect(page.locator("#tadOverlay")).toBeVisible();
   await page.evaluate(() => void window.showSingleCardArtModal("Sol Ring"));
   await expect(page.locator("#tadArtOverlay")).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(2);

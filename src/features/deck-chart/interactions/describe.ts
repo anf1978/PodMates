@@ -1,6 +1,6 @@
-// One package as the legacy Synergy panel's markup. The panel still builds its HTML as a string
-// and passes it through sanitizeHtml, so this returns a string too. Every card name goes
-// through `link` and every other piece of card text through escapeHtml.
+// One package as markup for the Synergy panel (synergy/panel.ts inserts it as trusted markup;
+// package heads and lines are prebuilt strings). Every card name goes through `link` and every
+// other piece of card text through escapeHtml.
 
 import { escapeHtml } from "../../../ui/card-name.ts";
 import type { IxPackage } from "./types.ts";

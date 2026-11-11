@@ -259,9 +259,13 @@ Frequency & Curve, plus `deck-chart/interactions/` (prefix `ix-`): the Synergy p
 (trigger/rule packages, deck and theme plans, Super Friends, the stat-axis rule, conditional and idle cards),
 its package markup and the "Cards you could add" sheet (repeaters/multipliers, plan helpers, thin spots,
 best-of themes and New dimension). The reading is display only and receives the card DB, Scryfall Tagger tags
-and `KNOW_JSON` knowledge explicitly from the adapter. The Synergy panel itself is still inline and calls the
-`buildInteractionPackages`, `ixDescribePackage`, `ixThinSpots` and `ixSetSuggestionContext` shim names;
-`ixDescribePackage` still returns the legacy string markup that panel sanitizes; `try-a-deck` (`tad-`) — all library browsing/navigation; `export` (`export-`) —
+and `KNOW_JSON` knowledge explicitly from the adapter. `deck-chart/report.ts` (`report.css`, prefixes `kp-`,
+`syn-`, `tr-`, `cc-`, `ex-`) renders Key Pieces & Combos (`key-pieces/`), Synergy and Commander Track Record
+(`synergy/`), Commander Centrality (`centrality/`) and every "How was this built?" dialog (`explainers/`).
+Package text from `ixDescribePackage` is still app-built string markup (card text escaped, names linked); the
+Synergy panel inserts it with a commented `trustedHtml`. The explainers own the delegated
+`[data-go-key-pieces]`, `[data-explain]` and `[data-gc-card]` clicks; the inline handler skips them so the old
+precedence holds. The shared read-only dialog is `src/ui/info-modal.ts`; `try-a-deck` (`tad-`) — all library browsing/navigation; `export` (`export-`) —
 Commander/Deck text and clipboard dialog; `scan-cards` (`scan-`) — local Tesseract loading, bounded
 preprocessing, longest-name-first matching, selection and rescan lifecycle; and `deck-crafter` (`db-`
 inside `.deck-crafter`) — drafts, commander/partner selection, identity filtering, card search, quantities,
@@ -507,17 +511,18 @@ ESLint does not inspect the inline scripts in `index.html`. TypeScript is strict
 ## What is not done yet
 
 R14 moved card art/View Deck (`features/card-viewer`), card ranking plus the shared picker
-(`cards/search.ts`, `ui/card-search.ts`), card-DB boot (`services/card-db-boot.ts`) and the interaction
-reading plus "Cards you could add" (`features/deck-chart/interactions/`).
+(`cards/search.ts`, `ui/card-search.ts`), card-DB boot (`services/card-db-boot.ts`), the interaction
+reading plus "Cards you could add" (`features/deck-chart/interactions/`), and Key Pieces & Combos, Synergy,
+Track Record, Centrality and the explainers (`features/deck-chart/report.ts` and its folders).
 Boot's global assignments and UI adapter remain inline for the current readers, as do the `IX_TAGS` and
 `KNOW_JSON` / `KNOW_MAP` globals the boot adapter and `loadKnowledge()` fill.
 Remaining, in order, at about one ~800-line PR each:
 
-1. **Combos, synergy, centrality, key pieces, explainers** (~1,000 lines), then the card-viewer and
-   interaction shim names (the Synergy panel can then render packages with lit instead of string markup).
-2. **`runAnalysis`, result panels, percentiles/reference** (~600 lines).
-3. **Saved decks, Load a Deck, My Data, decks table** (~900 lines), then `searchNorm` and the profile ports.
-4. Delete the remaining shims, make `index.html` static markup, ratchet lint, final `CLAUDE.md`.
+1. **`runAnalysis`, result panels, percentiles/reference** (~600 lines). The deck-chart shim's
+   `explainerBtn`, `gameChangerChips` and `linkifyKnownCardNames` names and the explainer ports go with it.
+2. **Saved decks, Load a Deck, My Data, decks table** (~900 lines), then `searchNorm` and the profile ports.
+   The inline confirm dialogs and the sticky-Close safety net can move to `src/ui` with them.
+3. Delete the remaining shims, make `index.html` static markup, ratchet lint, final `CLAUDE.md`.
 
 Phase 3's exit criteria (no source file over ~500 lines, no globals, every `innerHTML` replaced) are not met
 while the inline app script exists. The remaining work (rest of Deck Chart, saved-deck flows and the other inline helpers) deletes inline code and the shim names it used. When the last caller of a
