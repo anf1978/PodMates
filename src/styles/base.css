@@ -49,3 +49,18 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--gold-bright);
 }
+.pm-update {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: calc(100vw - 2rem);
+  padding: 0.75rem 1rem;
+  color: var(--text-primary);
+  background: var(--bg-panel-raised);
+  border: 1px solid var(--slot-border-hi);
+  border-radius: 0.5rem;
+}

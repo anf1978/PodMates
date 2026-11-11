@@ -19,6 +19,8 @@ Node.js 22+. `npm ci` installs; `npx playwright install chromium` once for e2e (
 - `npm run dev` / `npm run build` / `npm run preview` — Vite dev server, production `dist/`, serve the build.
 - `npm run check` — typecheck + lint + unit + golden tests. **Must pass before you say you're done.**
 - `npm run test:rules` — Firestore emulator tests (Java 21+), separate from `check`; no rules deployment.
+- `npm run build && npm run budget` — gzip code + boot-data ratchet (also CI and post-assembly deploy).
+  Interim limits and the unmet plan §10 target are documented in `docs/deploy.md`.
 - `npm run e2e` — Playwright (Chromium) on an isolated preview at port 4183; set `PM_E2E_PORT` to a free port
   when another session is testing. Not part of `check`.
 - `npm run typecheck`, `npm run lint`, `npm test` — one check at a time.
@@ -37,6 +39,8 @@ CI runs `check` + e2e + rules tests on every PR (including stacked bases) and `m
 - `src/cards/` — card tuples (`tuple.ts`), DB worker + codec, lookup, decklist parser.
 - `src/data/` — curated tables (`combos.ts`, `game-changers.ts`, …) and the dataset loader (`load-dataset.ts`).
 - `src/services/cloud/` — the **only** place that talks to Firebase; one repository per Firestore area.
+- `src/services/pwa.ts` — bounded initial SW registration and opt-in update prompt; Workbox config lives in
+  `vite.config.js`. `scripts/sw-kill-switch.js` is the documented emergency replacement, not a normal asset.
 - `src/ui/` — shared primitives: `html.ts` (lit-html), modal, toast, status, tooltip, tabs, radar, mana symbols.
 - `src/styles/` — `tokens.css` (CSS variables) and `base.css`.
 - `src/features/<name>/` — one folder per feature: `state.ts`, `view.ts`/`panels/`, `<name>.css`, `*.test.ts`.

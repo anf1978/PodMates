@@ -42,6 +42,16 @@ It builds five entries (`main`, `datasets`, `cardDb`, `cardsLegacy`, `engineLega
 keeps one module instance across chunks, so a shim imported both by `main.ts` and by an inline `import()` runs
 once. A missing loader entry fails the build. See [deploy.md](deploy.md) for Pages deployment.
 
+`vite-plugin-pwa` runs Workbox `generateSW` after the HTML is emitted. It reuses the manifest/icons and
+precaches the shell and hashed chunks, excluding the DB worker. `src/services/pwa.ts` gates initial dataset
+fetches on SW control (bounded to five seconds), then offers updates without forced reloads. Data runtime
+caches survive code deployments: NetworkFirst for the manifest, StaleWhileRevalidate for full hash-query
+dataset URLs, CacheFirst with expiry/size limits for Scryfall card art only. No cloud/Worker API is cached.
+Offline DB boot uses the existing main-thread codec because its web worker is deliberately uncached.
+Only previously requested lazy datasets are available offline. See [recovery and budget](deploy.md#emergency-kill-switch);
+the current card payload alone exceeds the plan's 1.5 MB target, so the documented interim CI ratchet is
+750 KB code / 3.5 MB including boot data, not a claim that §10 is met.
+
 The build also emits the locked DOMPurify browser bundle as a same-origin asset. It loads synchronously
 before the legacy inline scripts, because some render during parsing, before module initialization.
 The small `sanitizeHtml` boundary is the deliberate legacy-global exception; new features use lit templates.

@@ -75,8 +75,8 @@ are preserved at the same relative URLs under `/PodMates/`:
 | `icon-512.png`           | `public/icon-512.png`          | `dist/icon-512.png`          |
 | `icon-maskable-512.png`  | `public/icon-maskable-512.png` | `dist/icon-maskable-512.png` |
 
-The manifest's three icon URLs, `start_url` and `scope` remain relative. There is no local service
-worker. The bundled loader fetches `data/*.json` relative to the app base; the deployment assembly replaces
+The manifest's three icon URLs, `start_url` and `scope` remain relative and byte-identical.
+The bundled loader fetches `data/*.json` relative to the app base; the deployment assembly replaces
 only `cards.json`, `tags.json` and `winrates.json`. The Firebase SDK is bundled
 into `dist/assets/`; Firebase's Auth/Firestore services, Google Fonts, Scryfall art/API, Tesseract CDN assets, the deployed deck-sync Worker and
 PriceScry's raw `pricescry-data` branch URLs remain external; they are not part of `dist/`.
@@ -88,6 +88,77 @@ Compare each `public/` file byte-for-byte with its `dist/` counterpart and with 
 file on the branch-served `main`; compare `dist/index.html` with the checked-out source, not the
 older `main` HTML. Check the HTML's `src`/`href`, CSS `url(...)`, runtime fetch/import URLs and the
 manifest again whenever adding a new asset.
+
+## Service worker, offline use and updates
+
+`vite-plugin-pwa` generates `dist/sw.js` with Workbox `generateSW`. The existing manifest and icons are
+reused unchanged. Only the shell, hashed JS/CSS and static icons are precached; datasets are never included
+in the precache, so a weekly data-only deployment needs no SW rebuild.
+
+`src/services/pwa.ts` registers relative to the app base with `updateViaCache: "none"`. The first dataset
+request waits for initial SW control (at most five seconds); registration errors/timeouts warn and allow
+ordinary online boot instead of blocking the site. No SW is installed in development. Existing sessions
+show a dismissible **New version available / Reload / Later** banner; only clicking Reload sends
+`SKIP_WAITING` and reloads that tab. Normal updates never reload a session automatically.
+
+The manifest uses NetworkFirst with a three-second timeout and offline fallback, so a weekly hash is seen
+on the next online visit. Dataset URLs use StaleWhileRevalidate with the full `?v=<sha256>` as the cache
+key, a stable cache name across code releases and a 64-entry cap. The SW sends cached ETags explicitly
+and reuses cached bodies on HTTP 304, even if the browser HTTP cache was cleared. Scryfall card images
+alone use CacheFirst (250 images, 30 days).
+There is **no catch-all runtime route**: Firestore, Auth, deck-sync Worker, Scryfall API and other external
+requests are never SW-cached. The DB web worker script is excluded too; offline boot uses the existing
+main-thread decoder. Online boot keeps the web worker.
+
+Once a deck has been charted online, repeat visits can boot and chart using the cached DB, analysis data
+and code. Unvisited lazy features, uncached card art and cloud operations still require a connection.
+Browser storage eviction or cleared site data removes offline availability. Browser tests use a fresh
+profile, the real build at `/PodMates/`, and a disconnected server (not just mocked dataset responses).
+
+### Emergency kill-switch
+
+Never remove `sw.js` or return an HTML 404 at that URL: old clients may remain controlled. In a reviewed
+recovery deployment, build and assemble data normally, then **before uploading `dist/`** replace only
+the emitted worker:
+
+```powershell
+Copy-Item scripts\sw-kill-switch.js dist\sw.js
+```
+
+Commit that temporary copy step into the deployment workflow in the recovery PR so subsequent automated
+deployments do not immediately restore the broken worker. Serve the replacement at the **same**
+`/PodMates/sw.js` URL with JavaScript MIME type. Keep it deployed long enough for returning clients to
+receive it. It skips waiting, deletes only PodMates runtime caches and this scope's Workbox precache,
+then unregisters itself. It has no fetch handler and never navigates open tabs. No account data,
+localStorage or unrelated apps' caches are removed.
+
+Verify in a previously controlled browser: registration disappears, PodMates caches disappear, ordinary
+online reload reaches DB-ready, and offline navigation is no longer available. A browser e2e covers the
+unregistration, cache isolation and lack of forced reload. For immediate individual recovery use browser
+DevTools → Application → Service Workers → Unregister, then clear the app's Cache Storage and reload
+online. Removing registration alone does not clear local saved decks.
+
+### Bundle budget and the plan target gap
+
+Run `npm run build && npm run budget`. CI runs it on every PR; deployment repeats the budget **after**
+assembling published datasets, so weekly growth cannot bypass the gate. The script gzips every emitted
+JS/CSS file plus the full inline HTML (including its legacy JS/CSS), and adds the eight eager boot datasets
+and their manifest. Counting all chunks, including lazy chunks and the uncached worker, is conservative.
+Missing inputs fail rather than being counted as zero.
+
+The interim gates are **code <750,000 gzip bytes** and **code + boot data <3,500,000 gzip bytes** (decimal
+MB). **These are not the plan §10 target of <1,500,000 bytes.** The pinned `cards.json` alone is 2,213,592
+gzip bytes and the eager Spellbook is another 377,778; caching cannot make that first download smaller.
+The script prints the measured total and exact gap on every run. Meeting §10 requires a separately agreed
+card/Spellbook payload or loading redesign, not an unexplained relaxed definition of "initial".
+
+The PWA e2e reports first-install and update gzip response-body bytes with a gzip/ETag local server.
+First install includes icons, shell precaching and duplicate initial uncontrolled requests; it is larger
+than the budget's JS/CSS + boot-data metric. A code-change test builds a genuinely changed `main` chunk
+without editing source, verifies that unchanged chunks and dataset bodies are not transferred, and
+requires explicit Reload. The changed HTML shell and SW update machinery also transfer while the legacy
+HTML still embeds code. Headers/TLS and fulfilled external art are excluded; these are reproducible local
+measurements, not a claim about production CDN transfer or rollout.
 
 ## Switch Pages to GitHub Actions (human)
 

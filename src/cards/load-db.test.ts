@@ -117,7 +117,7 @@ it.each(["error", "onerror", "onmessageerror"] as const)(
   },
 );
 
-it.each(["no-worker", "worker-unsupported"] as const)(
+it.each(["no-worker", "worker-unsupported", "offline"] as const)(
   "uses the main-thread decoder for %s",
   async (kind) => {
     const compressed = await new Response(
@@ -127,6 +127,7 @@ it.each(["no-worker", "worker-unsupported"] as const)(
     ).arrayBuffer();
     mockDatasetFetch(JSON.stringify(Buffer.from(compressed).toString("base64")));
     if (kind === "no-worker") vi.stubGlobal("Worker", undefined);
+    if (kind === "offline") vi.stubGlobal("navigator", { onLine: false });
     const { loadCardDatabase } = await import("./load-db");
     const promise = loadCardDatabase(vi.fn());
     if (kind === "worker-unsupported") {
@@ -137,6 +138,7 @@ it.each(["no-worker", "worker-unsupported"] as const)(
     const result = await promise;
     expect(result.cards[0].n).toBe("Example");
     expect(result.indexes.byExactName.get("example")).toBe(result.cards[0]);
+    if (kind === "offline") expect(TestWorker.instances).toHaveLength(0);
   },
 );
 

@@ -1,3 +1,5 @@
+import { prepareOffline } from "../services/pwa";
+
 const datasets = new Map<string, Promise<unknown>>();
 let completed = 0;
 let manifestPromise: Promise<DatasetManifest> | undefined;
@@ -17,6 +19,7 @@ export interface DatasetManifest {
 export function loadManifest(): Promise<DatasetManifest> {
   return (manifestPromise ??= (async () => {
     try {
+      await prepareOffline();
       const response = await fetch(`${import.meta.env.BASE_URL}data/manifest.json`, {
         cache: "no-cache",
         signal: AbortSignal.timeout(15_000),

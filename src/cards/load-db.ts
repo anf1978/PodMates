@@ -52,7 +52,11 @@ export function loadCardDatabase(report: Progress): Promise<Database> {
         fail(error instanceof Error ? error : new Error(String(error)));
       }
     };
-    if (typeof Worker === "undefined" || typeof DecompressionStream === "undefined") {
+    if (
+      typeof Worker === "undefined" ||
+      typeof DecompressionStream === "undefined" ||
+      navigator.onLine === false
+    ) {
       void fallback();
       return;
     }

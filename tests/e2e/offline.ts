@@ -39,7 +39,7 @@ export const test = base.extend({
           },
         });
       }
-      if (request.resourceType() === "image") {
+      if (request.resourceType() === "image" || url.hostname === "cards.scryfall.io") {
         return route.fulfill({ contentType: "image/svg+xml", body: placeholderImage });
       }
       if (url.hostname === "fonts.googleapis.com") {

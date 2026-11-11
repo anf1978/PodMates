@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
+import { VitePWA } from "vite-plugin-pwa";
 import { withScriptHashes } from "./scripts/content-security-policy.mjs";
+import { conditionalDatasetRequests } from "./scripts/pwa-cache.mjs";
 
 export default defineConfig({
   base: "./",
@@ -60,6 +62,57 @@ export default defineConfig({
         });
       },
     },
+    VitePWA({
+      registerType: "prompt",
+      injectRegister: false,
+      manifest: false,
+      includeAssets: ["manifest.webmanifest", "*.png"],
+      workbox: {
+        globPatterns: ["**/*.{html,js,css}"],
+        globIgnores: ["**/db.worker-*.js"],
+        maximumFileSizeToCacheInBytes: 4_000_000,
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: false,
+        navigateFallback: "index.html",
+        navigateFallbackAllowlist: [/\/(?:index\.html)?$/],
+        runtimeCaching: [
+          {
+            urlPattern: ({ url, sameOrigin }) =>
+              sameOrigin && url.pathname.endsWith("/data/manifest.json"),
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "pm-data-manifest",
+              plugins: [conditionalDatasetRequests],
+              networkTimeoutSeconds: 3,
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+          {
+            urlPattern: ({ url, sameOrigin }) =>
+              sameOrigin &&
+              /\/data\/[A-Za-z0-9_-]+\.json$/.test(url.pathname) &&
+              /^[a-f0-9]{64}$/.test(url.searchParams.get("v") ?? ""),
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "pm-datasets",
+              plugins: [conditionalDatasetRequests],
+              cacheableResponse: { statuses: [200] },
+              expiration: { maxEntries: 64 },
+            },
+          },
+          {
+            urlPattern: ({ url }) => url.origin === "https://cards.scryfall.io",
+            handler: "CacheFirst",
+            options: {
+              cacheName: "pm-card-art",
+              cacheableResponse: { statuses: [0, 200] },
+              expiration: { maxEntries: 250, maxAgeSeconds: 30 * 24 * 60 * 60 },
+            },
+          },
+        ],
+      },
+    }),
   ],
   build: {
     minify: false,
