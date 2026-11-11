@@ -122,7 +122,7 @@ expanded chart panels, info dialog and account screens. The one exact contrast d
 |     ~Line | Region                                                         | Identifier to grep                                                                           |
 | --------: | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
 |      5–11 | CSP, synchronous sanitizer dependency and legacy boundary      | `Content-Security-Policy`, `rendering-security-script`                                       |
-|        33 | Module entry                                                   | `src="./src/main.ts"`                                                                        |
+|        34 | Module entry                                                   | `src="./src/main.ts"`                                                                        |
 |   34–1086 | Main CSS (Terraria × MTG Arena theme at ~549)                  | `<style>` (first one), `Terraria x MTG Arena theme`                                          |
 | 1087–1238 | Colour themes (runs in `<head>`)                               | `<script id="theme-script">`                                                                 |
 | 1250–1371 | Visual overhaul CSS                                            | `<style id="pm-visual-overhaul">`                                                            |
@@ -131,7 +131,7 @@ expanded chart panels, info dialog and account screens. The one exact contrast d
 |      1536 | Result panels markup                                           | `id="resultsSection"`                                                                        |
 |      1659 | Footer data freshness                                          | `dataFreshness`                                                                              |
 | 1662–1691 | Engine/lookup/card-DB/Spellbook page bindings                  | `<script id="engine-script">`, `lookup-script`, `data-script`, `combo-data-script`           |
-| 1692–8740 | **App script** (UI + all unmoved features)                     | `<script id="app-script">`                                                                   |
+| 1693–8371 | **App script** (UI + all unmoved features)                     | `<script id="app-script">`                                                                   |
 | 1718–1926 | Reference corpus, percentiles, baselines, Try-a-Deck           | `REFERENCE_TIERS`, `STAPLES_BASELINE`, `let TRY_A_DECK_OPTIONS;`                             |
 | 1968–2096 | Card-DB/Spellbook loaders, eager/lazy dataset gates            | `decompressCardDB`, `loadStaticDatasets`, `loadDeckLibrary`, `loadKnowledge`, `initDatabase` |
 |      2112 | Size-limit wiring (values in `src/services/cloud/limits.ts`)   | `---- Size limits`, `PM_INPUT_LIMIT_KEYS`                                                    |
@@ -153,15 +153,15 @@ expanded chart panels, info dialog and account screens. The one exact contrast d
 |   modules | Impact cards + "Pod view" line                                 | `src/features/impact/{index,state,view,repository}.ts`                                       |
 |   modules | Try-a-Deck, export and scan cards                              | `src/features/{try-a-deck,export,scan-cards}/index.ts`                                       |
 |   modules | Shared modal overlay + close                                   | `src/ui/tad-modal.ts`, `src/ui/tad-modal.css`                                                |
-|      6715 | Pod Comparison (up to 6 decks)                                 | `POD COMPARISON`                                                                             |
-|      7181 | Pod deck detail                                                | `async function showPodDeckDetail`                                                           |
-|      7456 | Saved data: decks, formations, chronicles                      | `SAVED DATA — decks`                                                                         |
+|      6346 | Pod Comparison (up to 6 decks)                                 | `POD COMPARISON`                                                                             |
+|      6812 | Pod deck detail                                                | `async function showPodDeckDetail`                                                           |
+|      7087 | Saved data: decks, formations, chronicles                      | `SAVED DATA — decks`                                                                         |
 |   modules | Deck Crafter (deck builder)                                    | `src/features/deck-crafter/index.ts`, `src/services/deck-editing.ts`                         |
-| 7724–7940 | Shared legacy card ranking and picker                          | `function searchCardsByName`, `function pmWireCardSearch`                                    |
-|      7945 | Saved deck naming and save orchestration                       | `function generateUniqueDeckName`, `function saveCurrentDeck`                                |
-|      8401 | My Data backup/restore                                         | `MY DATA — download/restore`                                                                 |
-|      8496 | Retired pod rosters (dead code)                                | `POD ROSTERS -- retired`                                                                     |
-| 8764–8911 | Notifications inbox                                            | `<script id="notif-script">`                                                                 |
+| 7355–7571 | Shared legacy card ranking and picker                          | `function searchCardsByName`, `function pmWireCardSearch`                                    |
+|      7576 | Saved deck naming and save orchestration                       | `function generateUniqueDeckName`, `function saveCurrentDeck`                                |
+|      8032 | My Data backup/restore                                         | `MY DATA — download/restore`                                                                 |
+|      8127 | Retired pod rosters (dead code)                                | `POD ROSTERS -- retired`                                                                     |
+| 8395–8542 | Notifications inbox                                            | `<script id="notif-script">`                                                                 |
 
 Updated for R1–R7 (remaining ranges approximate). Regenerate with:
 
