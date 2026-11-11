@@ -1,0 +1,100 @@
+/* Account controls and forms retain their legacy dimensions and token colours. */
+#authBar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 12.5px;
+  color: var(--text-soft);
+  min-height: 24px;
+}
+#authBar > button:not(#pmBellBtn) {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+#authBar .auth-hidden {
+  display: none;
+}
+.auth-title {
+  margin-bottom: 4px;
+}
+.auth-intro {
+  font-size: 12.5px;
+  color: var(--text-soft);
+  margin: 0 0 16px;
+}
+.auth-error {
+  margin-bottom: 12px;
+}
+.auth-field-row,
+.auth-spacer,
+.auth-reset {
+  margin-bottom: 10px;
+}
+.auth-password-row {
+  margin-bottom: 6px;
+}
+.auth-input {
+  flex: 1;
+  background: var(--bg-main);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 8px 10px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13.5px;
+}
+.auth-forgot {
+  text-align: right;
+  margin-bottom: 6px;
+}
+.auth-forgot a {
+  font-size: 12px;
+  color: var(--gold);
+  text-decoration: none;
+}
+.auth-hint {
+  font-size: 11.5px;
+  color: var(--text-soft);
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+.auth-submit {
+  width: 100%;
+  margin-bottom: 14px;
+}
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.auth-divider div {
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+.auth-divider span {
+  font-size: 11.5px;
+  color: var(--text-soft);
+}
+.auth-google {
+  width: 100%;
+  margin-bottom: 10px;
+}
+.auth-yahoo {
+  width: 100%;
+  margin-bottom: 16px;
+}
+.auth-toggle {
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-soft);
+  margin: 0;
+}
+.auth-toggle a {
+  color: var(--gold);
+  text-decoration: none;
+  font-weight: 600;
+}

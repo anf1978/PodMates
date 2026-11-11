@@ -53,6 +53,9 @@ export default defineConfig({
           "./src/features/export/export.css",
           "./src/features/scan-cards/scan-cards.css",
           "./src/features/deck-crafter/deck-crafter.css",
+          "./src/features/auth/auth.css",
+          "./src/features/profile/profile.css",
+          "./src/features/profile/public-profile.css",
         ]) {
           const reference = this.emitFile({
             type: "asset",
