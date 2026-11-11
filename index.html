@@ -37,6 +37,7 @@ function sanitizeHtml(markup) {
 <link rel="stylesheet" href="./src/features/comparison/comparison.css">
 <link rel="stylesheet" href="./src/features/comparison/detail.css">
 <link rel="stylesheet" href="./src/features/ledger/ledger.css">
+<link rel="stylesheet" href="./src/features/themes/themes.css">
 <script type="module" src="./src/main.ts"></script>
 <style>
   header{text-align:center; margin-bottom:30px;}
@@ -1030,158 +1031,7 @@ footer::after { content: ' ◆'; color: var(--cyan); font-style: normal; }
   input[type="text"], input[type="email"], input[type="password"], input[type="number"], input[type="search"], input[type="url"], input:not([type]), select, textarea { font-size: 16px; }
 }
 </style>
-<script id="theme-script">
-// PodMates colour themes. Runs in the head, before the page is drawn, so the saved theme is
-// already in place on first paint (no flash of the default colours). A theme is nothing but new
-// values for the shared CSS colour variables, so every screen follows it. The page stays dark in
-// every theme; every text colour is pushed (by build() below) to a safe contrast on every
-// background it can sit on, and PMTheme.audit() re-checks all themes.
-(function () {
-  var KEY = 'podmates-theme';
-  var ACC = { W: '#F3EBCB', U: '#62B0F2', B: '#B49AE0', R: '#F5667B', G: '#66C45F' };   // bright, readable on dark
-  var HUE = { W: 42, U: 218, B: 272, R: 350, G: 130 };                                   // tint of the dark backgrounds
-  var NAME = { W: 'White', U: 'Blue', B: 'Black', R: 'Red', G: 'Green' };
-  var PRI = ['R', 'U', 'G', 'B', 'W'];                                                   // which colour leads when a theme has several
-  var ON_ACCENT = '#1A1208';                                                             // dark label colour used on accent-filled buttons
-  var T = [
-    { id: 'classic', name: 'Classic PodMates', sub: 'Gold & teal', colors: '', kind: 'Classic' },
-    // guilds
-    { id: 'azorius', name: 'Azorius', colors: 'WU', kind: 'Guild' }, { id: 'dimir', name: 'Dimir', colors: 'UB', kind: 'Guild' },
-    { id: 'rakdos', name: 'Rakdos', colors: 'BR', kind: 'Guild' }, { id: 'gruul', name: 'Gruul', colors: 'RG', kind: 'Guild' },
-    { id: 'selesnya', name: 'Selesnya', colors: 'GW', kind: 'Guild' }, { id: 'orzhov', name: 'Orzhov', colors: 'WB', kind: 'Guild' },
-    { id: 'izzet', name: 'Izzet', colors: 'UR', kind: 'Guild' }, { id: 'golgari', name: 'Golgari', colors: 'BG', kind: 'Guild' },
-    { id: 'boros', name: 'Boros', colors: 'RW', kind: 'Guild' }, { id: 'simic', name: 'Simic', colors: 'GU', kind: 'Guild' },
-    // shards (triomes from Streets of New Capenna)
-    { id: 'bant', name: 'Bant', colors: 'GWU', land: "Spara's Headquarters", kind: 'Triome' }, { id: 'esper', name: 'Esper', colors: 'WUB', land: "Raffine's Tower", kind: 'Triome' },
-    { id: 'grixis', name: 'Grixis', colors: 'UBR', land: "Xander's Lounge", kind: 'Triome' }, { id: 'jund', name: 'Jund', colors: 'BRG', land: "Ziatora's Proving Ground", kind: 'Triome' },
-    { id: 'naya', name: 'Naya', colors: 'RGW', land: "Jetmir's Garden", kind: 'Triome' },
-    // wedges (triomes from Ikoria)
-    { id: 'abzan', name: 'Abzan', colors: 'WBG', land: 'Indatha Triome', kind: 'Triome' }, { id: 'jeskai', name: 'Jeskai', colors: 'URW', land: 'Raugrin Triome', kind: 'Triome' },
-    { id: 'sultai', name: 'Sultai', colors: 'BGU', land: 'Zagoth Triome', kind: 'Triome' }, { id: 'mardu', name: 'Mardu', colors: 'RWB', land: 'Savai Triome', kind: 'Triome' },
-    { id: 'temur', name: 'Temur', colors: 'GUR', land: 'Ketria Triome', kind: 'Triome' },
-    // four colours
-    { id: 'yoretiller', name: 'Yore-Tiller', colors: 'WUBR', kind: 'Four colours' }, { id: 'glinteye', name: 'Glint-Eye', colors: 'UBRG', kind: 'Four colours' },
-    { id: 'dunebrood', name: 'Dune-Brood', colors: 'BRGW', kind: 'Four colours' }, { id: 'inktreader', name: 'Ink-Treader', colors: 'RGWU', kind: 'Four colours' },
-    { id: 'witchmaw', name: 'Witch-Maw', colors: 'GWUB', kind: 'Four colours' },
-    // five
-    { id: 'wubrg', name: 'WUBRG', sub: 'All five colours', colors: 'WUBRG', kind: 'Five colours' }
-  ];
-  var VARS = ['--bg-main', '--bg-panel', '--bg-panel-raised', '--bg-slot', '--text-primary', '--text-soft', '--text-dim', '--gold', '--gold-bright', '--cyan', '--cyan-dim', '--bronze', '--wine', '--wine-bright', '--line', '--line-strong', '--slot-border', '--slot-border-hi', '--medium-bg', '--gold-rgb', '--cyan-rgb', '--glow-a-rgb', '--glow-b-rgb', '--bronze-dark'];
-
-  // ---- colour maths ----
-  function hex2rgb(h) { h = h.replace('#', ''); return [parseInt(h.substr(0, 2), 16), parseInt(h.substr(2, 2), 16), parseInt(h.substr(4, 2), 16)]; }
-  function rgb2hex(r) { return '#' + r.map(function (v) { v = Math.max(0, Math.min(255, Math.round(v))); return (v < 16 ? '0' : '') + v.toString(16); }).join('').toUpperCase(); }
-  function rgb2hsl(c) {
-    var r = c[0] / 255, g = c[1] / 255, b = c[2] / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, h = 0, s = 0, d = mx - mn;
-    if (d) { s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn); h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h *= 60; }
-    return [h, s * 100, l * 100];
-  }
-  function hsl2hex(h, s, l) {
-    h = ((h % 360) + 360) % 360; s /= 100; l /= 100;
-    var a = s * Math.min(l, 1 - l);
-    function f(n) { var k = (n + h / 30) % 12; return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); }
-    return rgb2hex([f(0), f(8), f(4)]);
-  }
-  function lum(hex) { var c = hex2rgb(hex).map(function (v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; }
-  function ratio(a, b) { var x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
-  // Nudge a colour's lightness (keeping hue and saturation) until it reaches `min` contrast on every background given.
-  function ensure(fg, bgs, min) {
-    var hsl = rgb2hsl(hex2rgb(fg)), cur = fg, n = 0;
-    function worst(c) { var w = 99; bgs.forEach(function (b) { w = Math.min(w, ratio(c, b)); }); return w; }
-    while (worst(cur) < min && hsl[2] < 98 && n++ < 80) { hsl[2] += 1; cur = hsl2hex(hsl[0], hsl[1], hsl[2]); }
-    return cur;
-  }
-  // Accent colours also carry dark button labels, so keep them light enough for that too.
-  function ensureAccent(fg, bgs) {
-    var c = ensure(fg, bgs, 5.5), hsl = rgb2hsl(hex2rgb(c)), n = 0;
-    while (ratio(c, ON_ACCENT) < 4.5 && hsl[2] < 98 && n++ < 80) { hsl[2] += 1; c = hsl2hex(hsl[0], hsl[1], hsl[2]); }
-    return c;
-  }
-  function rgbs(hex) { return hex2rgb(hex).join(','); }
-
-  function find(id) { for (var i = 0; i < T.length; i++) if (T[i].id === id) return T[i]; return null; }
-  function order(colors) { return colors.split('').sort(function (a, b) { return PRI.indexOf(a) - PRI.indexOf(b); }); }
-
-  // Turns a theme into a full set of values for the colour variables.
-  function build(t) {
-    if (!t || !t.colors) return null;                       // classic = the stylesheet's own values
-    var cols = order(t.colors), five = cols.length === 5;
-    var p = cols[0], s = cols[1], q = cols[2] || cols[1], h = five ? 36 : HUE[p];
-    var sat = five ? 7 : 27;
-    var bgMain = hsl2hex(h, sat, 5.5), bgPanel = hsl2hex(h, sat - 2, 8.5), bgRaised = hsl2hex(h, sat - 3, 11.5), bgSlot = hsl2hex(h, sat, 6.8);
-    var bgs = [bgMain, bgPanel, bgRaised, bgSlot];
-    var textP = ensure(hsl2hex(h, 28, 92), bgs, 12), textS = ensure(hsl2hex(h, 16, 72), bgs, 7.5), textD = ensure(hsl2hex(h, 12, 58), bgs, 4.8);
-    var a1 = five ? '#F2C94C' : ACC[p], a2 = five ? '#C58AE0' : ACC[s];
-    a1 = ensureAccent(a1, bgs); a2 = ensure(a2, bgs, 5.5);
-    var a1h = rgb2hsl(hex2rgb(a1)), a2h = rgb2hsl(hex2rgb(a2)), qh = rgb2hsl(hex2rgb(five ? '#62B0F2' : ACC[q]));
-    var goldBright = ensureAccent(hsl2hex(a1h[0], Math.min(100, a1h[1]), Math.min(92, a1h[2] + 9)), bgs);
-    var bronze = hsl2hex(a1h[0], Math.max(35, a1h[1] * 0.7), 38);
-    var wine = hsl2hex(qh[0], 38, 24), wineBright = ensure(hsl2hex(qh[0], Math.max(40, qh[1] * 0.6), 62), bgs, 5);
-    var o = {
-      '--bg-main': bgMain, '--bg-panel': bgPanel, '--bg-panel-raised': bgRaised, '--bg-slot': bgSlot,
-      '--text-primary': textP, '--text-soft': textS, '--text-dim': textD,
-      '--gold': a1, '--gold-bright': goldBright, '--cyan': a2, '--cyan-dim': hsl2hex(a2h[0], a2h[1] * 0.7, 40),
-      '--bronze': bronze, '--wine': wine, '--wine-bright': wineBright,
-      '--line': 'rgba(' + rgbs(a1) + ',0.2)', '--line-strong': 'rgba(' + rgbs(a1) + ',0.5)',
-      '--slot-border': hsl2hex(h, 16, 21), '--slot-border-hi': hsl2hex(h, 18, 33), '--medium-bg': 'rgba(' + rgbs(a1) + ',0.18)',
-      '--gold-rgb': rgbs(a1), '--cyan-rgb': rgbs(a2), '--glow-a-rgb': rgbs(bronze), '--glow-b-rgb': rgbs(wine),
-      '--bronze-dark': hsl2hex(a1h[0], 45, 17)
-    };
-    return o;
-  }
-
-  var current = 'classic';
-  function apply(id, silent) {
-    var t = find(id) || find('classic'), root = document.documentElement, vals = build(t);
-    VARS.forEach(function (v) { root.style.removeProperty(v); });
-    if (vals) Object.keys(vals).forEach(function (v) { root.style.setProperty(v, vals[v]); });
-    root.setAttribute('data-pm-theme', t.id);
-    current = t.id;
-    var m = document.querySelector('meta[name="theme-color"]');
-    if (m) m.setAttribute('content', vals ? vals['--bg-main'] : '#0F0C0A');
-    if (!silent) { try { localStorage.setItem(KEY, t.id); } catch (e) { /* private mode: applies for this visit only */ } }
-    return t.id;
-  }
-  function saved() { try { return localStorage.getItem(KEY) || 'classic'; } catch (e) { return 'classic'; } }
-
-  // Every text/background pair that matters, for every theme. Returns the list of failures (empty = all good).
-  function audit() {
-    var bad = [];
-    T.forEach(function (t) {
-      var v = build(t); if (!v) return;
-      var bgs = ['--bg-main', '--bg-panel', '--bg-panel-raised', '--bg-slot'];
-      bgs.forEach(function (b) {
-        [['--text-primary', 12], ['--text-soft', 7], ['--text-dim', 4.5], ['--gold', 5.5], ['--gold-bright', 5.5], ['--cyan', 5.5], ['--wine-bright', 4.5]].forEach(function (p) {
-          var r = ratio(v[p[0]], v[b]); if (r < p[1]) bad.push(t.id + ': ' + p[0] + ' on ' + b + ' = ' + r.toFixed(2));
-        });
-      });
-      ['--gold', '--gold-bright'].forEach(function (a) { var r = ratio(ON_ACCENT, v[a]); if (r < 4.5) bad.push(t.id + ': button label on ' + a + ' = ' + r.toFixed(2)); });
-    });
-    return bad;
-  }
-  window.PMTheme = { themes: T, names: NAME, build: build, apply: apply, saved: saved, current: function () { return current; }, audit: audit, find: find };
-  try { apply(saved(), true); } catch (e) { /* the stylesheet defaults stand */ }
-})();
-// Text size: the whole page is scaled (like browser zoom, but remembered and set inside the app). Per device.
-(function () {
-  var KEY = 'pm-text-scale';
-  var SIZES = [{ id: '1', label: 'Normal', pct: 100 }, { id: '1.15', label: 'Large', pct: 115 }, { id: '1.3', label: 'Larger', pct: 130 }, { id: '1.5', label: 'Largest', pct: 150 }];
-  function saved() { try { var v = localStorage.getItem(KEY); return SIZES.some(function (z) { return z.id === v; }) ? v : '1'; } catch (e) { return '1'; } }
-  var current = '1';
-  function apply(id, silent) {
-    if (!SIZES.some(function (z) { return z.id === id; })) id = '1';
-    var el = document.documentElement;
-    if (id === '1') el.style.removeProperty('zoom'); else el.style.zoom = id;
-    el.setAttribute('data-pm-text', id);
-    el.style.setProperty('--pm-zoom', id);
-    current = id;
-    if (!silent) { try { localStorage.setItem(KEY, id); } catch (e) { /* private mode: applies for this visit only */ } try { window.dispatchEvent(new Event('pm-text-change')); } catch (e) { /* no listeners needed */ } }
-    return id;
-  }
-  window.PMText = { sizes: SIZES, apply: apply, saved: saved, current: function () { return current; } };
-  try { apply(saved(), true); } catch (e) { /* normal size stands */ }
-})();
-</script>
+<script id="theme-script" src="./src/features/themes/prepaint.ts"></script>
 
 <!-- ============================================================
      VISUAL STRIKING OVERHAUL -- Phase 1
@@ -2714,7 +2564,7 @@ function renderChart(scores, commandSpark, agg, tierDiscrepancy) {
     scores,
     percentile: computeAxisPercentile,
     boxWidth: boxW,
-    textZoom: (window.PMText ? parseFloat(window.PMText.current()) : 1) || 1,
+    textZoom: parseFloat(document.documentElement.getAttribute('data-pm-text') || '1') || 1, // set by src/features/themes/apply.ts
   });
   const scoreRows = AXES.map(a => { const v = scores[a.key]; const pc = computeAxisPercentile(a.key, v); return `<span>${escapeHtml(a.label)}</span><strong style="color:var(--gold-bright);">${v.toFixed(1)}</strong><span style="color:var(--text-soft);">${pc !== null ? ordinalSuffix(pc) + ' pct.' : ''}</span>`; }).join('');
   const scoreList = `<div class="chart-scores" aria-label="Scores as text">${scoreRows}</div>`;
@@ -5527,56 +5377,6 @@ async function psRenderMovers() {
   body.querySelectorAll('[data-ps-md]').forEach(b => b.addEventListener('click', () => { psState.moverDir = b.getAttribute('data-ps-md'); psRenderMovers(); }));
   body.querySelectorAll('[data-ps-card]').forEach(b => b.addEventListener('click', () => { psOpenCard(b.getAttribute('data-ps-card')); }));
 }
-
-// ---- Display settings (colour themes) ---------------------------------------------------------
-// The tray in My Profile. Each tile previews its own theme (its own background, text and accent
-// colours), shows the mana symbols of its colours, and names the colour combination. Tapping a tile
-// applies it at once. Saved on this device only (localStorage), applied before the page is drawn.
-const PM_CLASSIC_PREVIEW = { '--bg-panel-raised': '#241C14', '--bg-main': '#0F0C0A', '--text-primary': '#F0E6D2', '--text-soft': '#B8A88A', '--gold': '#E8C14A', '--cyan': '#4EC8E0', '--wine': '#6B2A32', '--line': 'rgba(232,193,74,0.35)' };
-function pmThemeTileHtml(t, selected) {
-  const v = (window.PMTheme && window.PMTheme.build(t)) || PM_CLASSIC_PREVIEW;
-  const names = (window.PMTheme && window.PMTheme.names) || {};
-  const full = t.colors ? t.colors.split('').map(c => names[c]).join(' / ') : '';
-  const sub = t.sub || (t.land ? `${full} · ${t.land}` : full);
-  const pips = t.colors ? t.colors.split('').map(c => manaSymbol(c, 19)).join('') : '';
-  const swatch = (c) => `<span style="flex:1; height:6px; background:${c};"></span>`;
-  return `<div class="pm-theme-tile" role="radio" tabindex="0" aria-checked="${selected ? 'true' : 'false'}" data-theme-id="${escapeHtml(t.id)}" style="background:${v['--bg-panel-raised']}; border:${selected ? '3px solid ' + v['--gold'] : '1px solid ' + v['--line']}; padding:${selected ? '8px 10px 10px' : '10px 12px 12px'}; border-radius:6px; cursor:pointer; color:${v['--text-primary']}; text-align:left; touch-action:manipulation; -webkit-tap-highlight-color:transparent;">
-    <div style="display:flex; align-items:center; gap:6px; min-height:22px; margin-bottom:6px;">${pips || `<span style="width:19px; height:19px; border-radius:50%; background:linear-gradient(135deg, ${v['--gold']}, ${v['--cyan']}); display:inline-block;"></span>`}<span style="margin-left:auto; font-size:15px; font-weight:700; color:${v['--gold']};">${selected ? '✓' : ''}</span></div>
-    <div style="font-size:15px; font-weight:700; line-height:1.2; color:${v['--text-primary']};">${escapeHtml(t.name)}</div>
-    <div style="font-size:12px; line-height:1.3; color:${v['--text-soft']}; margin-top:2px; min-height:31px;">${escapeHtml(sub)}</div>
-    <div style="display:flex; gap:2px; margin-top:8px; border-radius:3px; overflow:hidden;">${swatch(v['--bg-main'])}${swatch(v['--gold'])}${swatch(v['--cyan'])}${swatch(v['--wine'])}</div>
-  </div>`;
-}
-function renderDisplaySettings(container) {
-  if (!container || !window.PMTheme) return;
-  const cur = window.PMTheme.current();
-  const groups = [['Classic', 'Classic'], ['Guild', 'Guilds — two colours'], ['Triome', 'Triomes — three colours'], ['Four colours', 'Four colours'], ['Five colours', 'Five colours']];
-  const curT = window.PMTheme.find(cur);
-  const curSize = window.PMText ? window.PMText.current() : '1';
-  const sizeRow = window.PMText ? `<div style="font-size:12px; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-soft); margin:0 0 6px;">Text size</div>
-    <div role="radiogroup" aria-label="Text size" style="display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:8px; margin-bottom:6px;">${window.PMText.sizes.map(z => `<button type="button" role="radio" aria-checked="${z.id === curSize}" class="pm-size-btn" data-size="${z.id}" style="min-height:44px; padding:6px 4px; border-radius:8px; cursor:pointer; text-transform:none; letter-spacing:normal; line-height:1.1; border:1px solid ${z.id === curSize ? 'var(--gold)' : 'var(--line-strong)'}; background:${z.id === curSize ? 'var(--bg-panel-raised)' : 'transparent'}; color:var(--text-primary);"><span style="font-size:${Math.round(13 * z.pct / 100)}px; display:block;">Aa</span><span style="font-size:10.5px; color:var(--text-soft);">${z.label}</span></button>`).join('')}</div>
-    <p style="font-size:12px; color:var(--text-soft); margin:0 0 14px;">Makes everything bigger, like zooming in. Saved on this device only.</p>` : '';
-  container.innerHTML = sanitizeHtml(sizeRow + `<p style="font-size:12px; color:var(--text-soft); margin:0 0 10px;">Pick a colour scheme for the whole app. It is saved on this device only. Now: <b style="color:var(--text-primary);">${escapeHtml(curT ? curT.name : 'Classic PodMates')}</b></p>` +
-    groups.map(([k, label]) => {
-      const list = window.PMTheme.themes.filter(t => t.kind === k);
-      if (!list.length) return '';
-      return `<div style="font-size:12px; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-soft); margin:12px 0 6px;">${label}</div>
-        <div role="radiogroup" aria-label="${label}" style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px;">${list.map(t => pmThemeTileHtml(t, t.id === cur)).join('')}</div>`;
-    }).join(''));
-  const choose = (el) => {
-    const id = el && el.getAttribute('data-theme-id'); if (!id) return;
-    window.PMTheme.apply(id);
-    renderDisplaySettings(container);
-    const t = window.PMTheme.find(id); if (t) showToast(`${t.name} colours applied.`);
-  };
-  container.onclick = (e) => {
-    const sb = e.target.closest && e.target.closest('.pm-size-btn');
-    if (sb && window.PMText) { window.PMText.apply(sb.getAttribute('data-size')); renderDisplaySettings(container); const z = window.PMText.sizes.find(x => x.id === window.PMText.current()); if (z) showToast(`Text size: ${z.label}.`); return; }
-    choose(e.target.closest && e.target.closest('.pm-theme-tile'));
-  };
-  container.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { const el = e.target.closest && e.target.closest('.pm-theme-tile'); if (el) { e.preventDefault(); choose(el); } } };
-}
-
 
 function showInfoModal(headerHtml, bodyHtml) {
   const { modal } = openTadOverlay({ modalStyle: 'max-width:460px' });

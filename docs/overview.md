@@ -113,7 +113,7 @@ only replaces their loader import URLs. See [deploy.md](./deploy.md) for the Git
 | Block (`<script id>` / tag)         |  Lines |   Size | Purpose                                                                                                              |
 | ----------------------------------- | -----: | -----: | -------------------------------------------------------------------------------------------------------------------- |
 | `<style>` + `#pm-visual-overhaul`   | ~1,260 | ~51 KB | All CSS ("Terraria × MTG Arena" theme + overrides)                                                                   |
-| `#theme-script`                     |    152 |  11 KB | Colour themes, runs in `<head>`                                                                                      |
+| `#theme-script`                     |      1 |  <1 KB | Placeholder for `src/features/themes/prepaint.ts`, inlined as a classic script at build time; runs in `<head>`       |
 | `<body>` markup                     |   ~310 |  45 KB | Static shell: auth bar, header, mode tabs, deck form, result panels                                                  |
 | `#engine-script`                    |      6 |  <1 KB | Page-owned engine globals; the **Deck Compass** engine itself is typed, pure `src/engine` (shim module)              |
 | `#lookup-script`                    |    198 |   7 KB | Decklist parsing & card lookup indexes. DOM-free.                                                                    |
@@ -171,7 +171,7 @@ and verifies parity against the extracted datasets;
 
 ### 3.4 Boot sequence
 
-1. `#theme-script` applies the saved theme (no colour flash).
+1. `#theme-script` (inlined `src/features/themes/prepaint.ts`) applies the saved theme and text size (no colour flash).
 2. Inline header script shows real dataset/worker progress. Its 30 s watchdog measures progress stalls,
    not total boot duration.
 3. Engine, lookup and data scripts parse. The app awaits the typed `loadDataset()` loader's cached JSON fetches,

@@ -3,7 +3,8 @@
 // which the inline scripts rely on: UI primitives, feature adapters, engine, size limits,
 // profile, auth, gatherings, cloud, then pods.
 //
-// The theme script and the card-database start-up are still inline in index.html; that code
+// The colour-theme pre-paint script is src/features/themes/prepaint.ts, inlined into <head> at
+// build time because it must run before first paint. The card-database start-up is still inline; that code
 // dynamically imports src/data/load-dataset.ts, src/cards/load-db.ts and the card/engine shims.
 // Each legacy-globals.ts only republishes typed modules on window for the inline scripts and is
 // deleted with its last inline caller. Add new behaviour to a typed module, not here.
@@ -18,6 +19,7 @@ import "./features/impact/legacy-globals.ts";
 import "./features/spoiler-bait/legacy-globals.ts";
 import "./features/comparison/legacy-globals.ts";
 import "./features/ledger/legacy-globals.ts";
+import "./features/themes/legacy-globals.ts";
 import "./features/trades/legacy-globals.ts";
 import "./engine/legacy-globals.ts";
 // Limits first and on their own, so local deck analysis keeps them even if Firebase fails.

@@ -4,10 +4,17 @@ import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 import { withScriptHashes } from "./scripts/content-security-policy.mjs";
 import { conditionalDatasetRequests } from "./scripts/pwa-cache.mjs";
+import { inlineThemePrepaint } from "./scripts/theme-prepaint.mjs";
 
 export default defineConfig({
   base: "./",
   plugins: [
+    {
+      // Before Vite's own HTML handling, so the classic tag is matched as written.
+      name: "development-theme-prepaint",
+      apply: "serve",
+      transformIndexHtml: { order: "pre", handler: inlineThemePrepaint },
+    },
     {
       name: "development-csp",
       apply: "serve",
@@ -16,8 +23,10 @@ export default defineConfig({
     {
       name: "preserve-legacy-html",
       apply: "build",
-      generateBundle(_options, bundle) {
-        let html = readFileSync(new URL("./index.html", import.meta.url), "utf8");
+      async generateBundle(_options, bundle) {
+        let html = await inlineThemePrepaint(
+          readFileSync(new URL("./index.html", import.meta.url), "utf8"),
+        );
         const sanitizer = this.emitFile({
           type: "asset",
           name: "purify.min.js",
@@ -66,6 +75,7 @@ export default defineConfig({
           "./src/features/comparison/comparison.css",
           "./src/features/comparison/detail.css",
           "./src/features/ledger/ledger.css",
+          "./src/features/themes/themes.css",
         ]) {
           const reference = this.emitFile({
             type: "asset",

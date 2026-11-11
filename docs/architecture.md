@@ -7,7 +7,8 @@ are in [CLAUDE.md](../CLAUDE.md); domain terms in the [glossary](glossary.md).
 ## Big picture
 
 PodMates is a static Vite site. `index.html` is still about 7,100 lines: static markup, the main
-CSS and the inline legacy scripts (theme, card-DB start-up and the app script with every unmoved feature).
+CSS and the inline legacy scripts (card-DB start-up and the app script with every unmoved feature). The colour-theme
+pre-paint script is typed (`src/features/themes/prepaint.ts`) and inlined into `<head>` at build/serve time.
 Typed code lives in `src/`, and the inline scripts reach it in two ways:
 
 1. **`src/main.ts`**, the one `<script type="module">` in `<head>`. Like every module it runs after the
@@ -288,7 +289,18 @@ import repositories directly; failures retain their inline status/toast behavior
 redacted sink. Browser-only last-sign-in hints remain optional and never reach that sink.
 
 The profile runtime ports adapt the deck chart, comparison table, themes, backup and
-PriceScry entry points. The shared modal is imported from `src/ui/tad-modal.ts`.
+PriceScry entry points.
+
+Also moved: `themes` (prefix `pm-theme-`, `pm-size-`, `pm-display-`) — the 27 colour themes, the text-size
+setting and the Display settings tray in My Profile. `palette.ts` holds the theme list and pure colour maths
+(`buildTheme`, `auditThemes`; the unit test requires the audit to stay empty and snapshots every theme's values).
+`apply.ts` writes the CSS variables, `data-pm-theme` / `data-pm-text`, `zoom`/`--pm-zoom` and the `theme-color`
+meta, and saves to `localStorage` (`podmates-theme`, `pm-text-scale`); the root attributes are the single record of
+what is applied. Because module scripts are deferred, `prepaint.ts` cannot be a module: `index.html` keeps
+`<script id="theme-script" src="./src/features/themes/prepaint.ts">`, and `scripts/theme-prepaint.mjs` bundles that
+file to a classic IIFE and inlines it (Vite `transformIndexHtml` in dev, `generateBundle` in the build) before the
+CSP hashes are computed. The old `window.PMTheme` / `window.PMText` globals are gone; the inline radar reads
+`data-pm-text`, and only `renderDisplaySettings` remains as a `TODO(p3-6)` shim for the profile adapter. The shared modal is imported from `src/ui/tad-modal.ts`.
 The remaining implementations are owned by their later feature sessions; the adapters
 do not publish new names. Only the save guard remains global for existing inline callers; pods uses
 typed auth/public-profile navigation events. The account screens keep their DOM/classes and token colours; the
@@ -462,6 +474,7 @@ ESLint does not inspect the inline scripts in `index.html`. TypeScript is strict
 
 Phase 3's exit criteria (no source file over ~500 lines, no globals, every `innerHTML` replaced) are not met
 while the inline app script exists. The remaining p3-5 feature moves (rest of Deck Chart,
-themes, PriceScry) each delete inline code and the shim names it used. When the last caller of a
+PriceScry) each delete inline code and the shim names it used. When the last caller of a
 shim name goes, delete the name; when the inline scripts are gone, `index.html` becomes static markup plus the
-`src/main.ts` tag, and `main.ts` boots theme → card DB (worker) → cloud → UI directly.
+`src/main.ts` tag (plus the inlined theme pre-paint script, which must stay synchronous), and `main.ts` boots
+card DB (worker) → cloud → UI directly.
