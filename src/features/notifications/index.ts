@@ -63,6 +63,15 @@ export function mount(bar: HTMLElement): NotificationsFeature {
     const details = body.querySelector("details");
     if (details && expanded) details.open = true;
   }
+  // Like the legacy inbox, a restart never discards preferences while the account is unchanged:
+  // a guest's choices exist only in memory, so resetting them would undo an unsaved toggle.
+  function reset(uid: string | null): void {
+    const prefs = state.uid === uid ? state.prefs : null;
+    state = initialState();
+    if (prefs) state.prefs = prefs;
+  }
+  const accountId = (user: ReturnType<typeof getCurrentUser>): string | null =>
+    user && !user.isAnonymous ? user.uid : null;
   function stop(): void {
     version++;
     unsubs.splice(0).forEach((off) => {
@@ -79,7 +88,7 @@ export function mount(bar: HTMLElement): NotificationsFeature {
     stop();
     const request = version,
       user = getCurrentUser();
-    state = initialState();
+    reset(accountId(user));
     if (!user || user.isAnonymous) {
       updateBadge();
       redraw();
@@ -144,7 +153,7 @@ export function mount(bar: HTMLElement): NotificationsFeature {
   onAuthChange(() => {
     if (disposed) return;
     stop();
-    state = initialState();
+    reset(accountId(getCurrentUser()));
     updateBadge();
     redraw();
     restartSoon();

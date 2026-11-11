@@ -103,6 +103,20 @@ it("updates the badge, marks seen, escapes text and persists opt-outs without co
   expect(query("#pmNotifList").textContent).toContain("Nothing new yet.");
 });
 
+it("keeps a guest's unsaved opt-out when auth settles after the inbox opens", async () => {
+  fake.user = null;
+  feature.open();
+  await settle();
+  query<HTMLDetailsElement>("details").open = true;
+  query<HTMLInputElement>('[data-type="deck"]').click();
+  expect(query<HTMLInputElement>('[data-type="deck"]').checked).toBe(false);
+  fake.auth[0]();
+  await vi.advanceTimersByTimeAsync(600);
+  expect(query<HTMLInputElement>('[data-type="deck"]').checked).toBe(false);
+  expect(query("details").hasAttribute("open")).toBe(true);
+  expect(storage.getItem("pm_notif_prefs_null")).toBeNull();
+});
+
 it("routes gatherings and other activity through typed events, closing the inbox", async () => {
   const gathering = vi.fn(),
     detail = vi.fn();
