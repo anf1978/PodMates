@@ -33,11 +33,23 @@ async function expectAnalysis(page: Page) {
     await expect(page.locator(content)).toBeVisible();
     await expect(page.locator(content)).not.toBeEmpty();
   }
+
+  // The panels moved into src/features/deck-chart draw real content, not just a container.
+  await expect(page.locator("#manaCurveArea svg.dc-curve-svg polyline")).toBeVisible();
+  await expect(
+    page.locator("#typeTableArea table.type-table tbody tr.dc-type-row").first(),
+  ).toBeVisible();
+  await expect(page.locator("#typeTableArea .dc-bucket-bar")).toHaveCount(8);
+  await expect(page.locator("#manaBaseArea .dc-mb-row").first()).toBeVisible();
+  await expect(page.locator("#legalityBadge")).toHaveClass(/dc-badge-(ok|notes)/);
 }
 
 test("card DB loads, a sample deck charts, and a pasted decklist analyses", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator("#dbStatus")).toContainText(/^Ready .* cards.*loaded/);
+  await expect(page.locator("#dataFreshness")).toContainText(
+    /Card data as of \d{4}-\d{2}-\d{2} · Win-rates as of \d{4}-\d{2}-\d{2}/,
+  );
   const chartButton = page.getByRole("button", { name: "Chart Deck", exact: true });
   await expect(chartButton).toBeEnabled();
 
@@ -71,4 +83,64 @@ test("card DB loads, a sample deck charts, and a pasted decklist analyses", asyn
   await expect(page.locator("#status")).toContainText("Commander: Atraxa, Praetors' Voice");
   await expect(page.locator("#notFoundBox")).toBeEmpty();
   await expectAnalysis(page);
+});
+
+test("Try-a-Deck shows loading without blocking DB-ready, and closing cancels rendering", async ({
+  page,
+}) => {
+  let releaseDataset!: () => void;
+  const pendingDataset = new Promise<void>((resolve) => {
+    releaseDataset = resolve;
+  });
+
+  await page.route("**/data/TRY_A_DECK_OPTIONS.json*", async (route) => {
+    await pendingDataset;
+    await route.continue();
+  });
+  try {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Try a Deck", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Try a Deck", exact: true })).toBeVisible();
+    await expect(page.locator("#tadModal")).toContainText("Loading...");
+    await expect(page.locator("#dbStatus")).toContainText(/^Ready .* cards.*loaded/);
+    await expect(page.getByRole("button", { name: "Chart Deck", exact: true })).toBeEnabled();
+    await page.locator("#tadCloseBtn").click();
+    releaseDataset();
+    await expect(page.locator("#tadOverlay")).toHaveCount(0);
+    await page.getByRole("button", { name: "Try a Deck", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Try a Deck", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: /Browse by Archetype/ }).click();
+    await expect(page.getByRole("button", { name: /^Voltron\b/ })).toBeVisible();
+  } finally {
+    releaseDataset();
+  }
+});
+
+test("DB-ready waits for bot datasets and populates the legacy win-rate and tag bindings", async ({
+  page,
+}) => {
+  let releaseDataset!: () => void;
+  const pendingDataset = new Promise<void>((resolve) => {
+    releaseDataset = resolve;
+  });
+  await page.route("**/data/winrates.json*", async (route) => {
+    await pendingDataset;
+    await route.continue();
+  });
+  const winratesResponse = page.waitForResponse("**/data/winrates.json*");
+  try {
+    await page.goto("/");
+    await expect(page.getByRole("button", { name: "Chart Deck", exact: true })).toBeDisabled();
+    await expect(page.locator("#dbStatus")).not.toContainText(/^Ready /);
+    releaseDataset();
+    await expect(page.locator("#dbStatus")).toContainText(/^Ready .* cards.*loaded/);
+    const winrates = (await (await winratesResponse).json()) as { n: string; t: string }[];
+    expect(
+      await page.evaluate(`lookupCommanderTiers([${JSON.stringify(winrates[0].n)}])[0]`),
+    ).toEqual(winrates[0]);
+    expect(await page.evaluate("IX_TAGS.blink.size")).toBeGreaterThanOrEqual(50);
+    expect(await page.evaluate("IX_TAGS.extraCombat.size")).toBeGreaterThanOrEqual(10);
+  } finally {
+    releaseDataset();
+  }
 });

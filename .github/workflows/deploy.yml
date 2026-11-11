@@ -9,6 +9,10 @@ on:
         description: Publish to Pages (main only); leave disabled for a build-only check
         type: boolean
         default: false
+      data_ref:
+        description: Optional data branch for build-only validation (production always uses data)
+        type: string
+        default: data
   # GITHUB_TOKEN pushes do not emit push-triggered workflow runs.
   workflow_run:
     workflows: [Rebuild Card Database, Rebuild Commander Win-Rate Database]
@@ -30,7 +34,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # The rebuild's head_sha predates its bot commit; fetch current main.
+          # Rebuilds publish data separately; source always comes from current main.
           ref: ${{ github.event_name == 'workflow_run' && 'main' || github.sha }}
       - uses: actions/setup-node@v4
         with:
@@ -38,6 +42,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - name: Assemble published datasets and record provenance
+        env:
+          DATA_REF: ${{ github.ref != 'refs/heads/main' && inputs.data_ref || 'data' }}
+        run: node pipelines/lib/assemble-datasets.mjs "$DATA_REF"
+      - run: npm run budget
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist/

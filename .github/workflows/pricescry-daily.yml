@@ -12,7 +12,7 @@ name: PriceScry Daily Snapshot
 
 on:
   schedule:
-    - cron: '30 6 * * *'
+    - cron: "30 6 * * *"
   workflow_dispatch:
 
 permissions:
@@ -66,20 +66,20 @@ jobs:
           ls -l default-cards.jsonl.gz
 
       - name: Add today's prices to the history
-        run: node .github/scripts/pricescry-snapshot.mjs default-cards.jsonl.gz pricescry-data
+        run: node pipelines/pricescry/pricescry-snapshot.mjs default-cards.jsonl.gz pricescry-data
 
       - name: Update yen exchange rates
-        continue-on-error: true   # a failed rate update must not stop the price snapshot
-        run: node .github/scripts/pricescry-fx.mjs pricescry-data
+        continue-on-error: true # a failed rate update must not stop the price snapshot
+        run: node pipelines/pricescry/pricescry-fx.mjs pricescry-data
 
       - name: Refresh the MTGJSON card-id link (first run, then every Monday)
-        continue-on-error: true   # MTGJSON problems must not stop the Scryfall snapshot being published
+        continue-on-error: true # MTGJSON problems must not stop the Scryfall snapshot being published
         run: |
           if [ ! -f pricescry-data/uuidmap.json.gz ] || [ "$(date -u +%u)" = "1" ]; then
             UA="PodMatesPriceScry/1.0 (+https://github.com/anf1978/PodMates)"
             curl -sS --fail -L -H "User-Agent: $UA" -o AllIdentifiers.json.gz https://mtgjson.com/api/v5/AllIdentifiers.json.gz
             ls -l AllIdentifiers.json.gz
-            node .github/scripts/pricescry-mtgjson.mjs build-map AllIdentifiers.json.gz pricescry-data
+            node pipelines/pricescry/pricescry-mtgjson.mjs build-map AllIdentifiers.json.gz pricescry-data
           else
             echo "Card-id link is current; skipping."
           fi
@@ -90,35 +90,35 @@ jobs:
           UA="PodMatesPriceScry/1.0 (+https://github.com/anf1978/PodMates)"
           curl -sS --fail -L -H "User-Agent: $UA" -o AllPricesToday.json.gz https://mtgjson.com/api/v5/AllPricesToday.json.gz
           ls -l AllPricesToday.json.gz
-          node .github/scripts/pricescry-mtgjson.mjs prices AllPricesToday.json.gz pricescry-data
+          node pipelines/pricescry/pricescry-mtgjson.mjs prices AllPricesToday.json.gz pricescry-data
 
       - name: Add today's TCGplayer prices (tcgcsv - polite, one spaced request per set, each file once a day)
-        continue-on-error: true   # a problem here must never stop the rest of the day's data being published
-        run: node .github/scripts/pricescry-tcgplayer.mjs default-cards.jsonl.gz pricescry-data
+        continue-on-error: true # a problem here must never stop the rest of the day's data being published
+        run: node pipelines/pricescry/pricescry-tcgplayer.mjs default-cards.jsonl.gz pricescry-data
 
       - name: Recompute the movers from all shops
-        continue-on-error: true   # if this fails the earlier Scryfall-only movers list is still published
-        run: node .github/scripts/pricescry-movers.mjs pricescry-data
+        continue-on-error: true # if this fails the earlier Scryfall-only movers list is still published
+        run: node pipelines/pricescry/pricescry-movers.mjs pricescry-data
 
       - name: Spoiler radar - upcoming sets, Reddit leak posts, leaked pictures (each part is optional)
-        continue-on-error: true   # a problem here must never stop the rest of the day's data being published
+        continue-on-error: true # a problem here must never stop the rest of the day's data being published
         env:
           REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
           REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: node .github/scripts/pricescry-radar.mjs default-cards.jsonl.gz pricescry-data
+        run: node pipelines/pricescry/pricescry-radar.mjs default-cards.jsonl.gz pricescry-data
 
       - name: Shadow predictions - write down what new cards might move, then score the older ones
         continue-on-error: true
         run: |
-          node .github/scripts/pricescry-shadow.mjs log default-cards.jsonl.gz pricescry-data
-          node .github/scripts/pricescry-shadow.mjs eval pricescry-data
+          node pipelines/pricescry/pricescry-shadow.mjs log default-cards.jsonl.gz pricescry-data
+          node pipelines/pricescry/pricescry-shadow.mjs eval pricescry-data
 
       - name: Cheap-pick watch - write down cheap old cards a new card might lift, then score the older ones
-        continue-on-error: true   # a problem here must never stop the rest of the day's data being published
+        continue-on-error: true # a problem here must never stop the rest of the day's data being published
         run: |
-          node .github/scripts/pricescry-cheapwatch.mjs log default-cards.jsonl.gz pricescry-data pricescry-spoilers.txt
-          node .github/scripts/pricescry-cheapwatch.mjs eval pricescry-data
+          node pipelines/pricescry/pricescry-cheapwatch.mjs log default-cards.jsonl.gz pricescry-data pricescry-spoilers.txt
+          node pipelines/pricescry/pricescry-cheapwatch.mjs eval pricescry-data
 
       - name: Publish to the pricescry-data branch
         run: |

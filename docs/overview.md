@@ -1,12 +1,12 @@
 # PodMates — What it is and what it does
 
-> Snapshot of the project as of **2026-11-08** (commit `e817ad2`). This describes the system *as it is today*,
+> Snapshot of the project as of **2026-11-08** (commit `e817ad2`). This describes the system _as it is today_,
 > including its rough edges. For the proposed changes see [refactor-plan.md](./refactor-plan.md).
 
 ## 1. In one paragraph
 
-**PodMates** is a web app for a regular *Magic: The Gathering* **Commander** playgroup ("pod"). Its tagline is
-*"Our table · Our tempo · Our stories"*. Players paste or import a decklist and get a detailed **deck profile**
+**PodMates** is a web app for a regular _Magic: The Gathering_ **Commander** playgroup ("pod"). Its tagline is
+_"Our table · Our tempo · Our stories"_. Players paste or import a decklist and get a detailed **deck profile**
 (power, speed, bracket signals, combos, mana analysis…) so the group can match decks fairly and keep game nights
 about shared fun. On top of that it has a **social layer**: pods, game-night "Gatherings" with RSVPs and seating,
 a shared match log ("Chronicles"), pod-voted "Impact cards", spoiler voting, and trades. A separate, password-gated
@@ -23,18 +23,18 @@ tool, **PriceScry**, tracks card prices (shown in yen) and tries to predict pric
 
 **Getting a deck in**
 
-| Input | How it works |
-|---|---|
-| Paste a list | Free-text parser accepts `1 Sol Ring`, `1x Sol Ring`, Moxfield/Archidekt exports, and a `Commander:` line. |
+| Input          | How it works                                                                                                        |
+| -------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Paste a list   | Free-text parser accepts `1 Sol Ring`, `1x Sol Ring`, Moxfield/Archidekt exports, and a `Commander:` line.          |
 | Import by link | Archidekt / Moxfield URL → fetched through a **Cloudflare Worker** proxy (CORS workaround). Optional "keep synced". |
-| Deck Crafter | In-app deck builder with card search. |
-| Scan cards | Photo → OCR via **Tesseract.js** (lazy-loaded from jsDelivr) → card names. |
-| Try a Deck | 174 embedded sample decks (6 hand-curated + 168 official precons). |
-| Load a Deck | Load from your saved decks or decks your pod shares with you. |
+| Deck Crafter   | In-app deck builder with card search.                                                                               |
+| Scan cards     | Photo → OCR via **Tesseract.js** (lazy-loaded from jsDelivr) → card names.                                          |
+| Try a Deck     | 178 sample decks, fetched from the extracted deck library.                                                          |
+| Load a Deck    | Load from your saved decks or decks your pod shares with you.                                                       |
 
 **What you get back** (each is a collapsible panel)
 
-- **Deck Profile radar** on five axes — *Speed, Consistency, Versatility, Disruption, Power Level* — each with a
+- **Deck Profile radar** on five axes — _Speed, Consistency, Versatility, Disruption, Power Level_ — each with a
   percentile and tier placement against a **224-deck reference corpus** (precon / tuned / cEDH).
 - **Key Pieces & Combos** — from a hand-curated combo list plus an offline **Commander Spellbook** snapshot.
 - **Mana Curve** — expected mana available per turn.
@@ -68,7 +68,7 @@ tool, **PriceScry**, tracks card prices (shown in yen) and tries to predict pric
 
 ### 2.4 PriceScry (password-gated)
 
-Card price history and speculation tooling, tabs: *Search, Movers, Signals, Radar, Ledger, Bait*. Prices from
+Card price history and speculation tooling, tabs: _Search, Movers, Signals, Radar, Ledger, Bait_. Prices from
 Scryfall, MTGJSON (TCGplayer, Cardmarket, Card Kingdom, Manapool) and tcgcsv, converted to yen. A daily pipeline also
 watches spoilers/leaks (Reddit API; leak images read by Claude via the Anthropic API) and keeps an honest
 "shadow prediction" scoreboard. The password is a **client-side soft gate** — the code says so itself — and the data
@@ -85,7 +85,8 @@ Colour themes (Classic, plus MTG colour-pair and tri-colour themes) applied via 
 ```mermaid
 flowchart LR
   subgraph Browser
-    APP["index.html<br/>(single 5.4 MB file:<br/>HTML + CSS + JS + data)"]
+    APP["index.html<br/>(HTML + CSS + JS)"]
+    DATA["data/*.json + manifest<br/>(eager analysis inputs; lazy feature data)"] --> APP
   end
   APP -- "Auth + Firestore" --> FB[(Firebase<br/>podmates2027)]
   APP -- "?deckUrl=" --> CW[Cloudflare Worker<br/>deck sync proxy]
@@ -95,8 +96,8 @@ flowchart LR
   APP -- "OCR (lazy)" --> JSD["jsDelivr: Tesseract.js"]
 
   subgraph GHA["GitHub Actions"]
-    W1["Weekly: card DB"] -- "splices into" --> APP
-    W2["Weekly: win-rates"] -- "splices into" --> APP
+    W1["Weekly: card DB"] -- "publishes data branch" --> DATA
+    W2["Weekly: win-rates"] -- "publishes data branch" --> DATA
     W3["Daily: PriceScry"] -- "force-pushes" --> RAW
   end
   W1 --> SF
@@ -104,52 +105,90 @@ flowchart LR
   W3 --> SF & MJ[MTGJSON] & TCG[tcgcsv] & RD[Reddit API] & AN[Anthropic API]
 ```
 
-There is **no build step**. `index.html` *is* the app; deploying = committing it to `main`.
+Vite bundles the typed dataset loader and copies `public/`; the build preserves the legacy inline scripts and
+only replaces their loader import URLs. See [deploy.md](./deploy.md) for the GitHub Pages Actions deployment.
 
 ### 3.2 Anatomy of `index.html`
 
-| Block (`<script id>` / tag) | Lines | Size | Purpose |
-|---|---:|---:|---|
-| `<style>` + `#pm-visual-overhaul` | ~1,260 | ~51 KB | All CSS ("Terraria × MTG Arena" theme + overrides) |
-| `#theme-script` | 152 | 11 KB | Colour themes, runs in `<head>` |
-| `<body>` markup | ~310 | 45 KB | Static shell: auth bar, header, mode tabs, deck form, result panels |
-| `#engine-script` | 2,921 | 288 KB | **Deck Compass** classification & scoring engine (+ curated combos, win-rate data). DOM-free. |
-| `#lookup-script` | 198 | 7 KB | Decklist parsing & card lookup indexes. DOM-free. |
-| `#data-script` | — | 2.8 MB | `CARD_DB_COMPRESSED_B64` — gzip+base64 Scryfall oracle DB |
-| `#combo-data-script` | — | 0.5 MB | `SPELLBOOK_SNAPSHOT_B64` — Commander Spellbook snapshot |
-| `#app-script` | 28,906 | 1.5 MB | Everything else: UI, features, Pods, PriceScry, … **~16.8k of these lines are the embedded Try-a-Deck library.** |
-| `#notif-script` | 153 | 12 KB | Notifications inbox (IIFE) |
-| `<script type="module">` | 1,363 | 74 KB | Firebase SDK (from gstatic CDN) + `window.PodmatesCloud` bridge (~90 functions) |
+| Block (`<script id>` / tag)         |  Lines |   Size | Purpose                                                                                                              |
+| ----------------------------------- | -----: | -----: | -------------------------------------------------------------------------------------------------------------------- |
+| `<style>` + `#pm-visual-overhaul`   | ~1,260 | ~51 KB | All CSS ("Terraria × MTG Arena" theme + overrides)                                                                   |
+| `#theme-script`                     |    152 |  11 KB | Colour themes, runs in `<head>`                                                                                      |
+| `<body>` markup                     |   ~310 |  45 KB | Static shell: auth bar, header, mode tabs, deck form, result panels                                                  |
+| `#engine-script`                    |      6 |  <1 KB | Page-owned engine globals; the **Deck Compass** engine itself is typed, pure `src/engine` (shim module)              |
+| `#lookup-script`                    |    198 |   7 KB | Decklist parsing & card lookup indexes. DOM-free.                                                                    |
+| `#data-script`                      |      — | 2.8 MB | `CARD_DB_COMPRESSED_B64` — gzip+base64 Scryfall oracle DB                                                            |
+| `#combo-data-script`                |      5 |  <1 KB | `SPELLBOOK_SNAPSHOT_B64` binding; gzip/base64 snapshot now lives in `public/data/`                                   |
+| `#app-script`                       | 12,107 | 842 KB | Everything else: UI, features, Pods, PriceScry; corpus and decklists are now fetched from `public/data/`             |
+| `#notif-script`                     |    153 |  12 KB | Notifications inbox (IIFE)                                                                                           |
+| cloud `<script type="module">` tags |      4 |  <1 KB | Load `src/services/cloud/`: npm Firebase SDK, typed repositories and the `window.PodmatesCloud` shim (~90 functions) |
 
-Rough split of the 5.4 MB: **~3.8 MB embedded data on a handful of very long lines**, ~0.34 MB Try-a-Deck lists,
-~0.05 MB CSS, ~1.2 MB JS logic + HTML templates (~477 top-level functions, all in the global scope).
+The HTML is now 0.97 MB, down from 5.53 MB; all large datasets are external JSON and the Firebase layer lives in `src/services/cloud/`.
+The legacy application functions still share the global scope.
 
-### 3.3 Embedded datasets
+### 3.3 Datasets
 
-| Constant | Source | Refreshed by |
-|---|---|---|
-| `CARD_DB_COMPRESSED_B64` | Scryfall oracle bulk data | `rebuild-card-database.yml` (weekly) |
-| `IX_TAGS_JSON` | Scryfall Tagger function tags | same workflow |
-| `COMMANDER_TIER_DATA` | Playgroup.gg win-rates | `rebuild-winrate-database.yml` (weekly) |
-| `SPELLBOOK_SNAPSHOT_B64` | Commander Spellbook export | manual (`spellbook-snapshot-probe.yml` → hand-paste) |
-| `KNOW_JSON` (~300 KB) | ranked community card lists | `know-build.cjs` — **not in repo** |
-| `IMPACT_CANDS` | derived from lists + precons | `impact-cands.cjs` — **not in repo** |
-| `REFERENCE_SCORES`, `REFERENCE_TIERS`, `PRECON_FINGERPRINTS`, `STAPLES_BASELINE`, `MANABASE_BASELINE` | engine run over the reference corpus | scripts **not in repo** |
-| `HARD_COMBOS`, `SOFT_SYNERGIES`, `DEFAULT_IMPACT_CARDS`, `GAME_CHANGER_REASONS`, `TRY_A_DECK_OPTIONS` | hand-curated | edited by hand |
+The three bot-managed constants now load from `cards.json`, `tags.json` and `winrates.json` through
+`loadDataset()` before DB-ready, retaining their original global names and encodings. Committed snapshots
+under `public/data/` are the local-dev/CI fallback; deploy overlays the validated `data` branch publication.
+Never edit generated data by hand. `scripts/extract-bot-datasets.mjs` reproduces this cutover from older HTML.
+
+`data/manifest.json` describes every file with `version`, `generatedAt`, SHA-256, byte length and source.
+The loader revalidates it before fetching hash-versioned URLs. The footer displays card/win-rate dates and
+quietly warns when cards are over 14 days old. Extraction timestamps describe the committed fallback snapshot;
+weekly publications use refresh time, preserving dates of datasets that were not refreshed.
+
+Try-a-Deck decklists are fetched only on library/sample-table use or card-search ranking. First chart and
+pod-detail requests load fingerprints plus derived deck metadata (without ordinary decklists); announced
+decks retain a validation list so unavailable cards are filtered exactly as before. Knowledge data/indexes
+load when "Cards you could add" opens, and Impact candidates when the Impact modal opens. Their existing
+loading UI remains visible while waiting; dismissing a loading modal cannot reopen it on completion.
+Cards, win-rates, reference percentiles, staples/manabase baselines and Spellbook stay eager because every
+complete analysis/scoring view needs them. Function tags stay eager for the first chart's Key Interactions,
+not just the optional suggestions. No engine score inputs or golden outputs change.
+The other datasets listed below
+(except the small code-like tables) are now `public/data/<CONSTANT>.json`, extracted without changing their
+runtime values by `scripts/extract-static-datasets.mjs`. Spellbook retains its original gzip/base64 encoding.
+
+| Constant                                                                                              | Source                                       | Refreshed by                                                    |
+| ----------------------------------------------------------------------------------------------------- | -------------------------------------------- | --------------------------------------------------------------- |
+| `CARD_DB_COMPRESSED_B64`                                                                              | Scryfall oracle bulk data                    | `rebuild-card-database.yml` (weekly)                            |
+| `IX_TAGS_JSON`                                                                                        | Scryfall Tagger function tags                | same workflow                                                   |
+| `COMMANDER_TIER_DATA`                                                                                 | Playgroup.gg win-rates                       | `rebuild-winrate-database.yml` (weekly)                         |
+| `SPELLBOOK_SNAPSHOT_B64`                                                                              | Commander Spellbook export                   | manual (`spellbook-snapshot-probe.yml` → extracted JSON string) |
+| `KNOW_JSON` (~300 KB)                                                                                 | ranked community card lists                  | `know-build.cjs` — **not in repo**                              |
+| `IMPACT_CANDS`                                                                                        | derived from lists + precons                 | `impact-cands.cjs` — **not in repo**                            |
+| `REFERENCE_SCORES`, `REFERENCE_TIERS`, `PRECON_FINGERPRINTS`, `STAPLES_BASELINE`, `MANABASE_BASELINE` | engine run over the reference corpus         | scripts **not in repo**                                         |
+| `TRY_A_DECK_OPTIONS`                                                                                  | hand-curated decklists                       | extracted JSON                                                  |
+| `HARD_COMBOS`, `SOFT_SYNERGIES`, `DEFAULT_IMPACT_CARDS`, `GAME_CHANGER_REASONS`                       | hand-curated code-like tables (still inline) | edited by hand                                                  |
 
 The refactor's regression baseline lives in `tests/golden/`: a DOM-free Node VM harness snapshots the full
-analysis and five axis scores for all **178 currently embedded decks** (four more than the historical 174 above).
-Its card and Spellbook subsets are committed, so weekly data updates cannot move the expected results.
-`npm run golden:fixture` deliberately regenerates them and verifies parity against the full embedded databases;
+analysis and five axis scores for all **178 sample decks** (four more than the historical 174 above).
+Its card and Spellbook subsets and win-rates are pinned in `tests/golden/fixtures/`, so weekly data updates
+cannot move the expected results. `npm run golden:fixture` deliberately regenerates the cards/Spellbook
+and verifies parity against the extracted datasets;
 `npm run golden` checks snapshots and also runs through `npm run check`. No floats are rounded.
 
 ### 3.4 Boot sequence
 
 1. `#theme-script` applies the saved theme (no colour flash).
-2. Inline header script shows a staged progress bar + 30 s watchdog for the card DB.
-3. Engine, lookup and data scripts parse; the app decompresses the card DB with `DecompressionStream` and builds
-   lookup indexes on the main thread, then sets `window.__dbReady`.
-4. The Firebase module runs last (modules are deferred), signs in anonymously, exposes `window.PodmatesCloud`, and
+2. Inline header script shows real dataset/worker progress. Its 30 s watchdog measures progress stalls,
+   not total boot duration.
+3. Engine, lookup and data scripts parse. The app awaits the typed `loadDataset()` loader's cached JSON fetches,
+   assigns the original global dataset bindings and builds the knowledge map. Early Try-a-Deck/Impact clicks wait
+   for these required datasets; failures appear in the existing boot error UI.
+4. In parallel with the required static datasets, `src/cards/db.worker.ts` fetches `data/cards.json`, decodes its
+   gzip/base64 string with `DecompressionStream`, parses the card records and builds all three name indexes.
+   One structured-clone message carries the records and plain index-entry arrays, preserving shared card identity;
+   the main thread only hydrates `Map`s. There are no transferable buffers in the final string/object graph.
+   `CARD_DB`, `CARD_DB_COMPRESSED_B64`, `indexes` and `buildLookupIndexes` keep their legacy bindings.
+   Missing Worker support (or missing decompression in the worker) uses the shared main-thread decoder/indexer.
+   If `DecompressionStream` is also missing on the main thread, the legacy compatibility error still applies;
+   this step does not introduce a gzip polyfill. Worker errors/stalls terminate it and reach the boot error UI.
+   The extracted Spellbook string is fetched and decoded in its existing optional fallback path. Only then does
+   the app set `window.__dbReady`. Golden tests import the same DOM-free codec without starting a worker.
+5. The cloud modules are deferred (and can run while dataset fetches are pending). They publish `window.PM_LIMITS`, start Firebase signed out
+   (there is no automatic anonymous sign-in), expose `window.PodmatesCloud`, and
    dispatches a `podmates-cloud-init` event that the app and notifications script wait for.
 
 Scripts talk to each other through **globals** (`window.PodmatesCloud`, `window.pmNotif`, `window.PM_LIMITS`,
@@ -173,30 +212,43 @@ pods/{podId}
   settings/impactCards      pod's diff against the default impact list
 ```
 
+Security rules are versioned at `firebase/firestore.rules` with emulator tests. The deployed
+console configuration and real index export still need human verification.
+
 Browser storage: `localStorage` (`podmates-theme`, `pm_ja_hint`, `pm_notif_prefs_*`, `pm_notif_seen_*`,
 `pm-sb-rarities`, `podmates_last_signin`) and `sessionStorage` (`pricescryUnlocked`). These hold only small
 preferences. **Saved decks are cloud-only:** they are stored in Firestore (`users/{uid}/decks`), never in the browser,
 so saving needs a real (non-anonymous) account, decks are available on any device you sign in on, and there is no
-offline copy. The only local copy is one the user downloads via *My Data* backup.
+offline copy. The only local copy is one the user downloads via _My Data_ backup.
 
-### 3.6 Data pipelines (`.github/workflows` + `.github/scripts`)
+### 3.6 Data pipelines (`.github/workflows` + `pipelines/`)
 
-| Workflow | Trigger | What it does | Output |
-|---|---|---|---|
-| `rebuild-card-database.yml` | Mon 06:00 UTC + manual | Scryfall oracle bulk → `build-card-db.mjs`; tags → `fetch-function-tags.mjs` | **Rewrites `index.html` on `main`** via `splice-card-db.mjs` |
-| `rebuild-winrate-database.yml` | Mon 07:00 UTC + manual | Scans Playgroup.gg per-commander API | **Rewrites `index.html` on `main`** via `splice-winrate-db.mjs` |
-| `pricescry-daily.yml` | Daily 06:30 UTC | Snapshot prices, FX, MTGJSON, tcgcsv, movers, spoiler radar, shadow predictions, cheap-pick watch | Force-pushes `pricescry-data` branch (512 gzip shards + reports) |
-| `pricescry-backfill.yml` | manual, run-once | 90 days of MTGJSON history | `pricescry-data` |
-| `pricescry-backtest.yml`, `pricescry-bulkjump.yml` | manual | Research backtests | Workflow artifacts |
-| `spellbook-snapshot-probe.yml` | manual | Builds Spellbook snapshot | Artifact (pasted in by hand) |
-| `scryfall-tags.yml` | manual | Tag dump (script inlined in YAML) | Artifact |
-| `pricescry-probe.yml`, `pricescry-tcgcsv-probe.yml` | manual | One-off investigation of data sources | Logs/artifact |
+| Workflow                                            | Trigger                | What it does                                                                                      | Output                                                           |
+| --------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `rebuild-card-database.yml`                         | Mon 06:00 UTC + manual | Scryfall oracle bulk → `build-card-db.mjs`; tags → `fetch-function-tags.mjs`                      | `cards.json` + `tags.json` on force-updated `data` branch        |
+| `rebuild-winrate-database.yml`                      | Mon 07:00 UTC + manual | Scans Playgroup.gg per-commander API                                                              | `winrates.json` on the same `data` branch                        |
+| `pricescry-daily.yml`                               | Daily 06:30 UTC        | Snapshot prices, FX, MTGJSON, tcgcsv, movers, spoiler radar, shadow predictions, cheap-pick watch | Force-pushes `pricescry-data` branch (512 gzip shards + reports) |
+| `pricescry-backfill.yml`                            | manual, run-once       | 90 days of MTGJSON history                                                                        | `pricescry-data`                                                 |
+| `pricescry-backtest.yml`, `pricescry-bulkjump.yml`  | manual                 | Research backtests                                                                                | Workflow artifacts                                               |
+| `spellbook-snapshot-probe.yml`                      | manual                 | Builds Spellbook snapshot                                                                         | Artifact (pasted in by hand)                                     |
+| `scryfall-tags.yml`                                 | manual                 | Tag dump (script inlined in YAML)                                                                 | Artifact                                                         |
+| `pricescry-probe.yml`, `pricescry-tcgcsv-probe.yml` | manual                 | One-off investigation of data sources                                                             | Logs/artifact                                                    |
 
 Secrets used: `GITHUB_TOKEN`, `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `ANTHROPIC_API_KEY`.
 
-### 3.7 Things the app depends on that are *not* in this repo
+The weekly publishers validate counts/shapes before writing a SHA-256 manifest, preserve the other workflow's
+datasets and force-update an orphan data commit with an explicit lease. A shared concurrency group prevents
+lost updates. A failed tag fetch logs a warning and keeps the previous validated lists; malformed fetched tags
+abort publication. Rebuilds never commit to application source. Non-main dispatches publish only to
+`data-<source-branch>` for safe validation.
 
-- **Firestore security rules** (`firestore.rules`, referenced in comments) — the real security boundary.
+Successful main rebuilds trigger `deploy.yml` through `workflow_run` (token pushes do not trigger `push`).
+Deployment pins the data branch SHA, checks hashes and copies the files into `dist/data/`; its
+`build-manifest.json` and job summary record that revision and every hash. If no data branch exists yet,
+the committed snapshots are validated and used explicitly. Existing but invalid publications fail the build.
+
+### 3.7 Things the app depends on that are _not_ in this repo
+
 - **Cloudflare Worker source** (`worker.js`) for deck sync (`spring-unit-49d9.anthony-ef7.workers.dev`).
 - Build scripts `know-build.cjs`, `impact-cands.cjs`, and whatever produced the reference corpus/baselines.
 - Firebase console configuration (auth providers, indexes) and the Cloudflare account.

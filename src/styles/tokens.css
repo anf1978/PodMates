@@ -1,0 +1,49 @@
+/* Design tokens: colours, fonts and shared radii used across the app. Themes override these. */
+:root {
+  /* Deep earthy / cave backgrounds */
+  --bg-main: #0f0c0a;
+  --bg-panel: #1a1510;
+  --bg-panel-raised: #241c14;
+  --bg-slot: #12100c; /* inventory-slot feel */
+
+  /* Text */
+  --text-primary: #f0e6d2;
+  --text-soft: #b8a88a;
+  --text-dim: #8a7b63;
+
+  /* Terraria-leaning accents */
+  --gold: #e8c14a; /* rare-item gold */
+  --gold-bright: #ffe07a;
+  --cyan: #4ec8e0; /* mana / crystal accent */
+  --cyan-dim: #2a8a9c;
+  --leaf: #6fbf4e; /* nature / success */
+  --bronze: #a67c2a;
+  --wine: #6b2a32;
+  --wine-bright: #9a3a48;
+
+  /* Borders & lines (thicker / blockier) */
+  --line: rgba(232, 193, 74, 0.18);
+  --line-strong: rgba(232, 193, 74, 0.45);
+  --slot-border: #3a3228;
+  --slot-border-hi: #5c4e3a;
+
+  /* Status */
+  --danger: #e0553a;
+  --success-text: #8fdf6a;
+  --success-bg: rgba(111, 191, 78, 0.22);
+  --medium-bg: rgba(232, 193, 74, 0.18);
+
+  /* Helpers so translucent accents follow the colour theme (see the theme script below) */
+  --gold-rgb: 232, 193, 74;
+  --cyan-rgb: 78, 200, 224;
+  --glow-a-rgb: 198, 153, 44;
+  --glow-b-rgb: 94, 30, 40;
+  --bronze-dark: #5c3f12;
+
+  /* Mana colors (kept for card identity) */
+  --w: #e8ce7b;
+  --u: #8ab1e0;
+  --b: #a79fb0;
+  --r: #e0977a;
+  --g: #8fbf78;
+}

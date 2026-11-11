@@ -1,0 +1,95 @@
+{
+  "files": {
+    "cards.json": {
+      "version": "bb701be33322",
+      "generatedAt": "2026-11-10T14:22:23.360Z",
+      "sha256": "bb701be33322c11efc919253204092f1d5ba78b2cbc380b3ec8d4a7b455539a2",
+      "bytes": 2939143,
+      "source": "Committed extraction snapshot"
+    },
+    "IMPACT_CANDS.json": {
+      "version": "0a737a8b6d77",
+      "generatedAt": "2026-11-10T14:22:23.363Z",
+      "sha256": "0a737a8b6d77706f9713950c9186cde95568b5723f08ab5a3c9bb752d1b2301b",
+      "bytes": 6583,
+      "source": "Committed extraction snapshot"
+    },
+    "KNOW_JSON.json": {
+      "version": "9935da263322",
+      "generatedAt": "2026-11-10T14:22:23.364Z",
+      "sha256": "9935da263322c3ba32a2d0554a3c58c04a24db89a9580fe0a183401a36cc50b3",
+      "bytes": 297868,
+      "source": "Committed extraction snapshot"
+    },
+    "MANABASE_BASELINE.json": {
+      "version": "d5ef8e7a3d8a",
+      "generatedAt": "2026-11-10T14:22:23.365Z",
+      "sha256": "d5ef8e7a3d8a36c97f56751a6f5ce17942f1fdbf932c59337957381e11d7d97e",
+      "bytes": 3128,
+      "source": "Committed extraction snapshot"
+    },
+    "PRECON_FINGERPRINTS.json": {
+      "version": "6977bb5322f5",
+      "generatedAt": "2026-11-10T14:22:23.365Z",
+      "sha256": "6977bb5322f50976b60933dc0f6113d179154ef823c8c9e9baafe2de33f12e06",
+      "bytes": 59530,
+      "source": "Committed extraction snapshot"
+    },
+    "REFERENCE_SCORES.json": {
+      "version": "ef71caf187bd",
+      "generatedAt": "2026-11-10T14:22:23.366Z",
+      "sha256": "ef71caf187bde9e750d1a1ff80d51a2b8cd3fe6814644cfdfec50dd40fb97444",
+      "bytes": 4695,
+      "source": "Committed extraction snapshot"
+    },
+    "REFERENCE_TIERS.json": {
+      "version": "11726ede7992",
+      "generatedAt": "2026-11-10T14:22:23.366Z",
+      "sha256": "11726ede799217cee21bd8aa88663706857bb3b8d324c6832b2ce41140635c4c",
+      "bytes": 898,
+      "source": "Committed extraction snapshot"
+    },
+    "SPELLBOOK_SNAPSHOT_B64.json": {
+      "version": "70f989f16b39",
+      "generatedAt": "2026-11-10T14:22:23.367Z",
+      "sha256": "70f989f16b3965edabe6adf6188c45b40fbd44e7c44842a7495805378a936b64",
+      "bytes": 502283,
+      "source": "Committed extraction snapshot"
+    },
+    "STAPLES_BASELINE.json": {
+      "version": "ee7bac0bf50a",
+      "generatedAt": "2026-11-10T14:22:23.367Z",
+      "sha256": "ee7bac0bf50a042547aff67643cd58713bf0a680c63635a07768d151b2c5ed0d",
+      "bytes": 2806,
+      "source": "Committed extraction snapshot"
+    },
+    "tags.json": {
+      "version": "06ab328639b4",
+      "generatedAt": "2026-11-10T14:22:23.368Z",
+      "sha256": "06ab328639b44863a3064f8b22b0e5ff2a5168839f266ad9b27b2a81f42920fd",
+      "bytes": 4821,
+      "source": "Committed extraction snapshot"
+    },
+    "TRY_A_DECK_METADATA.json": {
+      "version": "200944870c4a",
+      "generatedAt": "2026-11-10T14:22:23.368Z",
+      "sha256": "200944870c4a1491363a8c7d576c055e5346765394c455ced2dfc8236d14e9c0",
+      "bytes": 74458,
+      "source": "Committed extraction snapshot"
+    },
+    "TRY_A_DECK_OPTIONS.json": {
+      "version": "fa4a5cbf5ed2",
+      "generatedAt": "2026-11-10T14:22:23.369Z",
+      "sha256": "fa4a5cbf5ed2b4cbedb344c1226224f561234638274bf28b204f5868308ce846",
+      "bytes": 360711,
+      "source": "Committed extraction snapshot"
+    },
+    "winrates.json": {
+      "version": "0f6fb252e33c",
+      "generatedAt": "2026-11-10T14:22:23.370Z",
+      "sha256": "0f6fb252e33c8a16174825dade42ef0e57e18b1e7e652e263470717017e2ac5a",
+      "bytes": 85415,
+      "source": "Committed extraction snapshot"
+    }
+  }
+}

@@ -8,11 +8,13 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "budget": "node scripts/bundle-budget.mjs",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p pipelines/tsconfig.json",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "test": "vitest run --exclude \"tests/e2e/**\"",
+    "test": "vitest run --exclude \"tests/e2e/**\" --exclude \"firebase/**\"",
+    "test:rules": "firebase emulators:exec --config firebase/firebase.json --project demo-podmates-rules --only firestore \"vitest run --config firebase/vitest.config.ts\"",
     "golden": "vitest run tests/golden/engine.golden.test.ts",
     "golden:update": "npm run golden -- --update",
     "golden:fixture": "node tests/golden/generate-fixture.mjs",
@@ -21,14 +23,23 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.0",
+    "@firebase/rules-unit-testing": "^5.0.0",
     "@playwright/test": "^1.56.0",
     "@types/node": "^22.0.0",
     "eslint": "^9.0.0",
     "eslint-plugin-no-unsanitized": "^4.0.0",
+    "firebase-tools": "^15.35.0",
+    "happy-dom": "^21.0.4",
     "prettier": "^3.0.0",
     "typescript": "^5.0.0",
     "typescript-eslint": "^8.0.0",
     "vite": "^6.4.6",
+    "vite-plugin-pwa": "^1.3.0",
     "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "dompurify": "^3.4.17",
+    "firebase": "^12.19.0",
+    "lit-html": "^3.3.3"
   }
 }

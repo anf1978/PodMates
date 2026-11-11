@@ -4,12 +4,14 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    // index.html and the Node-run golden tooling import .ts files by their real name.
+    "allowImportingTsExtensions": true,
     "strict": true,
     "allowJs": true,
     "checkJs": false,
     "noEmit": true,
     "skipLibCheck": true,
-    "types": ["node"]
+    "types": ["node", "vite/client"]
   },
   "include": ["**/*.ts", "**/*.js", "**/*.mjs", "**/*.cjs"],
   "exclude": ["node_modules", "dist", "playwright-report", "test-results"]

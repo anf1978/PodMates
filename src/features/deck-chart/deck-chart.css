@@ -1,0 +1,201 @@
+/* Deck Chart panels. Every rule here replaces an inline style attribute that the panel
+   builders used to write, so the declarations are deliberately identical to what they
+   produced. Only genuinely per-deck values (bar widths, bar heights, the fixing-quality
+   colour) are still set from the template. */
+
+/* ---- Shared ---- */
+
+.dc-how {
+  font-size: 12px;
+  color: var(--text-soft);
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+.dc-how-summary {
+  cursor: pointer;
+  color: var(--gold);
+  font-weight: 600;
+}
+.dc-how-body {
+  margin-top: 8px;
+}
+.dc-strong-gold {
+  color: var(--gold-bright);
+}
+
+/* ---- Structure & Legality ---- */
+
+.dc-badge-ok {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+.dc-badge-notes {
+  background: var(--medium-bg);
+  color: var(--gold-bright);
+}
+.dc-legality-issues {
+  margin: 0 0 8px 18px;
+  padding: 0;
+  font-size: 13.5px;
+  color: var(--text-soft);
+  line-height: 1.55;
+}
+.dc-legality-issue {
+  margin-bottom: 4px;
+}
+.dc-legality-notes {
+  font-size: 12.5px;
+  color: var(--text-soft);
+}
+.dc-legality-empty {
+  font-size: 13.5px;
+  color: var(--text-soft);
+}
+
+/* ---- Mana Curve ---- */
+
+.dc-curve-svg {
+  width: 100%;
+  max-width: 440px;
+  display: block;
+  margin: 0 auto;
+}
+.dc-curve-caption {
+  font-size: 12px;
+  color: var(--text-soft);
+  text-align: center;
+  margin: 8px 0 0;
+}
+
+/* ---- Mana Base ---- */
+
+.dc-mb-row {
+  margin-bottom: 14px;
+}
+.dc-mb-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.dc-mb-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dc-mb-color {
+  color: var(--text-primary);
+}
+.dc-mb-gap {
+  font-size: 11.5px;
+  color: var(--danger);
+}
+.dc-mb-bars {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dc-mb-bars-cost {
+  margin-bottom: 3px;
+}
+.dc-mb-label,
+.dc-mb-value {
+  width: 70px;
+  font-size: 11.5px;
+  color: var(--text-soft);
+}
+.dc-mb-label {
+  text-align: right;
+}
+.dc-mb-track {
+  flex: 1;
+  background: var(--bg-main);
+  border-radius: 2px;
+  overflow: hidden;
+  height: 16px;
+}
+.dc-mb-fill {
+  height: 100%;
+}
+.dc-mb-fill-production {
+  opacity: 0.55;
+}
+.dc-mb-note {
+  font-size: 12px;
+  color: var(--text-soft);
+  margin-top: 6px;
+}
+.dc-mb-benchmark {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.dc-mb-benchmark-title,
+.dc-buckets-title {
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 8px;
+}
+.dc-mb-benchmark-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: baseline;
+}
+.dc-mb-benchmark-note {
+  font-size: 12px;
+  color: var(--text-soft);
+  margin-top: 8px;
+}
+
+/* ---- Card Type Frequency & Curve ---- */
+
+.dc-stats-strip {
+  margin-bottom: 16px;
+}
+.dc-buckets {
+  margin: 18px 0 12px;
+}
+.dc-buckets-title {
+  margin-bottom: 12px;
+}
+.dc-buckets-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 90px;
+  padding-top: 4px;
+}
+.dc-bucket {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+}
+.dc-bucket-count {
+  font-size: 11px;
+  color: var(--gold);
+  margin-bottom: 3px;
+  line-height: 1;
+  min-height: 12px;
+}
+.dc-bucket-bar {
+  width: 100%;
+  background: var(--gold);
+  opacity: 0.75;
+  border-radius: 2px 2px 0 0;
+}
+.dc-bucket-label {
+  font-size: 10px;
+  color: var(--text-soft);
+  margin-top: 4px;
+}
+.dc-type-row {
+  cursor: pointer;
+}

@@ -29,7 +29,7 @@ Today an AI assistant has to work on a 5.4 MB, 35k-line file it cannot read in f
 - it can tell what a function accepts and returns without reading callers → **TypeScript types**;
 - it can prove a change works on its own → **`npm run check` (types + lint + tests) in under a minute**;
 - the rules of the house are written down where it will see them → **`CLAUDE.md`, plus nested ones per area**;
-- dangerous areas are fenced off → **generated files marked, protected by CI and hooks**.
+- dangerous areas are fenced off → **generated files marked, protected by CI and `CLAUDE.md` rules**.
 
 Everything below serves those five points as much as it serves classic engineering hygiene.
 
@@ -56,7 +56,7 @@ Everything below serves those five points as much as it serves classic engineeri
 | Firebase | Modular SDK **from npm** (same v12 line) | Types, tree-shaking, version pinned in `package.json`. |
 | Unit tests | **Vitest** | Same config as Vite, fast, great with TS. |
 | E2E tests | **Playwright** (+ axe for accessibility) | Smoke-test real flows in a real browser. |
-| Lint/format | **ESLint** (typescript-eslint, `no-unsanitized`) + **Prettier** | Enforced in CI and by Claude hooks. |
+| Lint/format | **ESLint** (typescript-eslint, `no-unsanitized`) + **Prettier** | Enforced in CI; `CLAUDE.md` tells agents to run them. |
 | Rules tests | **Firebase emulator** + `@firebase/rules-unit-testing` | Security rules become testable code. |
 | Node | **22 LTS** everywhere (local + Actions) | Node 20 is end-of-life. |
 
@@ -163,7 +163,7 @@ blocks pushes, and no web uploads.
 | `CLAUDE.md` (root) | The map + house rules. Short (aim < 150 lines) because it is loaded every session. Draft in [Appendix A](#appendix-a--draft-claudemd). |
 | `src/engine/CLAUDE.md`, `src/features/pricescry/CLAUDE.md`, `pipelines/CLAUDE.md`, `firebase/CLAUDE.md` | Area-specific rules, loaded only when Claude works in that folder. |
 | `AGENTS.md` and `.github/copilot-instructions.md` | One-line pointers to `CLAUDE.md`, so Claude and Copilot follow the same rules. |
-| `.claude/settings.json` | Allow-list safe commands (`npm run *`, `git status/diff`); deny edits to generated data; **hooks**: format + lint the edited file after each edit, run `npm run check` before finishing. |
+| `.claude/settings.json` | Allow-list safe commands (`npm run *`, `git status/diff`); deny edits to generated data. **No hooks** (removed: they slowed every edit and blocked sessions from stopping; CI is the gate and `CLAUDE.md` states the rules). |
 | `.claude/commands/` | Reusable slash commands, e.g. `/check`, `/new-feature <name>` (scaffold folder + test + CSS), `/engine-change` (requires golden-test diff + a written justification). |
 | `docs/glossary.md` | Domain terms (Pod, Gathering, Chronicle, Bracket, Game Changer, Impact card, Spark, Centrality, precon, cEDH…) so the agent uses them consistently. |
 | `docs/adr/` | Short Architecture Decision Records for D1–D7 below, so future sessions don't relitigate them. |

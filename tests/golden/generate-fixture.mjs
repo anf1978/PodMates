@@ -1,13 +1,15 @@
-// Regenerates pinned data from the checked-in HTML, then proves the subset
-// produces exactly the same complete analyses as the full embedded databases.
+// Regenerates pinned data from the published card DB and extracted Spellbook, then
+// proves the subset produces the same complete analyses as the full databases.
 import assert from "node:assert/strict";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { createEngine, decodeCards, decodeEmbedded, fixtureUrl, htmlUrl } from "./source.mjs";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { decodeCardDatabase } from "../../src/cards/db-codec.js";
+import { HARD_COMBOS } from "../../src/data/combos.ts";
+import { createHarness, decodeSpellbook, fixtureUrl, readDataset, readFixture } from "./harness.ts";
 
-const html = readFileSync(htmlUrl, "utf8");
-const cards = await decodeCards(html);
-const spellbook = decodeEmbedded(html, "SPELLBOOK_SNAPSHOT_B64");
-const full = createEngine(cards, spellbook, html);
+const cards = await decodeCardDatabase(readDataset("cards"));
+const spellbook = decodeSpellbook();
+const winRates = readFixture("winrates.json");
+const full = createHarness(cards, spellbook, winRates);
 const deckNames = full.samples.map(
   (sample) =>
     new Set(
@@ -35,7 +37,7 @@ const rows = spellbook.c.filter((row) => {
   return deckNames.some((deck) => names.filter((name) => !deck.has(name)).length <= 1);
 });
 for (const row of rows) for (const i of row[0]) needed.add(spellbook.n[i]);
-for (const combo of full.hardCombos) {
+for (const combo of HARD_COMBOS) {
   if (
     deckNames.some((deck) => combo.s.filter((slot) => !slot.some((n) => deck.has(n))).length <= 1)
   ) {
@@ -61,7 +63,7 @@ const pinnedSpellbook = {
   ]),
 };
 const pinnedCards = cards.filter((card) => needed.has(card.n));
-const pinned = createEngine(pinnedCards, pinnedSpellbook, html);
+const pinned = createHarness(pinnedCards, pinnedSpellbook, winRates);
 for (const sample of full.samples) {
   assert.equal(
     JSON.stringify(pinned.analyzeSample(sample)),
