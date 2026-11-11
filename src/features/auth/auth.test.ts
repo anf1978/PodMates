@@ -2,8 +2,8 @@
 // @vitest-environment happy-dom
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { render } from "../../ui/html";
-import { on } from "../../services/events";
-import { configureAuth, showAuthModal } from "./index";
+import { emit, on } from "../../services/events";
+import { configureAuth, mount, showAuthModal } from "./index";
 import { rememberedSignIn } from "./state";
 
 vi.mock("../../services/cloud/auth", () => ({
@@ -45,6 +45,12 @@ afterEach(() => {
 });
 
 describe("optional account form", () => {
+  it("opens sign-in through the shared pod navigation event", () => {
+    mount();
+    emit("auth:open", undefined);
+    expect(modal.querySelector("h2")?.textContent).toBe("Create an Account");
+  });
+
   it("preserves email but clears passwords on validation and mode changes", () => {
     showAuthModal();
     fill("authEmail", "<player>@example.test");

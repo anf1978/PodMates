@@ -85,30 +85,16 @@ test("legacy sanitizer rejects executable markup independently of CSP", async ({
   expect(dialogs).toEqual([]);
 });
 
-test("an invite URL can be cancelled and requires consent before sharing decks", async ({
-  page,
-}) => {
+test("an invite URL can be dismissed before authentication or sharing decks", async ({ page }) => {
   await page.goto("/?join=ATTACKER-CODE");
   await expect(page.locator("#dbStatus")).toContainText(/^Ready /);
-  // Keep the real confirmation UI, but never authenticate or write to Firestore.
-  await page.evaluate(`(() => {
-    updateAuthBar = () => {};
-    refreshCloudDecksCache = async () => {};
-    refreshCloudChroniclesCache = async () => {};
-    window.PodmatesCloud.onAuthChange = callback => callback({ uid: 'victim', isAnonymous: false });
-    window.PodmatesCloud.joinPodByInviteCode = async () => {
-      document.body.dataset.joined = 'yes';
-      return { ok: false, error: 'Test join finished' };
-    };
-    wireCloudAuth();
-  })();`);
-  await expect(
-    page.getByText(/members will be able to see your non-secret saved decks/),
-  ).toBeVisible();
-  await expect(page.locator("body")).not.toHaveAttribute("data-joined");
-  await page.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(page.locator("body")).not.toHaveAttribute("data-joined");
-  await page.evaluate("pendingJoinCode = 'ATTACKER-CODE'; wireCloudAuth();");
-  await page.getByRole("button", { name: "Join pod", exact: true }).click();
-  await expect(page.locator("body")).toHaveAttribute("data-joined", "yes");
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page.locator("#podmatesToast")).toContainText(
+    "Sign in or create an account to join this pod.",
+  );
+  await expect(page.locator("#authSubmitBtn")).toHaveText("Create Account");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  // Signed-in consent/acceptance lives in the pod lifecycle tests, using repository mocks
+  // rather than patching the retired inline wireCloudAuth/pendingJoinCode implementation.
 });

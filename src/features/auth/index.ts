@@ -1,7 +1,7 @@
 // Optional sign-in flow. Firebase access stays in cloud repositories.
 import * as auth from "../../services/cloud/auth";
 import { describeUser, getCurrentUser, onAuthChange } from "../../services/cloud/session";
-import { emit } from "../../services/events";
+import { emit, on } from "../../services/events";
 import { reportError } from "../../services/report-error";
 import { showToast } from "../../ui/toast";
 import { render } from "../../ui/html";
@@ -150,6 +150,7 @@ export function updateAuthBar(user = describeUser(getCurrentUser())): void {
 export function mount(): void {
   if (mounted) return;
   mounted = true;
+  on("auth:open", showAuthModal);
   const bar = document.getElementById("authBar");
   if (bar) render(authBarTemplate(), bar);
   document.getElementById("authOpenBtn")?.addEventListener("click", showAuthModal);

@@ -1,7 +1,6 @@
 // Temporary adapters to unmoved chart/table/display/backup callers. No cloud shim access.
 import { configureProfile, mount } from "./index";
 import { configurePublicProfileRuntime, type PublicProfileRuntime } from "./public-runtime";
-import { openPlayerProfileOverlay, openPodProfileOverlay } from "./public-view";
 import type { PublicProfileDeck } from "./public-types";
 import { buildProfileTable, type ProfileTableRuntime } from "./table";
 import { pageContext } from "../../engine/legacy-globals";
@@ -108,17 +107,7 @@ configurePublicProfileRuntime({
   podColors: POD_COLORS,
 });
 
-const legacy = {
-  // TODO(p3-6): pod member lists still open player profiles.
-  openPlayerProfileOverlay,
-  // TODO(p3-6): pod navigation still opens the pod profile.
-  openPodProfileOverlay,
-};
-type ProfileLegacy = typeof legacy;
 declare global {
   let deckNameManuallyEdited: boolean;
-  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-  interface Window extends ProfileLegacy {}
 }
-Object.assign(window, legacy);
 mount();

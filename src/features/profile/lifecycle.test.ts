@@ -3,7 +3,9 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createEngineContext } from "../../engine";
 import { buildLookupIndexes } from "../../cards/lookup";
-import { configureProfile, showProfileModal } from "./index";
+import { configureProfile, mount, showProfileModal } from "./index";
+import { emit } from "../../services/events";
+import { openPlayerProfileOverlay, openPodProfileOverlay } from "./public-view";
 import { updateMyDisplayName } from "../../services/cloud/profile";
 import { addLinkedDeck } from "../../services/cloud/linked-decks";
 import { updateMyProfileLinks } from "../../services/cloud/users";
@@ -39,9 +41,29 @@ vi.mock("../../services/cloud/users", () => ({
 vi.mock("../../services/cloud/auth", () => ({ resetPassword: vi.fn() }));
 vi.mock("../../services/report-error", () => ({ reportError: vi.fn() }));
 vi.mock("../../ui/toast", () => ({ showToast: vi.fn() }));
-vi.mock("./public-view", () => ({ renderPlayerProfileContent: vi.fn() }));
+vi.mock("./public-view", () => ({
+  renderPlayerProfileContent: vi.fn(),
+  openPlayerProfileOverlay: vi.fn(),
+  openPodProfileOverlay: vi.fn(),
+}));
 
 let modal: HTMLElement;
+it("routes pod and member navigation to public profiles without legacy globals", () => {
+  mount();
+  const pod = {
+    id: "p1",
+    name: "Crew",
+    leaderId: "u",
+    coLeaderIds: [],
+    memberIds: ["u"],
+    inviteCode: "ABCDEFGH",
+  };
+  emit("profile:pod", pod);
+  emit("profile:player", { uid: "u", name: "Alex", podId: "p1" });
+  expect(openPodProfileOverlay).toHaveBeenCalledWith(pod);
+  expect(openPlayerProfileOverlay).toHaveBeenCalledWith("u", "Alex", "p1");
+});
+
 beforeEach(() => {
   vi.clearAllMocks();
   modal = document.createElement("div");

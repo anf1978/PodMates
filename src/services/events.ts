@@ -1,6 +1,16 @@
 // Typed messages between otherwise independent feature boundaries.
+import type { PodDoc, PodMember, WithId } from "./cloud/types";
+
 type AppEvents = {
   "profile:open": { welcome?: boolean };
+  "auth:open": undefined;
+  "gatherings:sample": undefined;
+  "gatherings:host": { pod: WithId<PodDoc>; members: PodMember[] };
+  "profile:pod": WithId<PodDoc>;
+  "profile:player": { uid: string; name: string; podId: string };
+  "spoilers:open": WithId<PodDoc>;
+  "pods:active": string | null;
+  "pods:navigate": undefined;
 };
 
 const events = new EventTarget();

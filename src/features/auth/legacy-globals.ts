@@ -1,5 +1,5 @@
 // Temporary ports to unmoved modal helpers and exports for legacy save/invite callers.
-import { configureAuth, mount, requireAccountToSave, showAuthModal, updateAuthBar } from "./index";
+import { configureAuth, mount, requireAccountToSave, updateAuthBar } from "./index";
 import { openTadOverlay, closeTryADeckModal } from "../../ui/tad-modal";
 declare const showActionConfirmModal: (
   message: string,
@@ -14,8 +14,6 @@ configureAuth({
 });
 
 const legacy = {
-  // TODO(p3-6): unmoved pod/invite flows still open sign-in.
-  showAuthModal,
   // TODO(p3-6): unmoved save flows still use this guard.
   requireAccountToSave,
 };

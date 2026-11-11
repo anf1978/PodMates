@@ -6,13 +6,13 @@ are in [CLAUDE.md](../CLAUDE.md); domain terms in the [glossary](glossary.md).
 
 ## Big picture
 
-PodMates is a static Vite site. `index.html` is still about 10,800 lines: static markup, the main
+PodMates is a static Vite site. `index.html` is still about 10,200 lines: static markup, the main
 CSS and the inline legacy scripts (theme, card-DB start-up, the app script with every unmoved feature, the
 notifications inbox). Typed code lives in `src/`, and the inline scripts reach it in two ways:
 
 1. **`src/main.ts`**, the one `<script type="module">` in `<head>`. Like every module it runs after the
    document is parsed and before `DOMContentLoaded`. Its imports evaluate in a fixed order: UI
-   primitives, feature adapters, engine, size limits, profile, auth, cloud.
+   primitives, feature adapters, engine, size limits, profile, auth, cloud, MyPods.
 2. **Dynamic `import()`** from the inline start-up code (`initDatabase` and the dataset gates) for
    `src/data/load-dataset.ts`, `src/cards/load-db.ts` and the card/engine shims.
 
@@ -281,7 +281,7 @@ account bar and save guard; `profile` (prefix `profile-`, `pp-`) — My Profile/
 merging and mirror repair, display-name/profile-link edits, sign-in details, quick deck summaries, and
 public player/pod profiles with the unchanged aggregate analytics.
 
-Auth and profile communicate through the typed `src/services/events.ts` bus (`profile:open`),
+Auth, profile and pods communicate through the typed `src/services/events.ts` bus,
 never through feature imports. Both mount only from their boot shims. Cloud operations
 import repositories directly; failures retain their inline status/toast behavior and report through the
 redacted sink. Browser-only last-sign-in hints remain optional and never reach that sink.
@@ -289,9 +289,23 @@ redacted sink. Browser-only last-sign-in hints remain optional and never reach t
 The profile runtime ports adapt the deck chart, comparison table, themes, backup and
 PriceScry entry points. The shared modal is imported from `src/ui/tad-modal.ts`.
 The remaining implementations are owned by their later feature sessions; the adapters
-do not publish new names. Only the auth modal/save guard and public player/pod overlay entry points remain
-global for existing inline callers. The account screens keep their DOM/classes and token colours; the
+do not publish new names. Only the save guard remains global for existing inline callers; pods uses
+typed auth/public-profile navigation events. The account screens keep their DOM/classes and token colours; the
 signup, login and My Profile screenshots are byte-identical to the pre-extraction views.
+
+Also moved: `pods` (prefix `pods-`) — MyPods landing/create/join, active-pod selection,
+URL-invite consent, membership, steward settings and live Gathering invitations.
+`state.ts` owns pure selection, invite and permission helpers; `index.ts` owns the mount lifecycle.
+`detail.ts`, `members.ts` and `live-invites.ts` split settings, member actions and subscription cleanup.
+Cloud calls import repositories directly; no Firestore paths, fields or stored roles changed.
+`view.ts` uses escaped lit templates, and `pods.css` replaces the inventoried inline styles.
+
+The temporary pod adapter imports the shared modal and bridges unmoved confirmation, Gathering,
+Spoiler Bait and Chronicles handlers. Typed navigation events avoid feature-to-feature imports.
+Only `renderOurPodPanel`, `openPodDetailOverlay` and the `currentPodViewId` accessor remain
+for unmoved callers. Repeated renders dispose old subscriptions; unmount also invalidates pending
+loads and removes the active overlay. Pending URL invitations require explicit consent after sign-in,
+and declined invitations cannot be retried by later auth events.
 
 ## Lint-enforced boundaries
 
@@ -334,7 +348,7 @@ ESLint does not inspect the inline scripts in `index.html`. TypeScript is strict
 
 Phase 3's exit criteria (no source file over ~500 lines, no globals, every `innerHTML` replaced) are not met
 while the inline app script exists. The remaining p3-5 feature moves (rest of Deck Chart,
-pods, gatherings, chronicles, impact, spoiler-bait, trades, notifications,
+gatherings, chronicles, impact, spoiler-bait, trades, notifications,
 ledger/comparison, themes, PriceScry) each delete inline code and the shim names it used. When the last caller of a
 shim name goes, delete the name; when the inline scripts are gone, `index.html` becomes static markup plus the
 `src/main.ts` tag, and `main.ts` boots theme → card DB (worker) → cloud → UI directly.
