@@ -51,40 +51,6 @@ test("CSP permits import/price connections, OCR scripts, blob workers and Wasm",
   ).toBe(true);
 });
 
-test("legacy sanitizer rejects executable markup independently of CSP", async ({ page }) => {
-  // Isolate the sanitizer: CSP must not mask a sanitizer regression. Chromium also
-  // reports handlers compiled while DOMPurify parses its detached, inert document.
-  await page.route("**/", async (route) => {
-    const response = await route.fetch();
-    const html = (await response.text()).replace(
-      /<meta http-equiv="Content-Security-Policy"[^>]*>/,
-      "",
-    );
-    await route.fulfill({ response, body: html });
-  });
-  await page.goto("/");
-  await expect(page.locator("#dbStatus")).toContainText(/^Ready /);
-  const dialogs: string[] = [];
-  page.on("dialog", async (dialog) => {
-    dialogs.push(dialog.message());
-    await dialog.dismiss();
-  });
-  await page.evaluate(`setDbLoadUI('ok',
-    '<strong>Deck &amp; pod notes</strong><img onerror="alert(1)">' +
-    '<a href="javascript:alert(1)">unsafe</a><a href="https://scryfall.com">safe</a>' +
-    '<svg onload="alert(1)"><circle cx="10" cy="10" r="5"/></svg>');`);
-  const status = page.locator("#dbStatus");
-  await expect(status.locator("strong")).toHaveText("Deck & pod notes");
-  await expect(status.locator("[onerror], [onload], script")).toHaveCount(0);
-  await expect(status.getByText("unsafe", { exact: true })).not.toHaveAttribute("href");
-  await expect(status.getByText("safe", { exact: true })).toHaveAttribute(
-    "href",
-    "https://scryfall.com",
-  );
-  await expect(status.locator("svg circle")).toHaveCount(1);
-  expect(dialogs).toEqual([]);
-});
-
 test("an invite URL can be dismissed before authentication or sharing decks", async ({ page }) => {
   await page.goto("/?join=ATTACKER-CODE");
   await expect(page.locator("#dbStatus")).toContainText(/^Ready /);

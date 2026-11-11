@@ -1,5 +1,4 @@
-import "../cards/legacy-globals";
-import { buildLookupIndexes, loadCardDatabase } from "../cards/load-db";
+import { loadCardDatabase } from "../cards/load-db";
 import { loadDataset, updateDataFreshness } from "../data/load-dataset";
 import { buildSpellbookIndex } from "../engine/combos";
 import type { CommanderTierRecord, SpellbookIndex, SpellbookSnapshot } from "../engine/context";
@@ -19,14 +18,9 @@ export interface StaticDatasets {
 interface BootPorts {
   progress(message: string, percent: number): void;
   staticDatasets(data: StaticDatasets): void;
-  database(
-    database: Awaited<ReturnType<typeof loadCardDatabase>>,
-    buildIndexes: typeof buildLookupIndexes,
-  ): void;
+  database(database: Awaited<ReturnType<typeof loadCardDatabase>>): void;
   loadingSpellbook(): void;
-  spellbookSource(source: string): void;
   spellbook(index: SpellbookIndex | null): void;
-  spellbookError(message: string): void;
   ready(message: string): void;
 }
 
@@ -65,7 +59,6 @@ async function loadStaticDatasets(publish: BootPorts["staticDatasets"]): Promise
 
 async function loadSpellbookSnapshot(ports: BootPorts) {
   const source = await loadDataset<string>("SPELLBOOK_SNAPSHOT_B64");
-  ports.spellbookSource(source);
   const binaryStr = atob(source);
   const bytes = new Uint8Array(binaryStr.length);
   for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
@@ -90,16 +83,15 @@ export async function bootCardDatabase(ports: BootPorts): Promise<void> {
       loadStaticDatasets(ports.staticDatasets),
       loadCardDatabase(ports.progress),
     ]);
-    ports.database(database, buildLookupIndexes);
+    ports.database(database);
     if (!database.cards?.length) throw new Error("CARD_DB missing or empty after decompression");
 
     ports.loadingSpellbook();
     let spellbook: SpellbookIndex | null = null;
     try {
       spellbook = await withTimeout(loadSpellbookSnapshot(ports), 15_000, "combo snapshot load");
-    } catch (error) {
+    } catch {
       ports.spellbook(null);
-      ports.spellbookError(error instanceof Error ? error.message : String(error));
     }
     ports.ready(
       `Ready — ${database.cards.length.toLocaleString()} cards${spellbook ? " and " + spellbook.snap.c.length.toLocaleString() + " combos (Spellbook lines that win, warp or loop)" : ""} loaded.` +

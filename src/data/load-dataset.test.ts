@@ -65,24 +65,16 @@ it.each([
   expect(fetchDataset).toHaveBeenCalledTimes(2);
 });
 
-it("reports completed fetches to the boot bar without overwriting ready state", async () => {
-  const message = { textContent: "" };
-  const fill = { classList: { remove: vi.fn() }, style: { width: "" } };
-  const bootWindow = { __dbLoadPct: 8, __dbReady: false, __dbProgress: vi.fn() };
-  vi.stubGlobal("window", bootWindow);
-  vi.stubGlobal("document", {
-    getElementById: (id: string) => (id === "dbStatus" ? message : fill),
-  });
+it("tells the progress listener when each dataset fetch starts and finishes", async () => {
   mockFetch(() => new Response("[]"));
-  const { loadDataset } = await import("./load-dataset");
+  const { loadDataset, onDatasetProgress } = await import("./load-dataset");
+  const progress = vi.fn();
+  onDatasetProgress(progress);
   await loadDataset("REFERENCE_SCORES");
-  expect(message.textContent).toContain("(1/1 datasets)");
-  expect(fill.style.width).toBe("20%");
-  expect(bootWindow.__dbProgress).toHaveBeenCalledTimes(2);
-  bootWindow.__dbReady = true;
-  message.textContent = "Ready";
-  await loadDataset("REFERENCE_TIERS");
-  expect(message.textContent).toBe("Ready");
+  expect(progress.mock.calls).toEqual([
+    ["REFERENCE_SCORES", 0, 1],
+    ["REFERENCE_SCORES", 1, 1],
+  ]);
 });
 
 it.each([

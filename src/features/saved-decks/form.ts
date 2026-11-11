@@ -1,4 +1,4 @@
-// The Deck Chart form fields Saved Decks reads and fills (markup in index.html).
+// The Deck Chart form fields Saved Decks reads and fills (static markup in index.html).
 import { setStatusText } from "../../ui/status";
 
 export const field = <T extends HTMLElement>(id: string) => document.getElementById(id) as T | null;

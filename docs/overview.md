@@ -105,26 +105,19 @@ flowchart LR
   W3 --> SF & MJ[MTGJSON] & TCG[tcgcsv] & RD[Reddit API] & AN[Anthropic API]
 ```
 
-Vite bundles the typed dataset loader and copies `public/`; the build preserves the legacy inline scripts and
-only replaces their loader import URLs. See [deploy.md](./deploy.md) for the GitHub Pages Actions deployment.
+Vite bundles `src/main.ts` and copies `public/`; `index.html` is static markup and CSS. See [deploy.md](./deploy.md) for the GitHub Pages Actions deployment.
 
 ### 3.2 Anatomy of `index.html`
 
-| Block (`<script id>` / tag)         |  Lines |   Size | Purpose                                                                                                              |
-| ----------------------------------- | -----: | -----: | -------------------------------------------------------------------------------------------------------------------- |
-| `<style>` + `#pm-visual-overhaul`   | ~1,260 | ~51 KB | All CSS ("Terraria × MTG Arena" theme + overrides)                                                                   |
-| `#theme-script`                     |      1 |  <1 KB | Placeholder for `src/features/themes/prepaint.ts`, inlined as a classic script at build time; runs in `<head>`       |
-| `<body>` markup                     |   ~310 |  45 KB | Static shell: auth bar, header, mode tabs, deck form, result panels                                                  |
-| `#engine-script`                    |      6 |  <1 KB | Page-owned engine globals; the **Deck Compass** engine itself is typed, pure `src/engine` (shim module)              |
-| `#lookup-script`                    |    198 |   7 KB | Decklist parsing & card lookup indexes. DOM-free.                                                                    |
-| `#data-script`                      |      — | 2.8 MB | `CARD_DB_COMPRESSED_B64` — gzip+base64 Scryfall oracle DB                                                            |
-| `#combo-data-script`                |      5 |  <1 KB | `SPELLBOOK_SNAPSHOT_B64` binding; gzip/base64 snapshot now lives in `public/data/`                                   |
-| `#app-script`                       | 12,107 | 842 KB | Everything else: UI, features, Pods, PriceScry; corpus and decklists are now fetched from `public/data/`             |
-| `#notif-script`                     |    153 |  12 KB | Notifications inbox (IIFE)                                                                                           |
-| cloud `<script type="module">` tags |      4 |  <1 KB | Load `src/services/cloud/`: npm Firebase SDK, typed repositories and the `window.PodmatesCloud` shim (~90 functions) |
+| Block (`<script id>` / tag)       |  Lines |   Size | Purpose                                                                                                        |
+| --------------------------------- | -----: | -----: | -------------------------------------------------------------------------------------------------------------- |
+| `<style>` + `#pm-visual-overhaul` | ~1,260 | ~51 KB | All CSS ("Terraria × MTG Arena" theme + overrides)                                                             |
+| `#theme-script`                   |      1 |  <1 KB | Placeholder for `src/features/themes/prepaint.ts`, inlined as a classic script at build time; runs in `<head>` |
+| `<body>` markup                   |   ~310 |  45 KB | Static shell: auth bar, header, mode tabs, deck form, result panels                                            |
+| `<script type="module">`          |      1 |  <1 KB | `src/main.ts`: boots the card data, then wires every feature through `src/app/`                                |
 
-The HTML is now 0.97 MB, down from 5.53 MB; all large datasets are external JSON and the Firebase layer lives in `src/services/cloud/`.
-The legacy application functions still share the global scope.
+The HTML is now about 1,300 lines of markup and CSS, down from 5.53 MB; every script is a typed module in `src/`
+and all large datasets are external JSON.
 
 ### 3.3 Datasets
 
@@ -172,27 +165,24 @@ and verifies parity against the extracted datasets;
 ### 3.4 Boot sequence
 
 1. `#theme-script` (inlined `src/features/themes/prepaint.ts`) applies the saved theme and text size (no colour flash).
-2. Inline header script shows real dataset/worker progress. Its 30 s watchdog measures progress stalls,
-   not total boot duration.
-3. Engine, lookup and data scripts parse. The app awaits the typed `loadDataset()` loader's cached JSON fetches,
-   assigns the original global dataset bindings and builds the knowledge map. Early Try-a-Deck/Impact clicks wait
+2. `src/main.ts` runs after parsing. `app/page.ts` starts `services/boot-status.ts` (real dataset/worker progress;
+   its 30 s watchdog measures progress stalls, not total boot duration) and `services/card-data.ts`, which awaits
+   the typed `loadDataset()` loader's cached JSON fetches and keeps the results (no globals). Early Try-a-Deck/Impact clicks wait
    for these required datasets; failures appear in the existing boot error UI.
-4. In parallel with the required static datasets, `src/cards/db.worker.ts` fetches `data/cards.json`, decodes its
+3. In parallel with the required static datasets, `src/cards/db.worker.ts` fetches `data/cards.json`, decodes its
    gzip/base64 string with `DecompressionStream`, parses the card records and builds all three name indexes.
    One structured-clone message carries the records and plain index-entry arrays, preserving shared card identity;
    the main thread only hydrates `Map`s. There are no transferable buffers in the final string/object graph.
-   `CARD_DB`, `CARD_DB_COMPRESSED_B64`, `indexes` and `buildLookupIndexes` keep their legacy bindings.
    Missing Worker support (or missing decompression in the worker) uses the shared main-thread decoder/indexer.
    If `DecompressionStream` is also missing on the main thread, the legacy compatibility error still applies;
    this step does not introduce a gzip polyfill. Worker errors/stalls terminate it and reach the boot error UI.
-   The extracted Spellbook string is fetched and decoded in its existing optional fallback path. Only then does
-   the app set `window.__dbReady`. Golden tests import the same DOM-free codec without starting a worker.
-5. The cloud modules are deferred (and can run while dataset fetches are pending). They publish `window.PM_LIMITS`, start Firebase signed out
-   (there is no automatic anonymous sign-in), expose `window.PodmatesCloud`, and
-   dispatches a `podmates-cloud-init` event that the app and notifications script wait for.
+   The extracted Spellbook string is fetched and decoded in its existing optional fallback path. Only then is
+   the card data marked ready and Chart Deck enabled. Golden tests import the same DOM-free codec without starting a worker.
+4. The `src/app/` wiring modules mount every feature; the cloud repositories start Firebase signed out (there
+   is no automatic anonymous sign-in) the first time a feature imports them.
 
-Scripts talk to each other through **globals** (`window.PodmatesCloud`, `window.pmNotif`, `window.PM_LIMITS`,
-`window.__dbReady`, plus every top-level function/const) and **custom DOM events**.
+Modules talk to each other through imports, explicit ports supplied by `src/app/`, and the typed event bus
+(`src/services/events.ts`). Nothing is published on `window`.
 
 ### 3.5 Data model (Firestore)
 

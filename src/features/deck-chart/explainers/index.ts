@@ -14,7 +14,7 @@ import { EXPLAINERS } from "./explainer-text.ts";
 import * as P from "./explainer-prose.ts";
 import { bodyRow, bodyWrap, headRow, prose, section } from "./layout.ts";
 
-/** The current chart and the reference-set helpers that still live in index.html. */
+/** The current chart and the reference-set helpers, supplied by Deck Chart. */
 export interface ExplainerPorts {
   agg(): ContribAgg | null;
   winCons(): readonly { label: string }[] | null;

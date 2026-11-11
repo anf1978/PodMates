@@ -13,8 +13,8 @@ first; data plumbing is in `src/services/price-data.ts`, and the publishing side
   it pulls the whole app graph into the named chunk. The chunk imports shared code from main by hashed name, so
   a main change re-downloads it on update (`tests/e2e/pwa.spec.ts` expects exactly that).
 - Entry: profile emits `pricescry:open`; Trades emits `pricescry:tab` ("ledger") after a save (ignored while the
-  screen is closed). `legacy-globals.ts` publishes nothing; it supplies the ports (Ledger and Spoiler Bait mounts
-  via their shims, the shared `ui/card-search` picker over the page card DB, card-DB badges).
+  screen is closed). `src/app/pricescry.ts` supplies the ports (the Ledger and Spoiler Bait mounts, the shared
+  `ui/card-search` picker over the page card DB, card-DB badges).
 
 ## Data branch
 

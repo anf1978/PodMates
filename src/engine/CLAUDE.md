@@ -21,11 +21,10 @@ Import from `index.ts`; it is the public surface.
   inputs, in reverse order, and requires identical results.
 - Keep each file at or under about 400 lines; split by responsibility rather than growing one file.
 
-## The legacy shim
+## The page's context
 
-`legacy-globals.ts` publishes nothing on `window` any more (no inline code calls the engine). It only
-exports `pageContext()`, a memoised context built from the page's `CARD_DB`, `SPELLBOOK_INDEX` and
-`COMMANDER_TIER_DATA` globals, for typed callers. Delete it when the card-DB boot adapter owns that data.
+The app builds its `EngineContext` in `src/services/card-data.ts` (`pageContext()`, memoised on the loaded
+card DB, Spellbook index and commander win-rates) and passes it in. Nothing in the engine reads the page.
 
 `reference.ts` (percentiles and tier placement) and `benchmarks.ts` (closest precon, staples check, mana-base
 benchmark) take the reference datasets as arguments; `src/services/reference-data.ts` holds them.

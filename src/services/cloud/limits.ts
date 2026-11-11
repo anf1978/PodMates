@@ -1,4 +1,4 @@
-// One table, used by the page (input boxes, friendly messages, via window.PM_LIMITS) and by the
+// One table, used by the page (input boxes via src/app/input-limits.ts, friendly messages) and by the
 // cloud repositories, so the two can never disagree. They exist to stop accidents and abuse -- a
 // runaway paste, a pod that keeps growing, one account hoarding storage -- and every figure sits
 // well above what a normal playgroup would ever reach. The matching server-side limits live in

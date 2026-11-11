@@ -1,4 +1,4 @@
-// Explicit ports to the still-inline comparison, battle and saved-deck UI.
+// Explicit ports to comparison, the current battle and the saved-deck picker (src/app/gatherings.ts).
 export interface ChartDeck {
   uid?: string | null;
   color?: string;

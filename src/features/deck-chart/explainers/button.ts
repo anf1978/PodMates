@@ -9,7 +9,7 @@ export function explainerButton(key: string) {
   return html` <button class="info-btn" data-explain=${key} title="How is this calculated?">?</button>`;
 }
 
-/** The same button as markup, for the still-inline panel builders. */
+/** The same button as markup, for the string-built panels. */
 export function explainerButtonHtml(key: string): string {
   return ` <button class="info-btn" data-explain="${escapeHtml(key)}" title="How is this calculated?">?</button>`;
 }

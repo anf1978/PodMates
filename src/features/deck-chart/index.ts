@@ -1,10 +1,10 @@
 // Deck Chart's entry: binds the Chart Deck button, the explainer and "Cards you could add"
 // clicks and the radar redraw, and charts a deck on request. The page supplies its card data
-// and deck form through ports until those move out of index.html.
+// and deck form through ports (src/app/deck-chart.ts).
 
 import type { CardRecord } from "../../cards/tuple.ts";
 import { comboCardByName } from "../../engine/combos.ts";
-import { pageContext } from "../../engine/legacy-globals.ts";
+import { pageContext } from "../../services/card-data.ts";
 import { fetchCardImagesBatch } from "../../services/card-art.ts";
 import { currentChart } from "../../services/current-chart.ts";
 import {

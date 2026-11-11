@@ -4,13 +4,8 @@ import { db, doc, getDoc, setDoc } from "./firebase";
 import { PM_LIMITS } from "./limits";
 import { requireUser } from "./session";
 import { requireText } from "./shared";
+import { safeHttpUrl } from "../safe-url";
 import type { UserDoc } from "./types";
-
-declare global {
-  interface Window {
-    safeHttpUrl?: (raw: unknown) => string;
-  }
-}
 
 export const userRef = (uid: string) => doc(db, "users", uid);
 
@@ -42,7 +37,7 @@ export async function updateMyProfileLinks(links: {
   const clean = (raw: string | undefined, label: string) => {
     const trimmed = (raw || "").trim();
     if (!trimmed) return "";
-    const safe = window.safeHttpUrl ? window.safeHttpUrl(trimmed) : "";
+    const safe = safeHttpUrl(trimmed);
     if (!safe)
       throw new Error(
         `${label} link doesn't look like a web address. Use something like archidekt.com/u/yourname.`,

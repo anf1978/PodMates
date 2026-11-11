@@ -21,35 +21,18 @@ export default defineConfig({
       transformIndexHtml: { order: "post", handler: withScriptHashes },
     },
     {
-      name: "preserve-legacy-html",
+      name: "page-html",
       apply: "build",
       async generateBundle(_options, bundle) {
         let html = await inlineThemePrepaint(
           readFileSync(new URL("./index.html", import.meta.url), "utf8"),
         );
-        const sanitizer = this.emitFile({
-          type: "asset",
-          name: "purify.min.js",
-          source: readFileSync(
-            new URL("./node_modules/dompurify/dist/purify.min.js", import.meta.url),
-          ),
-        });
-        html = html.replace(
-          "./node_modules/dompurify/dist/purify.min.js",
-          `./${this.getFileName(sanitizer)}`,
+        // `main` is the page's one module tag.
+        const main = Object.values(bundle).find(
+          (output) => output.type === "chunk" && output.isEntry && output.name === "main",
         );
-        // `main` is the page's module tag; the others are imported by the inline start-up code.
-        for (const [name, source] of [
-          ["main", "./src/main.ts"],
-          ["datasets", "./src/data/load-dataset.ts"],
-          ["cardDbBoot", "./src/services/card-db-boot.ts"],
-        ]) {
-          const loader = Object.values(bundle).find(
-            (output) => output.type === "chunk" && output.isEntry && output.name === name,
-          );
-          if (!loader) throw new Error(`Missing ${name} loader entry`);
-          html = html.replaceAll(source, `./${loader.fileName}`);
-        }
+        if (!main) throw new Error("Missing main entry");
+        html = html.replaceAll("./src/main.ts", `./${main.fileName}`);
         for (const source of [
           "./src/styles/tokens.css",
           "./src/styles/base.css",
@@ -152,8 +135,6 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: fileURLToPath(new URL("./src/main.ts", import.meta.url)),
-        datasets: fileURLToPath(new URL("./src/data/load-dataset.ts", import.meta.url)),
-        cardDbBoot: fileURLToPath(new URL("./src/services/card-db-boot.ts", import.meta.url)),
       },
       preserveEntrySignatures: "strict",
     },

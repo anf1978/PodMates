@@ -1,38 +1,32 @@
-// The page's one module entry. index.html loads it from <head>, so like every module it runs
-// after the document is parsed and before DOMContentLoaded. The imports evaluate in this order,
-// which the inline scripts rely on: UI primitives, feature adapters, size limits,
-// profile, auth, gatherings, chronicles, saved decks, cloud, then pods.
+// The page's one module entry. index.html is static markup and CSS; this boots the card data,
+// then wires every feature through the composition root in src/app/ (one module per feature,
+// imported for its side effects in this order, which keeps DOM listeners in their old order).
 //
 // The colour-theme pre-paint script is src/features/themes/prepaint.ts, inlined into <head> at
-// build time because it must run before first paint. The inline card-database adapter dynamically
-// imports src/services/card-db-boot.ts; that service loads the DB, datasets and the card shim.
-// Each legacy-globals.ts only republishes typed modules on window for the inline scripts and is
-// deleted with its last inline caller. Add new behaviour to a typed module, not here.
+// build time because it must run before first paint. Nothing is published on `window`.
 
-import "./ui/legacy-globals.ts";
-import "./features/deck-chart/legacy-globals.ts";
-import "./features/try-a-deck/legacy-globals.ts";
-import "./features/export/legacy-globals.ts";
-import "./features/card-viewer/legacy-globals.ts";
-import "./features/scan-cards/legacy-globals.ts";
-import "./features/deck-crafter/legacy-globals.ts";
-import "./features/impact/legacy-globals.ts";
-import "./features/spoiler-bait/legacy-globals.ts";
-import "./features/comparison/legacy-globals.ts";
-import "./features/ledger/legacy-globals.ts";
-import "./features/themes/legacy-globals.ts";
-import "./features/trades/legacy-globals.ts";
-import "./features/pricescry/legacy-globals.ts";
-// Limits first and on their own, so local deck analysis keeps them even if Firebase fails.
-import "./services/cloud/limits-global.ts";
-import "./features/profile/legacy-globals.ts";
-import "./features/auth/legacy-globals.ts";
-import "./features/gatherings/legacy-globals.ts";
-import "./features/chronicles/legacy-globals.ts";
-import "./features/saved-decks/legacy-globals.ts";
-// Publishes window.PodmatesCloud, then dispatches "podmates-cloud-init".
-import "./services/cloud/index.ts";
-import "./features/pods/legacy-globals.ts";
+import "./app/page.ts";
+import "./app/input-limits.ts";
+import "./app/card-clicks.ts";
+import "./app/deck-chart.ts";
+import "./app/try-a-deck.ts";
+import "./app/export.ts";
+import "./app/card-viewer.ts";
+import "./app/scan-cards.ts";
+import "./app/deck-crafter.ts";
+import "./app/impact.ts";
+import "./app/spoiler-bait.ts";
+import "./app/comparison.ts";
+import "./app/trades.ts";
+import "./app/pricescry.ts";
+import "./app/profile.ts";
+import "./app/auth.ts";
+import "./app/gatherings.ts";
+import "./app/chronicles.ts";
+import "./app/saved-decks.ts";
+import "./app/chronicles-auth.ts";
+import "./app/pods.ts";
+import "./app/ja-hint.ts";
 import { installGlobalErrorHandlers } from "./services/report-error";
 import { installStickyCloseNet } from "./ui/sticky-close";
 import { mount as mountNotifications } from "./features/notifications";

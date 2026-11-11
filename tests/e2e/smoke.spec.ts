@@ -116,9 +116,7 @@ test("Try-a-Deck shows loading without blocking DB-ready, and closing cancels re
   }
 });
 
-test("DB-ready waits for bot datasets and populates the legacy win-rate and tag bindings", async ({
-  page,
-}) => {
+test("DB-ready waits for the bot-published win-rate dataset", async ({ page }) => {
   let releaseDataset!: () => void;
   const pendingDataset = new Promise<void>((resolve) => {
     releaseDataset = resolve;
@@ -127,21 +125,14 @@ test("DB-ready waits for bot datasets and populates the legacy win-rate and tag 
     await pendingDataset;
     await route.continue();
   });
-  const winratesResponse = page.waitForResponse("**/data/winrates.json*");
   try {
     await page.goto("/");
     await expect(page.getByRole("button", { name: "Chart Deck", exact: true })).toBeDisabled();
     await expect(page.locator("#dbStatus")).not.toContainText(/^Ready /);
     releaseDataset();
     await expect(page.locator("#dbStatus")).toContainText(/^Ready .* cards.*loaded/);
-    const winrates = (await (await winratesResponse).json()) as { n: string; t: string }[];
-    expect(
-      await page.evaluate(
-        `COMMANDER_TIER_DATA.find(r => r.n === ${JSON.stringify(winrates[0].n)})`,
-      ),
-    ).toEqual(winrates[0]);
-    expect(await page.evaluate("IX_TAGS.blink.size")).toBeGreaterThanOrEqual(50);
-    expect(await page.evaluate("IX_TAGS.extraCombat.size")).toBeGreaterThanOrEqual(10);
+    await expect(page.getByRole("button", { name: "Chart Deck", exact: true })).toBeEnabled();
+    // The loaded win-rates and tags themselves: card-data.modules.spec.ts.
   } finally {
     releaseDataset();
   }

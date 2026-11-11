@@ -80,7 +80,14 @@ test("Escape closes only the top stacked layer, and cancels an action confirm", 
 
   await page.locator("#resultsSection button.info-btn:visible").first().click();
   await expect(page.locator("#tadOverlay")).toBeVisible();
-  await page.evaluate(() => void window.showSingleCardArtModal("Sol Ring"));
+  // Any [data-card-name] opens the single-card art through the page's delegated click handler.
+  await page.locator("#tadOverlay .tad-modal").evaluate((modal) => {
+    const name = document.createElement("span");
+    name.dataset.cardName = "Sol Ring";
+    name.textContent = "Sol Ring";
+    modal.append(name);
+    name.click();
+  });
   await expect(page.locator("#tadArtOverlay")).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(2);
 

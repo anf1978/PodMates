@@ -1,4 +1,4 @@
-// My Profile triggers the unmoved shared comparison-table renderer through typed ports.
+// My Profile triggers the shared saved-decks table renderer through typed ports.
 import type { SavedDeck } from "../../services/cloud/types";
 import { reportError } from "../../services/report-error";
 

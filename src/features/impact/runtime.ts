@@ -1,4 +1,4 @@
-// Temporary ports for the unmoved chart and shared ranked card picker.
+// Ports for the current chart, the deck library and the shared ranked card search (src/app/impact.ts).
 import type { CardRecord } from "../../cards/tuple";
 import type { ChartAnalysis } from "./state";
 

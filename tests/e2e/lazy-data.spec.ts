@@ -106,7 +106,6 @@ test("pasted analysis loads only fingerprints/metadata; suggestions load knowled
       .locator("#ixSugOverlay")
       .getByRole("dialog", { name: "Cards you could add" });
     await expect(suggestions).toBeVisible();
-    expect(await page.evaluate("KNOW_MAP.size")).toBeGreaterThan(0);
     await page.locator("#ixSugClose").click();
     await page.getByRole("button", { name: /Cards you could add/ }).click();
     await expect(suggestions).toBeVisible();
@@ -137,15 +136,12 @@ test("Impact and sample-table entry points await their data without boot-time re
   await expect(page.locator("[data-impact-more]")).toBeVisible();
   expect(requested.filter((path) => path === "/data/IMPACT_CANDS.json")).toHaveLength(1);
   // Rankings come from the loaded library (src/cards/search.ts cardPopularity).
-  expect(await page.evaluate("TRY_A_DECK_OPTIONS.length")).toBeGreaterThan(0);
+  expect(requested.filter((path) => path === "/data/TRY_A_DECK_OPTIONS.json")).toHaveLength(1);
+  requested.length = 0;
   await page.reload();
   await expect(page.locator("#dbStatus")).toContainText(/^Ready /);
-  expect(await page.evaluate("typeof TRY_A_DECK_OPTIONS")).toBe("undefined");
-  // Isolate this entry-point check from the pre-existing pod SVG height="auto" errors.
-  await page.evaluate(
-    "renderPodAnalysisResults = decks => { window.__sampleDeckCount = decks.length; }; runSampleGathering()",
-  );
-  expect(await page.evaluate("window.__sampleDeckCount")).toBe(6);
+  expect(requested).not.toContain("/data/TRY_A_DECK_OPTIONS.json");
+  // The sample-table entry point (no signed-out UI) is covered in gatherings.modules.spec.ts.
 });
 
 test("card search waits for library rankings and discards a superseded query", async ({ page }) => {
@@ -167,8 +163,6 @@ test("card search waits for library rankings and discards a superseded query", a
     release();
     await expect(page.locator("#dbCardResults")).toContainText("Arcane Signet");
     await expect(page.locator("#dbCardResults")).not.toContainText("Sol Ring");
-    // Rankings come from the loaded library (src/cards/search.ts cardPopularity).
-    expect(await page.evaluate("TRY_A_DECK_OPTIONS.length")).toBeGreaterThan(0);
   } finally {
     release();
   }

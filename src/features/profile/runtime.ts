@@ -1,4 +1,4 @@
-// Temporary ports to unmoved chart, display and account UI; no feature-to-feature imports.
+// Ports to the chart, display settings and account UI (src/app/profile.ts); no feature-to-feature imports.
 import type { EngineContext } from "../../engine";
 import type { CardRecord } from "../../cards/tuple";
 import type { LookupIndexes } from "../../cards/lookup";

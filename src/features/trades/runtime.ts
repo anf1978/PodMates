@@ -1,4 +1,4 @@
-// Ports for the unmoved Ledger, price lookup and shared legacy ranked card picker.
+// Ports for the Ledger lots, price lookup and the shared ranked card picker (src/app/trades.ts).
 import type { CardRecord } from "../../cards/tuple";
 import type { Lot } from "./state";
 

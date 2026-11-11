@@ -8,11 +8,7 @@ import type { SpellbookSnapshot } from "../engine/context";
 import { reportError } from "./report-error";
 import { bootCardDatabase, type StaticDatasets } from "./card-db-boot";
 
-vi.mock("../cards/legacy-globals", () => ({}));
-vi.mock("../cards/load-db", async () => ({
-  buildLookupIndexes: (await import("../cards/lookup")).buildLookupIndexes,
-  loadCardDatabase: vi.fn(),
-}));
+vi.mock("../cards/load-db", () => ({ loadCardDatabase: vi.fn() }));
 vi.mock("../data/load-dataset", () => ({
   loadDataset: vi.fn(),
   updateDataFreshness: vi.fn(),
@@ -66,9 +62,7 @@ function ports() {
     staticDatasets: vi.fn(),
     database: vi.fn(),
     loadingSpellbook: vi.fn(),
-    spellbookSource: vi.fn(),
     spellbook: vi.fn(),
-    spellbookError: vi.fn(),
     ready: vi.fn(),
   };
 }
@@ -101,9 +95,8 @@ it("waits for required data and freshness before publishing the DB and indexed S
   expect(page.ready).not.toHaveBeenCalled();
   release();
   await boot;
-  expect(page.database).toHaveBeenCalledWith(database, buildLookupIndexes);
+  expect(page.database).toHaveBeenCalledWith(database);
   expect(page.progress).toHaveBeenCalledWith("Indexing", 95);
-  expect(page.spellbookSource).toHaveBeenCalledWith(encoded);
   const index = page.spellbook.mock.calls[0][0];
   expect(index.snap).toEqual(snapshot);
   expect(index.nameIdx.get("Example")).toBe(0);
@@ -112,7 +105,6 @@ it("waits for required data and freshness before publishing the DB and indexed S
     "Ready — 1 cards and 1 combos (Spellbook lines that win, warp or loop) loaded. You can chart decks now.",
   );
   expect(loadDataset).toHaveBeenCalledTimes(7);
-  expect(page.spellbookError).not.toHaveBeenCalled();
 });
 
 it.each(["dataset", "freshness", "database", "empty database"])(
@@ -141,7 +133,6 @@ it("keeps analysis available with curated combos when the optional snapshot cann
   const page = ports();
   await bootCardDatabase(page);
   expect(page.spellbook).toHaveBeenCalledWith(null);
-  expect(page.spellbookError).toHaveBeenCalledWith(expect.any(String));
   expect(page.ready).toHaveBeenCalledWith(
     "Ready — 1 cards loaded. The combo snapshot could not be loaded, so only the built-in combo list is used. You can chart decks now.",
   );
@@ -159,9 +150,6 @@ it("bounds the optional snapshot wait and clears the deadline after fallback", a
   expect(page.ready).not.toHaveBeenCalled();
   await vi.advanceTimersByTimeAsync(1);
   await boot;
-  expect(page.spellbookError).toHaveBeenCalledWith(
-    "Timed out during: combo snapshot load (waited 15s)",
-  );
   expect(page.spellbook).toHaveBeenCalledExactlyOnceWith(null);
   expect(page.ready).toHaveBeenCalledTimes(1);
   expect(vi.getTimerCount()).toBe(0);

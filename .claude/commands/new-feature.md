@@ -22,6 +22,8 @@ Scaffold only `src/features/<name>/` with:
 
 Keep the initial implementation minimal and unregistered: do not alter app boot,
 navigation or existing behaviour without an explicit feature task.
+When a task does register it, its wiring (ports, mount call) goes in `src/app/<name>.ts`,
+imported from `src/main.ts`; the feature itself never imports `src/app` or another feature.
 Every module starts with a short purpose/boundary header. Use explicit public
 function types and no unexplained `any`; keep files under roughly 400 lines.
 Features may use services, engine, cards and UI but never import another feature

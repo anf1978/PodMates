@@ -19,7 +19,7 @@ import {
   detectCommanderSparkDiscrepancy,
   lookupCommanderTiers,
 } from "../../engine/commander-tiers.ts";
-import { pageContext } from "../../engine/legacy-globals.ts";
+import { pageContext } from "../../services/card-data.ts";
 import { computeSpark } from "../../engine/spark.ts";
 import { detectTableFeel } from "../../engine/table-feel.ts";
 import { emit } from "../../services/events.ts";
@@ -50,7 +50,7 @@ import {
   renderWinCondition,
 } from "./results/render.ts";
 
-/** What the still-inline page supplies: card-DB readiness, lookup indexes and the deck form. */
+/** What the page supplies (src/app/deck-chart.ts): card-DB readiness, lookup indexes and the deck form. */
 export interface ChartPorts {
   dbReady(): boolean;
   indexes(): LookupIndexes;

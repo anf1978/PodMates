@@ -1,4 +1,4 @@
-// Temporary ports to unmoved page orchestration; no feature-to-feature imports.
+// Ports to the page (supplied by src/app/deck-crafter.ts); no feature-to-feature imports.
 import type { CardRecord } from "../../cards/tuple";
 
 export interface SearchOptions {

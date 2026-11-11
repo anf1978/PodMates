@@ -9,16 +9,6 @@ const legacyFiles = [
 ];
 const recommended = tseslint.configs.recommended;
 
-// The only src/ files that may publish on `window`: the strangler shims the inline scripts in
-// index.html still call, and the boot-bar progress the inline watchdog reads. Each is deleted
-// with its last inline caller; nothing else may add a global.
-const windowPublishers = [
-  "src/**/legacy-globals.ts",
-  "src/services/cloud/index.ts",
-  "src/services/cloud/limits-global.ts",
-  "src/data/load-dataset.ts",
-];
-
 // Only the cloud layer may talk to Firebase; everything else goes through its repositories.
 // Flat-config rule settings replace rather than merge, so every block that configures
 // no-restricted-imports repeats these patterns.
@@ -33,6 +23,12 @@ const litHtmlOnlyViaUi = {
   message: "Import html/render from src/ui/html.ts instead of lit-html directly.",
 };
 
+// Services (and the cloud repositories) never import a feature or the composition root.
+const servicesLayer = {
+  group: ["../features/**", "../../features/**", "../app/**", "../../app/**"],
+  message: "Services must not import features or src/app; pass behaviour in through ports.",
+};
+
 // Layer boundary (refactor plan 4.2): the engine may import only its own files, the card
 // modules, the static data tables and src/shared -- never features, the page or the dataset
 // loader. `up` is the relative prefix from the linted folder back to src/.
@@ -40,7 +36,7 @@ function engineBoundary(files, up) {
   return [
     {
       files: [files],
-      ignores: ["src/engine/legacy-globals.ts", "src/engine/**/*.test.ts"],
+      ignores: ["src/engine/**/*.test.ts"],
       rules: {
         "no-restricted-imports": [
           "error",
@@ -84,14 +80,6 @@ export default tseslint.config(
   {
     plugins: { rendering: renderingPlugin },
     rules: { "rendering/trusted-comment": "error" },
-  },
-  {
-    files: ["index.html"],
-    processor: "rendering/inline",
-    languageOptions: { ecmaVersion: "latest", sourceType: "module" },
-    rules: {
-      ...renderingRules,
-    },
   },
   {
     ignores: ["src/services/cloud/**", "src/ui/html.ts", "firebase/**"],
@@ -192,12 +180,32 @@ export default tseslint.config(
               group: ["../../features/*/**", "../../../features/*/**"],
               message: "Features must not import each other; lift shared code into src/ui.",
             },
+            {
+              group: ["../../app/**", "../../../app/**", "../../../../app/**"],
+              message: "Features receive their ports from src/app; never import it.",
+            },
             firebaseOnlyInCloud,
             litHtmlOnlyViaUi,
           ],
         },
       ],
     },
+  },
+  {
+    // Services sit below the features and the composition root (src/app), which wires features
+    // to each other; a service never reaches up into either.
+    files: ["src/services/**/*.{ts,js,mjs}"],
+    ignores: ["src/services/cloud/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        { patterns: [servicesLayer, firebaseOnlyInCloud, litHtmlOnlyViaUi] },
+      ],
+    },
+  },
+  {
+    files: ["src/services/cloud/**/*.{ts,js,mjs}"],
+    rules: { "no-restricted-imports": ["error", { patterns: [servicesLayer, litHtmlOnlyViaUi] }] },
   },
   ...engineBoundary("src/engine/*.{ts,js,mjs}", "../"),
   ...engineBoundary("src/engine/axes/**/*.{ts,js,mjs}", "../../"),
@@ -210,8 +218,8 @@ export default tseslint.config(
         {
           patterns: [
             {
-              group: ["../engine/**", "../features/**"],
-              message: "src/data must not import the engine or features.",
+              group: ["../engine/**", "../features/**", "../app/**"],
+              message: "src/data must not import the engine, features or src/app.",
             },
             firebaseOnlyInCloud,
             litHtmlOnlyViaUi,
@@ -223,9 +231,8 @@ export default tseslint.config(
   {
     // The engine is pure (src/engine/CLAUDE.md): no page, storage or network access and no
     // module-level mutable state, so the same deck and context always give the same result.
-    // The window shim is the one place allowed to touch the page.
     files: ["src/engine/**/*.ts"],
-    ignores: ["src/engine/legacy-globals.ts", "src/engine/**/*.test.ts"],
+    ignores: ["src/engine/**/*.test.ts"],
     rules: {
       "no-restricted-globals": [
         "error",
@@ -257,9 +264,9 @@ export default tseslint.config(
     },
   },
   {
-    // No new globals: modules import what they need instead of reading or writing `window`.
+    // No globals: modules import what they need instead of reading or writing `window`.
     files: ["src/**/*.{ts,js,mjs}"],
-    ignores: [...windowPublishers, "src/**/*.test.ts", "src/engine/**"],
+    ignores: ["src/**/*.test.ts", "src/engine/**"],
     rules: {
       "no-restricted-syntax": [
         "error",

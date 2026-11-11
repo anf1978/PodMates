@@ -1,4 +1,15 @@
+import type { Page } from "@playwright/test";
 import { test, expect } from "./offline";
+
+// View Deck shows each matched card by its full name (image alt text), so a list resolves only
+// through the lookup indexes the card DB built.
+async function expectViewDeck(page: Page, decklist: string, cards: string[]) {
+  await page.locator("#decklistInput").fill(decklist);
+  await page.getByRole("button", { name: "View Deck", exact: true }).click();
+  const gallery = page.getByRole("dialog");
+  for (const name of cards)
+    await expect(gallery.getByAltText(name, { exact: true })).toHaveCount(1);
+}
 
 for (const mode of ["worker", "main-thread fallback"] as const) {
   test(`card DB uses ${mode} and preserves lookup identity`, async ({ page }) => {
@@ -17,17 +28,13 @@ for (const mode of ["worker", "main-thread fallback"] as const) {
     await expect(page.getByRole("button", { name: "Chart Deck", exact: true })).toBeEnabled();
     expect(workers).toHaveLength(mode === "worker" ? 1 : 0);
     expect(cardRequests).toBe(1);
-    expect(
-      await page.evaluate(`(() => {
-      const card = CARD_DB.find(c => c.n.includes(' // '));
-      const [front, back] = card.n.split(' // ').map(n => n.trim().toLowerCase());
-      return window.__dbReady && typeof window.buildLookupIndexes === 'function' &&
-        CARD_DB_COMPRESSED_B64.length > 0 &&
-        indexes.byExactName.get(card.n.toLowerCase()) === card &&
-        indexes.byFrontFaceName.get(front) === card &&
-        indexes.byBackFaceName.get(back) === card;
-    })()`),
-    ).toBe(true);
+    // Split cards resolve by full, front-face and back-face name.
+    await expectViewDeck(page, "1 Fire // Ice\n1 Commit\n1 Petty Theft\n1 Sol Ring", [
+      "Fire // Ice",
+      "Commit // Memory",
+      "Brazen Borrower // Petty Theft",
+      "Sol Ring",
+    ]);
   });
 }
 
@@ -40,12 +47,5 @@ test("an invalid optional Spellbook snapshot keeps card analysis available", asy
     "The combo snapshot could not be loaded, so only the built-in combo list is used.",
   );
   await expect(page.getByRole("button", { name: "Chart Deck", exact: true })).toBeEnabled();
-  expect(
-    await page.evaluate(`(() => ({
-      ready: window.__dbReady,
-      spellbook: SPELLBOOK_INDEX,
-      error: typeof window.__spellbookError,
-      card: indexes.byExactName.get('sol ring').n,
-    }))()`),
-  ).toEqual({ ready: true, spellbook: null, error: "string", card: "Sol Ring" });
+  await expectViewDeck(page, "1 Sol Ring", ["Sol Ring"]);
 });
