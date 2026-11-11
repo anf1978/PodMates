@@ -16,6 +16,7 @@ export interface ErrorContext {
     | "deck-crafter"
     | "gatherings"
     | "spoiler-bait"
+    | "pricescry"
     | "notifications"
     | "global-error"
     | "unhandled-rejection";

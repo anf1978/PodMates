@@ -21,6 +21,7 @@ import "./features/comparison/legacy-globals.ts";
 import "./features/ledger/legacy-globals.ts";
 import "./features/themes/legacy-globals.ts";
 import "./features/trades/legacy-globals.ts";
+import "./features/pricescry/legacy-globals.ts";
 import "./engine/legacy-globals.ts";
 // Limits first and on their own, so local deck analysis keeps them even if Firebase fails.
 import "./services/cloud/limits-global.ts";

@@ -1,5 +1,6 @@
 import { gzipSync } from "node:zlib";
 import { test, expect } from "./offline";
+import { openPriceScry } from "./pricescry-fixture";
 
 test("PriceScry mounts the signed-out Spoiler Bait gate and restores it on reopen", async ({
   page,
@@ -15,7 +16,7 @@ test("PriceScry mounts the signed-out Spoiler Bait gate and restores it on reope
   );
   await page.goto("/");
   await expect(page.locator("#dbStatus")).toContainText(/^Ready /);
-  await page.evaluate("openPriceScry()");
+  await openPriceScry(page);
   await page.locator('[data-ps-tab="bait"]').click();
   await expect(page.locator("#sbHost")).toHaveText(
     "Sign in to your PodMates account to use Spoiler Bait, so your likes are saved.",
@@ -23,7 +24,7 @@ test("PriceScry mounts the signed-out Spoiler Bait gate and restores it on reope
   await expect(page.locator("#sbTop")).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(page.locator("#pricescryOverlay")).toHaveCount(0);
-  await page.evaluate("openPriceScry()");
+  await openPriceScry(page);
   await page.locator('[data-ps-tab="bait"]').click();
   await expect(page.locator("#sbHost")).toContainText("Sign in to your PodMates account");
 });

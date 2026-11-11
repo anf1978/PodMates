@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 import { test, expect } from "./offline";
+import { openPriceScry } from "./pricescry-fixture";
 
 declare global {
   interface Window {
@@ -11,7 +12,6 @@ declare global {
       onCancel?: () => void,
     ): void;
     showSingleCardArtModal(name: string): Promise<void>;
-    openPriceScry(): void;
     __cancelled?: boolean;
   }
 }
@@ -129,7 +129,7 @@ test("the full-screen PriceScry overlay locks scroll and closes on Escape", asyn
           : {},
       }),
   );
-  await page.evaluate(() => window.openPriceScry());
+  await openPriceScry(page);
   const screen = page.getByRole("dialog", { name: "PriceScry" });
   await expect(screen).toBeVisible();
   await expect(page.locator("#psAsOf")).toContainText("Prices as of 2025-01-02");

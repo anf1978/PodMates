@@ -9,6 +9,7 @@ import type { SavedDeck } from "../../services/cloud/types";
 import type { CardRecord } from "../../cards/tuple";
 import type { LookupIndexes } from "../../cards/lookup";
 import { openTadOverlay, closeTryADeckModal } from "../../ui/tad-modal";
+import { emit } from "../../services/events";
 
 declare const showConfirmModal: ProfileRuntime["confirm"];
 declare const dbReady: boolean;
@@ -18,7 +19,6 @@ declare const safeHttpUrl: ProfileRuntime["safeUrl"];
 declare const renderDisplaySettings: ProfileRuntime["displaySettings"];
 declare const downloadMyDataBackup: ProfileRuntime["downloadBackup"];
 declare const restoreMyDataBackup: ProfileRuntime["restoreBackup"];
-declare const requestPriceScryAccess: ProfileRuntime["priceScry"];
 declare const currentPodViewId: string | null;
 declare const refreshCloudDecksCache: () => Promise<void>;
 declare const loadSavedDecks: () => Record<string, SavedDeck>;
@@ -62,7 +62,7 @@ configureProfile({
   displaySettings: (area) => renderDisplaySettings(area),
   downloadBackup: () => downloadMyDataBackup(),
   restoreBackup: (text) => restoreMyDataBackup(text),
-  priceScry: () => requestPriceScryAccess(),
+  priceScry: () => emit("pricescry:open", undefined),
   podId: () => currentPodViewId,
   chartDeck: async (deck) => {
     document.querySelector<HTMLTextAreaElement>("#decklistInput")!.value = deck.decklistText;

@@ -1,6 +1,16 @@
 // Shared lot accounting and current ledger snapshot, consumed by Ledger and trade dialogs.
 import type { TradeDoc, TradeSale, WithId } from "./cloud/types";
 export type Lot = WithId<TradeDoc>;
+/** What a purchase dialog opens with: an existing lot to edit, or a prefilled new one. */
+export interface TradeDraft {
+  lot?: Lot;
+  card?: string;
+  paper?: boolean;
+  qty?: number;
+  yen?: number | null;
+  tag?: TradeDoc["tag"];
+  finish?: TradeDoc["finish"];
+}
 export const COSTS = { feePct: 10, shipYen: 230, packYen: 30 };
 export const TAGS = { riser: "Riser pick", spoiler: "Spoiler play", other: "Other", "": "No tag" };
 export const ledgerSnapshot: { lots: Lot[] | null; marks: Record<string, number | null> } = {
@@ -53,4 +63,9 @@ export function signedYen(v: number | null): string {
   return v == null
     ? "—"
     : (v > 0 ? "+" : v < 0 ? "−" : "") + "¥" + Math.abs(Math.round(v)).toLocaleString("en-US");
+}
+/** Parses a typed yen amount ("1,200", "¥ 800"); NaN when it is not a number. */
+export function toInt(value: unknown): number {
+  const n = Number(String(value == null ? "" : value).replace(/[,\s¥]/g, ""));
+  return Number.isFinite(n) ? Math.round(n) : NaN;
 }

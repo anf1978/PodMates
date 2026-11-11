@@ -389,9 +389,9 @@ fees/shipping, cost basis and partial/closed-position accounting. Repository wri
 The temporary adapter supplies PriceScry price/name lookup, Ledger refresh and the shared ranked
 picker. Ledger requests trade actions through typed `trades:*` events, never another feature's
 imports or globals. `services/trade-ledger.ts` owns the shared accounting and current lot/mark
-snapshot; `trades/state.ts` re-exports its existing API for the dialogs. Only inline PriceScry
-purchase/yen-parser names and existing browser-flow entry points remain global. The planner and
-price lookup remain for R13. Async lookup/save
+snapshot (and `toInt`/`TradeDraft`); `trades/state.ts` re-exports its existing API for the dialogs.
+Price/name lookup comes from `services/price-data.ts`, and PriceScry opens purchases through the
+`trades:purchase` event. Only the existing browser-flow entry points used by `trades.spec` remain global. Async lookup/save
 completions cannot alter or dismiss a replacement dialog, and write errors report through the
 redacted sink while preserving the original form/toast messages. Repository-mocked tests cover
 purchase/edit, sale/edit/removal, mark removal, deletion, failure/retry and stale completions.
@@ -413,8 +413,8 @@ teardown; offline Chromium covers the real dialog/settings/Escape lifecycle with
 
 `ledger` owns the PriceScry Ledger tab: All/Real/Paper filters, realised and unrealised totals,
 closed-trade expectancy/reason summaries, open/closed positions and sale/action buttons.
-It reads `cloud/session` and `cloud/trades` directly. Its PriceScry adapter supplies current yen
-pricing and clears the card-detail state on entry; pricing/consensus remain with PriceScry until R13.
+It reads `cloud/session` and `cloud/trades` directly, and prices open lots through `services/price-data.ts`.
+The `psRenderLedger(host)` shim is now called only by the PriceScry adapter.
 An owned display-contents root prevents a delayed repository/price response from replacing another tab.
 Generation/account checks also prevent publishing stale lots or marks into the shared snapshot.
 Tests cover partial-sale accounting, missing prices, filter/export/edit wiring, escaping, signed-out
@@ -432,6 +432,23 @@ invalid legacy `height="auto"` attribute. Dismissed/replaced details ignore late
 Offline Chromium exercises the real six-deck sample renderer, all panels, deck detail and mode
 restoration; Ledger's real tab/sign-in/reopen flow runs without authenticated RPCs. Authenticated
 Ledger behavior is repository-mocked in unit tests, not a live-account browser test.
+
+`pricescry` owns the full-screen price tool: the soft password gate, Search and the card page (printing/
+finish pickers, SVG chart and readout, current prices, trade planner, facts), Movers, Signals (spoiler
+strip, prediction scoreboard, cheap-pick watch) and Radar. Only `index.ts`, `runtime.ts` and the CSS load with
+the page; `access.ts`, `screen.ts` and the views are a separate chunk loaded by dynamic `import()` on first open.
+`services/price-data.ts` owns the published-data fetch/cache, change-point series, yen conversion, consensus
+price and `currentYen`, shared with Trades and Ledger; its `nameKey`/`fnv1a`/shard path and `plan.ts`'s
+`planTrade` stay KEEP-IN-SYNC copies of the pipeline functions (tests compare them) until p5-3. Profile opens
+the screen with `pricescry:open`, Trades returns to the Ledger tab with `pricescry:tab`, and the adapter
+supplies the Ledger/Spoiler Bait mounts, the legacy card picker and card-DB badges through ports. Views
+replace `#psBody` wholesale like the inline screen did (the Ledger and Spoiler Bait ports replace its children
+too), and cached tabs re-render synchronously so the modal focus trap cannot run during "Loading…" and
+reset the scroll. `pricescry.css` loads before the main stylesheet, so the tab/range buttons restate their
+background/cursor for `:hover`/`:disabled`. A temporary harness compared the normalized DOM, computed styles and
+boxes of 22 views (desktop and 390 px) against the inline build: only intended attribute changes and
+transition-timing noise differ. Unit tests cover the helpers, planner, chart/signal logic and lazy
+lifecycle; offline Chromium covers the gate, search → card → back and every data tab with fixture data.
 
 ## Lint-enforced boundaries
 
@@ -473,8 +490,8 @@ ESLint does not inspect the inline scripts in `index.html`. TypeScript is strict
 ## What is not done yet
 
 Phase 3's exit criteria (no source file over ~500 lines, no globals, every `innerHTML` replaced) are not met
-while the inline app script exists. The remaining p3-5 feature moves (rest of Deck Chart,
-PriceScry) each delete inline code and the shim names it used. When the last caller of a
+while the inline app script exists. The remaining work (rest of Deck Chart, the shared
+card picker, saved-deck flows and the other inline helpers) deletes inline code and the shim names it used. When the last caller of a
 shim name goes, delete the name; when the inline scripts are gone, `index.html` becomes static markup plus the
 `src/main.ts` tag (plus the inlined theme pre-paint script, which must stay synchronous), and `main.ts` boots
 card DB (worker) → cloud → UI directly.

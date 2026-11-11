@@ -128,7 +128,7 @@ export function japanCostModel(o = {}) {
 // e.g. -0.10 for ten percent down). Real outcomes are a spread, so treat this as a disciplined rule of thumb, not a forecast.
 // refYen is the price BEFORE the news; if the price has already risen when you buy (priceYen above refYen), less of the
 // move is left for you, and the plan says so.
-// KEEP IN SYNC: psPlanTrade in index.html is a copy of this function; a test compares the two.
+// KEEP IN SYNC: planTrade in src/features/pricescry/plan.ts is a copy of this function; plan.test.ts compares them.
 export function planTrade(o) {
   const p = {
     refYen: o.priceYen,

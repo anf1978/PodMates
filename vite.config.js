@@ -76,6 +76,7 @@ export default defineConfig({
           "./src/features/comparison/detail.css",
           "./src/features/ledger/ledger.css",
           "./src/features/themes/themes.css",
+          "./src/features/pricescry/pricescry.css",
         ]) {
           const reference = this.emitFile({
             type: "asset",

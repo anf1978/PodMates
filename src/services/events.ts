@@ -1,10 +1,10 @@
 // Typed messages between otherwise independent feature boundaries.
 import type { PodDoc, PodMember, WithId } from "./cloud/types";
 import type { Gathering } from "./cloud/gatherings";
-import type { Lot } from "./trade-ledger";
+import type { Lot, TradeDraft } from "./trade-ledger";
 
 type AppEvents = {
-  "trades:purchase": { lot?: Lot };
+  "trades:purchase": TradeDraft;
   "trades:mark": string;
   "trades:sell": { id: string; index?: number };
   "trades:remove-sale": { id: string; index: number };
@@ -28,6 +28,8 @@ type AppEvents = {
   "pods:refresh": undefined;
   "pods:membership": undefined;
   "pods:open": { pod: WithId<PodDoc>; pods: WithId<PodDoc>[] };
+  "pricescry:open": undefined;
+  "pricescry:tab": "search" | "movers" | "signals" | "bait" | "radar" | "ledger";
 };
 
 const events = new EventTarget();

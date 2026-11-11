@@ -4,16 +4,8 @@ import type { TradeDoc, TradeSale } from "../../services/cloud/types";
 import type { Lot } from "../../services/trade-ledger";
 export { COSTS, TAGS, lotMetrics, sellNet, signedYen } from "../../services/trade-ledger";
 export type { Lot };
-
-export interface TradeOptions {
-  lot?: Lot;
-  card?: string;
-  paper?: boolean;
-  qty?: number;
-  yen?: number | null;
-  tag?: TradeDoc["tag"];
-  finish?: TradeDoc["finish"];
-}
+export type { TradeDraft as TradeOptions } from "../../services/trade-ledger";
+import type { TradeDraft as TradeOptions } from "../../services/trade-ledger";
 
 export interface Purchase {
   card: string;
@@ -57,10 +49,7 @@ export function purchaseValues(opts: TradeOptions, today: string): Purchase {
       };
 }
 
-export function toInt(value: unknown): number {
-  const n = Number(String(value == null ? "" : value).replace(/[,\s¥]/g, ""));
-  return Number.isFinite(n) ? Math.round(n) : NaN;
-}
+export { toInt } from "../../services/trade-ledger";
 
 export function validDate(date: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(date) && !isNaN(new Date(date).getTime());

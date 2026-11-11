@@ -1,13 +1,13 @@
 // Real PriceScry tab wiring without contacting price APIs or a signed-in Firebase account.
 import { test, expect } from "./offline";
+import { openPriceScry, routePriceData } from "./pricescry-fixture";
 test("Ledger renders its sign-in boundary and survives leaving and reopening the tab", async ({
   page,
 }, info) => {
+  await routePriceData(page);
   await page.goto("/");
   await expect(page.locator("#dbStatus")).toContainText(/^Ready /);
-  await page.evaluate(`pricescryCache.set('index.json', {day:'2026-11-11',firstDay:'2026-10-01',cards:100});
-    pricescryCache.set('fx.json', {pairs:{}});
-    openPriceScry();`);
+  await openPriceScry(page);
   const overlay = page.locator("#pricescryOverlay");
   await expect(overlay.locator("#psSearch")).toBeVisible();
   await overlay.getByRole("button", { name: "Ledger", exact: true }).click();

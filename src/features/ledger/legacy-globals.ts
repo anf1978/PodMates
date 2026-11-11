@@ -1,21 +1,17 @@
-// Temporary PriceScry ports; R13 replaces the inline tab/pricing/navigation callers.
-import { mount, type LedgerPorts, type LedgerView } from "./index";
+// Temporary port for PriceScry's Ledger tab; pricing comes from the shared price-data service.
+import { mount, type LedgerView } from "./index";
 import { ledgerSnapshot } from "../../services/trade-ledger";
 import { emit } from "../../services/events";
-declare const psCurrentYen: LedgerPorts["currentYen"];
-declare const psState: { rec: unknown };
+import { currentYen } from "../../services/price-data";
 let current: LedgerView | null = null;
 const legacy = {
   // TODO(p3-6): the trade adapter/browser flow still reads the existing lot snapshot name.
   psLedger: ledgerSnapshot,
-  // TODO(p3-6): PriceScry's inline tab switch still mounts its Ledger.
-  psRenderLedger: (): Promise<void> => {
-    const body = document.getElementById("psBody");
-    if (!body) return Promise.resolve();
+  // TODO(p3-6): the PriceScry adapter still mounts its Ledger tab through this name.
+  psRenderLedger: (body: HTMLElement): Promise<void> => {
     current?.destroy();
-    psState.rec = null;
     current = mount(body, {
-      currentYen: (card) => psCurrentYen(card),
+      currentYen,
       actions: {
         add: () => emit("trades:purchase", {}),
         edit: (lot) => emit("trades:purchase", { lot }),

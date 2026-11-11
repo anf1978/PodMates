@@ -1,4 +1,4 @@
-// PriceScry shared helpers (used by the snapshot/fx scripts AND mirrored in index.html).
+// PriceScry shared helpers (used by the snapshot/fx scripts AND mirrored in src/services/price-data.ts).
 //
 // DATA MODEL
 //   Prices are stored as CHANGE POINTS, not a value per day: a series like
@@ -10,9 +10,9 @@
 //   Cards are grouped into 512 shard files by a hash of the card name, so the
 //   page only downloads the small file holding the card being viewed.
 //
-// KEEP IN SYNC: nameKey(), fnv1a(), shardOf() are copied into index.html (the
-// PriceScry section). If you change them here, change them there, or the page will
-// look for cards in the wrong files. A test compares the two.
+// KEEP IN SYNC: nameKey(), fnv1a(), shardOf() are copied into src/services/price-data.ts.
+// If you change them here, change them there, or the page will look for cards in the
+// wrong files. src/services/price-data.test.ts compares the two (consensusAt too).
 
 export const EPOCH_MS = Date.UTC(2020, 0, 1);
 export const SHARDS = 512;
