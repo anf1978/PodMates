@@ -1,44 +1,28 @@
 name: Scryfall Tags Build
 on:
   workflow_dispatch:
-permissions:
-  contents: read
+permissions: {}
+concurrency:
+  group: scryfall-tags-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
   tags:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
-      - name: Write script
-        run: |
-          cat > scryfall-tags.mjs <<'SCRIPT_EOF'
-          // Run by the "Scryfall Tags Build" workflow (GitHub Actions). Writes scryfall-tags.json.
-          // Pulls card names for Scryfall Tagger function tags (otag:); one query per tag, 120ms apart.
-          import { writeFileSync } from 'node:fs';
-          const TAGS = ['ramp','mana-dork','card-advantage','removal','sweeper','tutor','recursion','sacrifice-outlet','token-generator','blink','cost-reducer','anthem','lord','extra-combat','haste-enabler','repeatable-token-generator','untapper','mana-doubler','trigger-doubler'];
-          const sleep = ms => new Promise(r => setTimeout(r, ms));
-          const out = {};
-          for (const tag of TAGS) {
-            let url = `https://api.scryfall.com/cards/search?q=${encodeURIComponent(`otag:${tag} f:commander`)}&unique=cards`;
-            const names = [];
-            while (url) {
-              const r = await fetch(url, { headers: { 'User-Agent': 'PodMates-tagfetch/1.0', Accept: 'application/json' } });
-              if (!r.ok) { console.log(tag, 'HTTP', r.status, '(tag may not exist)'); break; }
-              const j = await r.json(); j.data.forEach(c => names.push(c.name)); url = j.has_more ? j.next_page : null; await sleep(120);
-            }
-            out[tag] = names; console.log(tag, names.length);
-          }
-          writeFileSync('scryfall-tags.json', JSON.stringify(out));
-          SCRIPT_EOF
       - name: Fetch function tags
-        run: node scryfall-tags.mjs
+        run: node pipelines/card-db/scryfall-tags.mjs scryfall-tags.json
       - name: Summary
         run: |
           ls -la scryfall-tags.json
           node -e "const j=require('./scryfall-tags.json');for(const k in j)console.log(k,j[k].length)"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: scryfall-tags
           path: scryfall-tags.json

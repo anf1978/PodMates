@@ -7,12 +7,7 @@ on:
   schedule:
     - cron: "0 6 * * 1"
 
-# Explicitly granted rather than relying on the repo's default token
-# permissions -- GitHub increasingly defaults new repos to a read-only
-# token, which makes the final git push fail immediately (exit code 128)
-# before any of the real work even starts.
-permissions:
-  contents: write
+permissions: {}
 
 concurrency:
   group: dataset-publish-${{ github.ref }}
@@ -20,28 +15,23 @@ concurrency:
 
 jobs:
   rebuild:
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
 
-      # Scryfall's own bulk-data endpoint always points at the CURRENT file --
-      # the actual download URL is timestamped and changes constantly, so this
-      # has to be looked up fresh every run rather than hardcoded anywhere.
-      - name: Look up the current Scryfall Oracle Cards download URL
-        run: |
-          curl --fail --silent --show-error https://api.scryfall.com/bulk-data/oracle-cards -o bulk-meta.json
-          BULK_URL=$(jq -er '.jsonl_download_uri // .download_uri' bulk-meta.json)
-          echo "Resolved download URL: $BULK_URL"
-          echo "BULK_URL=$BULK_URL" >> "$GITHUB_ENV"
-
-      - name: Download the current card data
-        run: curl --fail --silent --show-error -L "$BULK_URL" -o scryfall-bulk.jsonl
+      - name: Download current Oracle Cards
+        uses: ./.github/actions/scryfall-bulk
+        with:
+          type: oracle_cards
+          path: scryfall-bulk.jsonl
 
       - name: Build the compressed database
         run: node pipelines/card-db/build-card-db.mjs scryfall-bulk.jsonl new-card-db.b64
