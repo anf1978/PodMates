@@ -2,6 +2,7 @@
 // array-contains): a user can only write their own users/{uid} document, so a leader removing
 // someone could never update that person's doc. The pod document is the single source of truth.
 import { reportError } from "../report-error";
+import { emit } from "../events";
 import {
   arrayRemove,
   arrayUnion,
@@ -74,6 +75,7 @@ export async function createPod(
     joinedAt: Date.now(),
   };
   await setDoc(memberRef(newPodRef.id, user.uid), member);
+  emit("pods:membership", undefined);
   return { ok: true, podId: newPodRef.id, inviteCode };
 }
 
@@ -124,6 +126,7 @@ export async function joinPodByInviteCode(
   const member: MemberDoc = { displayName: myJoinName, role: "member", joinedAt: Date.now() };
   await setDoc(memberRef(podId, user.uid), member);
   logActivity("joined", podData.name || "the pod", { podIds: [podId] });
+  emit("pods:membership", undefined);
   return { ok: true, podId, podName: podData.name };
 }
 
@@ -154,12 +157,14 @@ export async function leavePod(podId: string): Promise<void> {
   const user = requireUser();
   await deleteDoc(memberRef(podId, user.uid));
   await setDoc(podRef(podId), { memberIds: arrayRemove(user.uid) }, { merge: true });
+  emit("pods:membership", undefined);
 }
 
 export async function removePodMember(podId: string, uid: string): Promise<void> {
   requireUser();
   await deleteDoc(memberRef(podId, uid));
   await setDoc(podRef(podId), { memberIds: arrayRemove(uid) }, { merge: true });
+  emit("pods:membership", undefined);
 }
 
 export async function renamePod(podId: string, newName: string | null | undefined): Promise<void> {
@@ -200,4 +205,5 @@ export async function deletePod(podId: string): Promise<void> {
     await deleteDoc(memberRef(podId, m.uid));
   }
   await deleteDoc(podRef(podId));
+  emit("pods:membership", undefined);
 }

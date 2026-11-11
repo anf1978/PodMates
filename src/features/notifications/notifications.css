@@ -1,0 +1,142 @@
+/* Inbox layout and fixed activity colours retained from the legacy notification feed. */
+.pm-notif-modal {
+  max-width: 460px;
+  --notif-deck: #3d8f8a;
+  --notif-gathering: #d9a62e;
+  --notif-live: #d9603e;
+  --notif-nomination: #8a6cd6;
+  --notif-joined: #7aa35a;
+  --notif-cancelled: #a05a5a;
+  --notif-fresh: rgba(217, 166, 46, 0.1);
+}
+.pm-notif-title {
+  margin-bottom: 10px;
+}
+.pm-notif-modal .pm-notif-row {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  align-items: flex-start;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  padding: 10px 4px;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+}
+.pm-notif-row.pm-notif-fresh {
+  background: var(--notif-fresh);
+}
+.pm-notif-deck,
+.pm-notif-rsvp {
+  --notif-tag: var(--notif-deck);
+}
+.pm-notif-gathering,
+.pm-notif-invite {
+  --notif-tag: var(--notif-gathering);
+}
+.pm-notif-live {
+  --notif-tag: var(--notif-live);
+}
+.pm-notif-nomination {
+  --notif-tag: var(--notif-nomination);
+}
+.pm-notif-joined {
+  --notif-tag: var(--notif-joined);
+}
+.pm-notif-cancelled {
+  --notif-tag: var(--notif-cancelled);
+}
+.pm-notif-dot {
+  flex: none;
+  margin-top: 3px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid var(--notif-tag);
+}
+.pm-notif-fresh .pm-notif-dot {
+  background: var(--notif-tag);
+}
+.pm-notif-content {
+  flex: 1;
+  min-width: 0;
+}
+.pm-notif-text {
+  display: block;
+  font-size: 13.5px;
+  line-height: 1.35;
+}
+.pm-notif-meta {
+  display: block;
+  font-size: 11.5px;
+  color: var(--text-soft);
+  margin-top: 2px;
+}
+.pm-notif-tag {
+  color: var(--notif-tag);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 10.5px;
+}
+.pm-notif-empty {
+  color: var(--text-soft);
+  font-size: 13px;
+  margin: 14px 0;
+}
+.pm-notif-settings {
+  margin-top: 14px;
+}
+.pm-notif-settings summary {
+  cursor: pointer;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.pm-notif-options {
+  margin-top: 6px;
+}
+.pm-notif-option {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+  margin: 6px 0;
+}
+.pm-notif-hint {
+  font-size: 11.5px;
+  color: var(--text-soft);
+  margin-top: 8px;
+}
+.pm-notif-bell {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  position: relative;
+}
+.pm-notif-bell.pm-notif-signed-in {
+  display: inline-flex;
+}
+.pm-notif-badge {
+  display: none;
+  background: #d9603e;
+  color: #fff;
+  border-radius: 9px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+}
+.pm-notif-badge.pm-notif-unread {
+  display: inline-block;
+}

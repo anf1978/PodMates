@@ -2,7 +2,7 @@
 import "./pods.css";
 import { createPod, joinPodByInviteCode, loadMyPods } from "../../services/cloud/pods";
 import { getCurrentUser, onAuthChange } from "../../services/cloud/session";
-import { emit as emitAppEvent } from "../../services/events";
+import { emit as emitAppEvent, on } from "../../services/events";
 import { reportError } from "../../services/report-error";
 import { nothing, render } from "../../ui/html";
 import { showToast } from "../../ui/toast";
@@ -184,6 +184,7 @@ export function mount(panel: HTMLElement, ui: PodIntegration): PodsFeature {
     }
   }
 
+  const offOpen = on("pods:open", ({ pod, pods }) => openDetail(pod, pods));
   onAuthChange((user) => {
     if (disposed || !state.pendingJoinCode) return;
     if (user && !user.isAnonymous) {
@@ -224,6 +225,7 @@ export function mount(panel: HTMLElement, ui: PodIntegration): PodsFeature {
     setActivePodId,
     destroy() {
       disposed = true;
+      offOpen();
       ++panelVersion;
       stopInvites();
       if (ownedModal?.isConnected) ui.closeOverlay();

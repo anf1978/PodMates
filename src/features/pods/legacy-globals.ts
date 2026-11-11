@@ -41,8 +41,6 @@ declare global {
     currentPodViewId: string | null;
     // TODO(p3-6): inline navigation and Gatherings still refresh this panel.
     renderOurPodPanel: typeof feature.renderPanel;
-    // TODO(p3-6): the notifications inbox still opens pod details.
-    openPodDetailOverlay: typeof feature.openDetail;
   }
 }
 
@@ -53,5 +51,4 @@ Object.defineProperty(window, "currentPodViewId", {
 });
 Object.assign(window, {
   renderOurPodPanel: feature.renderPanel,
-  openPodDetailOverlay: feature.openDetail,
 });

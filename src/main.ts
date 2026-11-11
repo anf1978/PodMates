@@ -28,5 +28,8 @@ import "./features/chronicles/legacy-globals.ts";
 import "./services/cloud/index.ts";
 import "./features/pods/legacy-globals.ts";
 import { installGlobalErrorHandlers } from "./services/report-error";
+import { mount as mountNotifications } from "./features/notifications";
 
 installGlobalErrorHandlers();
+const authBar = document.getElementById("authBar");
+if (authBar) mountNotifications(authBar);

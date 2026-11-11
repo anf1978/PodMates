@@ -6,6 +6,7 @@ type AppEvents = {
   "profile:open": { welcome?: boolean };
   "auth:open": undefined;
   "gatherings:sample": undefined;
+  "gatherings:open": { podId: string; id: string };
   "gatherings:host": { pod: WithId<PodDoc>; members: PodMember[] };
   "gatherings:paint": {
     area: HTMLElement;
@@ -18,6 +19,8 @@ type AppEvents = {
   "pods:active": string | null;
   "pods:navigate": undefined;
   "pods:refresh": undefined;
+  "pods:membership": undefined;
+  "pods:open": { pod: WithId<PodDoc>; pods: WithId<PodDoc>[] };
 };
 
 const events = new EventTarget();

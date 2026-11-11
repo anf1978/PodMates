@@ -28,6 +28,9 @@ export function paintOpenGatherings(
 }
 export function mount(): () => void {
   const cleanups = [
+    on("gatherings:open", ({ podId, id }) => {
+      void openLiveGatheringOverlay(podId, id);
+    }),
     on("gatherings:host", ({ pod, members }) => {
       void openHostGatheringOverlay(pod, members);
     }),

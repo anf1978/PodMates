@@ -1,4 +1,4 @@
-// Temporary ports to unmoved pod, comparison, saved-deck and notification callers.
+// Temporary ports to unmoved comparison, saved-deck and battle callers.
 import {
   configureGatherings,
   mount,
@@ -45,7 +45,7 @@ configureGatherings({
 });
 
 const legacy = {
-  // TODO(p3-6): pods, notifications and the deck picker still open the live tray.
+  // TODO(p3-6): Chronicles and the deck picker still open the live tray.
   openLiveGatheringOverlay,
   // TODO(p3-6): the offline browser entry-point test still invokes this legacy name.
   runSampleGathering,

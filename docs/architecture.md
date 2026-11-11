@@ -6,13 +6,14 @@ are in [CLAUDE.md](../CLAUDE.md); domain terms in the [glossary](glossary.md).
 
 ## Big picture
 
-PodMates is a static Vite site. `index.html` is still about 8,200 lines: static markup, the main
-CSS and the inline legacy scripts (theme, card-DB start-up, the app script with every unmoved feature, the
-notifications inbox). Typed code lives in `src/`, and the inline scripts reach it in two ways:
+PodMates is a static Vite site. `index.html` is still about 8,000 lines: static markup, the main
+CSS and the inline legacy scripts (theme, card-DB start-up and the app script with every unmoved feature).
+Typed code lives in `src/`, and the inline scripts reach it in two ways:
 
 1. **`src/main.ts`**, the one `<script type="module">` in `<head>`. Like every module it runs after the
    document is parsed and before `DOMContentLoaded`. Its imports evaluate in a fixed order: UI
-   primitives, feature adapters, engine, size limits, profile, auth, gatherings, cloud, MyPods.
+   primitives, feature adapters, engine, size limits, profile, auth, gatherings, cloud, MyPods;
+   notifications mounts after the imports finish.
 2. **Dynamic `import()`** from the inline start-up code (`initDatabase` and the dataset gates) for
    `src/data/load-dataset.ts`, `src/cards/load-db.ts` and the card/engine shims.
 
@@ -302,7 +303,7 @@ Cloud calls import repositories directly; no Firestore paths, fields or stored r
 
 The temporary pod adapter imports the shared modal and bridges unmoved confirmation and Chronicles
 handlers. Typed navigation events connect Gatherings and Spoiler Bait without feature-to-feature imports.
-Only `renderOurPodPanel`, `openPodDetailOverlay` and the `currentPodViewId` accessor remain
+Only `renderOurPodPanel` and the `currentPodViewId` accessor remain
 for unmoved callers. Repeated renders dispose old subscriptions; unmount also invalidates pending
 loads and removes the active overlay. Pending URL invitations require explicit consent after sign-in,
 and declined invitations cannot be retried by later auth events.
@@ -383,6 +384,19 @@ purchase/edit, sale/edit/removal, mark removal, deletion, failure/retry and stal
 Offline Chromium covers dialog validation, preview and cancellation without authenticated writes;
 the purchase, sale and price-check screenshots are byte-identical to their pre-extraction views.
 
+`notifications` (prefix `pm-notif-`) owns the in-app bell, merged pod activity feeds, unread cutoff,
+thirty-day filter, per-type preferences and pod muting. Existing `pm_notif_seen_<uid>` and
+`pm_notif_prefs_<uid>` device keys, activity text/colours and Firestore paths/fields are unchanged.
+First use starts the unread cutoff at the current time; opening marks seen without removing fresh-row
+highlights. Lit templates escape names and subjects; styles replace the inventoried inline declarations.
+Auth changes clear old-account state immediately, and generation guards ignore obsolete pod loads/feed
+callbacks. Membership writes emit `pods:membership` after success, so direct repository callers refresh
+subscriptions too; no cloud-shim monkey-patching is needed. Navigation uses `gatherings:open` and `pods:open`
+events, not cross-feature imports. `window.pmNotif` and the last `openPodDetailOverlay` global are removed.
+Storage and feed failures report through the redacted sink while remaining non-blocking.
+Repository-mocked tests cover authenticated badges, seen state, settings, routing, account isolation and
+teardown; offline Chromium covers the real dialog/settings/Escape lifecycle without cloud writes.
+
 ## Lint-enforced boundaries
 
 `eslint.config.js` makes every rule an error (no warn-only rules remain):
@@ -424,7 +438,6 @@ ESLint does not inspect the inline scripts in `index.html`. TypeScript is strict
 
 Phase 3's exit criteria (no source file over ~500 lines, no globals, every `innerHTML` replaced) are not met
 while the inline app script exists. The remaining p3-5 feature moves (rest of Deck Chart,
-notifications,
 ledger/comparison, themes, PriceScry) each delete inline code and the shim names it used. When the last caller of a
 shim name goes, delete the name; when the inline scripts are gone, `index.html` becomes static markup plus the
 `src/main.ts` tag, and `main.ts` boots theme → card DB (worker) → cloud → UI directly.

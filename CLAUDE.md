@@ -2,7 +2,7 @@
 
 Commander (MTG) playgroup companion: deck analysis ("Deck Chart"), pod social features (MyPods) and the PriceScry
 price tool. Static web app (Vite + TypeScript) on GitHub Pages; Firebase Auth/Firestore; data built by GitHub
-Actions. **Mid-migration:** typed code lives in `src/`, but most UI is still inline in `index.html` (~8,200
+Actions. **Mid-migration:** typed code lives in `src/`, but most UI is still inline in `index.html` (~8,000
 lines), reached through strangler shims.
 Full context: [docs/overview.md](docs/overview.md) · Architecture: [docs/architecture.md](docs/architecture.md) ·
 Terms: [docs/glossary.md](docs/glossary.md) · Plan: [docs/refactor-plan.md](docs/refactor-plan.md) ·
@@ -35,7 +35,7 @@ CI runs `check` + e2e + rules tests on every PR (including stacked bases) and `m
 ## Map
 
 - `src/main.ts` — the page's one module entry: imports the shims in order (UI, feature adapters, engine, limits,
-  profile, auth, gatherings, chronicles, cloud, pods).
+  profile, auth, gatherings, chronicles, cloud, pods), then mounts notifications.
 - `src/engine/` — pure scoring/analysis. No DOM, network or globals. Read [src/engine/CLAUDE.md](src/engine/CLAUDE.md).
 - `src/cards/` — card tuples (`tuple.ts`), DB worker + codec, lookup, decklist parser.
 - `src/data/` — curated tables (`combos.ts`, `game-changers.ts`, …) and the dataset loader (`load-dataset.ts`).
@@ -51,7 +51,7 @@ CI runs `check` + e2e + rules tests on every PR (including stacked bases) and `m
 - `src/styles/` — `tokens.css` (CSS variables) and `base.css`.
 - `src/features/<name>/` — one folder per feature: `state.ts`, `view.ts`/`panels/`, `<name>.css`, `*.test.ts`.
   Moved: `deck-chart` (four panels), `try-a-deck`, `export`, `scan-cards`, `deck-crafter`, `auth`, `profile`,
-  `pods`, `gatherings`, `chronicles`, `impact`, `spoiler-bait` and `trades`. Adapters supply
+  `pods`, `gatherings`, `chronicles`, `impact`, `spoiler-bait`, `trades` and `notifications`. Adapters supply
   the still-inline deck form, shared library gate and analysis. Scan and Deck Crafter communicate through
   `src/services/deck-editing.ts`; features never import each other or read legacy globals directly.
   Profile includes My Profile, linked decks,
@@ -69,6 +69,8 @@ CI runs `check` + e2e + rules tests on every PR (including stacked bases) and `m
   PriceScry, which passes signals, day, pod and card-navigation callback explicitly.
   Trades owns purchase/edit, price checks, sales/edit/removal, deletion, lot accounting and CSV export.
   Its adapter supplies the remaining inline Ledger/PriceScry lookup, navigation and shared card picker.
+  Notifications owns the in-app bell, merged activity feed and per-account device preferences. It uses
+  typed pod-membership/navigation events and direct repositories; no notification globals remain.
 - `**/legacy-globals.ts`, `src/services/cloud/{index,limits-global}.ts` — strangler shims publishing typed code
   on `window` for the inline scripts. Delete each name with its last inline caller.
 - `index.html` — markup, main CSS and the inline legacy scripts (everything not yet in `src/features`).
@@ -111,7 +113,7 @@ expanded chart panels, info dialog and account screens. The one exact contrast d
 - **Never read or print the whole file**, nor the huge lines below. Grep for the **identifier**, then do a ranged
   read; cap grep width (`grep -n … | cut -c1-200`). Line numbers drift with every edit.
 - Inline scripts share **one global scope**: grep before renaming or adding a top-level name. Cross-script
-  contracts: `window.PodmatesCloud`, `window.pmNotif`, `window.PM_LIMITS`, `window.pmUi`, `window.__dbReady`,
+  contracts: `window.PodmatesCloud`, `window.PM_LIMITS`, `window.pmUi`, `window.__dbReady`,
   `window.__dbLoadPct` and the `podmates-cloud-init` event.
 - Modules (`src/main.ts`) run after parsing: inline code must not call shim names or read `window.PM_LIMITS`
   during parsing, and must wait for `podmates-cloud-init` before using the cloud.
@@ -166,9 +168,9 @@ expanded chart panels, info dialog and account screens. The one exact contrast d
 |      7171 | Saved deck naming and save orchestration                       | `function generateUniqueDeckName`, `function saveCurrentDeck`                                |
 |      7627 | My Data backup/restore                                         | `MY DATA — download/restore`                                                                 |
 |      7722 | Retired pod rosters (dead code)                                | `POD ROSTERS -- retired`                                                                     |
-| 7990–8137 | Notifications inbox                                            | `<script id="notif-script">`                                                                 |
+|   modules | Notifications inbox, bell and device preferences               | `src/features/notifications/{index,state,storage,view}.ts`                                   |
 
-Updated for R1–R9 (remaining ranges approximate). Regenerate with:
+Updated for R1–R10 (remaining ranges approximate). Regenerate with:
 
 ```sh
 grep -n -E '<script|</script>|<style|</style>|<body' index.html | cut -c1-120          # block boundaries
