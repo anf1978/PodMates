@@ -4,15 +4,9 @@
 // COMMANDER_TIER_DATA globals. Add no behaviour here; delete it with the last caller.
 
 import type { CardRecord } from "../cards/tuple.ts";
-import { DEFAULT_IMPACT_CARDS } from "../data/impact-defaults.ts";
 import { GAME_CHANGER_REASONS } from "../data/game-changers.ts";
 import { analyzeDeck } from "./analyze.ts";
-import {
-  IMPACT_PTS_CAP,
-  IMPACT_PTS_PER_CARD,
-  impactCardsInDeck,
-  scorePowerLevel,
-} from "./axes/power-level.ts";
+import { scorePowerLevel } from "./axes/power-level.ts";
 import { scoreConsistency } from "./axes/consistency.ts";
 import { scoreDisruption } from "./axes/disruption.ts";
 import { computeManaCurve } from "./axes/shared.ts";
@@ -69,11 +63,8 @@ const legacy = {
   COMBO_FINISH,
   COMBO_NEEDS_PAYOFF,
   COMMANDER_RULES,
-  DEFAULT_IMPACT_CARDS,
   EARLY_COMBO_BY_TURN,
   GAME_CHANGER_REASONS,
-  IMPACT_PTS_CAP,
-  IMPACT_PTS_PER_CARD,
   IXPROP,
   SPARK_WEIGHTS,
   TABLE_VIBE_ARCHETYPES,
@@ -90,7 +81,6 @@ const legacy = {
   detectTableFeel,
   detectWinCondition,
   earliestComboTurn,
-  impactCardsInDeck,
   ixUsable,
   scoreConsistency,
   scoreDisruption,

@@ -2,7 +2,7 @@
 
 Commander (MTG) playgroup companion: deck analysis ("Deck Chart"), pod social features (MyPods) and the PriceScry
 price tool. Static web app (Vite + TypeScript) on GitHub Pages; Firebase Auth/Firestore; data built by GitHub
-Actions. **Mid-migration:** typed code lives in `src/`, but most UI is still inline in `index.html` (~8,900
+Actions. **Mid-migration:** typed code lives in `src/`, but most UI is still inline in `index.html` (~8,500
 lines), reached through strangler shims.
 Full context: [docs/overview.md](docs/overview.md) · Architecture: [docs/architecture.md](docs/architecture.md) ·
 Terms: [docs/glossary.md](docs/glossary.md) · Plan: [docs/refactor-plan.md](docs/refactor-plan.md) ·
@@ -51,7 +51,7 @@ CI runs `check` + e2e + rules tests on every PR (including stacked bases) and `m
 - `src/styles/` — `tokens.css` (CSS variables) and `base.css`.
 - `src/features/<name>/` — one folder per feature: `state.ts`, `view.ts`/`panels/`, `<name>.css`, `*.test.ts`.
   Moved: `deck-chart` (four panels), `try-a-deck`, `export`, `scan-cards`, `deck-crafter`, `auth`, `profile`,
-  `pods`, `gatherings` and `chronicles`. Adapters supply
+  `pods`, `gatherings`, `chronicles` and `impact`. Adapters supply
   the still-inline deck form, shared library gate and analysis. Scan and Deck Crafter communicate through
   `src/services/deck-editing.ts`; features never import each other or read legacy globals directly.
   Profile includes My Profile, linked decks,
@@ -63,6 +63,8 @@ CI runs `check` + e2e + rules tests on every PR (including stacked bases) and `m
   Chronicles owns the grouped journal, entry permissions/notes/deletion/clear and optional post-battle feedback;
   Chronicle snapshot construction, Log/Repeat/New Battle controls and result watching also live there.
   Its adapter retains only existing journal-refresh/render and battle-control/watch names.
+  Impact owns the list/reasons, nominations/ideas, lazy candidates and separate Pod view; its adapter only
+  supplies current chart state and the shared legacy card picker. Standard scores never use pod proposals.
 - `**/legacy-globals.ts`, `src/services/cloud/{index,limits-global}.ts` — strangler shims publishing typed code
   on `window` for the inline scripts. Delete each name with its last inline caller.
 - `index.html` — markup, main CSS and the inline legacy scripts (everything not yet in `src/features`).
@@ -148,7 +150,7 @@ expanded chart panels, info dialog and account screens. The one exact contrast d
 |      6094 | Display settings (still inline for the themes session)         | `function renderDisplaySettings`                                                             |
 |      1518 | MyPods mount point (implementation in `src/features/pods`)     | `MyPods mounts here`                                                                         |
 |   modules | Gatherings (host, RSVP, seats, live and sample)                | `src/features/gatherings/{index,host,waiting,view,landing,watch}.ts`                         |
-| 6141–6508 | Impact cards + "Pod view" line                                 | `IMPACT_LS_KEY`, `function openImpactCardsModal`                                             |
+|   modules | Impact cards + "Pod view" line                                 | `src/features/impact/{index,state,view,repository}.ts`                                       |
 |   modules | Try-a-Deck, export and scan cards                              | `src/features/{try-a-deck,export,scan-cards}/index.ts`                                       |
 |   modules | Shared modal overlay + close                                   | `src/ui/tad-modal.ts`, `src/ui/tad-modal.css`                                                |
 |      6715 | Pod Comparison (up to 6 decks)                                 | `POD COMPARISON`                                                                             |
@@ -161,7 +163,7 @@ expanded chart panels, info dialog and account screens. The one exact contrast d
 |      8496 | Retired pod rosters (dead code)                                | `POD ROSTERS -- retired`                                                                     |
 | 8764–8911 | Notifications inbox                                            | `<script id="notif-script">`                                                                 |
 
-Updated for R1–R6 (remaining ranges approximate). Regenerate with:
+Updated for R1–R7 (remaining ranges approximate). Regenerate with:
 
 ```sh
 grep -n -E '<script|</script>|<style|</style>|<body' index.html | cut -c1-120          # block boundaries

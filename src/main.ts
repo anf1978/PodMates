@@ -14,6 +14,7 @@ import "./features/try-a-deck/legacy-globals.ts";
 import "./features/export/legacy-globals.ts";
 import "./features/scan-cards/legacy-globals.ts";
 import "./features/deck-crafter/legacy-globals.ts";
+import "./features/impact/legacy-globals.ts";
 import "./engine/legacy-globals.ts";
 // Limits first and on their own, so local deck analysis keeps them even if Firebase fails.
 import "./services/cloud/limits-global.ts";

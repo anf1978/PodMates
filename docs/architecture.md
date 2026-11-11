@@ -6,7 +6,7 @@ are in [CLAUDE.md](../CLAUDE.md); domain terms in the [glossary](glossary.md).
 
 ## Big picture
 
-PodMates is a static Vite site. `index.html` is still about 9,400 lines: static markup, the main
+PodMates is a static Vite site. `index.html` is still about 8,500 lines: static markup, the main
 CSS and the inline legacy scripts (theme, card-DB start-up, the app script with every unmoved feature, the
 notifications inbox). Typed code lives in `src/`, and the inline scripts reach it in two ways:
 
@@ -338,6 +338,21 @@ the redacted error sink. Unit tests cover scope/permissions, notes and feedback 
 offline browser suite covers guest journal access/sign-in handoff, Log Battle confirmation and host-only
 post-battle controls. Repository-mocked tests also cover independent ratings/skip, guest-safe repeat,
 new/end writes and realtime/fallback teardown.
+
+`impact` (prefix `impact-`) owns the default/proposed list, reasons, candidate queue, nominations,
+search, reset and the separate Pod view below the radar. Its state helpers compute proposed Power/Spark
+without mutating the standard analysis. Cloud calls import the Impact/pod/session repositories directly;
+the `pm_impact_pod` preference and all Firestore paths/fields are unchanged. Candidate data stays lazy,
+and dismissed loading dialogs cannot reappear. Repository loads are account-scoped and ignore superseded
+pod requests. Expected nomination-permission failures keep the existing read-only fallback and report
+through the redacted error sink.
+
+The only Impact global is `mountImpactChart`, temporarily called by the inline radar renderer.
+Its adapter supplies the current analysis, library gate and shared ranked picker/scroll anchoring;
+no feature imports another feature. The obsolete inline Impact state/loader and the engine shim's
+unused Impact constants/helpers are removed. Tests cover Steward/Co-Steward edits, member nominations,
+reason escaping, undo/reset, stale loads and score isolation; Chromium covers the chart entry point,
+lazy loading, ideas, focus return and dismissal during loading.
 
 ## Lint-enforced boundaries
 

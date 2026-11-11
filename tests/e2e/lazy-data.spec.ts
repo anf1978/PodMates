@@ -119,12 +119,23 @@ test("pasted analysis loads only fingerprints/metadata; suggestions load knowled
 test("Impact and sample-table entry points await their data without boot-time reads", async ({
   page,
 }) => {
+  const requested: string[] = [];
+  page.on("request", (request) => requested.push(new URL(request.url()).pathname));
   await page.goto("/");
   await expect(page.locator("#dbStatus")).toContainText(/^Ready /);
-  expect(await page.evaluate("typeof IMPACT_CANDS")).toBe("undefined");
-  await page.evaluate("openImpactCardsModal()");
+  const decks = JSON.parse(
+    readFileSync(new URL("../../public/data/TRY_A_DECK_OPTIONS.json", import.meta.url), "utf8"),
+  ) as { key: string; decklist: string; commander: string }[];
+  const sample = decks.find((deck) => deck.key === "uril")!;
+  await page.locator("#decklistInput").fill(sample.decklist);
+  await page.locator("#commanderInput").fill(sample.commander);
+  await page.getByRole("button", { name: "Chart Deck", exact: true }).click();
+  await expect(page.locator("#status")).toContainText(/^Charted /);
+  expect(requested).not.toContain("/data/IMPACT_CANDS.json");
+  await page.locator("#impactCardsBtn").click();
   await expect(page.locator("#impactBody")).not.toContainText("Loading");
-  expect(await page.evaluate("IMPACT_CANDS.length")).toBeGreaterThan(0);
+  await expect(page.locator("[data-impact-more]")).toBeVisible();
+  expect(requested.filter((path) => path === "/data/IMPACT_CANDS.json")).toHaveLength(1);
   expect(await page.evaluate("getCardPopularity().size")).toBeGreaterThan(0);
   await page.evaluate("loadAnalysisDatasets()");
   expect(await page.evaluate("TRY_A_DECK_METADATA.map(deck => deck.key)")).toEqual(
