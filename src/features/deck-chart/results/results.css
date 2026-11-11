@@ -1,0 +1,155 @@
+/* Deck Chart result panels: Win Condition, Closest Match, Table Vibe, the radar's score list and
+   badge, Bracket, and the legality dialog. These rules replace inline styles, so each one is
+   scoped to its panel's id to keep beating the page's generic .callout/.detail/button rules. */
+
+#winConCallout .rs-also,
+#archetypeMatchCallout .rs-also {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+}
+#winConCallout .rs-also-head,
+#archetypeMatchCallout .rs-also-head {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-soft);
+  margin-bottom: 6px;
+}
+#winConCallout .rs-wc-item {
+  margin-bottom: 7px;
+  font-size: 13px;
+}
+#winConCallout .rs-tag-gap {
+  margin-left: 6px;
+}
+#winConCallout .detail.rs-wc-detail {
+  margin-top: 2px;
+}
+#archetypeMatchCallout .rs-am-item {
+  margin-bottom: 5px;
+  font-size: 13px;
+}
+#winConCallout .rs-gold,
+#archetypeMatchCallout .rs-gold,
+#chartArea .rs-gold {
+  color: var(--gold-bright);
+}
+#archetypeMatchCallout .rs-primary,
+#tableFeelCallout .rs-primary {
+  color: var(--text-primary);
+}
+#archetypeMatchCallout .rs-soft,
+#chartArea .rs-soft {
+  color: var(--text-soft);
+}
+
+#tableFeelCallout .rs-estimate {
+  font-weight: 400;
+  font-style: italic;
+  text-transform: none;
+  letter-spacing: normal;
+}
+#tableFeelCallout .detail.rs-pod {
+  margin-top: 6px;
+}
+#tableFeelCallout .rs-craft {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+#tableFeelCallout .rs-how {
+  font-size: 12px;
+  color: var(--text-soft);
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+#tableFeelCallout .rs-how > summary {
+  cursor: pointer;
+  color: var(--gold);
+  font-weight: 600;
+}
+#tableFeelCallout .rs-how-body {
+  margin-top: 8px;
+}
+
+#chartArea .rs-disc {
+  text-align: center;
+  margin-top: 4px;
+  margin-bottom: 10px;
+}
+#chartArea .rs-disc-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  border: 1px solid var(--rs-disc-color);
+  color: var(--rs-disc-color);
+}
+#chartArea .rs-disc-underbuilt {
+  --rs-disc-color: var(--gold);
+}
+#chartArea .rs-disc-overbuilt {
+  --rs-disc-color: var(--danger);
+}
+#chartArea .rs-disc-matched {
+  --rs-disc-color: var(--success-text);
+}
+
+#bracketArea .detail.rs-cedh {
+  margin-top: 8px;
+  font-size: 13px;
+  padding: 6px 8px;
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+}
+#bracketArea .rs-cedh-head {
+  color: var(--gold);
+}
+#bracketArea .detail.rs-gc {
+  margin-top: 10px;
+  font-size: 13px;
+}
+#bracketArea .detail.rs-line {
+  margin-top: 6px;
+  font-size: 13px;
+}
+#bracketArea .detail.rs-banned {
+  color: var(--danger);
+}
+#bracketArea .rs-combo-row {
+  margin-top: 6px;
+}
+#bracketArea button.rs-combo-btn {
+  background: none;
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  border-radius: 8px;
+  padding: 5px 12px;
+  cursor: pointer;
+  font-size: 12.5px;
+}
+#bracketArea .detail.rs-foot {
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+
+#notFoundBox .rs-nf-list {
+  margin-top: 6px;
+}
+
+.tad-modal h2.rs-legal-title {
+  color: var(--danger, var(--gold));
+}
+.tad-modal ul.rs-legal-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13.5px;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+.tad-modal .rs-legal-list > li {
+  margin-bottom: 6px;
+}

@@ -9,6 +9,7 @@ import {
   fetchCardImagesBatch,
   fetchCardImageUrl,
 } from "../../services/card-art";
+import { on } from "../../services/events";
 import { groupDeck, typeTiles, type ViewerTile } from "./state";
 import {
   deckTemplate,
@@ -66,6 +67,14 @@ export async function showSingleCardArt(name: string): Promise<void> {
 const heroRuns = new WeakMap<HTMLElement, number>();
 
 /** Up to two commander portraits; a missing image just leaves its slot hidden. */
+/** Draws the commander portraits above the radar whenever Deck Chart charts a deck. */
+export function mountCommanderHero(): void {
+  on("chart:commanders", (commanders) => {
+    const area = document.getElementById("commanderHeroArea");
+    if (area) void renderCommanderHero(area, commanders);
+  });
+}
+
 export async function renderCommanderHero(area: HTMLElement, commanders: readonly string[]) {
   const run = (heroRuns.get(area) ?? 0) + 1;
   heroRuns.set(area, run);

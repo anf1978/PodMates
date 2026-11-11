@@ -145,10 +145,13 @@ by commit in the pipeline README; the manual Spellbook artifact builder remains.
 
 `analyzeDeck` and everything it calls are strictly typed modules; curated tables (`HARD_COMBOS`,
 `SOFT_SYNERGIES`, `GAME_CHANGER_REASONS`, `DEFAULT_IMPACT_CARDS`) are in `src/data/*.ts`. Inputs come
-through an explicit `EngineContext`. `src/engine/legacy-globals.ts` republishes the old global names with a
-context built from the page's `CARD_DB`, `SPELLBOOK_INDEX` and `COMMANDER_TIER_DATA`; its exported
-`pageContext()` is the same memoised context for other shims. It is loaded by `src/main.ts` and the
-dynamic card-DB boot entry. ESLint keeps the engine pure: no page globals, no module-level `let`.
+through an explicit `EngineContext`. `src/engine/legacy-globals.ts` no longer publishes engine names on
+`window`: it only exports `pageContext()`, a memoised context built from the page's `CARD_DB`,
+`SPELLBOOK_INDEX` and `COMMANDER_TIER_DATA`, for typed callers. `reference.ts` computes percentiles and tier
+placement against the reference set (`REFERENCE_SCORES` / `REFERENCE_TIERS` plus the curated
+`src/data/reference-spark.ts`), and `benchmarks.ts` the closest-precon match, staples check and mana-base
+benchmark; `src/services/reference-data.ts` holds their datasets. ESLint keeps the engine pure: no page
+globals, no module-level `let`.
 
 ### Cards (`src/cards`)
 
@@ -195,11 +198,11 @@ without resetting sibling dates.
 
 - **Eager** (`services/card-db-boot.ts`): reference scores/tiers, staples/manabase baselines, tags and win-rates,
   because every complete analysis uses them; cards and Spellbook (Spellbook keeps its optional fallback). Required
-  boot failures use the boot error UI. `tags.json` / `winrates.json` populate `IX_TAGS_JSON` / `IX_TAGS` and
-  `COMMANDER_TIER_DATA` before DB-ready.
+  boot failures use the boot error UI. The reference datasets go to `services/reference-data.ts`;
+  `tags.json` / `winrates.json` populate `IX_TAGS_JSON` / `IX_TAGS` and `COMMANDER_TIER_DATA` before DB-ready.
 - **Lazy:** `loadDeckLibrary()` loads/filter-checks Try-a-Deck lists for the library, sample table and card-search
-  rankings. First chart/pod-detail requests use `loadAnalysisDatasets()` for fingerprints plus derived
-  `TRY_A_DECK_METADATA` (validation lists kept only for announced decks). `loadKnowledge()` builds
+  rankings. First chart/pod-detail requests use `loadAnalysisDatasets()` (`services/reference-data.ts`) for
+  fingerprints plus derived `TRY_A_DECK_METADATA` (validation lists kept only for announced decks). `loadKnowledge()` builds
   `KNOW_MAP` when "Cards you could add" opens; Impact loads its candidates when its modal opens. Loading UI stays
   visible while waiting; dismissed overlays cannot reappear; card searches discard superseded queries.
 
@@ -227,8 +230,8 @@ tests record unresolved policy/limit gaps rather than changing the deployed beha
 ### UI primitives (`src/ui`) and global styles (`src/styles`)
 
 `src/ui/legacy-globals.ts` (via `src/main.ts`) publishes the typed surface as `window.pmUi` (`openModal`,
-`closeModal`, `selectTab`, `tabsByAttribute`, `radarChartSvg`, …) and the original names `showToast`,
-`setStatus`, `setDeckMgmtStatus`, `setupIconTooltipsFor`, `ordinalSuffix`, `MANA_COLOR_STYLE`, `manaSymbol` and
+`closeModal`, `selectTab`, `tabsByAttribute`) and the original names `showToast`,
+`setStatus`, `setDeckMgmtStatus`, `setupIconTooltipsFor`, `openTadOverlay`, `closeTryADeckModal` and
 `cardNameLink`. Inline code must not call these during parsing; the page-wide tooltip wiring waits for
 `DOMContentLoaded`. `html.ts` re-exports lit-html; its `trustedHtml()` is the only raw-markup path, and ESLint
 forbids importing lit-html anywhere else. `tokens.css` and `base.css` are linked before the first inline
@@ -265,7 +268,12 @@ and `KNOW_JSON` knowledge explicitly from the adapter. `deck-chart/report.ts` (`
 Package text from `ixDescribePackage` is still app-built string markup (card text escaped, names linked); the
 Synergy panel inserts it with a commented `trustedHtml`. The explainers own the delegated
 `[data-go-key-pieces]`, `[data-explain]` and `[data-gc-card]` clicks; the inline handler skips them so the old
-precedence holds. The shared read-only dialog is `src/ui/info-modal.ts`; `try-a-deck` (`tad-`) — all library browsing/navigation; `export` (`export-`) —
+precedence holds. `deck-chart/index.ts` binds Chart Deck; `run-analysis.ts` reads the form, analyses the list
+and paints every panel, and `results/` (`results.css`, prefix `rs-`, scoped to each panel's id) renders Win
+Condition, Closest Match, Table Vibe, the radar area, Bracket, the not-found box and the legality dialog. The
+deck being charted lives in `src/services/current-chart.ts` for Impact, export, the type galleries and the
+explainers; the commander portraits and Impact caption follow the typed `chart:commanders` / `chart:radar`
+events. The shared read-only dialog is `src/ui/info-modal.ts`; `try-a-deck` (`tad-`) — all library browsing/navigation; `export` (`export-`) —
 Commander/Deck text and clipboard dialog; `scan-cards` (`scan-`) — local Tesseract loading, bounded
 preprocessing, longest-name-first matching, selection and rescan lifecycle; and `deck-crafter` (`db-`
 inside `.deck-crafter`) — drafts, commander/partner selection, identity filtering, card search, quantities,
@@ -380,8 +388,8 @@ and dismissed loading dialogs cannot reappear. Repository loads are account-scop
 pod requests. Expected nomination-permission failures keep the existing read-only fallback and report
 through the redacted error sink.
 
-The only Impact global is `mountImpactChart`, temporarily called by the inline radar renderer.
-Its adapter supplies the current analysis, library gate and ranked search; scroll anchoring comes from `ui/card-search`;
+Impact has no globals: it mounts its radar caption on the typed `chart:radar` event.
+Its adapter supplies the current analysis (`services/current-chart.ts`), library gate and ranked search; scroll anchoring comes from `ui/card-search`;
 no feature imports another feature. The obsolete inline Impact state/loader and the engine shim's
 unused Impact constants/helpers are removed. Tests cover Steward/Co-Steward edits, member nominations,
 reason escaping, undo/reset, stale loads and score isolation; Chromium covers the chart entry point,
@@ -513,16 +521,18 @@ ESLint does not inspect the inline scripts in `index.html`. TypeScript is strict
 R14 moved card art/View Deck (`features/card-viewer`), card ranking plus the shared picker
 (`cards/search.ts`, `ui/card-search.ts`), card-DB boot (`services/card-db-boot.ts`), the interaction
 reading plus "Cards you could add" (`features/deck-chart/interactions/`), and Key Pieces & Combos, Synergy,
-Track Record, Centrality and the explainers (`features/deck-chart/report.ts` and its folders).
+Track Record, Centrality and the explainers (`features/deck-chart/report.ts` and its folders), and
+`runAnalysis`, the remaining result panels and the reference/benchmark helpers (`features/deck-chart/`
+`run-analysis.ts` and `results/`, `engine/{reference,benchmarks}.ts`, `services/{reference-data,current-chart}.ts`).
 Boot's global assignments and UI adapter remain inline for the current readers, as do the `IX_TAGS` and
 `KNOW_JSON` / `KNOW_MAP` globals the boot adapter and `loadKnowledge()` fill.
 Remaining, in order, at about one ~800-line PR each:
 
-1. **`runAnalysis`, result panels, percentiles/reference** (~600 lines). The deck-chart shim's
-   `explainerBtn`, `gameChangerChips` and `linkifyKnownCardNames` names and the explainer ports go with it.
-2. **Saved decks, Load a Deck, My Data, decks table** (~900 lines), then `searchNorm` and the profile ports.
-   The inline confirm dialogs and the sticky-Close safety net can move to `src/ui` with them.
-3. Delete the remaining shims, make `index.html` static markup, ratchet lint, final `CLAUDE.md`.
+1. **Saved decks, Load a Deck, My Data, decks table** (~900 lines), then `searchNorm` and the profile ports.
+   The inline confirm dialogs and the sticky-Close safety net can move to `src/ui` with them, and so do the
+   deck-chart shim's last names (`runAnalysis` for the Deck Crafter/profile adapters, `hasChartResult` for
+   the inline `setMode`).
+2. Delete the remaining shims, make `index.html` static markup, ratchet lint, final `CLAUDE.md`.
 
 Phase 3's exit criteria (no source file over ~500 lines, no globals, every `innerHTML` replaced) are not met
 while the inline app script exists. The remaining work (rest of Deck Chart, saved-deck flows and the other inline helpers) deletes inline code and the shim names it used. When the last caller of a

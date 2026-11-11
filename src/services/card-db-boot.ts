@@ -1,19 +1,17 @@
 import "../cards/legacy-globals";
-import "../engine/legacy-globals";
 import { buildLookupIndexes, loadCardDatabase } from "../cards/load-db";
 import { loadDataset, updateDataFreshness } from "../data/load-dataset";
 import { buildSpellbookIndex } from "../engine/combos";
 import type { CommanderTierRecord, SpellbookIndex, SpellbookSnapshot } from "../engine/context";
+import type { ManaBaseBaseline, StaplesBaseline } from "../engine/benchmarks";
 import { reportError } from "./report-error";
+import { setStaticReference } from "./reference-data";
 
 export interface StaticDatasets {
   referenceScores: number[][];
   referenceTiers: string[];
-  staplesBaseline: { keys: string[]; baselines: Record<string, Record<string, number>> };
-  manabaseBaseline: {
-    byIdentity: Record<string, Record<string, number>>;
-    byCount: Record<string, Record<string, number>>;
-  };
+  staplesBaseline: StaplesBaseline;
+  manabaseBaseline: ManaBaseBaseline;
   tags: Record<string, string[]>;
   commanderTiers: CommanderTierRecord[];
 }
@@ -53,6 +51,7 @@ async function loadStaticDatasets(publish: BootPorts["staticDatasets"]): Promise
       loadDataset<StaticDatasets["tags"]>("tags"),
       loadDataset<StaticDatasets["commanderTiers"]>("winrates"),
     ]);
+  setStaticReference({ referenceScores, referenceTiers, staplesBaseline, manabaseBaseline });
   publish({
     referenceScores,
     referenceTiers,

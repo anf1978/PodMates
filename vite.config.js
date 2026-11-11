@@ -55,6 +55,7 @@ export default defineConfig({
           "./src/styles/base.css",
           "./src/features/deck-chart/deck-chart.css",
           "./src/features/deck-chart/report.css",
+          "./src/features/deck-chart/results/results.css",
           "./src/ui/tad-modal.css",
           "./src/ui/card-search.css",
           "./src/features/try-a-deck/try-a-deck.css",

@@ -20,6 +20,7 @@ function sanitizeHtml(markup) {
 <link rel="stylesheet" href="./src/styles/base.css">
 <link rel="stylesheet" href="./src/features/deck-chart/deck-chart.css">
 <link rel="stylesheet" href="./src/features/deck-chart/report.css">
+<link rel="stylesheet" href="./src/features/deck-chart/results/results.css">
 <link rel="stylesheet" href="./src/ui/tad-modal.css">
 <link rel="stylesheet" href="./src/ui/card-search.css">
 <link rel="stylesheet" href="./src/features/try-a-deck/try-a-deck.css">
@@ -1357,10 +1358,9 @@ One card per line. Formats like &quot;1x Sol Ring&quot;, plain names, or Moxfiel
 </div>
 
 <script id="engine-script">
-// The analysis engine is pure TypeScript in src/engine. src/engine/legacy-globals.ts (loaded by
-// src/main.ts and awaited by initDatabase) publishes it
-// on window under its original names; its context is built from these page-owned globals, plus
-// CARD_DB. SPELLBOOK_INDEX is set at startup; while it is unset only the curated combos count.
+// The analysis engine is pure TypeScript in src/engine. Typed callers build its context from
+// these page-owned globals plus CARD_DB through pageContext() (src/engine/legacy-globals.ts).
+// SPELLBOOK_INDEX is set at startup; while it is unset only the curated combos count.
 var SPELLBOOK_INDEX = null;
 let COMMANDER_TIER_DATA;
 </script>
@@ -1391,234 +1391,9 @@ let SPELLBOOK_SNAPSHOT_B64;
 // DECK COMPASS — App Logic
 // ============================================================
 
-const AXES = [
-  { key: 'speed', label: 'Speed', short: 'Speed' },
-  { key: 'consistency', label: 'Consistency', short: 'Consist.' },
-  { key: 'versatility', label: 'Versatility', short: 'Versatility' },
-  { key: 'disruption', label: 'Disruption', short: 'Disrupt.' },
-  { key: 'powerLevel', label: 'Power Level', short: 'Power' },
-];
-
-// PodMates reference set: real axis scores for 224 decks across three tiers,
-// computed by running this same scoring engine (analyzeDeck + scoreSpeed/
-// Consistency/Versatility/Disruption/PowerLevel) against each list:
-//   p = 168 official precons (Try-a-Deck entries)
-//   t =  36 tuned decks: 6 hand-curated Try-a-Deck entries plus 30 EDHREC
-//           Bracket 4 ("optimized") average decks covering all 15 archetypes
-//   c =  20 cEDH tournament lists from the 20 most competitive commanders
-// Regenerated Oct 12, 2026 with the default impact cards in Power and the Commander Spellbook
-// snapshot combos counted (the combo snapshot is part of the standard engine). 15 precons were
-// added Nov 1, 2026 (Fallout x4, Commander Legends: Battle for Baldur's Gate x4, Foundations
-// Commander x5, Multiverse Reforged, Odds and Ends) with the same engine; the other fitted
-// constants below (centrality bands, spark band) were not re-fitted. Rows 0-173 are the 6
-// curated and 168 precon decks (rows 159-173 are the 15 additions), rows 174-203 the tuned
-// EDHREC decks and 204-223 the cEDH lists. REFERENCE_TIERS runs
-// parallel to this array. Used to give each axis score a percentile and a
-// tier placement against real decks rather than a bare 1-10 number.
-let REFERENCE_SCORES;
-let REFERENCE_TIERS;
-const REFERENCE_TIER_LABELS = { p: 'official precons', t: 'tuned decks', c: 'cEDH tournament lists' };
-const BENCHMARK_AXIS_INDEX = {speed: 0, consistency: 1, versatility: 2, disruption: 3, powerLevel: 4};
-// Same reference set, but Command Spark (the weighted composite) rather than the
-// five raw axes -- kept as its own array since it isn't one of the five
-// BENCHMARK_AXIS_INDEX columns and doesn't need to be recomputed per-axis.
-const REFERENCE_SPARK = [4.8,7.6,5.8,8.1,8.8,7.8,4.4,4.5,4.8,5.1,5.2,4.4,5.1,5.2,5.3,4.5,4.4,4.7,4.5,4.5,4.4,4.1,4.5,3.9,4.6,4.1,4.4,4.2,4.7,4.5,4.8,4.6,5.3,5,4.3,4,4.2,4.3,4.5,4.4,5.3,4.4,4.6,4.1,4.5,4.2,4.1,5.9,5.4,4.9,3.9,4.6,3.2,4.4,4.6,3.8,4.2,4.1,3.8,4.8,4.2,5.2,4.3,4,4.3,4.6,4.7,3.8,4.2,4.9,4.4,4.4,4.6,4.5,4.4,4.4,4.5,4.1,4.4,4.4,4.3,4.8,4,4.2,5,4.5,3.8,4.6,5.4,4.1,4.3,4.6,4.1,4.2,4.2,4.6,4.2,4.5,4.4,4.2,5.4,4,4.4,4.5,5.1,4.3,3.6,4.5,4.3,4.6,3.8,4.3,4.4,4.8,4.2,4.8,4.9,4.7,3.6,4.5,4.7,4.3,4.5,4.8,4.5,4.9,5,4.8,4.8,4.2,5.1,4.4,4.4,4.9,4.3,5.1,4,4.1,4.1,4.5,5.3,5.7,4.9,4.7,4.9,4.4,4.1,4.9,4.3,4.2,4.5,4.8,4.2,4.3,5.2,4.4,4.6,4.2,4.6,4.8,5.1,3.8,5.1,4.3,4.5,4.5,4.1,4.6,4.2,3.9,4.5,3.7,5.5,4.2,8.8,6,8.3,8.4,9.1,7.6,7.5,9,7.9,7.1,8.2,9.1,7.3,8.1,8.7,9,8.2,8.8,9.2,8.8,7.2,7.1,9.4,7.1,9.1,7.8,6.4,7,7.8,8.3,9.3,7.2,8.6,9.3,9.2,9.2,9,9,8.7,8.3,9.3,8.9,9.1,7.9,9.6,9.4,9,9.4,9.3,9.4];
-
-/** Where a value sits within each reference tier: the share of that tier's
- * decks it scores above (ties count half). axisKey null means Command Spark. */
-function computeTierPlacement(value, axisKey) {
-  const idx = axisKey ? BENCHMARK_AXIS_INDEX[axisKey] : null;
-  const vals = axisKey ? REFERENCE_SCORES.map(r => r[idx]) : REFERENCE_SPARK;
-  return ['p', 't', 'c'].map(t => {
-    const tv = vals.filter((_, i) => REFERENCE_TIERS[i] === t);
-    const below = tv.filter(v => v < value).length;
-    const equal = tv.filter(v => v === value).length;
-    return { tier: t, label: REFERENCE_TIER_LABELS[t], n: tv.length, pctBelow: Math.round(((below + equal * 0.5) / tv.length) * 100) };
-  });
-}
-/** One sentence: "higher than 98% of the 153 official precons, ...". */
-function describeTierPlacement(value, axisKey) {
-  return computeTierPlacement(value, axisKey).map(p => `${p.pctBelow}% of the ${p.n} ${p.label}`).join(', ').replace(/, ([^,]*)$/, ', and $1');
-}
-/** Short caption naming the reference set and its three tiers. */
-function referenceSetSummary() {
-  const c = computeTierPlacement(0).map(p => `${p.n} ${p.label}`);
-  return `${REFERENCE_SPARK.length} real decks scored by this same engine: ${c[0]}, ${c[1]} and ${c[2]}`;
-}
-
-function computeSparkPercentile(value) {
-  const below = REFERENCE_SPARK.filter(v => v < value).length;
-  const equal = REFERENCE_SPARK.filter(v => v === value).length;
-  const percentile = Math.round(((below + equal * 0.5) / REFERENCE_SPARK.length) * 100);
-  return Math.min(Math.max(percentile, 1), 99);
-}
-
-function computeAxisPercentile(axisKey, value) {
-  const idx = BENCHMARK_AXIS_INDEX[axisKey];
-  if (idx === undefined) return null;
-  const values = REFERENCE_SCORES.map(row => row[idx]);
-  const below = values.filter(v => v < value).length;
-  const equal = values.filter(v => v === value).length;
-  // Midpoint-of-ties convention: a value tied with others is credited with
-  // half of the tied group, avoiding both the too-generous (count ties as
-  // below) and too-harsh (count ties as above) extremes.
-  const percentile = Math.round(((below + equal * 0.5) / values.length) * 100);
-  return Math.min(Math.max(percentile, 1), 99);
-}
-
-// Archetype fingerprinting: a 27-dimension synergy/tag vector per precon
-// (15 detected-theme densities + 10 mechanical-signal densities + Voltron's
-// aura/equipment density), computed by the same engine that scores the
-// user's own deck. At runtime we build the identical vector for whatever
-// deck was just analyzed and rank it by cosine similarity against this
-// corpus, surfacing the closest real precon as a "closest match" callout
-// instead of a synthetic archetype label with no grounding.
-const FINGERPRINT_KEYS = {
-  themes: ['aristocrats','tokens','artifacts','spellslinger','graveyard','drain','lifegain',
-    'landfall','counters','blink','stax','landBuffing','minusCounters','impulseDraw','exileMatters'],
-  mech: ['ramp','tutor','removal','wipe','draw','reanimate','sac','counterMagic','discard','extraTurn'],
-};
-// [deckKey, vector] pairs, in no particular order -- looked up by key against
-// TRY_A_DECK_METADATA at render time rather than relying on array-index
-// alignment between the two arrays.
-let PRECON_FINGERPRINTS;
-let TRY_A_DECK_METADATA;
-
-function buildFingerprintVector(agg) {
-  const nl = Math.max(agg.nonlandCount || 1, 1);
-  const themeVec = FINGERPRINT_KEYS.themes.map(k => (agg.themes[k] || 0) / nl);
-  const mechVec = FINGERPRINT_KEYS.mech.map(k => (agg[k] || 0) / nl);
-  const auraEquipVec = [(agg.auraCount || 0) / nl, (agg.equipmentCount || 0) / nl];
-  return [...themeVec, ...mechVec, ...auraEquipVec];
-}
-
-function cosineSimilarity(a, b) {
-  let dot = 0, magA = 0, magB = 0;
-  for (let i = 0; i < a.length; i++) { dot += a[i] * b[i]; magA += a[i] * a[i]; magB += b[i] * b[i]; }
-  if (magA === 0 || magB === 0) return 0;
-  return dot / (Math.sqrt(magA) * Math.sqrt(magB));
-}
-
-/** Ranks the analyzed deck against every precon fingerprint and returns the
- * top match plus up to two runners-up from a genuinely different precon
- * (skips near-duplicate scores from the same style/commander family so the
- * "also similar to" list doesn't just repeat five reskins of one deck). */
-function computeArchetypeMatch(agg) {
-  const vector = buildFingerprintVector(agg);
-  const magnitude = Math.sqrt(vector.reduce((s, v) => s + v * v, 0));
-  if (magnitude < 0.05) return null; // too thin a signal to claim a match
-
-  const ranked = PRECON_FINGERPRINTS
-    .map(([key, vec]) => ({ key, sim: cosineSimilarity(vector, vec) }))
-    .sort((a, b) => b.sim - a.sim);
-
-  const withMeta = ranked.map(r => {
-    const deck = TRY_A_DECK_METADATA.find(o => o.key === r.key);
-    return deck ? { ...r, deck } : null;
-  }).filter(Boolean);
-
-  if (!withMeta.length) return null;
-
-  const top = withMeta[0];
-  // Runners-up should surface genuinely different alternate readings of the
-  // deck, not just other precons that happen to share the top match's own
-  // archetype (which would just repeat the same story twice).
-  const runnersUp = [];
-  for (const r of withMeta.slice(1)) {
-    if (runnersUp.length >= 2) break;
-    if (r.deck.archetype === top.deck.archetype) continue;
-    if (runnersUp.some(x => x.deck.archetype === r.deck.archetype)) continue;
-    runnersUp.push(r);
-  }
-  return { top, runnersUp };
-}
-
-// Staples baseline: median raw counts of 12 key mechanical categories
-// (sac outlets, ramp, tutors, removal, wipes, draw, counterspells,
-// reanimation, discard, extra turns, stax, protection), computed per
-// archetype across the real precon corpus. Paired at runtime with whatever
-// archetype computeArchetypeMatch() lands on, so "this deck runs 3 sac
-// outlets" can be measured against "the Aristocrats baseline is 7" rather
-// than an arbitrary number with no reference point.
-let STAPLES_BASELINE;
-const STAPLE_LABELS = {
-  sacOutlets: 'Sacrifice outlets', ramp: 'Ramp', tutor: 'Tutors', removal: 'Removal',
-  wipe: 'Board wipes', draw: 'Card draw', counterMagic: 'Counterspells', reanimate: 'Reanimation',
-  discard: 'Discard', extraTurn: 'Extra turns', stax: 'Stax pieces', protection: 'Protection',
-};
-
-/** Compares this deck's raw counts against the median for the given
- * archetype, returning up to 4 of the most notably over/under-baseline
- * categories (deviation-ranked), or an empty array if the deck tracks the
- * baseline closely across the board. Baselines under 2 are skipped entirely
- * to avoid flagging noise around near-universal zeros (e.g. tutors). */
-function computeStaplesDeviation(agg, archetype) {
-  const baseline = STAPLES_BASELINE.baselines[archetype];
-  if (!baseline) return { baseline: null, deviations: [] };
-  const deviations = [];
-  for (const key of STAPLES_BASELINE.keys) {
-    const base = baseline[key];
-    if (base < 2) continue;
-    const actual = agg[key] || 0;
-    const ratio = actual / base;
-    if (ratio <= 0.5 || ratio >= 1.75) {
-      deviations.push({ key, label: STAPLE_LABELS[key], actual, baseline: base, direction: ratio < 1 ? 'under' : 'over', magnitude: Math.abs(Math.log2(Math.max(ratio, 0.01))) });
-    }
-  }
-  deviations.sort((a, b) => b.magnitude - a.magnitude);
-  return { baseline, sampleSize: baseline.n, deviations: deviations.slice(0, 4) };
-}
-
-// Mana-base benchmarking: for each of the 173 colored precon and curated decks (the one
-// colorless commander in the corpus is excluded -- fixing quality isn't a
-// meaningful question for it), a "fixing ratio" per nonbasic land -- the
-// average fraction of the deck's own color identity each nonbasic land can
-// actually produce (a perfect-fit dual in a 2-color deck scores 1.0; a
-// same land in a 3-color deck scores 0.67) -- plus median nonbasic land
-// count, bucketed both by exact color identity (e.g. "WUB") and by raw
-// color count (1-5) as a fallback when a specific combination is too rare
-// in the corpus to benchmark against directly.
-let MANABASE_BASELINE;
-
-/** Computes this deck's own fixing ratio the identical way the benchmark
- * corpus was scored, then looks up the best-available baseline bucket --
- * exact color identity if the corpus has 4+ decks in it, otherwise the
- * broader same-color-count bucket. matchedCards is the raw {qty, card}
- * list from matchDecklist (not agg), since per-land fixing detail isn't
- * retained on the aggregate object. */
-function computeManaBaseBenchmark(matchedCards, commanderCards) {
-  const WUBRG = ['W', 'U', 'B', 'R', 'G'];
-  const identitySet = new Set();
-  for (const c of commanderCards) for (const ch of (c.ci || '')) identitySet.add(ch);
-  if (!identitySet.size) return null;
-  const identity = WUBRG.filter(c => identitySet.has(c)).join('');
-
-  let nonbasicCount = 0;
-  let fixingRatioSum = 0;
-  for (const { qty, card } of matchedCards) {
-    const typeLine = (card.t || '').toLowerCase();
-    if (!typeLine.includes('land')) continue;
-    if (typeLine.startsWith('basic land')) continue;
-    nonbasicCount += qty;
-    const producible = (card.pm || '').split('').filter(ch => identitySet.has(ch));   // colours the land actually makes (color identity is empty for Command Tower and friends)
-    const ratio = producible.length / identitySet.size;
-    fixingRatioSum += ratio * qty;
-  }
-  const avgFixingRatio = nonbasicCount ? fixingRatioSum / nonbasicCount : 0;
-
-  const exactBucket = MANABASE_BASELINE.byIdentity[identity];
-  const countBucket = MANABASE_BASELINE.byCount[String(identitySet.size)];
-  const useExact = exactBucket && exactBucket.n >= 4;
-  const bucket = useExact ? exactBucket : countBucket;
-
-  return {
-    identity, numColors: identitySet.size, nonbasicCount,
-    avgFixingRatio: Math.round(avgFixingRatio * 1000) / 1000,
-    bucketLabel: useExact ? identity : `${identitySet.size}-color decks`,
-    bucketSampleSize: bucket ? bucket.n : 0,
-    baseline: bucket || null,
-  };
-}
+// Axis labels, the reference set (percentiles and tiers), the closest-precon match and the
+// staples / mana-base benchmarks: src/features/deck-chart/results/radar.ts,
+// src/engine/{reference,benchmarks}.ts and src/services/reference-data.ts.
 
 let TRY_A_DECK_OPTIONS;
 
@@ -1668,7 +1443,7 @@ let IX_TAGS;
 let KNOW_JSON;
 const KNOW_MAP = new Map();
 
-let deckLibraryReady, analysisDatasetsReady, knowledgeReady;
+let deckLibraryReady, knowledgeReady;
 
 function loadDeckLibrary() {
   return deckLibraryReady ||= (async () => {
@@ -1677,18 +1452,6 @@ function loadDeckLibrary() {
     await databaseReady;
     if (!dbReady) throw new Error('Card database is not ready.');
     TRY_A_DECK_OPTIONS = availableSampleDecks(decks);
-  })();
-}
-
-function loadAnalysisDatasets() {
-  return analysisDatasetsReady ||= (async () => {
-    const { loadDataset } = await import('./src/data/load-dataset.ts');
-    const [fingerprints, metadata] = await Promise.all([
-      loadDataset('PRECON_FINGERPRINTS'),
-      loadDataset('TRY_A_DECK_METADATA'),
-    ]);
-    PRECON_FINGERPRINTS = fingerprints;
-    TRY_A_DECK_METADATA = availableSampleDecks(metadata);
   })();
 }
 
@@ -1708,10 +1471,6 @@ async function initDatabase() {
     await bootCardDatabase({
       progress: (stage, percent) => window.__dbProgress(stage, percent),
       staticDatasets: data => {
-        REFERENCE_SCORES = data.referenceScores;
-        REFERENCE_TIERS = data.referenceTiers;
-        STAPLES_BASELINE = data.staplesBaseline;
-        MANABASE_BASELINE = data.manabaseBaseline;
         IX_TAGS_JSON = data.tags;
         COMMANDER_TIER_DATA = data.commanderTiers;
         IX_TAGS = {blink: new Set(IX_TAGS_JSON['blink']), extraCombat: new Set(IX_TAGS_JSON['extra-combat'])};
@@ -1821,357 +1580,13 @@ function safeHttpUrl(raw) {
 
 // Card art, View Deck, the type galleries and the commander portraits:
 // src/services/card-art.ts and src/features/card-viewer/. Its adapter publishes
-// renderCommanderHero, showTypeCardsModal and showSingleCardArtModal.
+// showTypeCardsModal and showSingleCardArtModal.
 
 // setStatus / setDeckMgmtStatus: src/ui/status.ts via src/ui/legacy-globals.ts.
 
-function detectCommander(matched, commanderNamesFromParse) {
-  // Prefer explicit Commander: section names
-  if (commanderNamesFromParse && commanderNamesFromParse.length) {
-    const found = [];
-    for (const cn of commanderNamesFromParse) {
-      const m = matched.find(x =>
-        x.card.n.toLowerCase() === cn.toLowerCase() ||
-        x.card.n.toLowerCase().startsWith(cn.toLowerCase() + ' //') ||
-        (x.originalName && x.originalName.toLowerCase() === cn.toLowerCase())
-      );
-      if (m) found.push(m.card.n);
-      else found.push(cn); // keep typed name even if not in DB
-    }
-    if (found.length) return [...new Set(found)];
-  }
-  // Fallback: single-copy legendary creatures / planeswalkers
-  const legendaries = matched.filter(m => {
-    const t = (m.card.t || '').toLowerCase();
-    return m.qty === 1 && t.includes('legendary') && (t.includes('creature') || t.includes('planeswalker'));
-  });
-  if (legendaries.length === 0) return [];
-  if (legendaries.length === 1) return [legendaries[0].card.n];
-
-  // Only treat two-or-more legendaries as co-commanders if they actually carry
-  // partner-enabling text — otherwise a deck with an unrelated bonus legendary
-  // in the 99 gets misread as having two commanders.
-  const PARTNER_RE = /\bpartner\b|\bfriends forever\b|\bchoose a background\b|\bdoctor's companion\b/i;
-  const partnerCapable = legendaries.filter(m => PARTNER_RE.test(m.card.o || ''));
-  if (partnerCapable.length >= 2) {
-    return partnerCapable.slice(0, 2).map(m => m.card.n);
-  }
-
-  // No verified partner pair — score all candidates and take the single best.
-  const scored = legendaries.map(m => {
-    const n = m.card.n;
-    let score = 0;
-    if (/,/.test(n)) score += 3;          // "Name, Title"
-    if (/\bthe\b/i.test(n)) score += 2;   // "The Lord of …"
-    if (n.split(/\s+/).length <= 4) score += 1;
-    if (PARTNER_RE.test(m.card.o || '')) score += 2; // partner-capable card is still a decent signal alone
-    return { n, score };
-  });
-  scored.sort((a, b) => b.score - a.score);
-  return [scored[0].n];
-}
-
-async function runAnalysis() {
-  if (!dbReady) return;
-  if (!PRECON_FINGERPRINTS) setStatus('Loading analysis data...');
-  try { await loadAnalysisDatasets(); }
-  catch (e) { console.error(e); setStatus('Could not load analysis data: ' + e.message, true); return; }
-  const raw = $('decklistInput').value;
-  const sizeProblem = pmDeckListProblem(raw);
-  if (sizeProblem) {
-    setStatus(sizeProblem, true);
-    $('resultsSection').style.display = 'none';
-    return;
-  }
-  const parsed = parseDecklist(raw);
-  const entries = parsed.entries;
-
-  if (entries.length === 0) {
-    setStatus('Paste a decklist first — one card per line.', true);
-    $('resultsSection').style.display = 'none';
-    return;
-  }
-
-  const { matched, notFound, fuzzyMatches } = matchDecklist(entries, CARD_DB, indexes);
-
-  if (matched.length === 0) {
-    setStatus('No cards could be matched. Check the spelling and try again.', true);
-    $('resultsSection').style.display = 'none';
-    return;
-  }
-
-  // Commander: prefer explicit field, then paste section, then heuristic
-  const cmdField = (($('commanderInput') || {}).value || '').trim();
-  let commanders = [];
-  if (cmdField) {
-    commanders = parseCommanderField(cmdField, matched);
-  } else {
-    commanders = detectCommander(matched, parsed.commanderNames);
-    // Auto-fill the field when we detected something
-    if (commanders.length && $('commanderInput')) {
-      $('commanderInput').value = commanders.join(' / ');
-      if (typeof autoFillDeckName === 'function') autoFillDeckName();
-    }
-  }
-  const agg = analyzeDeck(matched, commanders);
-  agg.commanders = commanders;
-  currentMatchedCards = matched;
-  currentCommanders = commanders;
-  renderCommanderHero(commanders);
-  const winCons = detectWinCondition(agg);
-  currentWinCons = winCons;
-
-  const hasSpecificWinCon = winCons.length > 0 && winCons[0].confidence !== 'fallback';
-  const speed = scoreSpeed(agg, hasSpecificWinCon);
-  const consistency = scoreConsistency(agg);
-  const versatility = scoreVersatility(agg, winCons.length);
-  const disruption = scoreDisruption(agg);
-  const powerLevel = scorePowerLevel(agg);
-  const commandSpark = computeSpark(speed, consistency, versatility, disruption, powerLevel);
-
-  const bracket = detectBracket(agg, commandSpark);
-  const tableFeel = detectTableFeel(agg, powerLevel, disruption, winCons);
-  const commanderTiers = lookupCommanderTiers(commanders);
-  const archetypeMatch = computeArchetypeMatch(agg);
-  const tierDiscrepancy = detectCommanderSparkDiscrepancy(commanderTiers, commandSpark, archetypeMatch);
-
-  const commanderCardsForBenchmark = commanders.map(name => {
-    const inList = matched.find(m => m.card.n === name);
-    if (inList) return inList.card;
-    return CARD_DB.find(c => c.n === name) || null;
-  }).filter(Boolean);
-  const manaBaseBenchmark = computeManaBaseBenchmark(matched, commanderCardsForBenchmark);
-
-  renderWinCondition(winCons);
-  renderArchetypeMatch(archetypeMatch);
-  renderTableFeel(tableFeel, bracket.spirit);
-  renderChart({ speed, consistency, versatility, disruption, powerLevel }, commandSpark, agg, tierDiscrepancy);
-  renderManaCurveChart(agg);
-  renderSynergyProfile(agg, archetypeMatch, matched, commanders);
-  renderBracket(bracket, agg);
-  renderTypeTable(agg.typeFrequency, agg.totalCards, agg.avgCmc, agg.manaCurve);
-  renderManaBase(agg, manaBaseBenchmark);
-  renderKeyPieces(agg);
-  renderCommanderCentrality(agg, matched, commanders, winCons, archetypeMatch);
-  const legalityReport = checkLegality(matched, commanders, notFound);
-  renderLegality(legalityReport);
-  renderCommanderTrackRecord(commanderTiers, tierDiscrepancy);
-
-  $('resultsSection').style.display = 'block';
-  hasSingleResult = true;
-
-  let statusMsg = `Charted ${agg.totalCards} cards (${matched.length} unique) — ${agg.landCount} lands, ${agg.nonlandCount} spells.`;
-  if (agg.bannedCount) statusMsg += ` ${agg.bannedCount} banned ${agg.bannedCount === 1 ? 'card was' : 'cards were'} left out of the scoring.`;
-  if (commanders.length) {
-    statusMsg += ` · Commander: ${commanders.join(' / ')}`;
-  } else {
-    statusMsg += ` · ⚠ No commander identified — type one in the Commander field (required to save)`;
-  }
-  if (agg.gameChangers.length) statusMsg += ` · ${agg.gameChangers.length} Game Changer(s)`;
-  if (agg.detectedCombos.length) statusMsg += ` · ${agg.detectedCombos.length} combo line(s) counted` + (agg.spellbookMatched > (agg.detectedComboDetails || []).filter(d => d.source === 'spellbook').length ? ` (${agg.spellbookMatched - (agg.detectedComboDetails || []).filter(d => d.source === 'spellbook').length} more found, not scored)` : '');
-  setStatus(statusMsg);
-
-  renderNotFound(notFound, fuzzyMatches);
-
-  $('resultsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-  if (legalityReport.hardViolations.length) {
-    showLegalityPopup(legalityReport);
-  }
-}
-
-function showLegalityPopup(report) {
-  const { modal } = openTadOverlay();
-  const itemsHtml = report.hardViolations.map(v =>
-    `<li style="margin-bottom:6px;">${escapeHtml(v)}</li>`
-  ).join('');
-  modal.innerHTML = sanitizeHtml(`<button class="tad-close" id="tadCloseBtn">Close ×</button>` +
-    `<h2 style="color:var(--danger, var(--gold));">Legality check</h2>` +
-    `<p class="tad-sub">This decklist has been charted as usual — some pods don't care about official rules. But if you're playing sanctioned Commander, these would need fixing:</p>` +
-    `<ul style="margin:0; padding-left:18px; font-size:13.5px; color:var(--text-primary); line-height:1.5;">${itemsHtml}</ul>`);
-  document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
-}
-
-function renderNotFound(notFound, fuzzyMatches) {
-  const box = $('notFoundBox');
-  box.innerHTML = '';
-
-  if (fuzzyMatches.length > 0) {
-    const fuzzyDiv = document.createElement('div');
-    fuzzyDiv.className = 'fuzzy-note';
-    fuzzyDiv.textContent = `Auto-corrected ${fuzzyMatches.length} likely typo(s): ` +
-      fuzzyMatches.map(f => `"${f.typed}" → "${f.matched}"`).join(', ');
-    box.appendChild(fuzzyDiv);
-  }
-
-  if (notFound.length > 0) {
-    const details = document.createElement('details');
-    details.className = 'not-found-box';
-    details.innerHTML = sanitizeHtml(`<summary>${notFound.length} card${notFound.length > 1 ? 's' : ''} not found</summary>` +
-      `<div style="margin-top:6px;">${notFound.map(escapeHtml).join(', ')}</div>`);
-    box.appendChild(details);
-  }
-}
-
-function renderWinCondition(winCons) {
-  const primary = winCons[0];
-  const others = winCons.slice(1);
-  const confClass = 'confidence-' + primary.confidence;
-  const confLabel = primary.confidence === 'fallback' ? 'best guess' : primary.confidence + ' confidence';
-
-  let html = `<div class="label">Win Condition${explainerBtn('winCondition')}</div>` +
-    `<div class="value">${escapeHtml(primary.label)}<span class="confidence-tag ${confClass}">${confLabel}</span></div>` +
-    `<div class="detail">${linkifyKnownCardNames(escapeHtml(primary.detail), primary.cards)}</div>`;
-
-  if (others.length > 0) {
-    html += `<div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--line);">` +
-      `<div style="font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-soft); margin-bottom:6px;">Also detected (${others.length})</div>` +
-      others.map(w => {
-        const oClass = 'confidence-' + w.confidence;
-        const oLabel = w.confidence === 'fallback' ? 'best guess' : w.confidence + ' confidence';
-        return `<div style="margin-bottom:7px; font-size:13px;">` +
-          `<strong style="color:var(--gold-bright);">${escapeHtml(w.label)}</strong>` +
-          `<span class="confidence-tag ${oClass}" style="margin-left:6px;">${oLabel}</span>` +
-          `<div class="detail" style="margin-top:2px;">${linkifyKnownCardNames(escapeHtml(w.detail), w.cards)}</div>` +
-          `</div>`;
-      }).join('') +
-      `</div>`;
-  }
-
-  $('winConCallout').innerHTML = sanitizeHtml(html);
-}
-
-function renderArchetypeMatch(match) {
-  const el = $('archetypeMatchCallout');
-  if (!el) return;
-  if (!match) {
-    el.innerHTML = sanitizeHtml(`<div class="label">Closest Match</div>` +
-      `<div class="value">No strong signal</div>` +
-      `<div class="detail">This deck doesn't lean hard enough on any single detected theme or mechanic to call a confident match against the precon corpus.</div>`);
-    return;
-  }
-  const { top, runnersUp } = match;
-  const pct = Math.round(top.sim * 100);
-  let html = `<div class="label">Closest Match${explainerBtn('archetypeMatch')}</div>` +
-    `<div class="value">${escapeHtml(top.deck.archetype)}<span class="confidence-tag confidence-medium">${pct}% overlap</span></div>` +
-    `<div class="detail">Closest to <strong style="color:var(--gold-bright);">${escapeHtml(top.deck.flavorName)}</strong> (${cardNameLink(top.deck.commander)})${top.deck.source === 'precon' ? ', ' + escapeHtml(top.deck.setName) : ''}.</div>`;
-
-  if (runnersUp.length) {
-    html += `<div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--line);">` +
-      `<div style="font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-soft); margin-bottom:6px;">Also similar to</div>` +
-      runnersUp.map(r => `<div style="margin-bottom:5px; font-size:13px;">` +
-        `<strong style="color:var(--text-primary);">${escapeHtml(r.deck.archetype)}</strong>` +
-        `<span style="color:var(--text-soft);"> — ${escapeHtml(r.deck.flavorName)} (${Math.round(r.sim * 100)}%)</span>` +
-        `</div>`).join('') +
-      `</div>`;
-  }
-  el.innerHTML = sanitizeHtml(html);
-}
-
-function renderTableFeel(tableFeel, deckCraft) {
-  let html = `<div class="label">Table Vibe <span style="font-weight:400; font-style:italic; text-transform:none; letter-spacing:normal;">(estimate)</span></div>` +
-    `<div class="value">${escapeHtml(tableFeel.label)}</div>` +
-    `<div class="detail">${escapeHtml(tableFeel.you)}</div>` +
-    `<div class="detail" style="margin-top:6px;"><strong>Your pod:</strong> ${escapeHtml(tableFeel.pod)}</div>`;
-
-  if (deckCraft) {
-    html += `<div style="margin-top:12px; padding-top:10px; border-top:1px dashed var(--line);">` +
-      `<div class="label">Deck Craft</div>` +
-      `<div class="value">${escapeHtml(deckCraft.band)}</div>` +
-      `<div class="detail">${escapeHtml(deckCraft.detail)}</div>` +
-      `</div>`;
-  }
-
-  html += `<details style="font-size:12px; color:var(--text-soft); margin-top:10px; padding-top:10px; border-top:1px dashed var(--line);">` +
-    `<summary style="cursor:pointer; color:var(--gold); font-weight:600;">How did we build this?</summary>` +
-    `<div style="margin-top:8px;">` +
-    `<strong style="color:var(--text-primary);">Table Vibe</strong> maps your deck's primary win condition onto the classic Timmy/Johnny/Spike player psychographics (Mark Rosewater's framework for what motivates a player to play — Timmy: big, memorable plays; Johnny: winning on your own terms; Spike: playing to win). Heavy stax gets its own callout — Rosewater has confirmed "griefer" is technically a Timmy subtype. Very low-power decks with no real synergy plan get "Blorbo" instead, an unofficial community term for playing because you like your commander, not because you're trying to win.` +
-    (tableFeel.why ? `<br><br><em>For this deck:</em> ${escapeHtml(tableFeel.why)}` : '') +
-    (deckCraft ? `<br><br><strong style="color:var(--text-primary);">Deck Craft</strong> measures how much time and attention went into the 99, using seven signals: 5+ tutors, 3+ fast mana sources, an engine ratio of 18%+, 2+ free interaction spells, 12+ card draw sources, 8+ stax effects, and any Game Changer — plus overall Command Spark as a cross-check when the individual counts stay under threshold.` +
-      (deckCraft.why ? `<br><br><em>For this deck:</em> ${escapeHtml(deckCraft.why)}` : '') : '') +
-    `</div></details>`;
-
-  $('tableFeelCallout').innerHTML = sanitizeHtml(html);
-}
-
-let currentAgg = null; // stored so axis explainers can list contributing cards
-let currentMatchedCards = null; // stored so the card-art and commander helpers can reuse the matched deck without re-parsing
-let currentCommanders = null;
-let currentWinCons = null;
-let currentScores = null; // stored so axis explainers can show this deck's percentile
-let currentCommandSpark = null; // stored so the Spark explainer can show its percentile
-
-// ordinalSuffix: src/ui/format.ts via src/ui/legacy-globals.ts.
-
-let currentTierDiscrepancy = null;
-// Re-draw the radial when the text size changes or the phone turns, so its labels are re-fitted.
-(function () {
-  let lastW = 0, timer = null;
-  const redo = () => { try { if (typeof currentScores !== 'undefined' && currentScores && currentAgg) renderChart(currentScores, currentCommandSpark, currentAgg, currentTierDiscrepancy); } catch (e) { /* the chart stays as it was */ } };
-  window.addEventListener('pm-text-change', () => setTimeout(redo, 50));
-  window.addEventListener('resize', () => { clearTimeout(timer); timer = setTimeout(() => { const w = (document.getElementById('chartArea') || {}).clientWidth || 0; if (Math.abs(w - lastW) > 20) { lastW = w; redo(); } }, 250); });
-})();
-function renderChart(scores, commandSpark, agg, tierDiscrepancy) {
-  currentAgg = agg || null;
-  currentScores = scores || null;
-  currentCommandSpark = (typeof commandSpark === 'number') ? commandSpark : null;
-  // The radar SVG is built by src/ui/radar-chart.ts. Its text is sized from the width the
-  // chart really gets, and the scores are listed again as plain text underneath (that list
-  // grows with the Text size setting).
-  const boxW = Math.min(560, ($('chartArea') && $('chartArea').clientWidth) || Math.min(window.innerWidth - 40, 560));
-  const svg = window.pmUi.radarChartSvg({
-    axes: AXES,
-    scores,
-    percentile: computeAxisPercentile,
-    boxWidth: boxW,
-    textZoom: parseFloat(document.documentElement.getAttribute('data-pm-text') || '1') || 1, // set by src/features/themes/apply.ts
-  });
-  const scoreRows = AXES.map(a => { const v = scores[a.key]; const pc = computeAxisPercentile(a.key, v); return `<span>${escapeHtml(a.label)}</span><strong style="color:var(--gold-bright);">${v.toFixed(1)}</strong><span style="color:var(--text-soft);">${pc !== null ? ordinalSuffix(pc) + ' pct.' : ''}</span>`; }).join('');
-  const scoreList = `<div class="chart-scores" aria-label="Scores as text">${scoreRows}</div>`;
-  const sparkPct = computeSparkPercentile(commandSpark);
-  const sparkHtml = `<div class="command-spark" data-explain="commandSpark" title="What is Spark?"><div class="spark-main"><span class="lbl">Spark</span><span class="num">${commandSpark.toFixed(1)}</span>${explainerBtn('commandSpark')}</div><span class="spark-percentile">Table-alignment signal · ${ordinalSuffix(sparkPct)} percentile of the PodMates reference set</span></div>`;
-  const discBadge = tierDiscrepancy ? (() => {
-    const colors = { underbuilt: 'var(--gold)', overbuilt: 'var(--danger)', matched: 'var(--success-text)' };
-    const labels = { underbuilt: 'Underbuilt for this commander', overbuilt: 'Overbuilt for this commander', matched: 'Matches this commander\'s track record' };
-    return `<div style="text-align:center; margin-top:4px; margin-bottom:10px;">` +
-      `<span style="display:inline-block; padding:3px 10px; border-radius:10px; font-size:12px; border:1px solid ${colors[tierDiscrepancy.direction]}; color:${colors[tierDiscrepancy.direction]};" title="${escapeHtml(tierDiscrepancy.detail)}">${labels[tierDiscrepancy.direction]}</span>` +
-      `</div>`;
-  })() : '';
-
-  const benchCaption = `<div class="chart-caption">Percentiles compare against the PodMates reference set (${referenceSetSummary()}), not all Commander decks. Higher tiers are included so tuned and competitive decks are not all squeezed into the top few percent.</div>`;
-  const impactBtn = agg ? '<div id="impactChart"></div>' : '';
-  currentTierDiscrepancy = tierDiscrepancy || null;
-  $('chartArea').innerHTML = sanitizeHtml(svg + scoreList + sparkHtml + discBadge + benchCaption + impactBtn);
-  if (agg) mountImpactChart(agg);
-}
-
-function renderBracket(bracket, agg) {
-  try { window.__pmBracketKey = bracket && bracket.bracketKey; window.__pmGcHeld = agg && agg.gameChangers ? agg.gameChangers.length : 0; } catch (e) {}
-  let html = `<div class="bracket-num">Bracket ${escapeHtml(bracket.bracket)}${explainerBtn('bracket')}</div>`;
-  html += `<div class="reasoning">${bracket.reasoning.map(r => escapeHtml(r.replace(/\*\*/g, ''))).join(' ')}</div>`;
-  if (bracket.cedhNote) {
-    html += `<div class="detail" style="margin-top:8px; font-size:13px; padding:6px 8px; border:1px solid var(--gold); border-radius:8px;"><strong style="color:var(--gold);">Could function at a cEDH level.</strong> ${escapeHtml(bracket.cedhNote)}</div>`;
-  }
-  if (agg && agg.gameChangers.length > 0) {
-    html += `<div class="detail" style="margin-top:10px; font-size:13px;"><strong>Game Changers found:</strong> ${gameChangerChips(agg.gameChangers)}</div>`;
-  }
-  if (agg && agg.detectedCombos.length > 0) {
-    const comboDetails = agg.detectedComboDetails || [];
-    const nWinC = comboDetails.filter(d => d.comboClass !== 'warp').length, nNearC = (agg.comboNear || []).length;
-    const nLoopC = (agg.infiniteLoopTwoCard || []).length;
-    html += `<div class="detail" style="margin-top:6px; font-size:13px;"><strong>Combos that win or warp the game:</strong> ${agg.detectedCombos.length} line${agg.detectedCombos.length === 1 ? '' : 's'} (${nWinC} win${nWinC === 1 ? '' : 's'}${agg.detectedCombos.length - nWinC ? ', ' + (agg.detectedCombos.length - nWinC) + ' warp' : ''})${nLoopC ? ' plus ' + nLoopC + ' two-card infinite loop' + (nLoopC === 1 ? '' : 's') : ''}.<div style="margin-top:6px;">    <button type="button" data-go-key-pieces style="background:none; border:1px solid var(--gold); color:var(--gold); border-radius:8px; padding:5px 12px; cursor:pointer; font-size:12.5px;">See each combo and how it works${nNearC ? ' \u00b7 ' + nNearC + ' one card away' : ''}</button></div></div>`;
-  } else if (agg && (agg.infiniteLoopTwoCard || []).length) {
-    html += `<div class="detail" style="margin-top:6px; font-size:13px;"><strong>Two-card infinite loops:</strong> ${agg.infiniteLoopTwoCard.length}.     <button type="button" data-go-key-pieces style="background:none; border:1px solid var(--gold); color:var(--gold); border-radius:8px; padding:5px 12px; cursor:pointer; font-size:12.5px;">See them</button></div>`;
-  }
-  if (agg && agg.bannedCards.length > 0) {
-    html += `<div class="detail" style="margin-top:6px; font-size:13px; color:var(--danger);"><strong>Banned cards (left out of the scores):</strong> ${agg.bannedCards.map(cardNameLink).join(', ')}</div>`;
-  }
-  if (bracket.note) {
-    html += `<div class="note">${escapeHtml(bracket.note)}</div>`;
-  }
-  html += `<div class="detail" style="margin-top:8px; font-size:11.5px; color:var(--text-dim);">PodMates uses Command Spark to show how likely a match-up is to be fair. The official bracket signals here are for reference only: they are a rough guide from the cards, not a measure of how evenly two decks will play.</div>`;
-  $('bracketArea').innerHTML = sanitizeHtml(html);
-}
+// Chart Deck (runAnalysis), detectCommander and the result panels (win condition, closest match,
+// table vibe, radar, bracket, not-found, legality dialog): src/features/deck-chart (index.ts,
+// run-analysis.ts, results/) and src/engine/commanders.ts.
 
 // Combos, Key Pieces, Synergy, Track Record, Centrality and the explainers (with the shared
 // info dialog): src/features/deck-chart (report.ts, key-pieces/, synergy/, centrality/, explainers/).
@@ -2275,11 +1690,6 @@ document.addEventListener('click', (e) => {
   }
 });
 
-$('chartBtn').addEventListener('click', () => {
-  $('chartBtn').classList.remove('tad-pulsing');
-  runAnalysis();
-});
-
 $('clearBtn').addEventListener('click', () => {
   $('decklistInput').value = '';
   if ($('commanderInput')) $('commanderInput').value = '';
@@ -2323,7 +1733,6 @@ if ($('deckNameInput')) $('deckNameInput').addEventListener('input', () => {
 // Comparison analysis, panels and deck detail: src/features/comparison/.
 
 // Mode switching
-let hasSingleResult = false;
 
 function setMode(mode) {
   const MODES = {
@@ -2340,7 +1749,7 @@ function setMode(mode) {
   // its results hidden, but a tab we're arriving at gets them RESTORED if
   // something was already computed. Without the restore half, results would
   // hide on the way out and simply never reappear on the way back in.
-  $('resultsSection').style.display = (mode === 'single' && hasSingleResult) ? 'block' : 'none';
+  $('resultsSection').style.display = (mode === 'single' && hasChartResult()) ? 'block' : 'none';
   $('podResultsSection').style.display = (mode === 'pod' && lastPodDecks) ? 'block' : 'none';
   // Same "don't poll when nobody's looking" principle as the Gathering
   // tray -- stop while this tab isn't visible, resume if it still matters

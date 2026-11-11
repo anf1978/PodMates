@@ -53,3 +53,62 @@ export function parseCommanderField(
   });
   return names.filter((n, i) => names.indexOf(n) === i);
 }
+
+const PARTNER_RE =
+  /\bpartner\b|\bfriends forever\b|\bchoose a background\b|\bdoctor's companion\b/i;
+
+/** The commander(s) of a pasted list: the names from its Commander: section when it has one,
+ * otherwise a best guess from its single-copy legendary creatures and planeswalkers. */
+export function detectCommander(
+  matched: readonly (DeckEntry & { originalName?: string })[],
+  commanderNamesFromParse?: readonly string[] | null,
+): string[] {
+  // Prefer explicit Commander: section names
+  if (commanderNamesFromParse && commanderNamesFromParse.length) {
+    const found: string[] = [];
+    for (const cn of commanderNamesFromParse) {
+      const m = matched.find(
+        (x) =>
+          x.card.n.toLowerCase() === cn.toLowerCase() ||
+          x.card.n.toLowerCase().startsWith(cn.toLowerCase() + " //") ||
+          (x.originalName && x.originalName.toLowerCase() === cn.toLowerCase()),
+      );
+      if (m) found.push(m.card.n);
+      else found.push(cn); // keep typed name even if not in DB
+    }
+    if (found.length) return [...new Set(found)];
+  }
+  // Fallback: single-copy legendary creatures / planeswalkers
+  const legendaries = matched.filter((m) => {
+    const t = (m.card.t || "").toLowerCase();
+    return (
+      m.qty === 1 &&
+      t.includes("legendary") &&
+      (t.includes("creature") || t.includes("planeswalker"))
+    );
+  });
+  const only = legendaries[0];
+  if (!only) return [];
+  if (legendaries.length === 1) return [only.card.n];
+
+  // Only treat two-or-more legendaries as co-commanders if they actually carry
+  // partner-enabling text — otherwise a deck with an unrelated bonus legendary
+  // in the 99 gets misread as having two commanders.
+  const partnerCapable = legendaries.filter((m) => PARTNER_RE.test(m.card.o || ""));
+  if (partnerCapable.length >= 2) {
+    return partnerCapable.slice(0, 2).map((m) => m.card.n);
+  }
+
+  // No verified partner pair — score all candidates and take the single best.
+  const scored = legendaries.map((m) => {
+    const n = m.card.n;
+    let score = 0;
+    if (/,/.test(n)) score += 3; // "Name, Title"
+    if (/\bthe\b/i.test(n)) score += 2; // "The Lord of …"
+    if (n.split(/\s+/).length <= 4) score += 1;
+    if (PARTNER_RE.test(m.card.o || "")) score += 2; // partner-capable card is still a decent signal alone
+    return { n, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  return [(scored[0] as { n: string }).n];
+}

@@ -30,6 +30,10 @@ type AppEvents = {
   "pods:open": { pod: WithId<PodDoc>; pods: WithId<PodDoc>[] };
   "pricescry:open": undefined;
   "pricescry:tab": "search" | "movers" | "signals" | "bait" | "radar" | "ledger";
+  /** Deck Chart is charting these commanders (the portraits above the radar). */
+  "chart:commanders": readonly string[];
+  /** The radar was drawn; its #impactChart mount point is in the page. */
+  "chart:radar": { readonly deckCardNames: string[] };
 };
 
 const events = new EventTarget();

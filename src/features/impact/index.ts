@@ -8,6 +8,7 @@ import { getCurrentUser } from "../../services/cloud/session";
 import * as cloud from "../../services/cloud/impact";
 import { loadDataset } from "../../data/load-dataset";
 import { reportError } from "../../services/report-error";
+import { on } from "../../services/events";
 import { ImpactRepository } from "./repository";
 import {
   canEdit,
@@ -26,6 +27,7 @@ let candidateData: Promise<readonly Candidate[]> | undefined;
 
 export function mount(runtime: ImpactPorts): void {
   ports = runtime;
+  on("chart:radar", mountImpactChart);
 }
 
 export function mountImpactChart(agg: Pick<ChartAnalysis["agg"], "deckCardNames">): void {

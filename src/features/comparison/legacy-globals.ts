@@ -2,19 +2,20 @@
 import { mount, type ComparisonDeck } from "./index";
 import { analyzeList, POD_COLORS, type AnalysisInput } from "../../services/deck-analysis";
 import { pageContext } from "../../engine/legacy-globals";
-import type { DetailPorts } from "./detail";
+import { detectCommander } from "../../engine/commanders";
+import {
+  archetypeMatch,
+  loadAnalysisDatasets,
+  type SampleDeck,
+} from "../../services/reference-data";
 declare const indexes: AnalysisInput["indexes"];
-declare const detectCommander: AnalysisInput["detectCommander"];
-declare const loadAnalysisDatasets: DetailPorts["loadDatasets"];
-declare const computeArchetypeMatch: (
-  agg: ComparisonDeck["agg"],
-) => ReturnType<DetailPorts["archetype"]>;
+declare function availableSampleDecks(decks: SampleDeck[]): SampleDeck[];
 declare let lastPodDecks: ComparisonDeck[] | null;
 declare const renderMatchLog: () => void;
 
 const view = mount(document.getElementById("podResultsSection")!, {
-  loadDatasets: () => loadAnalysisDatasets(),
-  archetype: (deck) => computeArchetypeMatch(deck.agg),
+  loadDatasets: () => loadAnalysisDatasets(availableSampleDecks),
+  archetype: (deck) => archetypeMatch(deck.agg),
 });
 const legacy = {
   // TODO(p3-6): saved-deck table and existing profile/Gathering adapters still call this.

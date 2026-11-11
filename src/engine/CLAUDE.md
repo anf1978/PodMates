@@ -23,13 +23,12 @@ Import from `index.ts`; it is the public surface.
 
 ## The legacy shim
 
-`legacy-globals.ts` is the only engine file allowed to touch `window`. It republishes the engine under
-its original global names for the inline scripts, dropping the context argument: each call builds (and
-memoises) a context from the page's `CARD_DB`, `SPELLBOOK_INDEX` and `COMMANDER_TIER_DATA`; typed
-callers can import that `pageContext()` instead of reading globals. It is imported by `src/main.ts` (so
-globals exist before `DOMContentLoaded` and the cloud modules) and is also imported by the dynamic
-`services/card-db-boot.ts` entry before DB-ready. Add a name there only when inline code needs it; delete names as callers move to
-`src/features`.
+`legacy-globals.ts` publishes nothing on `window` any more (no inline code calls the engine). It only
+exports `pageContext()`, a memoised context built from the page's `CARD_DB`, `SPELLBOOK_INDEX` and
+`COMMANDER_TIER_DATA` globals, for typed callers. Delete it when the card-DB boot adapter owns that data.
+
+`reference.ts` (percentiles and tier placement) and `benchmarks.ts` (closest precon, staples check, mana-base
+benchmark) take the reference datasets as arguments; `src/services/reference-data.ts` holds them.
 
 ## Golden tests
 

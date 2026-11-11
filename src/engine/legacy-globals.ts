@@ -1,32 +1,14 @@
-// Strangler shim: publishes the engine on `window` under exactly the names the inline
-// legacy scripts in index.html still call, with their old signatures. Functions that now
-// take an EngineContext get one built from the page's CARD_DB, SPELLBOOK_INDEX and
-// COMMANDER_TIER_DATA globals. Add no behaviour here; delete it with the last caller.
+// The page's engine context. The card database, Spellbook index and commander win-rates are
+// still classic-script globals owned by index.html (`var CARD_DB`, `var SPELLBOOK_INDEX`,
+// `let COMMANDER_TIER_DATA`), filled by the inline card-DB boot adapter; typed callers get an
+// EngineContext built from them here instead of reading globals. No engine names are published
+// on window any more. Delete this file when the boot adapter moves and owns the data itself.
 
 import type { CardRecord } from "../cards/tuple.ts";
-import { GAME_CHANGER_REASONS } from "../data/game-changers.ts";
-import { analyzeDeck } from "./analyze.ts";
-import { scorePowerLevel } from "./axes/power-level.ts";
-import { scoreConsistency } from "./axes/consistency.ts";
-import { scoreDisruption } from "./axes/disruption.ts";
-import { computeManaCurve } from "./axes/shared.ts";
-import { scoreSpeed } from "./axes/speed.ts";
-import { scoreVersatility } from "./axes/versatility.ts";
-import { EARLY_COMBO_BY_TURN, detectBracket, earliestComboTurn } from "./brackets.ts";
-import { COMBO_FINISH, COMBO_NEEDS_PAYOFF, comboDisplayWin, comboKind } from "./combo-outcomes.ts";
-import { comboCardByName } from "./combos.ts";
-import { CENTRALITY_BANDS, CENTRALITY_WEIGHTS, COMMANDER_RULES } from "./centrality-rules.ts";
-import { computeCommanderCentrality } from "./centrality.ts";
-import { detectCommanderSparkDiscrepancy, lookupCommanderTiers } from "./commander-tiers.ts";
-import { parseCommanderField } from "./commanders.ts";
 import { createEngineContext } from "./context.ts";
 import type { CommanderTierRecord, EngineContext, SpellbookIndex } from "./context.ts";
-import { SPARK_WEIGHTS, computeSpark } from "./spark.ts";
-import { TABLE_VIBE_ARCHETYPES, computePace, detectTableFeel } from "./table-feel.ts";
-import { detectWinCondition } from "./win-condition.ts";
 
-// Classic-script globals owned by index.html (`var CARD_DB`, `var SPELLBOOK_INDEX`,
-// `let COMMANDER_TIER_DATA`); read only through `typeof` so an unset one is just empty.
+// Read only through `typeof` so an unset one is just empty.
 declare const CARD_DB: CardRecord[] | undefined;
 declare const SPELLBOOK_INDEX: SpellbookIndex | null | undefined;
 declare const COMMANDER_TIER_DATA: CommanderTierRecord[] | undefined;
@@ -44,52 +26,3 @@ export function pageContext(): EngineContext {
   }
   return cached.ctx;
 }
-
-/** The legacy signature: the same function without its leading context argument. */
-function withPageContext<A extends unknown[], R>(
-  fn: (ctx: EngineContext, ...args: A) => R,
-): (...args: A) => R {
-  return (...args) => fn(pageContext(), ...args);
-}
-
-const legacy = {
-  CENTRALITY_BANDS,
-  CENTRALITY_WEIGHTS,
-  COMBO_FINISH,
-  COMBO_NEEDS_PAYOFF,
-  COMMANDER_RULES,
-  EARLY_COMBO_BY_TURN,
-  GAME_CHANGER_REASONS,
-  SPARK_WEIGHTS,
-  TABLE_VIBE_ARCHETYPES,
-  comboDisplayWin,
-  comboKind,
-  computeManaCurve,
-  computePace,
-  computeSpark,
-  detectBracket,
-  detectCommanderSparkDiscrepancy,
-  detectTableFeel,
-  detectWinCondition,
-  earliestComboTurn,
-  scoreConsistency,
-  scoreDisruption,
-  scorePowerLevel,
-  scoreSpeed,
-  scoreVersatility,
-  analyzeDeck: withPageContext(analyzeDeck),
-  comboCardByName: (name: string): CardRecord | null =>
-    comboCardByName(pageContext(), name) ?? null,
-  computeCommanderCentrality: withPageContext(computeCommanderCentrality),
-  lookupCommanderTiers: withPageContext(lookupCommanderTiers),
-  parseCommanderField: withPageContext(parseCommanderField),
-};
-
-type LegacyEngine = typeof legacy;
-
-declare global {
-  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-  interface Window extends LegacyEngine {}
-}
-
-Object.assign(window, legacy);

@@ -9,7 +9,6 @@ import { reportError } from "./report-error";
 import { bootCardDatabase, type StaticDatasets } from "./card-db-boot";
 
 vi.mock("../cards/legacy-globals", () => ({}));
-vi.mock("../engine/legacy-globals", () => ({}));
 vi.mock("../cards/load-db", async () => ({
   buildLookupIndexes: (await import("../cards/lookup")).buildLookupIndexes,
   loadCardDatabase: vi.fn(),

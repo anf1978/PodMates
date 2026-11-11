@@ -136,7 +136,9 @@ test("DB-ready waits for bot datasets and populates the legacy win-rate and tag 
     await expect(page.locator("#dbStatus")).toContainText(/^Ready .* cards.*loaded/);
     const winrates = (await (await winratesResponse).json()) as { n: string; t: string }[];
     expect(
-      await page.evaluate(`lookupCommanderTiers([${JSON.stringify(winrates[0].n)}])[0]`),
+      await page.evaluate(
+        `COMMANDER_TIER_DATA.find(r => r.n === ${JSON.stringify(winrates[0].n)})`,
+      ),
     ).toEqual(winrates[0]);
     expect(await page.evaluate("IX_TAGS.blink.size")).toBeGreaterThanOrEqual(50);
     expect(await page.evaluate("IX_TAGS.extraCombat.size")).toBeGreaterThanOrEqual(10);

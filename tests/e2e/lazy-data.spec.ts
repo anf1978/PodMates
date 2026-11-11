@@ -138,10 +138,6 @@ test("Impact and sample-table entry points await their data without boot-time re
   expect(requested.filter((path) => path === "/data/IMPACT_CANDS.json")).toHaveLength(1);
   // Rankings come from the loaded library (src/cards/search.ts cardPopularity).
   expect(await page.evaluate("TRY_A_DECK_OPTIONS.length")).toBeGreaterThan(0);
-  await page.evaluate("loadAnalysisDatasets()");
-  expect(await page.evaluate("TRY_A_DECK_METADATA.map(deck => deck.key)")).toEqual(
-    await page.evaluate("TRY_A_DECK_OPTIONS.map(deck => deck.key)"),
-  );
   await page.reload();
   await expect(page.locator("#dbStatus")).toContainText(/^Ready /);
   expect(await page.evaluate("typeof TRY_A_DECK_OPTIONS")).toBe("undefined");

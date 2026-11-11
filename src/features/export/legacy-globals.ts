@@ -1,14 +1,10 @@
-// TODO(p3-6): remove with the last inline Deck Chart analysis binding.
+// Binds Export to the Deck Chart's current deck.
 import { mount } from "./index";
-import type { ExportDeck } from "./state";
-
-declare const currentMatchedCards: ExportDeck["matched"] | null;
-declare const currentCommanders: string[] | null;
+import { currentChart } from "../../services/current-chart";
 
 const button = document.getElementById("exportDeckBtn");
 if (button)
-  mount(button, () =>
-    currentMatchedCards && currentCommanders
-      ? { matched: currentMatchedCards, commanders: currentCommanders }
-      : null,
-  );
+  mount(button, () => {
+    const { matched, commanders } = currentChart();
+    return matched && commanders ? { matched, commanders } : null;
+  });

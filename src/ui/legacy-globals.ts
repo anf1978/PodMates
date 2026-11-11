@@ -4,9 +4,6 @@
 
 import { cardNameLinkHtml } from "./card-name.ts";
 import { closeAllModals, closeModal, openModal, openModals } from "./modal.ts";
-import { MANA_COLOR_STYLE, manaSymbolHtml } from "./mana-symbol.ts";
-import { ordinal } from "./format.ts";
-import { radarChartSvg } from "./radar-chart.ts";
 import { setStatusText } from "./status.ts";
 import { selectTab, tabsByAttribute } from "./tabs.ts";
 import { showToast } from "./toast.ts";
@@ -20,7 +17,6 @@ const pmUi = Object.freeze({
   closeAllModals,
   selectTab,
   tabsByAttribute,
-  radarChartSvg,
 });
 
 declare global {
@@ -30,14 +26,11 @@ declare global {
     setStatus: (message: string, isError?: unknown) => void;
     setDeckMgmtStatus: (message: string, isError?: unknown) => void;
     setupIconTooltipsFor: (scope?: ParentNode | null) => void;
-    ordinalSuffix: typeof ordinal;
     // TODO(p3-6): drop with the last unmoved legacy modal caller.
     openTadOverlay: typeof openTadOverlay;
     // TODO(p3-6): drop with the last unmoved legacy modal caller.
     closeTryADeckModal: typeof closeTryADeckModal;
-    // TODO(p3-6): drop once the profile, PriceScry and Deck Chart string builders are moved.
-    MANA_COLOR_STYLE: typeof MANA_COLOR_STYLE;
-    manaSymbol: typeof manaSymbolHtml;
+    // TODO(p3-6): drop with the saved-deck (Load a Deck) string builders.
     cardNameLink: typeof cardNameLinkHtml;
   }
 }
@@ -49,9 +42,6 @@ window.setStatus = (message, isError) =>
 window.setDeckMgmtStatus = (message, isError) =>
   setStatusText(document.getElementById("deckMgmtStatus"), message, isError);
 window.setupIconTooltipsFor = (scope) => setupIconTooltips(scope ?? document);
-window.ordinalSuffix = ordinal;
-window.MANA_COLOR_STYLE = MANA_COLOR_STYLE;
-window.manaSymbol = manaSymbolHtml;
 window.cardNameLink = cardNameLinkHtml;
 window.openTadOverlay = openTadOverlay;
 window.closeTryADeckModal = closeTryADeckModal;

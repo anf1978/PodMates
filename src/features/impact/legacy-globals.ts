@@ -1,30 +1,16 @@
-// Temporary ports to unmoved chart state and the page's card DB; no cloud shim access.
-import { mount, mountImpactChart } from "./index";
-import type { ChartAnalysis } from "./state";
+// Temporary ports to the inline deck library and the page's card DB; no cloud shim access.
+import { mount } from "./index";
 import type { ImpactPorts } from "./runtime";
 import { searchLoadedCards } from "../../cards/legacy-globals";
+import { currentChart } from "../../services/current-chart";
 
-declare const currentAgg: ChartAnalysis["agg"] | null;
-declare const currentScores: ChartAnalysis["scores"] | null;
-declare const currentCommandSpark: number;
 declare const loadDeckLibrary: ImpactPorts["loadLibrary"];
 
 mount({
-  analysis: () =>
-    currentAgg && currentScores
-      ? { agg: currentAgg, scores: currentScores, spark: currentCommandSpark }
-      : null,
+  analysis: () => {
+    const { agg, scores, commandSpark } = currentChart();
+    return agg && scores ? { agg, scores, spark: commandSpark as number } : null;
+  },
   loadLibrary: () => loadDeckLibrary(),
   search: (query, limit) => searchLoadedCards(query, limit),
 });
-
-const legacy = {
-  // TODO(p3-6): the unmoved radar renderer still mounts the Impact caption.
-  mountImpactChart,
-};
-type ImpactLegacy = typeof legacy;
-declare global {
-  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-  interface Window extends ImpactLegacy {}
-}
-Object.assign(window, legacy);

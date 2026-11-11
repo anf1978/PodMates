@@ -18,7 +18,8 @@ test("Impact opens read-only, expands ideas and preserves the standard chart on 
   page,
 }) => {
   await chart(page);
-  const scores = await page.evaluate("JSON.stringify({currentScores,currentCommandSpark})");
+  const scores = page.locator("#chartArea .chart-scores, #chartArea .command-spark .num");
+  const standard = await scores.allTextContents();
   const radar = await page.locator("#chartArea svg").first().innerHTML();
   await page.locator("#impactCardsBtn").click();
   const dialog = page.getByRole("dialog", { name: "Impact cards", exact: true });
@@ -36,7 +37,7 @@ test("Impact opens read-only, expands ideas and preserves the standard chart on 
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
   await expect(page.locator("#impactCardsBtn")).toBeFocused();
-  expect(await page.evaluate("JSON.stringify({currentScores,currentCommandSpark})")).toBe(scores);
+  expect(await scores.allTextContents()).toEqual(standard);
   expect(await page.locator("#chartArea svg").first().innerHTML()).toBe(radar);
   await page.locator("#impactCardsBtn").click();
   await expect(dialog.locator(".impact-idea-row")).toHaveCount(24);
