@@ -1,6 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { setImmediate } from "node:timers/promises";
+import { afterEach, describe, expect, it } from "vitest";
 import { simulateMarket, PLANTED } from "./pricescry-sim.mjs";
 import { effectTable, walkForward, japanCostModel } from "./pricescry-study.mjs";
+
+// Drain worker RPC messages between CPU-bound simulations on slower CI runners.
+afterEach(() => setImmediate());
 
 const SEEDS = [11, 22, 33, 44, 55];
 const mean = (values) => values.reduce((sum, value) => sum + value, 0) / values.length;
