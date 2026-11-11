@@ -13,7 +13,7 @@ const ESCAPES: Record<string, string> = {
 };
 
 /** The same escaping the legacy `escapeHtml()` in index.html applies. */
-function escapeHtml(value: string): string {
+export function escapeHtml(value: string): string {
   return String(value).replace(/[&<>"']/g, (c) => ESCAPES[c]);
 }
 

@@ -13,18 +13,14 @@ import { computeManaCurve } from "./axes/shared.ts";
 import { scoreSpeed } from "./axes/speed.ts";
 import { scoreVersatility } from "./axes/versatility.ts";
 import { EARLY_COMBO_BY_TURN, detectBracket, earliestComboTurn } from "./brackets.ts";
-import { classifyCard } from "./classify.ts";
 import { COMBO_FINISH, COMBO_NEEDS_PAYOFF, comboDisplayWin, comboKind } from "./combo-outcomes.ts";
 import { comboCardByName } from "./combos.ts";
-import { CENTRALITY_KEYWORDS, centralityPluralForms } from "./centrality-fed.ts";
 import { CENTRALITY_BANDS, CENTRALITY_WEIGHTS, COMMANDER_RULES } from "./centrality-rules.ts";
 import { computeCommanderCentrality } from "./centrality.ts";
-import { IXPROP } from "./commander-ability.ts";
 import { detectCommanderSparkDiscrepancy, lookupCommanderTiers } from "./commander-tiers.ts";
 import { parseCommanderField } from "./commanders.ts";
 import { createEngineContext } from "./context.ts";
 import type { CommanderTierRecord, EngineContext, SpellbookIndex } from "./context.ts";
-import { ixUsable } from "./legality.ts";
 import { SPARK_WEIGHTS, computeSpark } from "./spark.ts";
 import { TABLE_VIBE_ARCHETYPES, computePace, detectTableFeel } from "./table-feel.ts";
 import { detectWinCondition } from "./win-condition.ts";
@@ -58,18 +54,14 @@ function withPageContext<A extends unknown[], R>(
 
 const legacy = {
   CENTRALITY_BANDS,
-  CENTRALITY_KEYWORDS,
   CENTRALITY_WEIGHTS,
   COMBO_FINISH,
   COMBO_NEEDS_PAYOFF,
   COMMANDER_RULES,
   EARLY_COMBO_BY_TURN,
   GAME_CHANGER_REASONS,
-  IXPROP,
   SPARK_WEIGHTS,
   TABLE_VIBE_ARCHETYPES,
-  centralityPluralForms,
-  classifyCard,
   comboDisplayWin,
   comboKind,
   computeManaCurve,
@@ -80,7 +72,6 @@ const legacy = {
   detectTableFeel,
   detectWinCondition,
   earliestComboTurn,
-  ixUsable,
   scoreConsistency,
   scoreDisruption,
   scorePowerLevel,

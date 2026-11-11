@@ -255,7 +255,13 @@ string templates with each rendered text run as a **single interpolation**: `` h
 nodes, which Chrome lays out differently from the original one-string markup.
 
 Moved so far: `deck-chart` (prefix `dc-`) — Structure & Legality, Mana Curve, Mana Base and Card Type
-Frequency & Curve; `try-a-deck` (`tad-`) — all library browsing/navigation; `export` (`export-`) —
+Frequency & Curve, plus `deck-chart/interactions/` (prefix `ix-`): the Synergy panel's interaction reading
+(trigger/rule packages, deck and theme plans, Super Friends, the stat-axis rule, conditional and idle cards),
+its package markup and the "Cards you could add" sheet (repeaters/multipliers, plan helpers, thin spots,
+best-of themes and New dimension). The reading is display only and receives the card DB, Scryfall Tagger tags
+and `KNOW_JSON` knowledge explicitly from the adapter. The Synergy panel itself is still inline and calls the
+`buildInteractionPackages`, `ixDescribePackage`, `ixThinSpots` and `ixSetSuggestionContext` shim names;
+`ixDescribePackage` still returns the legacy string markup that panel sanitizes; `try-a-deck` (`tad-`) — all library browsing/navigation; `export` (`export-`) —
 Commander/Deck text and clipboard dialog; `scan-cards` (`scan-`) — local Tesseract loading, bounded
 preprocessing, longest-name-first matching, selection and rescan lifecycle; and `deck-crafter` (`db-`
 inside `.deck-crafter`) — drafts, commander/partner selection, identity filtering, card search, quantities,
@@ -501,15 +507,17 @@ ESLint does not inspect the inline scripts in `index.html`. TypeScript is strict
 ## What is not done yet
 
 R14 moved card art/View Deck (`features/card-viewer`), card ranking plus the shared picker
-(`cards/search.ts`, `ui/card-search.ts`), and card-DB boot (`services/card-db-boot.ts`).
-Boot's global assignments and UI adapter remain inline for the current readers.
+(`cards/search.ts`, `ui/card-search.ts`), card-DB boot (`services/card-db-boot.ts`) and the interaction
+reading plus "Cards you could add" (`features/deck-chart/interactions/`).
+Boot's global assignments and UI adapter remain inline for the current readers, as do the `IX_TAGS` and
+`KNOW_JSON` / `KNOW_MAP` globals the boot adapter and `loadKnowledge()` fill.
 Remaining, in order, at about one ~800-line PR each:
 
-1. **Interaction suggestions** (`ix*`, `IXD`, `buildInteractionPackages`, ~1,300 lines).
-2. **Combos, synergy, centrality, key pieces, explainers** (~1,000 lines), then the card-viewer shim names.
-3. **`runAnalysis`, result panels, percentiles/reference** (~600 lines).
-4. **Saved decks, Load a Deck, My Data, decks table** (~900 lines), then `searchNorm` and the profile ports.
-5. Delete the remaining shims, make `index.html` static markup, ratchet lint, final `CLAUDE.md`.
+1. **Combos, synergy, centrality, key pieces, explainers** (~1,000 lines), then the card-viewer and
+   interaction shim names (the Synergy panel can then render packages with lit instead of string markup).
+2. **`runAnalysis`, result panels, percentiles/reference** (~600 lines).
+3. **Saved decks, Load a Deck, My Data, decks table** (~900 lines), then `searchNorm` and the profile ports.
+4. Delete the remaining shims, make `index.html` static markup, ratchet lint, final `CLAUDE.md`.
 
 Phase 3's exit criteria (no source file over ~500 lines, no globals, every `innerHTML` replaced) are not met
 while the inline app script exists. The remaining work (rest of Deck Chart, saved-deck flows and the other inline helpers) deletes inline code and the shim names it used. When the last caller of a

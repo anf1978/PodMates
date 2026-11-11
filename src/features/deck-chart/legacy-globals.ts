@@ -16,6 +16,20 @@ import { manaCurveTemplate } from "./panels/mana-curve.ts";
 import { manaBaseTemplate } from "./panels/mana-base.ts";
 import type { ManaBaseBenchmark } from "./panels/mana-base.ts";
 import { typeTableTemplate } from "./panels/type-table.ts";
+import {
+  buildInteractionPackages,
+  ixDescribePackage,
+  ixThinSpots,
+  setSuggestionContext,
+  showSuggestions,
+} from "./interactions/index.ts";
+import type {
+  InteractionData,
+  InteractionTags,
+  KnowCard,
+  KnowledgeJson,
+  SuggestionPorts,
+} from "./interactions/index.ts";
 
 type ManaCurveInput = Parameters<typeof computeManaCurve>[0];
 type ManaBaseInput = Pick<
@@ -104,7 +118,40 @@ function renderTypeTable(
   render(typeTableTemplate({ typeFrequency, totalCards, avgCmc, manaCurve }), area);
 }
 
+// Page data owned by the inline boot adapter and lazy loaders (index.html).
+declare const CARD_DB: CardRecord[];
+declare const IX_TAGS: InteractionTags;
+declare const KNOW_JSON: KnowledgeJson;
+declare const KNOW_MAP: Map<string, KnowCard>;
+declare function loadKnowledge(): Promise<void>;
+
+function interactionData(): InteractionData {
+  return { cards: CARD_DB, tags: IX_TAGS };
+}
+
+const suggestionPorts: SuggestionPorts = {
+  data: interactionData,
+  loadKnowledge: () => loadKnowledge(),
+  knowledge: () => ({ json: KNOW_JSON, byName: KNOW_MAP }),
+  // Written by the inline renderBracket for this note only.
+  bracket: () => {
+    const page = window as unknown as { __pmBracketKey?: string; __pmGcHeld?: number };
+    return { key: page.__pmBracketKey, held: page.__pmGcHeld || 0 };
+  },
+};
+
+// The Synergy panel's "Cards you could add ›" button (rendered by the inline panel).
+document.addEventListener("click", (event) => {
+  const target = event.target as Element | null;
+  if (target?.closest?.("[data-show-ix-suggestions]")) void showSuggestions(suggestionPorts);
+});
+
 const legacy = {
+  buildInteractionPackages: (matched: MatchedCard[], commanders: string[]) =>
+    buildInteractionPackages(interactionData(), matched, commanders),
+  ixDescribePackage,
+  ixThinSpots,
+  ixSetSuggestionContext: setSuggestionContext,
   checkLegality: legacyCheckLegality,
   renderLegality,
   renderManaCurveChart,
@@ -115,7 +162,7 @@ const legacy = {
 type LegacyDeckChart = typeof legacy;
 
 declare global {
-  // TODO(p3-6): drop these once runAnalysis itself lives in src/features/deck-chart.
+  // TODO(p3-6): drop these once runAnalysis and the Synergy panel live in src/features/deck-chart.
   // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   interface Window extends LegacyDeckChart {}
 }
