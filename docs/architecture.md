@@ -6,7 +6,7 @@ are in [CLAUDE.md](../CLAUDE.md); domain terms in the [glossary](glossary.md).
 
 ## Big picture
 
-PodMates is a static Vite site. `index.html` is still about 8,500 lines: static markup, the main
+PodMates is a static Vite site. `index.html` is still about 8,300 lines: static markup, the main
 CSS and the inline legacy scripts (theme, card-DB start-up, the app script with every unmoved feature, the
 notifications inbox). Typed code lives in `src/`, and the inline scripts reach it in two ways:
 
@@ -81,8 +81,8 @@ deduplicated. `src/main.ts` installs `error` and `unhandledrejection` listeners 
 defaults. Background/best-effort cloud failures remain non-blocking but no longer disappear silently.
 Optional offline-cache registration failures remain warnings so online use is unaffected.
 
-`src/services/scryfall.ts` handles JSON/network/HTTP failures for the inline art and spoiler requests via
-a build-substituted dynamic import. Expected no-match 404s remain normal results for named/search lookups;
+`src/services/scryfall.ts` handles JSON/network/HTTP failures for inline art via a build-substituted
+dynamic import and for Spoiler Bait via a direct import. Expected no-match 404s remain normal results for named/search lookups;
 other failures report before the existing fallback UI runs. Card-DB worker errors report on the main thread
 and still reject into the boot error UI.
 
@@ -300,8 +300,8 @@ URL-invite consent, membership, steward settings and live Gathering invitations.
 Cloud calls import repositories directly; no Firestore paths, fields or stored roles changed.
 `view.ts` uses escaped lit templates, and `pods.css` replaces the inventoried inline styles.
 
-The temporary pod adapter imports the shared modal and bridges unmoved confirmation, Gathering,
-Spoiler Bait and Chronicles handlers. Typed navigation events avoid feature-to-feature imports.
+The temporary pod adapter imports the shared modal and bridges unmoved confirmation and Chronicles
+handlers. Typed navigation events connect Gatherings and Spoiler Bait without feature-to-feature imports.
 Only `renderOurPodPanel`, `openPodDetailOverlay` and the `currentPodViewId` accessor remain
 for unmoved callers. Repeated renders dispose old subscriptions; unmount also invalidates pending
 loads and removes the active overlay. Pending URL invitations require explicit consent after sign-in,
@@ -354,6 +354,19 @@ unused Impact constants/helpers are removed. Tests cover Steward/Co-Steward edit
 reason escaping, undo/reset, stale loads and score isolation; Chromium covers the chart entry point,
 lazy loading, ideas, focus return and dismissal during loading.
 
+`spoiler-bait` (prefix `sb-`) owns the shared ten-day swipe queue, rarity filters, optimistic
+Bang/Bin votes, undo, Bangers/Binned lists and pod-board aggregation. `state.ts` is pure;
+`data.ts` retains the three-page Scryfall search, thirty-minute cache and optional 75-card rarity
+enrichment. Device key `pm-sb-rarities`, vote keys, Firestore paths and fields are unchanged.
+Cloud access imports the existing session/spoiler-vote repositories, not the cloud shim.
+
+The feature subscribes to typed `spoilers:open` and `pods:active` events. Its only legacy export,
+`sbMount`, receives PriceScry's recorded signals, day, pod and card-navigation callback explicitly.
+Lit templates preserve the old DOM/classes and styles use tokens with the original colours.
+Replacing/dismissing a host retires pending renders, animation timers and global pointer listeners.
+Tests cover authenticated votes/undo/move/unsort, source selection, filters, board ordering,
+account boundaries and teardown; offline Chromium covers the PriceScry sign-in gate.
+
 ## Lint-enforced boundaries
 
 `eslint.config.js` makes every rule an error (no warn-only rules remain):
@@ -395,7 +408,7 @@ ESLint does not inspect the inline scripts in `index.html`. TypeScript is strict
 
 Phase 3's exit criteria (no source file over ~500 lines, no globals, every `innerHTML` replaced) are not met
 while the inline app script exists. The remaining p3-5 feature moves (rest of Deck Chart,
-gatherings, chronicles, impact, spoiler-bait, trades, notifications,
+trades, notifications,
 ledger/comparison, themes, PriceScry) each delete inline code and the shim names it used. When the last caller of a
 shim name goes, delete the name; when the inline scripts are gone, `index.html` becomes static markup plus the
 `src/main.ts` tag, and `main.ts` boots theme → card DB (worker) → cloud → UI directly.

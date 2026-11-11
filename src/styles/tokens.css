@@ -29,6 +29,8 @@
 
   /* Status */
   --danger: #e0553a;
+  --spoiler-like: #6fd08c;
+  --spoiler-pass: #e0705f;
   --success-text: #8fdf6a;
   --success-bg: rgba(111, 191, 78, 0.22);
   --medium-bg: rgba(232, 193, 74, 0.18);

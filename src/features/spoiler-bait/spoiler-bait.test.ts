@@ -20,8 +20,13 @@ it("filters known rarities, keeps unknowns visible and excludes votes across bot
 });
 
 it("ranks pod cards by bangs, then fewer bins, then recency, retaining voter names", () => {
-  const vote = (key: string, value: "like" | "pass", at: number) =>
-    ({ key, n: key, setName: "", vote: value, votedAt: at });
+  const vote = (key: string, value: "like" | "pass", at: number) => ({
+    key,
+    n: key,
+    setName: "",
+    vote: value,
+    votedAt: at,
+  });
   const rows = boardRows([
     { name: "One", votes: [vote("b", "like", 3), vote("a", "like", 1), vote("c", "like", 2)] },
     { name: "Two", votes: [vote("a", "like", 1), vote("b", "pass", 4)] },

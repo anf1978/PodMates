@@ -2,9 +2,7 @@
 import { emit as emitAppEvent, on as onAppEvent } from "../../services/events";
 import { openTadOverlay, closeTryADeckModal } from "../../ui/tad-modal";
 import { mount } from "./index";
-import type { Pod } from "./state";
 
-declare function openSpoilerBaitOverlay(pod: Pod): void;
 declare function refreshCloudChroniclesCache(): void;
 declare function setMode(mode: string): void;
 declare function showConfirmModal(message: string, onConfirm: () => void): void;
@@ -18,7 +16,6 @@ declare function showActionConfirmModal(
 const panel = document.querySelector<HTMLElement>("#podMode > .panel");
 if (!panel) throw new Error("Missing MyPods panel");
 
-onAppEvent("spoilers:open", (pod) => openSpoilerBaitOverlay(pod));
 onAppEvent("pods:active", () => refreshCloudChroniclesCache());
 onAppEvent("pods:navigate", () => {
   setMode("pod");

@@ -60,6 +60,7 @@ export default defineConfig({
           "./src/features/gatherings/gatherings.css",
           "./src/features/chronicles/chronicles.css",
           "./src/features/impact/impact.css",
+          "./src/features/spoiler-bait/spoiler-bait.css",
         ]) {
           const reference = this.emitFile({
             type: "asset",

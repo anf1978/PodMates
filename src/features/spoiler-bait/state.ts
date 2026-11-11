@@ -41,7 +41,9 @@ export interface BoardRow {
   last: number;
 }
 
-export function createState(rarities: Iterable<string> = RARITIES.map(([key]) => key)): SpoilerState {
+export function createState(
+  rarities: Iterable<string> = RARITIES.map(([key]) => key),
+): SpoilerState {
   return {
     cards: [],
     votes: new Map(),
@@ -52,7 +54,11 @@ export function createState(rarities: Iterable<string> = RARITIES.map(([key]) =>
   };
 }
 export function cardKey(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 120);
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 120);
 }
 export function rarityOf(card: SpoilerCard): string {
   const rarity = (card.rarity || "").toLowerCase();
@@ -64,27 +70,29 @@ export function unsorted(state: SpoilerState): SpoilerCard[] {
 export function queue(state: SpoilerState): SpoilerCard[] {
   return unsorted(state).filter((card) => !rarityOf(card) || state.rarities.has(rarityOf(card)));
 }
-export function setVote(
-  state: SpoilerState,
-  card: SpoilerCard,
-  vote: Vote,
-  now: number,
-): void {
+export function setVote(state: SpoilerState, card: SpoilerCard, vote: Vote, now: number): void {
   state.votes.set(card.key, {
-    key: card.key, n: card.n, setName: card.setName || "", vote, votedAt: now,
+    key: card.key,
+    n: card.n,
+    setName: card.setName || "",
+    vote,
+    votedAt: now,
   });
 }
 export function boardRows(members: PodVotes[]): BoardRow[] {
   const byCard = new Map<string, BoardRow>();
-  for (const member of members) for (const vote of member.votes) {
-    let row = byCard.get(vote.key);
-    if (!row) {
-      row = { key: vote.key, n: vote.n, likes: [], passes: [], last: 0 };
-      byCard.set(vote.key, row);
+  for (const member of members)
+    for (const vote of member.votes) {
+      let row = byCard.get(vote.key);
+      if (!row) {
+        row = { key: vote.key, n: vote.n, likes: [], passes: [], last: 0 };
+        byCard.set(vote.key, row);
+      }
+      (vote.vote === "like" ? row.likes : row.passes).push(member.name);
+      row.last = Math.max(row.last, vote.votedAt || 0);
     }
-    (vote.vote === "like" ? row.likes : row.passes).push(member.name);
-    row.last = Math.max(row.last, vote.votedAt || 0);
-  }
-  return [...byCard.values()].sort((a, b) =>
-    b.likes.length - a.likes.length || a.passes.length - b.passes.length || b.last - a.last);
+  return [...byCard.values()].sort(
+    (a, b) =>
+      b.likes.length - a.likes.length || a.passes.length - b.passes.length || b.last - a.last,
+  );
 }
