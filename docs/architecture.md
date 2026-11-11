@@ -6,7 +6,7 @@ are in [CLAUDE.md](../CLAUDE.md); domain terms in the [glossary](glossary.md).
 
 ## Big picture
 
-PodMates is a static Vite site. `index.html` is still about 8,300 lines: static markup, the main
+PodMates is a static Vite site. `index.html` is still about 8,200 lines: static markup, the main
 CSS and the inline legacy scripts (theme, card-DB start-up, the app script with every unmoved feature, the
 notifications inbox). Typed code lives in `src/`, and the inline scripts reach it in two ways:
 

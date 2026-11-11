@@ -2,7 +2,7 @@
 
 Commander (MTG) playgroup companion: deck analysis ("Deck Chart"), pod social features (MyPods) and the PriceScry
 price tool. Static web app (Vite + TypeScript) on GitHub Pages; Firebase Auth/Firestore; data built by GitHub
-Actions. **Mid-migration:** typed code lives in `src/`, but most UI is still inline in `index.html` (~8,300
+Actions. **Mid-migration:** typed code lives in `src/`, but most UI is still inline in `index.html` (~8,200
 lines), reached through strangler shims.
 Full context: [docs/overview.md](docs/overview.md) · Architecture: [docs/architecture.md](docs/architecture.md) ·
 Terms: [docs/glossary.md](docs/glossary.md) · Plan: [docs/refactor-plan.md](docs/refactor-plan.md) ·
