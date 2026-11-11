@@ -2,6 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' __INLINE_SCRIPT_HASHES__ 'wasm-unsafe-eval' https://apis.google.com https://cdn.jsdelivr.net; connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://podmates2027.firebaseapp.com https://api.scryfall.com https://spring-unit-49d9.anthony-ef7.workers.dev https://raw.githubusercontent.com/anf1978/PodMates/pricescry-data/ https://cdn.jsdelivr.net; img-src 'self' data: blob: https://cards.scryfall.io https://api.scryfall.com; style-src 'self' 'unsafe-inline'; font-src 'self'; worker-src 'self' blob:; frame-src https://podmates2027.firebaseapp.com; manifest-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'">
+<script src="./node_modules/dompurify/dist/purify.min.js"></script>
+<script id="rendering-security-script">
+function sanitizeHtml(markup) {
+  return DOMPurify.sanitize(markup, { ADD_ATTR: ['target'] });
+}
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <link rel="icon" type="image/png" sizes="64x64" href="data:image/png;base64,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">
 <link rel="manifest" href="manifest.webmanifest">
@@ -1956,7 +1963,7 @@ function setDbLoadUI(state, message) {
   const fill = $('dbLoadFill');
   if (msg) {
     msg.className = 'db-load-msg' + (state === 'err' ? ' err' : (state === 'ok' ? ' ok' : ''));
-    msg.innerHTML = message;
+    msg.innerHTML = sanitizeHtml(message);
   }
   if (fill) {
     fill.classList.remove('indeterminate');
@@ -2293,13 +2300,13 @@ async function renderCommanderHero(commanders) {
   if (!commanders || !commanders.length) { area.innerHTML = ''; return; }
 
   const toShow = commanders.slice(0, 2);
-  area.innerHTML = `
+  area.innerHTML = sanitizeHtml(`
     <div style="display:flex; gap:14px; justify-content:center; margin-bottom:16px; flex-wrap:wrap;">
       ${toShow.map((name, i) => `
         <div id="commanderHeroSlot${i}" style="display:none; width:200px; max-width:42vw; aspect-ratio:0.717; overflow:hidden; border:2px solid var(--line-strong); border-radius:0; background:var(--bg-slot, var(--bg-main));"></div>
       `).join('')}
     </div>
-  `;
+  `);
 
   const results = await Promise.all(toShow.map(name => fetchCardImageUrl(name, 'normal')));
   results.forEach((url, i) => {
@@ -2308,7 +2315,7 @@ async function renderCommanderHero(commanders) {
     if (!url) { slot.style.display = 'none'; return; } // fails quietly -- a missing image is never worth blocking or cluttering the report
     slot.style.display = 'block';
     slot.style.position = 'relative';
-    slot.innerHTML = `<img src="${escapeHtml(url)}" alt="${escapeHtml(toShow[i])}" loading="lazy" style="width:100%; height:100%; object-fit:cover; display:block;">` + flipBtnHtml(cardOtherFaceCache.get(toShow[i] + '|normal'), false);
+    slot.innerHTML = sanitizeHtml(`<img src="${escapeHtml(url)}" alt="${escapeHtml(toShow[i])}" loading="lazy" style="width:100%; height:100%; object-fit:cover; display:block;">` + flipBtnHtml(cardOtherFaceCache.get(toShow[i] + '|normal'), false));
   });
 }
 
@@ -2480,14 +2487,14 @@ async function showDeckViewerModal(decklistText, commanderStr) {
       `;
     }).join('');
 
-  modal.innerHTML = `
+  modal.innerHTML = sanitizeHtml(`
     <button class="tad-close" id="tadCloseBtn">Close ×</button>
     <h2 style="margin-bottom:4px;">View Deck</h2>
     <p style="font-size:12px; color:var(--text-soft); margin:0 0 16px;">
       ${matched.length} card line${matched.length === 1 ? '' : 's'}${notFound.length ? ` · ${notFound.length} card${notFound.length === 1 ? '' : 's'} shown without art` : ''}
     </p>
     ${sections}
-  `;
+  `);
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
 }
 
@@ -2511,14 +2518,14 @@ async function showTypeCardsModal(typeName) {
   const totalCount = [...totalsByKey.values()].reduce((sum, n) => sum + n, 0);
   const cardsHtml = names.map(name => cardGridTileHtml(name, totalsByKey.get(name), urlMap.get(name), urlMap.getOther(name))).join('');
 
-  modal.innerHTML = `
+  modal.innerHTML = sanitizeHtml(`
     <button class="tad-close" id="tadCloseBtn">Close ×</button>
     <h2 style="margin-bottom:4px;">${escapeHtml(typeName)}</h2>
     <p style="font-size:12px; color:var(--text-soft); margin:0 0 16px;">
       ${totalCount} card${totalCount === 1 ? '' : 's'}${notFound.length ? ` · ${notFound.length} shown without art` : ''}
     </p>
     <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(110px, 1fr)); gap:10px;">${cardsHtml}</div>
-  `;
+  `);
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
 }
 
@@ -2684,10 +2691,10 @@ function showLegalityPopup(report) {
   const itemsHtml = report.hardViolations.map(v =>
     `<li style="margin-bottom:6px;">${escapeHtml(v)}</li>`
   ).join('');
-  modal.innerHTML = `<button class="tad-close" id="tadCloseBtn">Close ×</button>` +
+  modal.innerHTML = sanitizeHtml(`<button class="tad-close" id="tadCloseBtn">Close ×</button>` +
     `<h2 style="color:var(--danger, var(--gold));">Legality check</h2>` +
     `<p class="tad-sub">This decklist has been charted as usual — some pods don't care about official rules. But if you're playing sanctioned Commander, these would need fixing:</p>` +
-    `<ul style="margin:0; padding-left:18px; font-size:13.5px; color:var(--text-primary); line-height:1.5;">${itemsHtml}</ul>`;
+    `<ul style="margin:0; padding-left:18px; font-size:13.5px; color:var(--text-primary); line-height:1.5;">${itemsHtml}</ul>`);
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
 }
 
@@ -2706,8 +2713,8 @@ function renderNotFound(notFound, fuzzyMatches) {
   if (notFound.length > 0) {
     const details = document.createElement('details');
     details.className = 'not-found-box';
-    details.innerHTML = `<summary>${notFound.length} card${notFound.length > 1 ? 's' : ''} not found</summary>` +
-      `<div style="margin-top:6px;">${notFound.map(escapeHtml).join(', ')}</div>`;
+    details.innerHTML = sanitizeHtml(`<summary>${notFound.length} card${notFound.length > 1 ? 's' : ''} not found</summary>` +
+      `<div style="margin-top:6px;">${notFound.map(escapeHtml).join(', ')}</div>`);
     box.appendChild(details);
   }
 }
@@ -2737,16 +2744,16 @@ function renderWinCondition(winCons) {
       `</div>`;
   }
 
-  $('winConCallout').innerHTML = html;
+  $('winConCallout').innerHTML = sanitizeHtml(html);
 }
 
 function renderArchetypeMatch(match) {
   const el = $('archetypeMatchCallout');
   if (!el) return;
   if (!match) {
-    el.innerHTML = `<div class="label">Closest Match</div>` +
+    el.innerHTML = sanitizeHtml(`<div class="label">Closest Match</div>` +
       `<div class="value">No strong signal</div>` +
-      `<div class="detail">This deck doesn't lean hard enough on any single detected theme or mechanic to call a confident match against the precon corpus.</div>`;
+      `<div class="detail">This deck doesn't lean hard enough on any single detected theme or mechanic to call a confident match against the precon corpus.</div>`);
     return;
   }
   const { top, runnersUp } = match;
@@ -2764,7 +2771,7 @@ function renderArchetypeMatch(match) {
         `</div>`).join('') +
       `</div>`;
   }
-  el.innerHTML = html;
+  el.innerHTML = sanitizeHtml(html);
 }
 
 function renderTableFeel(tableFeel, deckCraft) {
@@ -2790,7 +2797,7 @@ function renderTableFeel(tableFeel, deckCraft) {
       (deckCraft.why ? `<br><br><em>For this deck:</em> ${escapeHtml(deckCraft.why)}` : '') : '') +
     `</div></details>`;
 
-  $('tableFeelCallout').innerHTML = html;
+  $('tableFeelCallout').innerHTML = sanitizeHtml(html);
 }
 
 let currentAgg = null; // stored so axis explainers can list contributing cards
@@ -2840,7 +2847,7 @@ function renderChart(scores, commandSpark, agg, tierDiscrepancy) {
   const benchCaption = `<div class="chart-caption">Percentiles compare against the PodMates reference set (${referenceSetSummary()}), not all Commander decks. Higher tiers are included so tuned and competitive decks are not all squeezed into the top few percent.</div>`;
   const impactBtn = agg ? `<div class="chart-caption"><button type="button" class="ghost" id="impactCardsBtn" style="font-size:12px; padding:3px 10px;">Impact cards…</button> <span style="font-size:11.5px; color:var(--text-dim);">${impactCardsInDeck(agg).length} of ${DEFAULT_IMPACT_CARDS.length} default impact cards in this deck</span></div><div id="podViewLine"></div>` : '';
   currentTierDiscrepancy = tierDiscrepancy || null;
-  $('chartArea').innerHTML = svg + scoreList + sparkHtml + discBadge + benchCaption + impactBtn;
+  $('chartArea').innerHTML = sanitizeHtml(svg + scoreList + sparkHtml + discBadge + benchCaption + impactBtn);
   const impactBtnEl = document.getElementById('impactCardsBtn');
   if (impactBtnEl) impactBtnEl.addEventListener('click', openImpactCardsModal);
   if (agg) refreshPodView();
@@ -2861,9 +2868,9 @@ function renderBracket(bracket, agg) {
     window.__comboAgg = agg;
     const nWinC = comboDetails.filter(d => d.comboClass !== 'warp').length, nNearC = (agg.comboNear || []).length;
     const nLoopC = (agg.infiniteLoopTwoCard || []).length;
-    html += `<div class="detail" style="margin-top:6px; font-size:13px;"><strong>Combos that win or warp the game:</strong> ${agg.detectedCombos.length} line${agg.detectedCombos.length === 1 ? '' : 's'} (${nWinC} win${nWinC === 1 ? '' : 's'}${agg.detectedCombos.length - nWinC ? ', ' + (agg.detectedCombos.length - nWinC) + ' warp' : ''})${nLoopC ? ' plus ' + nLoopC + ' two-card infinite loop' + (nLoopC === 1 ? '' : 's') : ''}.<div style="margin-top:6px;"><button type="button" onclick="goToKeyPieces()" style="background:none; border:1px solid var(--gold); color:var(--gold); border-radius:8px; padding:5px 12px; cursor:pointer; font-size:12.5px;">See each combo and how it works${nNearC ? ' \u00b7 ' + nNearC + ' one card away' : ''}</button></div></div>`;
+    html += `<div class="detail" style="margin-top:6px; font-size:13px;"><strong>Combos that win or warp the game:</strong> ${agg.detectedCombos.length} line${agg.detectedCombos.length === 1 ? '' : 's'} (${nWinC} win${nWinC === 1 ? '' : 's'}${agg.detectedCombos.length - nWinC ? ', ' + (agg.detectedCombos.length - nWinC) + ' warp' : ''})${nLoopC ? ' plus ' + nLoopC + ' two-card infinite loop' + (nLoopC === 1 ? '' : 's') : ''}.<div style="margin-top:6px;">    <button type="button" data-go-key-pieces style="background:none; border:1px solid var(--gold); color:var(--gold); border-radius:8px; padding:5px 12px; cursor:pointer; font-size:12.5px;">See each combo and how it works${nNearC ? ' \u00b7 ' + nNearC + ' one card away' : ''}</button></div></div>`;
   } else if (agg && (agg.infiniteLoopTwoCard || []).length) {
-    html += `<div class="detail" style="margin-top:6px; font-size:13px;"><strong>Two-card infinite loops:</strong> ${agg.infiniteLoopTwoCard.length}. <button type="button" onclick="goToKeyPieces()" style="background:none; border:1px solid var(--gold); color:var(--gold); border-radius:8px; padding:5px 12px; cursor:pointer; font-size:12.5px;">See them</button></div>`;
+    html += `<div class="detail" style="margin-top:6px; font-size:13px;"><strong>Two-card infinite loops:</strong> ${agg.infiniteLoopTwoCard.length}.     <button type="button" data-go-key-pieces style="background:none; border:1px solid var(--gold); color:var(--gold); border-radius:8px; padding:5px 12px; cursor:pointer; font-size:12.5px;">See them</button></div>`;
   }
   if (agg && agg.bannedCards.length > 0) {
     html += `<div class="detail" style="margin-top:6px; font-size:13px; color:var(--danger);"><strong>Banned cards (left out of the scores):</strong> ${agg.bannedCards.map(cardNameLink).join(', ')}</div>`;
@@ -2872,7 +2879,7 @@ function renderBracket(bracket, agg) {
     html += `<div class="note">${escapeHtml(bracket.note)}</div>`;
   }
   html += `<div class="detail" style="margin-top:8px; font-size:11.5px; color:var(--text-dim);">PodMates uses Command Spark to show how likely a match-up is to be fair. The official bracket signals here are for reference only: they are a rough guide from the cards, not a measure of how evenly two decks will play.</div>`;
-  $('bracketArea').innerHTML = html;
+  $('bracketArea').innerHTML = sanitizeHtml(html);
 }
 
 function themeLabel(key) {
@@ -4150,10 +4157,10 @@ async function ixShowSuggestions() {
       </div></div>`;
   }).join('')
     : '<div style="color:var(--text-soft); font-size:13px;">No clear additions found for this deck\'s main interactions.</div>';
-  ov.innerHTML = `<div role="dialog" aria-label="Cards you could add" style="background:var(--bg-card, #14121a); border:1px solid var(--line-strong); border-radius:14px 14px 0 0; width:min(560px,100%); max-height:calc(78vh / var(--pm-zoom, 1)); overflow:auto; padding:16px 16px 22px;">
+  ov.innerHTML = sanitizeHtml(`<div role="dialog" aria-label="Cards you could add" style="background:var(--bg-card, #14121a); border:1px solid var(--line-strong); border-radius:14px 14px 0 0; width:min(560px,100%); max-height:calc(78vh / var(--pm-zoom, 1)); overflow:auto; padding:16px 16px 22px;">
     <div style="display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; z-index:5; background:var(--bg-card, #14121a); margin:-16px -16px 10px; padding:14px 16px 10px; border-bottom:1px solid var(--line);"><div style="font-family:'Cinzel',Georgia,serif; font-size:13px; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold);">Cards you could add</div><button type="button" id="ixSugClose" style="background:none; border:1px solid var(--line-strong); color:var(--text-primary); border-radius:8px; padding:4px 12px; cursor:pointer; text-transform:none; letter-spacing:normal;">Close</button></div>
     ${body}
-    <div style="font-size:11.5px; color:var(--text-soft);">Searched from the full card list: inside your commander's colours, not banned, not already in the deck. Cards that rank high on community best-of lists come first (\u2605), then cheaper cards. Ideas, not instructions.</div></div>`;
+    <div style="font-size:11.5px; color:var(--text-soft);">Searched from the full card list: inside your commander's colours, not banned, not already in the deck. Cards that rank high on community best-of lists come first (\u2605), then cheaper cards. Ideas, not instructions.</div></div>`);
   document.getElementById('ixSugClose').addEventListener('click', () => sheet.close());
 }
 // ===== END INTERACTION PACKAGES =====
@@ -4487,7 +4494,7 @@ function renderSynergyProfile(agg, archetypeMatch, matchedCards, commanderNames)
   const pkHtml = hasPk ? `<div style="margin-bottom:14px;">
       <div style="font-family:'Cinzel',Georgia,serif; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold); margin-bottom:8px; cursor:help; border-bottom:1px dotted var(--text-soft); display:inline-block;" title="Found by reading each card's rules text: what sets off a payoff, which cards in your 100 supply it, and which cards repeat or double it. Ranked by how many cards feed it and how much it repeats, with the commander weighted highest.">Key Interactions</div>
       ${pkgs.packages.map(pk => ixDescribePackage(pk, cardNameLink)).join('')}
-      <div style="margin:2px 0 8px;"><button type="button" onclick="ixShowSuggestions()" style="background:none; border:1px solid var(--line-strong); color:var(--gold); border-radius:8px; padding:5px 12px; cursor:pointer; font-size:12px; text-transform:none; letter-spacing:normal;">Cards you could add ›</button>${thinNow.length ? '<div style="font-size:11.5px; color:var(--text-soft); margin-top:5px;">Thin spots: ' + thinNow.map(x => escapeHtml(x.label.toLowerCase()) + ' (' + x.have + ' of ' + x.floor + '+)').join(', ') + '</div>' : ''}</div>
+      <div style="margin:2px 0 8px;">      <button type="button" data-show-ix-suggestions style="background:none; border:1px solid var(--line-strong); color:var(--gold); border-radius:8px; padding:5px 12px; cursor:pointer; font-size:12px; text-transform:none; letter-spacing:normal;">Cards you could add ›</button>${thinNow.length ? '<div style="font-size:11.5px; color:var(--text-soft); margin-top:5px;">Thin spots: ' + thinNow.map(x => escapeHtml(x.label.toLowerCase()) + ' (' + x.have + ' of ' + x.floor + '+)').join(', ') + '</div>' : ''}</div>
       <div style="font-size:11.5px; color:var(--text-soft);">Pilot: these are the things to find. Opponent: these are what to be wary of or answer first. Builder: cards that feed or repeat them are worth keeping.</div>
     </div>` : '';
   const condHtml = (hasPk && pkgs.conditional && pkgs.conditional.length) ? `<div style="margin-bottom:14px;">
@@ -4500,7 +4507,7 @@ function renderSynergyProfile(agg, archetypeMatch, matchedCards, commanderNames)
       <div style="font-size:11.5px; color:var(--text-soft); margin-top:4px;">This reading found no link to the plan or commander and no everyday job such as ramp, draw or removal. That means the reading may be missing something, not that the card is weak; check each one before judging it.</div>
     </div>` : '';
   const moreWrap = (inner) => hasPk ? `<details style="margin-bottom:14px;"><summary style="cursor:pointer; color:var(--gold); font-size:12px;">More card links and engine cards</summary>${inner}</details>` : inner;
-  area.innerHTML = `
+  area.innerHTML = sanitizeHtml(`
     <div style="margin-bottom:12px;">
       <div style="font-family:'Cinzel',Georgia,serif; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold); margin-bottom:6px; cursor:help; border-bottom:1px dotted var(--text-soft); display:inline-block;" title="Cards that either ARE this type, or whose text is thematically about it — e.g. Artifacts Matter includes actual artifacts plus any card that cares about artifacts entering, being cast, etc. Broader than a strict type count on purpose.">Top Themes</div>
       <div>${themes || '<span style="color:var(--text-soft);">No strong theme concentration detected.</span>'}</div>
@@ -4531,7 +4538,7 @@ function renderSynergyProfile(agg, archetypeMatch, matchedCards, commanderNames)
       <summary style="cursor:pointer; color:var(--gold); font-weight:600;">How was this built?</summary>
       <div style="margin-top:8px;">Top Themes count cards that either <em>are</em> that type or whose text is thematically about it — e.g. "Artifacts Matter" includes actual artifacts plus any card that cares about artifacts entering, being cast, etc., so it can run higher than a strict type count elsewhere in the app; they're answering different questions on purpose. Every nonland card pair is checked for genuine interaction — one card producing a resource the other consumes, shared meaningful triggers, overlapping themes, or known synergy patterns (tokens feeding sacrifice outlets, etc.), plus a bonus when a card supports your commander's own signals. Pairs scoring high enough become an edge; "top cluster size" is the largest group of cards all connected to each other this way — a rough measure of how much of the deck is one interlocking machine versus a pile of separately-good cards. Known Synergy Pairs above come from a curated community-documented list, separate from that graph. The Engine Cards chips are color-coded by the strongest type of interaction that card participates in (see the legend beneath them) — this is a "most common reason," not the only one, since most engine cards connect to several others for several different reasons. <br><br><em>Tip: hover any underlined term above for a quick definition.</em></div>
     </details>
-  `;
+  `);
   panel.style.display = 'block';
 }
 
@@ -4547,9 +4554,9 @@ function renderCommanderTrackRecord(tierRecords, discrepancy) {
     </details>`;
 
   if (!tierRecords || tierRecords.length === 0) {
-    area.innerHTML = `<div style="font-size:13.5px; color:var(--text-soft); line-height:1.5;">
+    area.innerHTML = sanitizeHtml(`<div style="font-size:13.5px; color:var(--text-soft); line-height:1.5;">
       No empirical track record available for this commander — either it hasn't reached the 250-game / 10-pilot minimum sample yet, or it isn't one of the 1,284 commanders currently tracked.
-    </div>${aboutBlock}`;
+    </div>${aboutBlock}`);
     panel.style.display = 'block';
     return;
   }
@@ -4576,7 +4583,7 @@ function renderCommanderTrackRecord(tierRecords, discrepancy) {
       ${escapeHtml(discrepancy.detail)}
     </div>` : '';
 
-  area.innerHTML = cards + discrepancyHtml + aboutBlock;
+  area.innerHTML = sanitizeHtml(cards + discrepancyHtml + aboutBlock);
   panel.style.display = 'block';
 }
 
@@ -4679,7 +4686,7 @@ function renderCommanderCentrality(agg, matched, commanders, winCons, archetypeM
       `</div><div class="cc-bar-val">${i.count}${i.baseline > 0 ? ` <span style="opacity:.7">/ ${+i.baseline.toFixed(1)} typ.</span>` : ''}</div></div>`;
   }).join('');
 
-  area.innerHTML = `
+  area.innerHTML = sanitizeHtml(`
     <div class="cc-head"><span class="cc-band">${escapeHtml(r.band)}</span>${explainerBtn('commanderCentrality')}</div>
     <div class="cc-strip">${strip}</div>
     <div style="font-size:13px; color:var(--text-soft);">${escapeHtml(r.blurb)}</div>
@@ -4689,7 +4696,7 @@ function renderCommanderCentrality(agg, matched, commanders, winCons, archetypeM
     <div class="cc-legend">${legend}</div><button type="button" class="cc-keybtn" id="ccKeyBtn">Symbol key</button>
     <div class="cc-bars-title">Commander support vs. a typical ${r.baselineLabel ? escapeHtml(r.baselineLabel) + ' ' : ''}deck</div>
     ${bars}
-    <div style="font-size:11.5px; color:var(--text-dim); margin-top:2px;">White tick = typical ${r.baselineLabel ? escapeHtml(r.baselineLabel) + ' ' : ''}precon baseline deck${r.baselineLabel ? ` (from ${r.baselineN} decks)` : ''}. Gold bar = this deck runs more than that.</div>`;
+    <div style="font-size:11.5px; color:var(--text-dim); margin-top:2px;">White tick = typical ${r.baselineLabel ? escapeHtml(r.baselineLabel) + ' ' : ''}precon baseline deck${r.baselineLabel ? ` (from ${r.baselineN} decks)` : ''}. Gold bar = this deck runs more than that.</div>`);
   const kb = $('ccKeyBtn'); if (kb) kb.onclick = showCentralityKey;
   const grid = $('ccGrid'), cap = $('ccCaption');
   if (grid && cap) {
@@ -4745,7 +4752,7 @@ function renderKeyPieces(agg) {
     panel.style.display = 'none';
     return;
   }
-  area.innerHTML = `<div style="font-size:13.5px; line-height:1.55; color:var(--text-soft);">${sections.join('')}</div>`;
+  area.innerHTML = sanitizeHtml(`<div style="font-size:13.5px; line-height:1.55; color:var(--text-soft);">${sections.join('')}</div>`);
   panel.style.display = 'block';
 
   // Thumbnails are fetched and filled in separately, after this synchronous
@@ -4788,11 +4795,11 @@ async function enhanceKeyPiecesWithThumbnails(agg) {
   }).join('');
 
   const gcArea = $('gameChangerThumbs');
-  if (gcArea && gcNames.length) gcArea.innerHTML = thumbHtml(gcNames);
+  if (gcArea && gcNames.length) gcArea.innerHTML = sanitizeHtml(thumbHtml(gcNames));
 
   document.querySelectorAll('#keyPiecesArea .kp-thumbs').forEach(el => {
     let names = []; try { names = JSON.parse(el.getAttribute('data-names') || '[]'); } catch (e) {}
-    el.innerHTML = thumbHtml(names, 101);
+    el.innerHTML = sanitizeHtml(thumbHtml(names, 101));
   });
 }
 
@@ -4888,13 +4895,13 @@ function gameChangerChips(names) {
 // uncertainty entirely, same fix pattern as the earlier sync-transport work.
 function showConfirmModal(message, onConfirm) {
   const { modal } = openTadOverlay();
-  modal.innerHTML = `
+  modal.innerHTML = sanitizeHtml(`
     <p style="font-size:14px; color:var(--text-primary); line-height:1.6; margin:6px 0 20px;">${escapeHtml(message)}</p>
     <div class="row" style="justify-content:flex-end; gap:10px;">
       <button id="confirmModalCancelBtn" class="ghost">Cancel</button>
       <button id="confirmModalOkBtn" class="ghost" style="border-color:var(--danger); color:var(--danger);">Delete</button>
     </div>
-  `;
+  `);
   document.getElementById('confirmModalCancelBtn').addEventListener('click', closeTryADeckModal);
   document.getElementById('confirmModalOkBtn').addEventListener('click', () => {
     closeTryADeckModal();
@@ -4934,13 +4941,13 @@ function buildEndGatheringConfirmHtml(battleInProgress) {
 function showActionConfirmModal(message, confirmLabel, onConfirm, onCancel, cancelLabel) {
   const cancel = () => { closeTryADeckModal(); if (onCancel) onCancel(); };
   const { modal } = openTadOverlay({ onDismiss: cancel });
-  modal.innerHTML = `
+  modal.innerHTML = sanitizeHtml(`
     <p style="font-size:14px; color:var(--text-primary); line-height:1.6; margin:6px 0 20px;">${escapeHtml(message)}</p>
     <div class="row" style="justify-content:flex-end; gap:10px;">
       <button id="actionConfirmCancelBtn" class="ghost">${escapeHtml(cancelLabel || 'Cancel')}</button>
       <button id="actionConfirmOkBtn">${escapeHtml(confirmLabel)}</button>
     </div>
-  `;
+  `);
   document.getElementById('actionConfirmCancelBtn').addEventListener('click', cancel);
   document.getElementById('actionConfirmOkBtn').addEventListener('click', () => {
     closeTryADeckModal();
@@ -4981,7 +4988,7 @@ function renderAuthModal(modal, errorMsg) {
   let prefillEmail = typedEl ? typedEl.value : '', rememberedEmail = '', rememberedVia = '';
   try { const r = JSON.parse(localStorage.getItem('podmates_last_signin') || 'null'); if (r && typeof r.email === 'string') { rememberedEmail = r.email.slice(0, 200); rememberedVia = (r.providers || []).includes('google.com') && !(r.providers || []).includes('password') ? 'Google' : 'email and password'; } } catch (e) { /* ignore */ }
   if (!prefillEmail && !isSignup && rememberedEmail) prefillEmail = rememberedEmail;
-  modal.innerHTML = `
+  modal.innerHTML = sanitizeHtml(`
     <button class="tad-close" id="tadCloseBtn">Close ×</button>
     <h2 style="margin-bottom:4px;">${isSignup ? 'Create an Account' : 'Log In'}</h2>
     <p style="font-size:12.5px; color:var(--text-soft); margin:0 0 16px;">${isSignup
@@ -5013,7 +5020,7 @@ function renderAuthModal(modal, errorMsg) {
       ${isSignup ? 'Already have an account?' : 'New here?'}
       <a href="#" id="authToggleModeLink" style="color:var(--gold); text-decoration:none; font-weight:600;">${isSignup ? 'Log in' : 'Sign up'}</a>
     </p>
-  `;
+  `);
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
   document.getElementById('authToggleModeLink').addEventListener('click', (e) => {
     e.preventDefault();
@@ -5029,7 +5036,7 @@ function renderAuthModal(modal, errorMsg) {
     renderAuthModal(modal, result.ok ? null : result.error);
     if (result.ok) {
       const el = document.getElementById('authFormFields');
-      if (el) el.insertAdjacentHTML('afterbegin', `<div class="status" style="margin-bottom:10px;">If ${escapeHtml(email)} has a PodMates account, a reset link is on its way. It can take a few minutes, so check spam too. If nothing arrives, you probably signed up with a different address: try another one, or "Continue with Google". The link works once and lasts about an hour, and only the newest email counts, so open it straight away and don\u2019t ask for a second one. If it says "expired", copy the link from the email into a private window instead of clicking it.</div>`);
+      if (el) el.insertAdjacentHTML('afterbegin', sanitizeHtml(`<div class="status" style="margin-bottom:10px;">If ${escapeHtml(email)} has a PodMates account, a reset link is on its way. It can take a few minutes, so check spam too. If nothing arrives, you probably signed up with a different address: try another one, or "Continue with Google". The link works once and lasts about an hour, and only the newest email counts, so open it straight away and don\u2019t ask for a second one. If it says "expired", copy the link from the email into a private window instead of clicking it.</div>`));
     }
   });
   document.getElementById('authSubmitBtn').addEventListener('click', async () => {
@@ -5388,9 +5395,9 @@ async function psLoadIndex() {
     psState.index = null;
     if (asOf) asOf.textContent = '';
     const body = document.getElementById('psBody');
-    if (body) body.innerHTML = `<div class="ps-note">${e.status === 404
+    if (body) body.innerHTML = sanitizeHtml(`<div class="ps-note">${e.status === 404
       ? `PriceScry's data hasn't been published yet. In GitHub, open the Actions tab, choose <strong>PriceScry Daily Snapshot</strong> and press <strong>Run workflow</strong>. After it finishes, reopen this screen.`
-      : `Couldn't load the price data (${escapeHtml(e.message)}). Check your connection and try again.`}</div>`;
+      : `Couldn't load the price data (${escapeHtml(e.message)}). Check your connection and try again.`}</div>`);
     return false;
   }
 }
@@ -5420,13 +5427,13 @@ async function psOpenCard(name) {
   const body = document.getElementById('psBody'); if (!body) return;
   if (!psState.rec) { const ov = document.getElementById('pricescryOverlay'); psState.origin = { tab: psState.tab || 'search', top: ov ? ov.scrollTop : 0 }; }
   psSetTabHighlight(psState.origin ? psState.origin.tab : 'search');
-  body.innerHTML = `<div class="ps-note">Loading ${escapeHtml(name)}…</div>`;
+  body.innerHTML = sanitizeHtml(`<div class="ps-note">Loading ${escapeHtml(name)}…</div>`);
   const key = pricescryNameKey(name);
   try {
     const shard = await pricescryFetch(pricescryShardPath(key));
     const rec = shard.cards && shard.cards[key];
     if (!rec) {
-      body.innerHTML = `<button class="ghost" id="psBack">← Back</button><h2 class="ps-card-title">${escapeHtml(name)}</h2><div class="ps-note">No price data for this card yet. It may not have a paper price on Scryfall.</div>`;
+      body.innerHTML = sanitizeHtml(`<button class="ghost" id="psBack">← Back</button><h2 class="ps-card-title">${escapeHtml(name)}</h2><div class="ps-note">No price data for this card yet. It may not have a paper price on Scryfall.</div>`);
       document.getElementById('psBack').addEventListener('click', psBackToOrigin);
       return;
     }
@@ -5438,9 +5445,9 @@ async function psOpenCard(name) {
     psRenderCard();
   } catch (e) {
     // A missing shard file means no card in it has a price record yet: same as "no data", not an error.
-    body.innerHTML = e.status === 404
+    body.innerHTML = sanitizeHtml(e.status === 404
       ? `<button class="ghost" id="psBack">← Back</button><h2 class="ps-card-title">${escapeHtml(name)}</h2><div class="ps-note">No price data for this card yet. It may not have a paper price on Scryfall.</div>`
-      : `<button class="ghost" id="psBack">← Back</button><div class="ps-note">Couldn't load ${escapeHtml(name)} (${escapeHtml(e.message)}).</div>`;
+      : `<button class="ghost" id="psBack">← Back</button><div class="ps-note">Couldn't load ${escapeHtml(name)} (${escapeHtml(e.message)}).</div>`);
     document.getElementById('psBack').addEventListener('click', psBackToOrigin);
   }
 }
@@ -5542,11 +5549,11 @@ function psAttachChartInteraction(model, width) {
     const frac = Math.min(1, Math.max(0, (x - pad.l) / (width - pad.l - pad.r)));
     const day = startDay + Math.round(frac * (endDay - startDay));
     cur.setAttribute('x1', (pad.l + frac * (width - pad.l - pad.r)).toFixed(1)); cur.setAttribute('x2', cur.getAttribute('x1')); cur.style.display = '';
-    out.innerHTML = `<strong>${pricescryIsoFromDay(day)}</strong> · ` + lines.map(l => {
+    out.innerHTML = sanitizeHtml(`<strong>${pricescryIsoFromDay(day)}</strong> · ` + lines.map(l => {
       const raw = pricescryValueAt(l.series, day);
       const v = raw == null ? null : (l.native === 'JPY' ? raw : (haveFx ? pricescryYen(raw, l.pair, psState.fx, day) : raw / 100));
       return `<span style="color:${l.color}">${escapeHtml(l.label.split(' (')[0])} ${v == null ? '—' : (haveFx ? pricescryFmtYen(v) : '$' + v.toFixed(2))}</span>`;
-    }).join(' · ');
+    }).join(' · '));
   };
   svg.addEventListener('pointermove', (e) => move(e.clientX));
   svg.addEventListener('pointerdown', (e) => move(e.clientX));
@@ -5588,7 +5595,7 @@ function psRenderCard() {
   const legend = model.lines.map(l => `<span><i style="background:${l.color}"></i>${escapeHtml(l.label)}</span>`).join('');
   const pc7 = psPctChange(usSeries, endDay, 7), pc30 = psPctChange(usSeries, endDay, 30);
   const ageDays = model.lines.length ? endDay - model.startDay + 1 : 0;
-  body.innerHTML = `
+  body.innerHTML = sanitizeHtml(`
     <div style="display:flex; gap:8px; align-items:center;"><button class="ghost" id="psBack">← Back</button><span style="flex:1"></span><button class="ghost" id="psPaperBuy">Paper-buy this</button><button class="ghost" id="psRealBuy">I bought this</button></div>
     <h2 class="ps-card-title">${escapeHtml(rec.n)}</h2>
     <div class="ps-badges">${badges}</div>
@@ -5624,9 +5631,9 @@ function psRenderCard() {
       ${rec.er ? `<li>EDHREC popularity rank: <strong>#${Number(rec.er).toLocaleString()}</strong>${rec.ers && rec.ers.length > 1 && rec.ers[0][1] != null ? `, from #${Number(rec.ers[0][1]).toLocaleString()} on ${pricescryIsoFromDay(rec.ers[0][0])}` : ''}.</li>` : ''}
       ${(() => { const b = psSeriesFor(printing, psState.finish, 'ckBuy'), r = psSeriesFor(printing, psState.finish, 'ck'); const bn = b ? pricescryValueAt(b, endDay) : null, rn = r ? pricescryValueAt(r, endDay) : null; return bn && rn ? `<li>Card Kingdom (US) pays about <strong>${Math.round((bn / rn) * 100)}%</strong> of its own selling price when it buys, a floor for resale value and a gauge of demand.</li>` : ''; })()}
       <li>History for this card began ${escapeHtml(ix.firstDay)}. Older history isn't available from Scryfall.</li>
-    </ul>`;
+    </ul>`);
   document.getElementById('psBack').addEventListener('click', psBackToOrigin);
-  const planRefresh = () => { const o = document.getElementById('psPlOut'); if (o) o.innerHTML = psPlanOutputHtml(rec); };
+  const planRefresh = () => { const o = document.getElementById('psPlOut'); if (o) o.innerHTML = sanitizeHtml(psPlanOutputHtml(rec)); };
   ['psPlChance', 'psPlMult', 'psPlMiss', 'psPlRef', 'psPlNow', 'psPlBank'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('input', planRefresh); });
   const planBox = document.getElementById('psPlan'); if (planBox) planBox.addEventListener('toggle', planRefresh);
   planRefresh();
@@ -5691,7 +5698,7 @@ async function psRenderSignals() {
   psState.rec = null;
   body.innerHTML = `<div class="ps-note">Loading…</div>`;
   try { psState.signals = psState.signals || await pricescryFetch('signals.json.gz'); }
-  catch (e) { body.innerHTML = `<div class="ps-note">${e.status === 404 ? 'No signals recorded yet. They start appearing from the second daily run, once there is a yesterday to compare with.' : `Couldn't load the signals (${escapeHtml(e.message)}).`}</div>`; return; }
+  catch (e) { body.innerHTML = sanitizeHtml(`<div class="ps-note">${e.status === 404 ? 'No signals recorded yet. They start appearing from the second daily run, once there is a yesterday to compare with.' : `Couldn't load the signals (${escapeHtml(e.message)}).`}</div>`); return; }
   const kinds = PS_SIGNAL_GROUPS[psState.signalType];
   const cutoff = pricescryDayIdx(psState.index.day) - 30;
   const list = psState.signals.filter(e => e.day >= cutoff && (!kinds || kinds.includes(e.type))).sort((a, b) => b.day - a.day);
@@ -5705,8 +5712,8 @@ async function psRenderSignals() {
   try { psState.cheap = psState.cheap || await pricescryFetch('cheapwatch-report.json'); cheap = psCheapwatchHtml(psState.cheap); }
   catch (e) { cheap = `<div class="ps-board"><div class="ps-board-h">Cheap-pick watch</div><div class="ps-note">${e.status === 404 ? 'Not started yet. It appears after the next daily run that includes the cheap-pick watch step.' : 'Couldn\'t load the cheap-pick watch (' + escapeHtml(e.message) + ').'}</div></div>`; }
   const strip = psSpoilerStripHtml(psState.signals, pricescryDayIdx(psState.index.day));
-  body.innerHTML = strip + board + cheap + `<div class="ps-range">${chips}</div>` + (html || `<div class="ps-note">Nothing in the last 30 days for this filter.</div>`) +
-    `<div class="ps-note" style="margin-top:10px;">Recorded every day from Scryfall: new cards and reprints, bans and unbans, Game Changers list changes, and sharp rises in EDHREC popularity. Tap one to see the card's price history.</div>`;
+  body.innerHTML = sanitizeHtml(strip + board + cheap + `<div class="ps-range">${chips}</div>` + (html || `<div class="ps-note">Nothing in the last 30 days for this filter.</div>`) +
+    `<div class="ps-note" style="margin-top:10px;">Recorded every day from Scryfall: new cards and reprints, bans and unbans, Game Changers list changes, and sharp rises in EDHREC popularity. Tap one to see the card's price history.</div>`);
   body.querySelectorAll('img[data-ps-img]').forEach(img => img.addEventListener('error', () => {
     if (img.classList.contains('ps-sig-thumb')) { img.remove(); return; }
     const fb = document.createElement('div'); fb.className = 'ps-spoil-fallback'; fb.textContent = img.getAttribute('alt') || 'No picture yet'; img.replaceWith(fb);
@@ -5804,7 +5811,7 @@ async function sbMount(host, opts) {
     if (SB.mode === 'ps') await sbEnrichRarity(SB.cards);
     const mine = await sbCloud().loadSpoilerVotes(sbCloud().uid);
     SB.votes = new Map(mine.map(v => [v.key, v]));
-  } catch (e) { host.innerHTML = `<div class="sb-note">Couldn’t load the spoilers (${escapeHtml(e && e.message ? e.message : 'network')}). Try again in a moment.</div>`; return; }
+  } catch (e) { host.innerHTML = sanitizeHtml(`<div class="sb-note">Couldn’t load the spoilers (${escapeHtml(e && e.message ? e.message : 'network')}). Try again in a moment.</div>`); return; }
   SB.undo = []; SB.podBoard = null; SB.tab = 'swipe'; SB.loaded = true;
   sbRender();
 }
@@ -5814,7 +5821,7 @@ function sbRender() {
   const left = sbQueue().length;
   const tabs = [['swipe', `Swipe (${left})`], ['liked', `Bangers (${likes.length})`], ['binned', `Binned (${passes.length})`]];
   if (SB.mode === 'ps' ? currentPodViewId : SB.podId) tabs.push(['board', 'Pod board']);
-  host.innerHTML = `<div class="sb-tabs">${tabs.map(([k, l]) => `<button type="button" data-sb-tab="${k}" class="${SB.tab === k ? 'on' : ''}">${l}</button>`).join('')}</div><div id="sbBody"></div>`;
+  host.innerHTML = sanitizeHtml(`<div class="sb-tabs">${tabs.map(([k, l]) => `<button type="button" data-sb-tab="${k}" class="${SB.tab === k ? 'on' : ''}">${l}</button>`).join('')}</div><div id="sbBody"></div>`);
   host.querySelectorAll('[data-sb-tab]').forEach(b => b.addEventListener('click', () => { SB.tab = b.getAttribute('data-sb-tab'); sbRender(); }));
   const body = host.querySelector('#sbBody');
   if (SB.tab === 'swipe') sbRenderSwipe(body);
@@ -5840,19 +5847,19 @@ function sbWireRarityChips(body) {
 }
 function sbRenderSwipe(body) {
   const q = sbQueue();
-  if (!SB.cards.length) { body.innerHTML = `<div class="sb-note">No new spoilers in the last ${SB_WINDOW_DAYS} days.</div>`; return; }
+  if (!SB.cards.length) { body.innerHTML = sanitizeHtml(`<div class="sb-note">No new spoilers in the last ${SB_WINDOW_DAYS} days.</div>`); return; }
   const hidden = sbUnsorted().length - q.length;
   if (!q.length && hidden) {
-    body.innerHTML = sbRarityChips() + `<div class="sb-note" style="text-align:center;">${hidden} unsorted card${hidden === 1 ? ' is' : 's are'} hidden by your rarity filter. Turn a rarity back on to see ${hidden === 1 ? 'it' : 'them'}.</div>`;
+    body.innerHTML = sanitizeHtml(sbRarityChips() + `<div class="sb-note" style="text-align:center;">${hidden} unsorted card${hidden === 1 ? ' is' : 's are'} hidden by your rarity filter. Turn a rarity back on to see ${hidden === 1 ? 'it' : 'them'}.</div>`);
     sbWireRarityChips(body); return;
   }
   if (!q.length) {
-    body.innerHTML = `<div class="sb-note" style="text-align:center;">You’ve sorted every spoiler from the last ${SB_WINDOW_DAYS} days. New ones appear here as they are revealed.</div>${SB.undo.length ? `<div style="text-align:center;"><button type="button" class="ghost" id="sbUndo">Undo last</button></div>` : ''}`;
+    body.innerHTML = sanitizeHtml(`<div class="sb-note" style="text-align:center;">You’ve sorted every spoiler from the last ${SB_WINDOW_DAYS} days. New ones appear here as they are revealed.</div>${SB.undo.length ? `<div style="text-align:center;"><button type="button" class="ghost" id="sbUndo">Undo last</button></div>` : ''}`);
     const u = body.querySelector('#sbUndo'); if (u) u.addEventListener('click', sbDoUndo);
     return;
   }
   const c = q[0], next = q[1];
-  body.innerHTML = sbRarityChips() + `<div class="sb-stage">
+  body.innerHTML = sanitizeHtml(sbRarityChips() + `<div class="sb-stage">
       ${next ? `<div class="sb-card sb-under"><img alt="" src="${escapeHtml(next.img)}"></div>` : ''}
       <div class="sb-card" id="sbTop" tabindex="0" aria-label="${escapeHtml(c.n)}: swipe left to bang, right to bin">
         <img draggable="false" alt="${escapeHtml(c.n)}" src="${escapeHtml(c.img)}">
@@ -5862,7 +5869,7 @@ function sbRenderSwipe(body) {
     <div class="sb-name">${escapeHtml(c.n)}</div>
     <div class="sb-meta">${escapeHtml(c.setName)}${c.date ? ' · ' + escapeHtml(c.date) : ''}${c.via ? ' · via ' + escapeHtml(c.via) : ''}</div>
     <div class="sb-btns"><button type="button" class="sb-btn sb-b-like" id="sbLike" aria-label="Bang">💥 Bang</button><button type="button" class="ghost" id="sbUndo" ${SB.undo.length ? '' : 'disabled'}>Undo</button><button type="button" class="sb-btn sb-b-pass" id="sbPass" aria-label="Bin">✕ Bin</button></div>
-    <div class="sb-note" style="text-align:center; margin-top:6px;">Swipe left for a bang, right to bin. Arrow keys work too.</div>`;
+    <div class="sb-note" style="text-align:center; margin-top:6px;">Swipe left for a bang, right to bin. Arrow keys work too.</div>`);
   sbWireRarityChips(body);
   const top = body.querySelector('#sbTop');
   const img = top.querySelector('img'); img.addEventListener('error', () => { const fb = document.createElement('div'); fb.className = 'sb-fallback'; fb.textContent = c.n; img.replaceWith(fb); });
@@ -5904,14 +5911,14 @@ async function sbDoUndo() {
   await sbClearVote(key); SB.tab = 'swipe'; sbRender();
 }
 function sbRenderList(body, items, kind) {
-  if (!items.length) { body.innerHTML = `<div class="sb-note">${kind === 'like' ? 'No bangers yet. Swipe left on a spoiler that bangs.' : 'Nothing binned yet.'}</div>`; return; }
+  if (!items.length) { body.innerHTML = sanitizeHtml(`<div class="sb-note">${kind === 'like' ? 'No bangers yet. Swipe left on a spoiler that bangs.' : 'Nothing binned yet.'}</div>`); return; }
   items.sort((a, b) => (b.votedAt || 0) - (a.votedAt || 0));
-  body.innerHTML = `<div class="sb-grid">${items.map(v => {
+  body.innerHTML = sanitizeHtml(`<div class="sb-grid">${items.map(v => {
     const info = sbCardInfo(v.key); const thumb = info ? info.thumb : '';
     return `<div class="sb-tile"><${SB.onOpen ? 'button type="button" data-sb-open="' + escapeHtml(v.n) + '"' : 'div'} class="sb-tile-img">${thumb ? `<img loading="lazy" alt="${escapeHtml(v.n)}" src="${escapeHtml(thumb)}">` : `<div class="sb-fallback">${escapeHtml(v.n)}</div>`}</${SB.onOpen ? 'button' : 'div'}>
       <div class="sb-tile-name">${escapeHtml(v.n)}</div>
       <div class="sb-tile-btns"><button type="button" class="ghost" data-sb-move="${escapeHtml(v.key)}" data-sb-to="${kind === 'like' ? 'pass' : 'like'}">${kind === 'like' ? 'Move to Binned' : 'Move to Bangers'}</button><button type="button" class="ghost" data-sb-reset="${escapeHtml(v.key)}">Unsort</button></div></div>`;
-  }).join('')}</div>`;
+  }).join('')}</div>`);
   body.querySelectorAll('[data-sb-move]').forEach(b => b.addEventListener('click', async () => {
     const key = b.getAttribute('data-sb-move'), v = SB.votes.get(key); if (!v) return;
     await sbSetVote({ key, n: v.n, setName: v.setName }, b.getAttribute('data-sb-to')); sbRender();
@@ -5923,7 +5930,7 @@ async function sbRenderBoard(body) {
   const podId = SB.mode === 'ps' ? currentPodViewId : SB.podId;
   body.innerHTML = `<div class="sb-note">Gathering your pod’s votes…</div>`;
   try { if (!SB.podBoard) SB.podBoard = await sbCloud().loadPodSpoilerVotes(podId); }
-  catch (e) { body.innerHTML = `<div class="sb-note">Couldn’t load the pod’s votes (${escapeHtml(e && e.message ? e.message : 'network')}).</div>`; return; }
+  catch (e) { body.innerHTML = sanitizeHtml(`<div class="sb-note">Couldn’t load the pod’s votes (${escapeHtml(e && e.message ? e.message : 'network')}).</div>`); return; }
   const byCard = new Map();
   for (const m of SB.podBoard) for (const v of m.votes) {
     if (!byCard.has(v.key)) byCard.set(v.key, { key: v.key, n: v.n, likes: [], passes: [], last: 0 });
@@ -5931,15 +5938,15 @@ async function sbRenderBoard(body) {
   }
   const rows = [...byCard.values()].sort((a, b) => b.likes.length - a.likes.length || a.passes.length - b.passes.length || b.last - a.last);
   if (!rows.length) { body.innerHTML = `<div class="sb-note">Nobody in the pod has sorted a spoiler yet.</div>`; return; }
-  body.innerHTML = `<div class="sb-note" style="margin-bottom:6px;">Every card your pod has sorted. Most bangs first.</div>` + rows.map(r => {
+  body.innerHTML = sanitizeHtml(`<div class="sb-note" style="margin-bottom:6px;">Every card your pod has sorted. Most bangs first.</div>` + rows.map(r => {
     const info = sbCardInfo(r.key);
     return `<div class="sb-board-row">${info && info.thumb ? `<img loading="lazy" alt="" src="${escapeHtml(info.thumb)}">` : '<div class="sb-board-ph"></div>'}<div style="min-width:0;"><div class="sb-tile-name">${escapeHtml(r.n)}</div>
       ${r.likes.length ? `<div class="sb-who sb-who-like">💥 ${r.likes.map(escapeHtml).join(', ')}</div>` : ''}${r.passes.length ? `<div class="sb-who sb-who-pass">✕ ${r.passes.map(escapeHtml).join(', ')}</div>` : ''}</div></div>`;
-  }).join('');
+  }).join(''));
 }
 function openSpoilerBaitOverlay(pod) {
   const { modal } = openTadOverlay();
-  modal.innerHTML = `<button class="tad-close" id="tadCloseBtn">Close ×</button><h2 style="margin-bottom:2px;">Spoiler Bait</h2><p style="font-size:12.5px; color:var(--text-soft); margin:0 0 12px;">Swipe through the cards spoiled in the last ${SB_WINDOW_DAYS} days. Your pod can see what bangs and what you bin.</p><div id="sbHost"></div>`;
+  modal.innerHTML = sanitizeHtml(`<button class="tad-close" id="tadCloseBtn">Close ×</button><h2 style="margin-bottom:2px;">Spoiler Bait</h2><p style="font-size:12.5px; color:var(--text-soft); margin:0 0 12px;">Swipe through the cards spoiled in the last ${SB_WINDOW_DAYS} days. Your pod can see what bangs and what you bin.</p><div id="sbHost"></div>`);
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
   sbMount(document.getElementById('sbHost'), { mode: 'pod', podId: pod.id });
 }
@@ -6012,16 +6019,16 @@ async function psRenderRadar() {
   body.innerHTML = `<div class="ps-note">Loading…</div>`;
   let rd;
   try { rd = psState.radar = psState.radar || await pricescryFetch('radar.json'); }
-  catch (e) { body.innerHTML = `<div class="ps-note">${e.status === 404 ? 'The radar has not run yet. It appears after the next daily run that includes the radar step.' : 'Couldn\'t load the radar (' + escapeHtml(e.message) + ').'}</div>`; return; }
+  catch (e) { body.innerHTML = sanitizeHtml(`<div class="ps-note">${e.status === 404 ? 'The radar has not run yet. It appears after the next daily run that includes the radar step.' : 'Couldn\'t load the radar (' + escapeHtml(e.message) + ').'}</div>`); return; }
   const sets = (rd.sets || []).map(s => `<div class="ps-radar-set"><div><strong>${escapeHtml(s.name)}</strong> <small>${escapeHtml(String(s.code || '').toUpperCase())} · releases ${escapeHtml(s.releaseDate || '?')} · ${Number(s.cards || 0).toLocaleString()} cards listed so far</small></div>${(s.newest || []).length ? `<div class="ps-radar-new">${s.newest.map(c => `<button type="button" class="ps-link" data-ps-card="${escapeHtml(c.n)}">${escapeHtml(c.n)}</button>`).join(', ')}</div>` : '<div class="ps-note">No new previews in the last 7 days.</div>'}</div>`).join('');
   const found = (rd.found || []).map(f => `<div class="ps-radar-found"><div><strong>${escapeHtml(f.n)}</strong> <small>${escapeHtml(f.type || '')} · ${escapeHtml(f.day || '')}${f.url ? ` · <a href="${escapeHtml(f.url)}" target="_blank" rel="noopener noreferrer">source</a>` : ''}</small></div><div>${(f.picks || []).length ? 'Could lift: ' + f.picks.slice(0, 8).map(c => `<button type="button" class="ps-link" data-ps-card="${escapeHtml(c.n)}">${escapeHtml(c.n)}</button> <small>${escapeHtml(c.t || '')}${c.p0 ? ', ' + (c.p0 / 100).toLocaleString(undefined, { style: 'currency', currency: 'USD' }) : ''}</small>`).join(', ') : '<small>No linked cards worth $2 or more.</small>'}</div></div>`).join('');
   const posts = ((rd.reddit && rd.reddit.posts) || []).slice(0, 20).map(p => `<div class="ps-radar-post"><a href="${escapeHtml(p.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(p.title)}</a> <small>${p.kind === 'leak' ? '<span class="ps-badge ps-b-wait">leak</span> ' : ''}${escapeHtml(p.flair || '')} · ${psAgo(p.created)} · ${Number(p.score || 0).toLocaleString()} points</small></div>`).join('');
   const rs = rd.reddit || {}, rg = rd.reading || {};
-  body.innerHTML = `<div class="ps-board"><div class="ps-board-h">Spoiler radar <small>as of ${escapeHtml(rd.day || '')}</small></div>
+  body.innerHTML = sanitizeHtml(`<div class="ps-board"><div class="ps-board-h">Spoiler radar <small>as of ${escapeHtml(rd.day || '')}</small></div>
     <div class="ps-board-h2">Upcoming sets</div>${sets || '<div class="ps-note">No upcoming sets are listed on Scryfall right now.</div>'}
     <div class="ps-board-h2">Cards read from leaked pictures</div>${found || `<div class="ps-note">${escapeHtml(rg.note || 'None yet.')}</div>`}
     <div class="ps-board-h2">Chatter on Reddit</div>${posts || `<div class="ps-note">${escapeHtml(rs.note || 'Nothing to show.')}</div>`}
-    <div class="ps-note">Everything here is rumour until the card is on Scryfall. Cards from leaks are written into the prediction scoreboard too, so the tool learns whether leaks are worth acting on. Information only, not financial advice.</div></div>`;
+    <div class="ps-note">Everything here is rumour until the card is on Scryfall. Cards from leaks are written into the prediction scoreboard too, so the tool learns whether leaks are worth acting on. Information only, not financial advice.</div></div>`);
   body.querySelectorAll('[data-ps-card]').forEach(b => b.addEventListener('click', () => { psOpenCard(b.getAttribute('data-ps-card')); }));
 }
 
@@ -6108,7 +6115,7 @@ async function psRenderLedger() {
   const cloud = window.PodmatesCloud;
   if (!cloud || !cloud.user || cloud.user.isAnonymous) { body.innerHTML = `<div class="ps-note">Sign in to keep a trade ledger. It is saved to your account, so it follows you between devices.</div>`; return; }
   body.innerHTML = `<div class="ps-note">Loading…</div>`;
-  try { psLedger.lots = await cloud.loadTrades(); } catch (e) { body.innerHTML = `<div class="ps-note">Couldn't load your ledger (${escapeHtml(e.message)}).</div>`; return; }
+  try { psLedger.lots = await cloud.loadTrades(); } catch (e) { body.innerHTML = sanitizeHtml(`<div class="ps-note">Couldn't load your ledger (${escapeHtml(e.message)}).</div>`); return; }
   const shown = psLedger.lots.filter(l => psLedger.filter === 'all' || (psLedger.filter === 'paper') === !!l.paper);
   // current prices for the open positions, in parallel
   psLedger.marks = {}; psLedger.refs = {};
@@ -6141,11 +6148,11 @@ async function psRenderLedger() {
       <div class="ps-lotbtns"><button type="button" class="ghost" data-ps-edit="${escapeHtml(r.lot.id)}">Edit</button><button type="button" class="ghost" data-ps-lotdel="${escapeHtml(r.lot.id)}">Delete</button></div>
     </div>`).join('');
   const reasons = ['riser', 'spoiler', 'other', ''].map(tg => { const rs = st.rows.filter(r => r.m.closed && (r.lot.tag || '') === tg); if (!rs.length) return null; const w = rs.filter(r => r.m.realized > 0).length, tot = rs.reduce((a, r) => a + r.m.realized, 0); return `<div class="ps-lotline"><b>${escapeHtml(PS_TAGS[tg])}</b>: ${rs.length} closed, ${Math.round(w / rs.length * 100)}% won, ${psFmtYenSigned(tot)} in total, ${psFmtYenSigned(tot / rs.length)} per trade</div>`; }).filter(Boolean).join('');
-  body.innerHTML = `<div class="ps-range">${chips}<span style="flex:1"></span><button type="button" class="ghost" id="psExportTrades">Export</button><button type="button" id="psAddTrade">+ Add trade</button></div>` + summary +
+  body.innerHTML = sanitizeHtml(`<div class="ps-range">${chips}<span style="flex:1"></span><button type="button" class="ghost" id="psExportTrades">Export</button><button type="button" id="psAddTrade">+ Add trade</button></div>` + summary +
     (reasons ? `<div class="ps-sigday">By reason</div><div class="ps-lot">${reasons}</div>` : '') +
     `<div class="ps-sigday">Open positions</div>${openRows || '<div class="ps-note">None open. Add a real purchase, or a paper trade to test an idea with no money at risk.</div>'}` +
     `<div class="ps-sigday">Closed trades</div>${closedRows || '<div class="ps-note">None yet.</div>'}` +
-    `<div class="ps-note" style="margin-top:12px;">Profit is counted after Mercari's 10% fee, ¥230 shipping and ¥30 packing per sale (editable when you record a sale), plus any extra cost of buying. Open positions are valued at what they would net if sold today. Paper trades use pretend money.</div>`;
+    `<div class="ps-note" style="margin-top:12px;">Profit is counted after Mercari's 10% fee, ¥230 shipping and ¥30 packing per sale (editable when you record a sale), plus any extra cost of buying. Open positions are valued at what they would net if sold today. Paper trades use pretend money.</div>`);
   body.querySelectorAll('[data-ps-lf]').forEach(b => b.addEventListener('click', () => { psLedger.filter = b.getAttribute('data-ps-lf'); psRenderLedger(); }));
   document.getElementById('psAddTrade').addEventListener('click', () => psOpenTradeForm({}));
   document.getElementById('psExportTrades').addEventListener('click', () => psExportTrades(shown));
@@ -6255,7 +6262,7 @@ async function psOpenSellForm(lotId, editIdx) {
      <div class="row" style="justify-content:flex-end; gap:10px;"><button id="psSfCancel" class="ghost">Cancel</button><button id="psSfSave">Save sale</button></div>`);
   const $f = (id) => document.getElementById(id);
   const read = () => ({ qty: psToInt($f('psSfQty').value), yen: psToInt($f('psSfYen').value), feePct: Number($f('psSfFee').value), shipYen: psToInt($f('psSfShip').value), packYen: psToInt($f('psSfPack').value), date: $f('psSfDate').value.trim() });
-  const preview = () => { const s = read(); if (!(s.qty >= 1 && s.yen > 0 && s.feePct >= 0)) { $f('psSfPreview').textContent = ''; return; } const net = psSellNet(s), profit = net - s.qty * m.basisPer; $f('psSfPreview').innerHTML = `You would receive <b>¥${Math.round(net).toLocaleString()}</b> after fees and shipping: a profit of <b class="${profit >= 0 ? 'ps-up' : 'ps-down'}">${psFmtYenSigned(profit)}</b>.`; };
+  const preview = () => { const s = read(); if (!(s.qty >= 1 && s.yen > 0 && s.feePct >= 0)) { $f('psSfPreview').textContent = ''; return; } const net = psSellNet(s), profit = net - s.qty * m.basisPer; $f('psSfPreview').innerHTML = sanitizeHtml(`You would receive <b>¥${Math.round(net).toLocaleString()}</b> after fees and shipping: a profit of <b class="${profit >= 0 ? 'ps-up' : 'ps-down'}">${psFmtYenSigned(profit)}</b>.`); };
   ['psSfQty', 'psSfYen', 'psSfFee', 'psSfShip', 'psSfPack'].forEach(id => $f(id).addEventListener('input', preview)); preview();
   $f('psSfCancel').addEventListener('click', closeTryADeckModal);
   $f('psSfSave').addEventListener('click', async () => {
@@ -6346,7 +6353,7 @@ async function psRenderMovers() {
   psState.rec = null;
   body.innerHTML = `<div class="ps-note">Loading…</div>`;
   try { psState.movers = psState.movers || await pricescryFetch('movers.json'); }
-  catch (e) { body.innerHTML = `<div class="ps-note">Couldn't load the movers list (${escapeHtml(e.message)}).</div>`; return; }
+  catch (e) { body.innerHTML = sanitizeHtml(`<div class="ps-note">Couldn't load the movers list (${escapeHtml(e.message)}).</div>`); return; }
   const mv = psState.movers, w = mv.windows[psState.moverWindow] || { up: [], down: [], considered: 0 };
   const list = psState.moverDir === 'up' ? w.up : w.down;
   const day = pricescryDayIdx(mv.day), fx = psState.fx;
@@ -6354,11 +6361,11 @@ async function psRenderMovers() {
     const yen = fx ? pricescryYen(r.now, 'usdjpy', fx, day) : null;
     return `<button type="button" class="ps-mover" data-ps-card="${escapeHtml(r.n)}"><span class="ps-mover-name">${escapeHtml(r.n)}${r.shops ? `<small class="ps-shops">${r.shops} of ${r.of} shops agree</small>` : ''}</span><span>${fx ? pricescryFmtYen(yen) : '$' + (r.now / 100).toFixed(2)}</span><b class="${r.pct > 0 ? 'ps-up' : 'ps-down'}">${pricescryFmtPct(r.pct)}</b></button>`;
   }).join('');
-  body.innerHTML = `
+  body.innerHTML = sanitizeHtml(`
     <div class="ps-range"><button type="button" data-ps-mw="7" class="${psState.moverWindow === '7' ? 'on' : ''}">7 days</button><button type="button" data-ps-mw="30" class="${psState.moverWindow === '30' ? 'on' : ''}">30 days</button>
       <span style="width:12px"></span><button type="button" data-ps-md="up" class="${psState.moverDir === 'up' ? 'on' : ''}">Rising</button><button type="button" data-ps-md="down" class="${psState.moverDir === 'down' ? 'on' : ''}">Falling</button></div>
     ${rows || `<div class="ps-note">${w.considered === 0 ? `Not enough history for a ${psState.moverWindow}-day comparison yet. Collection began ${escapeHtml(psState.index.firstDay)}.` : 'Nothing moved in that direction.'}</div>`}
-    <div class="ps-note" style="margin-top:10px;">${mv.v >= 2 ? "The middle price across shops (TCGplayer, Cardmarket, Card Kingdom, Manapool) for each card's cheapest non-foil printing. A card is listed only when at least two shops show the move, so one shop's thin-stock spike cannot appear. Cards over $2 only." : "US-market price of each card's cheapest non-foil printing, cards over $2 only. Big moves on thin trading can be noise: open a card to see its chart before acting."} Open a card to see its chart before acting.</div>`;
+    <div class="ps-note" style="margin-top:10px;">${mv.v >= 2 ? "The middle price across shops (TCGplayer, Cardmarket, Card Kingdom, Manapool) for each card's cheapest non-foil printing. A card is listed only when at least two shops show the move, so one shop's thin-stock spike cannot appear. Cards over $2 only." : "US-market price of each card's cheapest non-foil printing, cards over $2 only. Big moves on thin trading can be noise: open a card to see its chart before acting."} Open a card to see its chart before acting.</div>`);
   body.querySelectorAll('[data-ps-mw]').forEach(b => b.addEventListener('click', () => { psState.moverWindow = b.getAttribute('data-ps-mw'); psRenderMovers(); }));
   body.querySelectorAll('[data-ps-md]').forEach(b => b.addEventListener('click', () => { psState.moverDir = b.getAttribute('data-ps-md'); psRenderMovers(); }));
   body.querySelectorAll('[data-ps-card]').forEach(b => b.addEventListener('click', () => { psOpenCard(b.getAttribute('data-ps-card')); }));
@@ -6392,13 +6399,13 @@ function renderDisplaySettings(container) {
   const sizeRow = window.PMText ? `<div style="font-size:12px; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-soft); margin:0 0 6px;">Text size</div>
     <div role="radiogroup" aria-label="Text size" style="display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:8px; margin-bottom:6px;">${window.PMText.sizes.map(z => `<button type="button" role="radio" aria-checked="${z.id === curSize}" class="pm-size-btn" data-size="${z.id}" style="min-height:44px; padding:6px 4px; border-radius:8px; cursor:pointer; text-transform:none; letter-spacing:normal; line-height:1.1; border:1px solid ${z.id === curSize ? 'var(--gold)' : 'var(--line-strong)'}; background:${z.id === curSize ? 'var(--bg-panel-raised)' : 'transparent'}; color:var(--text-primary);"><span style="font-size:${Math.round(13 * z.pct / 100)}px; display:block;">Aa</span><span style="font-size:10.5px; color:var(--text-soft);">${z.label}</span></button>`).join('')}</div>
     <p style="font-size:12px; color:var(--text-soft); margin:0 0 14px;">Makes everything bigger, like zooming in. Saved on this device only.</p>` : '';
-  container.innerHTML = sizeRow + `<p style="font-size:12px; color:var(--text-soft); margin:0 0 10px;">Pick a colour scheme for the whole app. It is saved on this device only. Now: <b style="color:var(--text-primary);">${escapeHtml(curT ? curT.name : 'Classic PodMates')}</b></p>` +
+  container.innerHTML = sanitizeHtml(sizeRow + `<p style="font-size:12px; color:var(--text-soft); margin:0 0 10px;">Pick a colour scheme for the whole app. It is saved on this device only. Now: <b style="color:var(--text-primary);">${escapeHtml(curT ? curT.name : 'Classic PodMates')}</b></p>` +
     groups.map(([k, label]) => {
       const list = window.PMTheme.themes.filter(t => t.kind === k);
       if (!list.length) return '';
       return `<div style="font-size:12px; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-soft); margin:12px 0 6px;">${label}</div>
         <div role="radiogroup" aria-label="${label}" style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px;">${list.map(t => pmThemeTileHtml(t, t.id === cur)).join('')}</div>`;
-    }).join('');
+    }).join(''));
   const choose = (el) => {
     const id = el && el.getAttribute('data-theme-id'); if (!id) return;
     window.PMTheme.apply(id);
@@ -6416,7 +6423,7 @@ function renderDisplaySettings(container) {
 function renderProfileModal(modal, myDecks, opts) {
   const isWelcome = !!(opts && opts.welcome);
   const currentName = (window.PodmatesCloud && window.PodmatesCloud.user) ? (window.PodmatesCloud.user.displayName || '') : '';
-  modal.innerHTML = `
+  modal.innerHTML = sanitizeHtml(`
     <button class="tad-close" id="tadCloseBtn">Close ×</button>
     <h2 style="margin-bottom:4px;">${isWelcome ? 'Welcome! Set up your profile' : 'My Profile'}</h2>
     <p style="font-size:12.5px; color:var(--text-soft); margin:0 0 16px;">
@@ -6474,7 +6481,7 @@ function renderProfileModal(modal, myDecks, opts) {
     <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--line);">
       <button id="profilePriceScryBtn" class="ghost" style="width:100%; font-size:12.5px;">View PriceScry</button>
     </div>`}
-  `;
+  `);
 
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
   const skipLink = document.getElementById('profileSkipLink');
@@ -6609,7 +6616,7 @@ function renderProfileSignInBox() {
   const providers = Array.isArray(u.providers) ? u.providers : [];
   const hasPassword = providers.includes('password'), hasGoogle = providers.includes('google.com'), hasYahoo = providers.includes('yahoo.com');
   const method = [hasPassword ? 'email and password' : '', hasGoogle ? 'Google' : '', hasYahoo ? 'Yahoo' : ''].filter(Boolean).join(' and ') || 'email';
-  box.innerHTML = `
+  box.innerHTML = sanitizeHtml(`
     <label style="font-size:12px; color:var(--text-soft); display:block; margin-bottom:6px;">Your sign-in details — keep a note of this email so you can always get back in</label>
     <div class="row" style="gap:8px; align-items:center; margin-bottom:6px;">
       <div style="flex:1; font-size:14px; color:var(--text-primary); word-break:break-all;"><strong id="profileSignInEmail">${escapeHtml(u.email)}</strong></div>
@@ -6617,7 +6624,7 @@ function renderProfileSignInBox() {
     </div>
     <div style="font-size:12.5px; color:var(--text-soft); margin-bottom:8px;">Signs in with: ${escapeHtml(method)}.${(hasGoogle || hasYahoo) && !hasPassword ? ` There is no PodMates password to forget: use "Continue with ${hasGoogle ? 'Google' : 'Yahoo'}" on the Log In window.` : ''}</div>
     ${hasPassword ? `<button id="profileResetPwBtn" class="ghost" style="font-size:12.5px;">Email me a password reset link</button>` : ''}
-    <div id="profileSignInStatus" style="font-size:12px; margin-top:6px; min-height:16px;"></div>`;
+    <div id="profileSignInStatus" style="font-size:12px; margin-top:6px; min-height:16px;"></div>`);
   const status = document.getElementById('profileSignInStatus');
   const copyBtn = document.getElementById('profileCopyEmailBtn');
   if (copyBtn) copyBtn.addEventListener('click', async () => {
@@ -6651,7 +6658,7 @@ async function renderProfileLinksSection(container) {
   // Only ever link to a real http(s) address -- see safeHttpUrl.
   const archidektHref = safeHttpUrl(archidektUrl);
   const moxfieldHref = safeHttpUrl(moxfieldUrl);
-  container.innerHTML = `
+  container.innerHTML = sanitizeHtml(`
     <div style="margin-bottom:8px;">
       <label style="font-size:11.5px; color:var(--text-soft); display:block; margin-bottom:4px;">Archidekt profile</label>
       <div class="row" style="gap:8px; align-items:center;">
@@ -6668,7 +6675,7 @@ async function renderProfileLinksSection(container) {
     </div>
     <button id="profileSaveLinksBtn" class="ghost" style="font-size:12.5px;">Save Links</button>
     <div id="profileLinksStatus" style="font-size:12px; margin-top:6px; min-height:16px;"></div>
-  `;
+  `);
   const saveBtn = document.getElementById('profileSaveLinksBtn');
   const statusEl = document.getElementById('profileLinksStatus');
   if (saveBtn) saveBtn.addEventListener('click', async () => {
@@ -6766,7 +6773,7 @@ function renderMyDecksList(modal, myDecks, isWelcome) {
     return;
   }
 
-  container.innerHTML = myDecks.map(d => {
+  container.innerHTML = sanitizeHtml(myDecks.map(d => {
     const sourceLabel = d.source === 'archidekt' ? 'Archidekt' : d.source === 'moxfield' ? 'Moxfield' : 'Saved';
     const subtitleBits = [sourceLabel];
     if (d.source === 'saved') { if (d.commander) subtitleBits.push(d.commander); if (d.player) subtitleBits.push(d.player); }
@@ -6787,7 +6794,7 @@ function renderMyDecksList(modal, myDecks, isWelcome) {
       </div>
     </div>
   `;
-  }).join('');
+  }).join(''));
 
   container.querySelectorAll('[data-action]').forEach(el => {
     const id = el.getAttribute('data-id');
@@ -6846,11 +6853,11 @@ function renderMyDecksList(modal, myDecks, isWelcome) {
 function openDeckSummaryPopup(deck) {
   // Stacked: replaces only a PREVIOUS summary popup, never whatever it was opened from.
   const { modal } = openTadOverlay({ stacked: true, id: 'tadDeckSummaryOverlay', modalStyle: 'max-width:420px' });
-  modal.innerHTML = `
+  modal.innerHTML = sanitizeHtml(`
     <button class="tad-close" id="tadDeckSummaryCloseBtn">Close ×</button>
     <h2 style="margin-bottom:4px; font-size:17px;">${escapeHtml(deck.name)}</h2>
     ${renderMyDeckSummary(deck)}
-  `;
+  `);
   const closePopup = () => window.pmUi.closeModal(document.getElementById('tadDeckSummaryOverlay'));
   document.getElementById('tadDeckSummaryCloseBtn').addEventListener('click', closePopup);
 
@@ -6970,9 +6977,9 @@ async function renderMyPodsLanding(container, pods) {
 
   const listEl = document.getElementById('myPodsList');
   if (pods.length) {
-    listEl.innerHTML = pods.map(p => `
+    listEl.innerHTML = sanitizeHtml(pods.map(p => `
       <button type="button" data-pod-id="${escapeHtml(p.id)}" class="ghost" style="width:100%; text-align:left; margin-bottom:8px; padding:12px 14px;">${escapeHtml(p.name)}</button>
-    `).join('');
+    `).join(''));
     listEl.querySelectorAll('[data-pod-id]').forEach(btn => {
       btn.addEventListener('click', () => {
         const pod = pods.find(p => p.id === btn.getAttribute('data-pod-id'));
@@ -7150,12 +7157,12 @@ function wireGatheringAddControls(root, availableMembers, onAdd) {
       const k = sel.getAttribute('data-add-seat');
       if (v === '__guest__') {
         const wrap = sel.closest('[data-add-wrap]');
-        wrap.innerHTML = `<div class="row" style="gap:6px;"><input type="text" data-gname maxlength="40" placeholder="Guest's name" style="flex:1; ${GATHERING_INPUT_CSS} padding:7px 9px;"><button type="button" data-gadd style="font-size:12px;">Add guest</button><button type="button" class="ghost" data-gcancel style="font-size:12px;">×</button></div>`;
+        wrap.innerHTML = sanitizeHtml(`<div class="row" style="gap:6px;"><input type="text" data-gname maxlength="40" placeholder="Guest's name" style="flex:1; ${GATHERING_INPUT_CSS} padding:7px 9px;"><button type="button" data-gadd style="font-size:12px;">Add guest</button><button type="button" class="ghost" data-gcancel style="font-size:12px;">×</button></div>`);
         const inp = wrap.querySelector('[data-gname]'); inp.focus();
         const go = async () => { const nm = inp.value.trim(); if (!nm) { inp.focus(); return; } await onAdd(k, gatheringNewGuestSeat(nm, k)); };
         wrap.querySelector('[data-gadd]').addEventListener('click', go);
         inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
-        wrap.querySelector('[data-gcancel]').addEventListener('click', () => { wrap.outerHTML = gatheringAddSelectHtml(k, availableMembers); wireGatheringAddControls(root, availableMembers, onAdd); });
+        wrap.querySelector('[data-gcancel]').addEventListener('click', () => { wrap.outerHTML = sanitizeHtml(gatheringAddSelectHtml(k, availableMembers)); wireGatheringAddControls(root, availableMembers, onAdd); });
         return;
       }
       const m = availableMembers.find(x => x.uid === v);
@@ -7188,7 +7195,7 @@ async function openHostGatheringOverlay(pod, members) {
   const { modal } = openTadOverlay();
   const lineupNames = Object.keys(savedLineups).sort();
   const lbl = 'font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold); display:block; margin-bottom:6px;';
-  modal.innerHTML = `
+  modal.innerHTML = sanitizeHtml(`
     <button class="tad-close" id="tadCloseBtn">Close ×</button>
     <h2 style="margin-bottom:10px;">Host a Gathering</h2>
     ${lineupNames.length ? `
@@ -7221,12 +7228,12 @@ async function openHostGatheringOverlay(pod, members) {
     <button id="goLiveBtn" class="ghost" style="width:100%; margin-top:8px;">Start now (everyone is already here)</button>
     <p style="font-size:11.5px; color:var(--text-soft); margin:8px 0 0;">Invites show up in each podmate's bell and on their My Pods page. Guests are not sent anything: you load their deck yourself.</p>
     <div id="hostGatheringStatus" style="font-size:12.5px; margin-top:8px;"></div>
-  `;
+  `);
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
 
   function renderSeats() {
     const area = document.getElementById('hostSeatsArea');
-    area.innerHTML = seatAssignments.map((a, i) => {
+    area.innerHTML = sanitizeHtml(seatAssignments.map((a, i) => {
       if (i === 0) {
         return `<div style="padding:9px 10px; border:1px solid var(--line); border-radius:3px; margin-bottom:6px; font-size:13px;">Seat 1 — <strong>${escapeHtml(myName)}</strong> (you)</div>`;
       }
@@ -7245,7 +7252,7 @@ async function openHostGatheringOverlay(pod, members) {
           <option value="__guest__">Seat ${i + 1} — + Add a guest (no account)…</option>
         </select>
       </div>`;
-    }).join('');
+    }).join(''));
     // Rebuilt on every change so a podmate picked into one seat drops out of every other seat's list.
     area.querySelectorAll('[data-seat-index]').forEach(sel => {
       sel.addEventListener('change', () => {
@@ -7379,7 +7386,7 @@ function showInvitesSent({ pod, gid, title, f, c, sent, myName }) {
   const when = gatheringWhenText(f);
   const rows = c.inviteeNames.map(n => `<div style="padding:7px 0; border-bottom:1px solid var(--line); font-size:13px;">${escapeHtml(n)} <span style="color:${sent ? 'var(--leaf)' : 'var(--danger)'}; font-size:12px;">— ${sent ? 'invited in PodMates' : 'invite not confirmed'}</span></div>`).join('')
     + c.guestNames.map(n => `<div style="padding:7px 0; border-bottom:1px solid var(--line); font-size:13px;">${escapeHtml(n)} <span style="color:var(--text-soft); font-size:12px;">— guest, no invite needed</span></div>`).join('');
-  modal.innerHTML = `
+  modal.innerHTML = sanitizeHtml(`
     <button class="tad-close" id="tadCloseBtn">Close ×</button>
     <h2 style="margin-bottom:4px;">${sent ? 'Invites sent' : 'Gathering created'}</h2>
     <p style="font-size:13px; margin:0 0 4px;"><strong>${escapeHtml(title)}</strong>${when ? ' · ' + escapeHtml(when) : ''}</p>
@@ -7390,7 +7397,7 @@ function showInvitesSent({ pod, gid, title, f, c, sent, myName }) {
     <p style="font-size:12px; color:var(--text-soft); margin:0 0 12px;">Invites appear in each podmate's bell and as a card on their My Pods page. Email and phone alerts are not built yet, so it is worth messaging them as well:</p>
     <button type="button" id="invCopyBtn" class="ghost" style="width:100%; margin-bottom:8px;">Copy an invite message</button>
     <button type="button" id="invOpenBtn" style="width:100%; margin-bottom:8px;">Open the waiting room</button>
-    <button type="button" id="invDoneBtn" class="ghost" style="width:100%;">Done</button>`;
+    <button type="button" id="invDoneBtn" class="ghost" style="width:100%;">Done</button>`);
   document.getElementById('tadCloseBtn').addEventListener('click', () => { closeTryADeckModal(); renderOurPodPanel(); });
   document.getElementById('invCopyBtn').addEventListener('click', () => gatheringCopyText(gatheringInviteMessage(title, f, myName), 'Invite message copied.'));
   document.getElementById('invOpenBtn').addEventListener('click', () => openLiveGatheringOverlay(pod.id, gid));
@@ -7475,14 +7482,14 @@ async function renderWaitingTray(content, podId, gatheringId, g) {
       <input id="wtPlace" type="text" maxlength="120" value="${escapeHtml(g.place || '')}" placeholder="Where?" style="width:100%; ${GATHERING_INPUT_CSS} margin-bottom:8px;">
       <button type="button" id="wtSaveBtn" style="width:100%;">Save changes</button></div>` : '';
 
-  content.innerHTML = `
+  content.innerHTML = sanitizeHtml(`
     <h2 style="margin-bottom:2px;">${escapeHtml(g.title || 'Gathering')}</h2>
     <p style="font-size:12px; color:var(--text-soft); margin:0 0 4px;">Waiting for replies — hosted by ${escapeHtml(hostName)}</p>
     ${when ? `<p style="font-size:13px; margin:0 0 4px;">${escapeHtml(when)}</p>` : ''}
     <p style="font-size:12.5px; margin:0 0 14px; color:var(--gold);">${acceptedN} of ${inPlay.length} confirmed${pending.length ? ` · ${pending.length} still to reply` : ''}</p>
     ${myBlock}
     <div id="gatheringSeatsArea">${seatsHtml}</div>
-    ${isHost ? hostBar : `<p style="text-align:center; font-size:12px; color:var(--text-soft); margin-top:10px;">${mine ? `Waiting for ${escapeHtml(hostName)} to start the gathering. You can pick your deck now.` : `Waiting for ${escapeHtml(hostName)} to start the gathering.`}</p>`}`;
+    ${isHost ? hostBar : `<p style="text-align:center; font-size:12px; color:var(--text-soft); margin-top:10px;">${mine ? `Waiting for ${escapeHtml(hostName)} to start the gathering. You can pick your deck now.` : `Waiting for ${escapeHtml(hostName)} to start the gathering.`}</p>`}`);
 
   const again = () => renderLiveGatheringTray(podId, gatheringId);
   const area = document.getElementById('gatheringSeatsArea');
@@ -7577,7 +7584,7 @@ function paintOpenGatherings(liveArea, all, myUid) {
       cards.push(`<button type="button" ${tag} class="ghost" style="width:100%; margin-bottom:10px; border-color:var(--leaf); text-align:left;">✓ You're in — ${title}<br><span style="font-size:12px; color:var(--text-soft);">${when ? escapeHtml(when) + ' · ' : ''}waiting for the host to start</span></button>`);
     }
   }
-  liveArea.innerHTML = cards.join('');
+  liveArea.innerHTML = sanitizeHtml(cards.join(''));
   liveArea.querySelectorAll('[data-open-gathering]').forEach(btn => btn.addEventListener('click', () => {
     const [podId, gid] = btn.getAttribute('data-open-gathering').split('|');
     openLiveGatheringOverlay(podId, gid);
@@ -7666,7 +7673,7 @@ async function renderLiveGatheringTray(podId, gatheringId, preloaded) {
     // The live listener hands over the data it already has; otherwise fetch it.
     gathering = (preloaded !== undefined) ? preloaded : await window.PodmatesCloud.loadGathering(podId, gatheringId);
   } catch (err) {
-    content.innerHTML = `<p style="color:var(--danger); font-size:13px;">Could not load this Gathering: ${escapeHtml(err.message)}</p>`;
+    content.innerHTML = sanitizeHtml(`<p style="color:var(--danger); font-size:13px;">Could not load this Gathering: ${escapeHtml(err.message)}</p>`);
     return;
   }
   if (!gathering) {
@@ -7739,7 +7746,7 @@ async function renderLiveGatheringTray(podId, gatheringId, preloaded) {
     } catch (e) { /* fine -- Add Player just won't have anyone to offer this refresh */ }
   }
 
-  content.innerHTML = `
+  content.innerHTML = sanitizeHtml(`
     <h2 style="margin-bottom:4px;">${escapeHtml(gathering.title)}</h2>
     <p style="font-size:11.5px; color:var(--text-soft); margin:0 0 16px;">Live Gathering — hosted by ${escapeHtml(hostName)}</p>
     ${isHost ? `<button id="endGatheringBtn" class="ghost" style="width:100%; margin-bottom:16px; border-color:var(--danger); color:var(--danger); font-size:12.5px;">End Gathering</button>` : ''}
@@ -7748,9 +7755,9 @@ async function renderLiveGatheringTray(podId, gatheringId, preloaded) {
       ? `<button id="chartBattleBtn" style="width:100%; margin-top:8px;">Chart the Battle</button>`
       : `<p style="text-align:center; font-size:12px; color:var(--text-soft); margin-top:10px;">Waiting for ${escapeHtml(hostName)} to chart the battle once everyone's picked a deck.</p>`}
     <button id="gatheringRefreshBtn" class="ghost" style="width:100%; margin-top:6px; font-size:12.5px;">Refresh</button>
-  `;
+  `);
   const seatsArea = document.getElementById('gatheringSeatsArea');
-  seatsArea.innerHTML = seatKeys.map(k => {
+  seatsArea.innerHTML = sanitizeHtml(seatKeys.map(k => {
     const seat = gathering.seats && gathering.seats[k];
     if (!seat || !seat.uid) {
       const addControl = isHost ? gatheringAddSelectHtml(k, availableMembers) : '';
@@ -7768,7 +7775,7 @@ async function renderLiveGatheringTray(podId, gatheringId, preloaded) {
         ${removeControl}
       </div>
     </div>`;
-  }).join('');
+  }).join(''));
   seatsArea.querySelectorAll('[data-gathering-seat]').forEach(btn => {
     btn.addEventListener('click', () => openGatheringSeatDeckPicker(podId, gatheringId, btn.getAttribute('data-gathering-seat'), gathering));
   });
@@ -7858,7 +7865,7 @@ async function renderLiveGatheringTray(podId, gatheringId, preloaded) {
   if (endBtn) endBtn.addEventListener('click', () => {
     // Decks in seats = a battle is under way that hasn't been logged yet.
     content.dataset.confirming = '1'; // keeps live updates from redrawing over this question
-    content.innerHTML = buildEndGatheringConfirmHtml(seatedList.some(seat => seat && seat.deck));
+    content.innerHTML = sanitizeHtml(buildEndGatheringConfirmHtml(seatedList.some(seat => seat && seat.deck)));
     document.getElementById('endGatheringCancelBtn').addEventListener('click', () => renderLiveGatheringTray(podId, gatheringId));
     document.getElementById('endGatheringConfirmBtn').addEventListener('click', async () => {
       try {
@@ -8009,7 +8016,7 @@ async function renderPodDetailView(container, pods) {
     </select>
   ` : '';
 
-  container.innerHTML = `
+  container.innerHTML = sanitizeHtml(`
     ${switcherHtml}
     <h2 style="margin-bottom:4px;">${escapeHtml(pod.name)}</h2>
     <p style="font-size:11.5px; color:var(--text-soft); margin:0 0 16px;">${members.length} member${members.length === 1 ? '' : 's'} · you're ${isLeader ? 'the Steward' : isCoLeader ? 'a Co-Steward' : 'a member'}</p>
@@ -8045,7 +8052,7 @@ async function renderPodDetailView(container, pods) {
     </details>` : ''}
 
     <p style="text-align:center; margin-top:18px;"><a href="#" id="podLeaveLink" style="font-size:12.5px; color:var(--danger); text-decoration:underline;">Leave this pod</a></p>
-  `;
+  `);
 
   const hostBtn = document.getElementById('hostGatheringBtn');
   if (hostBtn) hostBtn.addEventListener('click', () => openHostGatheringOverlay(pod, members));
@@ -8141,7 +8148,7 @@ function renderPodMembersList(outerContainer, pod, members, myUid, canManage, is
     ? `<div style="font-size:12.5px; color:var(--text-soft); padding:8px 10px; margin-bottom:8px; border:1px solid var(--gold); border-radius:3px; line-height:1.5;">Some members share a display name (${clashNames.map(escapeHtml).join(', ')}), so they are numbered here. Ask one of them to change theirs in their Profile.</div>`
     : '';
 
-  container.innerHTML = clashNote + members.map(m => `
+  container.innerHTML = sanitizeHtml(clashNote + members.map(m => `
     <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--line);">
       <div style="min-width:0;">
         <span style="font-size:13.5px; color:var(--text-primary);">${escapeHtml(m.displayLabel || m.displayName || 'Player')}</span>
@@ -8159,7 +8166,7 @@ function renderPodMembersList(outerContainer, pod, members, myUid, canManage, is
         ` : ''}
       </div>
     </div>
-  `).join('');
+  `).join(''));
 
   container.querySelectorAll('[data-view-profile]').forEach(btn => {
     const uid = btn.getAttribute('data-view-profile');
@@ -8226,7 +8233,7 @@ function updateAuthBar(user) {
 
 function showInfoModal(headerHtml, bodyHtml) {
   const { modal } = openTadOverlay({ modalStyle: 'max-width:460px' });
-  modal.innerHTML = `<button class="tad-close" id="tadCloseBtn">Close ×</button>` + headerHtml + bodyHtml;
+  modal.innerHTML = sanitizeHtml(`<button class="tad-close" id="tadCloseBtn">Close ×</button>` + headerHtml + bodyHtml);
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
 }
 
@@ -8341,9 +8348,9 @@ async function refreshPodView() {
   const v = computePodView(ch);
   if (!v) return;
   const std = { power: currentScores.powerLevel, spark: currentCommandSpark };
-  el.innerHTML = `<div class="chart-caption" style="border:1px dashed var(--line); border-radius:8px; padding:8px 10px; margin-top:8px;">` +
+  el.innerHTML = sanitizeHtml(`<div class="chart-caption" style="border:1px dashed var(--line); border-radius:8px; padding:8px 10px; margin-top:8px;">` +
     `<strong>Pod view · ${escapeHtml(pod.name || 'your pod')}</strong>: Power ${v.power.toFixed(1)} (standard ${std.power.toFixed(1)}) · Spark ${v.spark.toFixed(1)} (standard ${std.spark.toFixed(1)}). ` +
-    `Uses your pod's edited impact-card list (${n} change${n === 1 ? '' : 's'} from the default). The radar and every band above always use the standard list.</div>`;
+    `Uses your pod's edited impact-card list (${n} change${n === 1 ? '' : 's'} from the default). The radar and every band above always use the standard list.</div>`);
 }
 
 function impactReasonText(c) {
@@ -8464,7 +8471,7 @@ function renderImpactBody() {
       `<div style="font-size:11.5px; color:var(--text-dim); margin-top:4px;">Up to ${IMPACT_MAX_ADDS} added cards and ${IMPACT_MAX_CHANGES} changes in total. Every change is saved with your name and can be undone by ticking the card back.</div>` +
       (Object.keys(ch).length ? `<div style="margin-top:8px;"><button type="button" class="ghost" id="impactResetBtn" style="font-size:12px; padding:4px 10px;">Reset to the default list</button></div>` : '') + `</div>`;
   }
-  body.innerHTML = h;
+  body.innerHTML = sanitizeHtml(h);
 }
 
 async function impactWrite(fn, msgOk) {
@@ -8562,7 +8569,7 @@ function impactWireBody() {
       const q2 = e.target.value, el2 = document.getElementById('impactNomHits'); if (!el2) return;
       const hits2 = searchCardsByName(q2, 8).filter(c => !impactIsDefault(c.n) && !impactEffectiveList(impactState.changes).some(n => n.toLowerCase() === c.n.toLowerCase())).slice(0, 6);
       pmInjectSearchStyles();
-      pmKeepInputInPlace(e.target, () => { el2.innerHTML = hits2.length ? pmSearchRowsHtml(hits2, q2, 'data-impact-nominate', { prefix: '+ ', showType: false }) : (q2.trim().length >= 2 ? '<div class="pm-sr-note">No card found (or it is already on the list).</div>' : ''); });
+      pmKeepInputInPlace(e.target, () => { el2.innerHTML = sanitizeHtml(hits2.length ? pmSearchRowsHtml(hits2, q2, 'data-impact-nominate', { prefix: '+ ', showType: false }) : (q2.trim().length >= 2 ? '<div class="pm-sr-note">No card found (or it is already on the list).</div>' : '')); });
       return;
     }
     if (e.target.id !== 'impactSearch') return;
@@ -8572,7 +8579,7 @@ function impactWireBody() {
     const eff = new Set(impactEffectiveList(impactState.changes).map(n => n.toLowerCase()));
     const hits = searchCardsByName(q, 8).filter(c => !eff.has(c.n.toLowerCase()) && !impactIsDefault(c.n)).slice(0, 6);
     pmInjectSearchStyles();
-    pmKeepInputInPlace(e.target, () => { hitsEl.innerHTML = hits.length ? pmSearchRowsHtml(hits, q, 'data-impact-add', { prefix: '+ ', showType: false }) : (q.trim().length >= 2 ? '<div class="pm-sr-note">No card found (or it is already on the list).</div>' : ''); });
+    pmKeepInputInPlace(e.target, () => { hitsEl.innerHTML = sanitizeHtml(hits.length ? pmSearchRowsHtml(hits, q, 'data-impact-add', { prefix: '+ ', showType: false }) : (q.trim().length >= 2 ? '<div class="pm-sr-note">No card found (or it is already on the list).</div>' : '')); });
   });
 }
 
@@ -8656,11 +8663,11 @@ async function showSingleCardArtModal(name) {
   // keeps the (still slightly redundant, but now harmless) click cheap
   // to dismiss.
   const { modal } = openTadOverlay({ stacked: true, id: 'tadArtOverlay', modalStyle: 'max-width:340px' });
-  modal.innerHTML = `
+  modal.innerHTML = sanitizeHtml(`
     <button class="tad-close" id="tadArtCloseBtn">Close ×</button>
     <h2 style="margin-bottom:12px; font-size:16px;">${escapeHtml(name)}</h2>
     <div id="singleCardArtArea" style="text-align:center; color:var(--text-soft); font-size:13px;">Loading art…</div>
-  `;
+  `);
   const closeArt = () => window.pmUi.closeModal(document.getElementById('tadArtOverlay'));
   document.getElementById('tadArtCloseBtn').addEventListener('click', closeArt);
 
@@ -8668,7 +8675,7 @@ async function showSingleCardArtModal(name) {
   const artArea = document.getElementById('singleCardArtArea');
   if (!artArea) return; // popup was already closed before the fetch resolved
   if (!url) { artArea.textContent = 'Could not find art for this card.'; return; }
-  artArea.innerHTML = `<img src="${escapeHtml(url)}" alt="${escapeHtml(name)}" style="max-width:100%; border:2px solid var(--line-strong); border-radius:0;">` + flipBtnHtml(cardOtherFaceCache.get(name + '|normal'), true);
+  artArea.innerHTML = sanitizeHtml(`<img src="${escapeHtml(url)}" alt="${escapeHtml(name)}" style="max-width:100%; border:2px solid var(--line-strong); border-radius:0;">` + flipBtnHtml(cardOtherFaceCache.get(name + '|normal'), true));
 }
 
 function buildSparkExplainerHtml() {
@@ -8740,6 +8747,8 @@ function showExplainer(key) {
 
 // Delegated click handling for all [data-explain] elements (buttons + SVG axis labels)
 document.addEventListener('click', (e) => {
+  if (e.target.closest && e.target.closest('[data-go-key-pieces]')) { goToKeyPieces(); return; }
+  if (e.target.closest && e.target.closest('[data-show-ix-suggestions]')) { ixShowSuggestions(); return; }
   const target = e.target && e.target.closest ? e.target.closest('[data-explain]') : null;
   if (target) {
     showExplainer(target.getAttribute('data-explain'));
@@ -8749,7 +8758,7 @@ document.addEventListener('click', (e) => {
   if (flipTarget) {
     let host = flipTarget.parentElement, img = null;
     while (host && !(img = host.querySelector('img'))) host = host.parentElement;
-    if (img) { const cur = img.getAttribute('src'); img.setAttribute('src', flipTarget.dataset.alt); flipTarget.dataset.alt = cur; }
+    if (img) { const cur = img.getAttribute('src'); img.setAttribute('src', safeHttpUrl(flipTarget.dataset.alt)); flipTarget.dataset.alt = cur; }
     return;
   }
   const gcTarget = e.target && e.target.closest ? e.target.closest('[data-gc-card]') : null;
@@ -9024,13 +9033,13 @@ function renderTryADeckModal() {
   }
 
   modal.innerHTML =
-    `<button class="tad-close" id="tadCloseBtn">Close ×</button>` +
+    sanitizeHtml(`<button class="tad-close" id="tadCloseBtn">Close ×</button>` +
     `<h2>Try a Deck</h2>` +
     (crumb
       ? `<div class="tad-breadcrumb"><button class="tad-back" id="tadBackBtn">‹ Back</button><span class="tad-crumb">${crumb}</span></div>`
       : `<p class="tad-sub">Pick a curated example to see how the app reads different archetypes, or browse real precon decklists by release.</p>`
     ) +
-    bodyHtml;
+    bodyHtml);
 
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
   const backBtn = document.getElementById('tadBackBtn');
@@ -9205,7 +9214,7 @@ let scanCardsResults = []; // { card, checked } -- confirmed matches only; see p
 function showScanCardsModal() {
   scanCardsResults = [];
   const { modal } = openTadOverlay({ onDismiss: () => openDeckBuilderOverlay() });
-  modal.innerHTML = `
+  modal.innerHTML = sanitizeHtml(`
     <button class="tad-close" id="tadCloseBtn">Close ×</button>
     <h2 style="margin-bottom:10px;">Scan Cards from Photo</h2>
     <p style="font-size:12px; color:var(--text-soft); margin:-4px 0 10px;">Cards you tick are added to your Deck Crafter list.</p>
@@ -9230,7 +9239,7 @@ function showScanCardsModal() {
     <div id="scanCardsActionRow" style="margin-top:14px; display:none;">
       <button id="scanCardsAddToDeckBtn">Add Checked Cards to Deck Crafter</button>
     </div>
-  `;
+  `);
   document.getElementById('tadCloseBtn').addEventListener('click', openDeckBuilderOverlay);
   document.getElementById('scanCardsAddPhotoBtn').addEventListener('click', () => {
     $('scanCardsFileInput').click();
@@ -9351,10 +9360,10 @@ function renderScanCardsResults() {
     if (actionRow) actionRow.style.display = 'none';
     return;
   }
-  area.innerHTML = scanCardsResults.map((r, i) => `<div style="display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--line);">
+  area.innerHTML = sanitizeHtml(scanCardsResults.map((r, i) => `<div style="display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--line);">
       <input type="checkbox" data-scan-result-index="${i}" ${r.checked ? 'checked' : ''} style="cursor:pointer;">
       <span style="flex:1; font-size:13px;">${cardNameLink(r.card.n)}</span>
-    </div>`).join('');
+    </div>`).join(''));
   if (actionRow) actionRow.style.display = 'block';
   area.querySelectorAll('[data-scan-result-index]').forEach(cb => {
     cb.addEventListener('change', () => {
@@ -9419,7 +9428,7 @@ function showExportDeckModal() {
   }
   const text = buildArchidektMoxfieldExportText();
   const { modal } = openTadOverlay();
-  modal.innerHTML = `
+  modal.innerHTML = sanitizeHtml(`
     <button class="tad-close" id="tadCloseBtn">Close ×</button>
     <h2 style="margin-bottom:8px;">Export for Archidekt/Moxfield</h2>
     <p style="font-size:12.5px; color:var(--text-soft); margin:0 0 12px;">Copy this and paste it straight into either site's text/bulk importer -- both read this same "Commander" + "Deck" section format.</p>
@@ -9428,7 +9437,7 @@ function showExportDeckModal() {
       <button id="exportCopyBtn">Copy to Clipboard</button>
     </div>
     <div id="exportCopyStatus" style="font-size:12.5px; margin-top:6px;"></div>
-  `;
+  `);
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
   document.getElementById('exportCopyBtn').addEventListener('click', async () => {
     const statusEl = document.getElementById('exportCopyStatus');
@@ -9690,7 +9699,7 @@ function renderBattleControls() {
     return;
   }
   if (!currentBattleContext.isHost) {
-    area.innerHTML = `<p style="text-align:center; font-size:12px; color:var(--text-soft); margin:0;">Waiting for ${escapeHtml(currentBattleContext.hostName || 'the host')} to log this battle.</p>`;
+    area.innerHTML = sanitizeHtml(`<p style="text-align:center; font-size:12px; color:var(--text-soft); margin:0;">Waiting for ${escapeHtml(currentBattleContext.hostName || 'the host')} to log this battle.</p>`);
     return;
   }
   area.innerHTML = `<button id="logBattleBtn" class="ghost" style="width:100%; margin-bottom:14px; border-color:var(--gold); color:var(--gold);">Log Battle</button>`;
@@ -9811,7 +9820,7 @@ function showFeedbackSurvey(podId, chronicleId) {
 
   function renderRating(rowId, current, onPick) {
     const row = document.getElementById(rowId);
-    row.innerHTML = [1, 2, 3, 4, 5].map(n => `<button type="button" data-rate="${n}" class="ghost" style="flex:1; padding:8px 0; ${n === current ? 'border-color:var(--gold); color:var(--gold);' : ''}">${n}</button>`).join('');
+    row.innerHTML = sanitizeHtml([1, 2, 3, 4, 5].map(n => `<button type="button" data-rate="${n}" class="ghost" style="flex:1; padding:8px 0; ${n === current ? 'border-color:var(--gold); color:var(--gold);' : ''}">${n}</button>`).join(''));
     row.querySelectorAll('[data-rate]').forEach(b => b.addEventListener('click', () => onPick(parseInt(b.getAttribute('data-rate'), 10))));
   }
   function setFun(n) { fun = n; renderRating('funRatingRow', fun, setFun); }
@@ -10258,7 +10267,7 @@ async function renderPlayerProfileContent(container, uid, displayName, podId) {
     if (hidden) chartedNote = ` (${hidden} secret)`;
   }
   if (!analyzed.length) {
-    container.innerHTML = `<h2 style="margin-bottom:8px;">${escapeHtml(displayName)}</h2><p style="font-size:13px; color:var(--text-soft);">No saved decks yet to build a profile from.</p>`;
+    container.innerHTML = sanitizeHtml(`<h2 style="margin-bottom:8px;">${escapeHtml(displayName)}</h2><p style="font-size:13px; color:var(--text-soft);">No saved decks yet to build a profile from.</p>`);
     return;
   }
 
@@ -10293,7 +10302,7 @@ async function renderPlayerProfileContent(container, uid, displayName, podId) {
     <td style="padding:6px 8px; border-bottom:1px solid var(--line); font-size:13px;">${cardNameLink(a.commander)}</td>
   </tr>`).join('');
 
-  container.innerHTML = `
+  container.innerHTML = sanitizeHtml(`
     <div style="text-align:center; margin-bottom:14px;">
       ${artUrl ? `<img src="${escapeHtml(artUrl)}" alt="${escapeHtml(headerCommander)}" style="max-width:100%; max-height:260px; border:2px solid var(--line-strong); margin-bottom:8px;">` : ''}
       <div style="font-family:'Cinzel',Georgia,serif; font-size:16px;">${escapeHtml(displayName)}</div>
@@ -10320,7 +10329,7 @@ async function renderPlayerProfileContent(container, uid, displayName, podId) {
       <summary style="cursor:pointer; font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:var(--gold);">Show archetypes <span style="color:var(--text-soft); text-transform:none; letter-spacing:0;">(${archetypeTable.length})</span></summary>
       <table style="width:100%; border-collapse:collapse; margin-top:8px;"><tbody>${archetypeRows}</tbody></table>
     </details>
-  `;
+  `);
 }
 
 function openPlayerProfileOverlay(uid, displayName, podId) {
@@ -10492,7 +10501,7 @@ async function renderPodProfileContent(container, pod) {
   const rawDecks = await getPodRawDecksForProfile(pod.id);
   const analyzed = analyzeDecksForProfile(rawDecks);
   if (!analyzed.length) {
-    container.innerHTML = `<h2 style="margin-bottom:8px;">${escapeHtml(pod.name)}</h2><p style="font-size:13px; color:var(--text-soft);">No saved decks across this pod yet to build a profile from.</p>`;
+    container.innerHTML = sanitizeHtml(`<h2 style="margin-bottom:8px;">${escapeHtml(pod.name)}</h2><p style="font-size:13px; color:var(--text-soft);">No saved decks across this pod yet to build a profile from.</p>`);
     return;
   }
 
@@ -10520,7 +10529,7 @@ async function renderPodProfileContent(container, pod) {
   const bracketDistribution = computeProfileBracketDistribution(analyzed);
   const { colorMap, owners } = assignPlayerColors(analyzed);
 
-  container.innerHTML = `
+  container.innerHTML = sanitizeHtml(`
     <div style="text-align:center; margin-bottom:14px;">
       <div style="font-family:'Cinzel',Georgia,serif; font-size:17px;">${escapeHtml(pod.name)}</div>
       <div style="font-size:12px; color:var(--text-soft); margin-top:2px;"><strong style="color:var(--gold); font-size:14px;">${rawDecks.length}</strong> deck${rawDecks.length === 1 ? '' : 's'} charted across the pod</div>
@@ -10552,7 +10561,7 @@ async function renderPodProfileContent(container, pod) {
       ${renderPodPaceScatterSVG(analyzed, colorMap)}
       <p style="text-align:center; font-size:11.5px; color:var(--text-soft); margin-top:8px;">Click a dot to load that deck into Chart Deck.</p>
     </div>
-  `;
+  `);
   wirePodPaceScatterClicks(container, analyzed, pod);
 }
 
@@ -10590,7 +10599,7 @@ function renderPodSummary(decks, avgSpark, std, spread) {
   // by name is what makes a blurb worth reading aloud at the table,
   // rather than a generic "this deck is strong" that nobody reacts to.
   const perDeckHtml = decks.map(d => `<div style="margin-bottom:6px; font-size:13px; line-height:1.5;">${generateRuleZeroBlurb(d)}</div>`).join('');
-  el.innerHTML = `<div class="pod-summary-label">Rule Zero Overview</div><div class="pod-summary-text" style="margin-bottom:10px;">${summary}</div>${perDeckHtml}`;
+  el.innerHTML = sanitizeHtml(`<div class="pod-summary-label">Rule Zero Overview</div><div class="pod-summary-text" style="margin-bottom:10px;">${summary}</div>${perDeckHtml}`);
   el.style.display = 'block';
 }
 
@@ -10670,7 +10679,7 @@ function renderPodBalance(label, detail, avg, std, spread, outliers, n, decks) {
     html += `</div>`;
   }
 
-  $('podBalanceArea').innerHTML = html;
+  $('podBalanceArea').innerHTML = sanitizeHtml(html);
 }
 
 function renderPodRank(decks, avgSpark) {
@@ -10705,7 +10714,7 @@ function renderPodRank(decks, avgSpark) {
     </tr>`;
   }).join('');
 
-  $('podRankArea').innerHTML = `
+  $('podRankArea').innerHTML = sanitizeHtml(`
     <table style="width:100%; border-collapse:collapse; font-size:14px;">
       <thead>
         <tr style="font-family:'Cinzel',Georgia,serif; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold);">
@@ -10722,7 +10731,7 @@ function renderPodRank(decks, avgSpark) {
       <tbody>${rows}</tbody>
     </table>
     <p style="font-size:12.5px; color:var(--text-soft); margin-top:10px; font-style:italic;">Spark is a weighted average of all five axes — Power Level and Disruption count for more, since they're what most directly predicts whether a deck will dominate a table. Cmdr Tier is real win-rate data from Playgroup.gg (S=35%+, A=30-35%, B=23-30%, C=18-23%, D=below 18%), shown only when the commander has enough tracked games — a different kind of evidence than everything else in this table. Tap a deck's name for the full breakdown behind these numbers.</p>
-  `;
+  `);
 }
 
 async function showPodDeckDetail(idx) {
@@ -10807,7 +10816,7 @@ function renderPodAxis(decks, avgSpark) {
   });
   html += `</tbody></table></div>
     <p style="font-size:12.5px; color:var(--text-soft); margin-top:10px;">Values notably above average are highlighted. Use this to see *why* one deck sits higher (e.g. much more disruption or speed).</p>`;
-  $('podAxisArea').innerHTML = html;
+  $('podAxisArea').innerHTML = sanitizeHtml(html);
 }
 
 function analyzePaceInteractionRisks(decks) {
@@ -10889,11 +10898,11 @@ function renderPaceRadar(decks) {
       ).join('') + `</div>`
     : `<div style="margin-top:14px; font-size:13px; color:var(--text-soft);">No major pace/interaction mismatches detected — this pod's decks share a broadly similar rhythm.</div>`;
 
-  area.innerHTML = svg + risksHtml +
+  area.innerHTML = sanitizeHtml(svg + risksHtml +
     `<details style="font-size:12px; color:var(--text-soft); margin-top:12px; padding-top:10px; border-top:1px dashed var(--line);">
       <summary style="cursor:pointer; color:var(--gold); font-weight:600;">How did we build this?</summary>
       <div style="margin-top:8px;">Spark parity doesn't guarantee a close game — two decks can share a Spark score while having a completely different relationship to time. Pace blends Speed with how SUDDENLY a deck's win condition resolves once it's online (an infinite combo can end the game in one turn with no warning; a mill or slow-drain plan telegraphs over many turns) — it's a different question from Speed alone, which only measures how fast a deck gets its engine running. Interaction reuses the Disruption score directly. The callouts above flag three specific shapes of mismatch: one deck ending the game suddenly while others are still developing, two or more decks both running heavy interaction (a long, low-agency night for whoever's caught between them), and a specific low-interaction deck sharing a table with another deck's heavy disruption with no way to respond.</div>
-    </details>`;
+    </details>`);
 }
 
 function renderPodMiniCharts(decks) {
@@ -10949,7 +10958,7 @@ function renderPodMiniCharts(decks) {
 
     const card = document.createElement('div');
     card.style.cssText = 'background:var(--bg-panel-raised); border:1px solid var(--line); border-radius:4px; padding:12px; text-align:center;';
-    card.innerHTML = `
+    card.innerHTML = sanitizeHtml(`
       <div style="font-family:'Cinzel',Georgia,serif; font-size:14px; margin-bottom:2px;">
         <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${d.color}; margin-right:6px;"></span>
         ${escapeHtml(d.name)}
@@ -10957,7 +10966,7 @@ function renderPodMiniCharts(decks) {
       <div style="font-size:20px; font-weight:700; color:var(--gold); margin-bottom:6px;">${d.commandSpark.toFixed(1)}</div>
       <div style="font-size:12px; color:var(--text-soft); margin-bottom:8px;">${escapeHtml(d.style)} · ${escapeHtml(d.bracket.bracket)}</div>
       ${svg}
-    `;
+    `);
     area.appendChild(card);
   });
 }
@@ -11446,7 +11455,7 @@ function openDeckBuilderOverlay(opts) {
   const draftNotice = restoredDraft
     ? `<p id="dbDraftNotice" style="font-size:12px; color:var(--text-soft); font-style:italic; margin:0 0 10px;">Picked up where you left off. <button type="button" id="dbStartNewBtn" class="ghost" style="padding:2px 8px; font-size:11px; margin-left:4px;">Start New Deck</button>${currentDeck ? ` <button type="button" id="dbLoadCurrentBtn" class="ghost" style="padding:2px 8px; font-size:11px; margin-left:4px;">Load ${escapeHtml(currentDeck.commander || 'current decklist')} instead</button>` : ''}</p>`
     : (currentDeck ? `<p style="font-size:12px; color:var(--text-soft); font-style:italic; margin:0 0 10px;">Editing ${escapeHtml(currentDeck.commander || 'the current decklist')} from Deck Chart.</p>` : '');
-  modal.innerHTML = `
+  modal.innerHTML = sanitizeHtml(`
     <button class="tad-close" id="tadCloseBtn">Close ×</button>
     <h2 style="margin-bottom:4px;">Deck Crafter</h2>
     <p class="tad-sub">Search for cards to add them. Set a commander first and search will only show cards that fit its colors (you can switch that off).</p>
@@ -11477,7 +11486,7 @@ function openDeckBuilderOverlay(opts) {
       <button id="dbSaveBtn" class="ghost" style="flex:1;">Save Deck</button>
       <button id="dbChartBtn" style="flex:1;">Chart This Deck</button>
     </div>
-  `;
+  `);
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
   const loadCurrentBtn = document.getElementById('dbLoadCurrentBtn');
   if (loadCurrentBtn) loadCurrentBtn.addEventListener('click', () => {
@@ -11649,8 +11658,8 @@ function renderDeckBuilderCommander() {
     || (cards.some(c => /choose a background/i.test(txt(c))) && cards.some(c => /\bbackground\b/i.test(typ(c))))
     || (cards.some(c => /doctor's companion/i.test(txt(c))) && cards.some(c => /\bdoctor\b/i.test(typ(c))));
   if (names.length === 2 && !pairOk) note = `<div style="font-size:11.5px; color:var(--danger); margin-top:4px;">That pair isn\u2019t a legal commander pairing (both need Partner, both need Friends forever, a Background goes with Choose a Background, or a Doctor with Doctor\u2019s companion).</div>`;
-  el.innerHTML = names.map((n, i) => `<div style="margin-bottom:3px;"><span style="font-size:13.5px; color:var(--gold);">${escapeHtml(n)}</span> <button type="button" class="ghost" data-dbcmd-rm="${i}" style="padding:2px 8px; font-size:11px; margin-left:6px;">${names.length > 1 ? 'Remove' : 'Change'}</button></div>`).join('')
-    + (canPair ? `<button type="button" class="ghost" id="dbAddPartnerBtn" style="padding:3px 10px; font-size:12px; margin-top:4px;">${dbAddingPartner ? 'Cancel second commander' : '+ Add a partner or Background'}</button>` : '') + note;
+  el.innerHTML = sanitizeHtml(names.map((n, i) => `<div style="margin-bottom:3px;"><span style="font-size:13.5px; color:var(--gold);">${escapeHtml(n)}</span> <button type="button" class="ghost" data-dbcmd-rm="${i}" style="padding:2px 8px; font-size:11px; margin-left:6px;">${names.length > 1 ? 'Remove' : 'Change'}</button></div>`).join('')
+    + (canPair ? `<button type="button" class="ghost" id="dbAddPartnerBtn" style="padding:3px 10px; font-size:12px; margin-top:4px;">${dbAddingPartner ? 'Cancel second commander' : '+ Add a partner or Background'}</button>` : '') + note);
   el.querySelectorAll('[data-dbcmd-rm]').forEach(b => b.addEventListener('click', () => removeDeckBuilderCommander(+b.getAttribute('data-dbcmd-rm'))));
   const addBtn = document.getElementById('dbAddPartnerBtn');
   if (addBtn) addBtn.addEventListener('click', () => { dbAddingPartner = !dbAddingPartner; renderDeckBuilderCommander(); const b = document.getElementById('dbCommanderSearch'); if (dbAddingPartner && b) b.focus(); });
@@ -11728,7 +11737,7 @@ function pmWireCardSearch(cfg) {
   const setHtml = (html, sig) => {
     if (sig === lastSig) return;                     // identical list: leave it alone (never disturb a tap in progress)
     lastSig = sig;
-    pmKeepInputInPlace(input, () => { results.innerHTML = html; });
+    pmKeepInputInPlace(input, () => { results.innerHTML = sanitizeHtml(html); });
   };
   let searchGeneration = 0;
   const render = async () => {
@@ -11761,7 +11770,7 @@ function pmWireCardSearch(cfg) {
     input.value = '';
     lastSig = null;
     const flash = cfg.flash ? cfg.flash(card) : '';
-    pmKeepInputInPlace(input, () => { results.innerHTML = flash ? `<div class="pm-sr-flash">${flash}</div>` : ''; });
+    pmKeepInputInPlace(input, () => { results.innerHTML = sanitizeHtml(flash ? `<div class="pm-sr-flash">${flash}</div>` : ''); });
     if (flash) { lastSig = 'flash'; flashTimer = setTimeout(() => { if (results.firstElementChild && results.firstElementChild.classList.contains('pm-sr-flash')) { lastSig = null; pmKeepInputInPlace(input, () => { results.innerHTML = ''; }); } }, 1600); }
   };
   // Taps are read from the press itself (name captured at pointerdown), ignoring slides/scrolls.
@@ -11813,7 +11822,7 @@ function renderDeckBuilderList() {
     return;
   }
   const commanderCard = deckBuilderCommanderName ? dbIdentityCard() : null;
-  listEl.innerHTML = names.map(name => {
+  listEl.innerHTML = sanitizeHtml(names.map(name => {
     const card = indexes.byExactName.get(name.toLowerCase());
     const fits = card ? cardFitsCommanderIdentity(card, commanderCard) : true;
     const warning = !fits ? `<span title="Outside ${escapeHtml(deckBuilderCommanderName)}'s color identity" style="color:var(--danger); font-size:12px; margin-right:4px;">⚠</span>` : '';
@@ -11823,7 +11832,7 @@ function renderDeckBuilderList() {
       <input type="number" min="0" value="${Number(deckBuilderCards[name]) || 0}" max="${window.PM_LIMITS.builderMaxQty}" data-qty-for="${escapeHtml(name)}" style="width:48px; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:3px 5px; color:var(--text-primary); font-family:inherit; font-size:12.5px;">
       <button type="button" class="ghost" data-remove="${escapeHtml(name)}" style="padding:3px 8px; font-size:11px; border-color:var(--danger); color:var(--danger);">×</button>
     </div>`;
-  }).join('');
+  }).join(''));
   listEl.querySelectorAll('[data-qty-for]').forEach(inp => {
     inp.addEventListener('change', () => {
       const name = inp.getAttribute('data-qty-for');
@@ -11925,7 +11934,7 @@ function saveCurrentDeck() {
 
   if (matchedKey) {
     const { modal } = openTadOverlay();
-    modal.innerHTML = `
+    modal.innerHTML = sanitizeHtml(`
       <button class="tad-close" id="tadCloseBtn">Close ×</button>
       <h2 style="margin-bottom:10px;">Deck name already in use</h2>
       <p class="tad-sub">A deck named "${escapeHtml(proposedName)}" already exists. Overwrite it, or save this as a separate, new deck?</p>
@@ -11933,7 +11942,7 @@ function saveCurrentDeck() {
         <button id="dnOverwriteBtn" class="ghost" style="flex:1;">Overwrite Existing</button>
         <button id="dnSaveNewBtn" style="flex:1;">Save as New Deck</button>
       </div>
-    `;
+    `);
     document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
     document.getElementById('dnOverwriteBtn').addEventListener('click', () => {
       closeTryADeckModal();
@@ -12097,11 +12106,11 @@ async function showLoadDeckModal(target) {
   loadDeckTarget = isGatheringSeat ? target : 'main';
   const { modal } = openTadOverlay();
   const titleSuffix = isGatheringSeat ? ` — Seat ${(Number(target.gatheringSeat.seatIndex) || 0) + 1} (${escapeHtml(target.gatheringSeat.seatDisplayName)}${target.gatheringSeat.seatIsGuest ? ', guest' : ''})` : '';
-  modal.innerHTML = `<button class="tad-close" id="tadCloseBtn">Close ×</button>` +
+  modal.innerHTML = sanitizeHtml(`<button class="tad-close" id="tadCloseBtn">Close ×</button>` +
     `<h2 style="margin-bottom:10px;">Load a Deck${titleSuffix}</h2>` +
     `<input type="text" id="loadDeckSearch" placeholder="Search by commander or player…" style="width:100%; box-sizing:border-box; background:var(--bg-main); border:1px solid var(--line); border-radius:3px; padding:8px 10px; color:var(--text-primary); font-family:inherit; font-size:13.5px; margin-bottom:10px;">` +
     `<div id="loadDeckPlayerChips" style="margin-bottom:8px;"></div>` +
-    `<div id="loadDeckListArea" style="max-height:calc(50vh / var(--pm-zoom, 1)); overflow-y:auto;"><div style="color:var(--text-soft); font-size:13px; padding:10px 0;">Loading…</div></div>`;
+    `<div id="loadDeckListArea" style="max-height:calc(50vh / var(--pm-zoom, 1)); overflow-y:auto;"><div style="color:var(--text-soft); font-size:13px; padding:10px 0;">Loading…</div></div>`);
   document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
   document.getElementById('loadDeckSearch').addEventListener('input', renderLoadDeckList);
 
@@ -12126,7 +12135,7 @@ async function showLoadDeckModal(target) {
   const anyFailed = !ownOk || podmateLoadFailed;
 
   if (!haveOwnDecks && Object.keys(podmateDecksCache).length === 0) {
-    if (anyFailed) { listAreaNow.innerHTML = retryNotice; wireRetry(); return; }
+    if (anyFailed) { listAreaNow.innerHTML = sanitizeHtml(retryNotice); wireRetry(); return; }
     closeTryADeckModal();
     if (isGatheringSeat) showToast('No saved decks in this pod yet -- save one from the Deck Chart tab first.');
     else setDeckMgmtStatus('No saved decks yet — save one first.', true);
@@ -12134,7 +12143,7 @@ async function showLoadDeckModal(target) {
   }
   renderLoadDeckPlayerChips();
   renderLoadDeckList();
-  if (anyFailed) { listAreaNow.insertAdjacentHTML('afterbegin', retryNotice); wireRetry(); }
+  if (anyFailed) { listAreaNow.insertAdjacentHTML('afterbegin', sanitizeHtml(retryNotice)); wireRetry(); }
 }
 
 function renderLoadDeckPlayerChips() {
@@ -12146,10 +12155,10 @@ function renderLoadDeckPlayerChips() {
     ...Object.values(podmateDecksCache).map(e => e.ownerName || ''),
   ].filter(Boolean))].sort();
   if (!players.length) { area.innerHTML = ''; return; }
-  area.innerHTML = players.map(p => {
+  area.innerHTML = sanitizeHtml(players.map(p => {
     const active = p === loadDeckActivePlayer;
     return `<button type="button" data-load-player="${escapeHtml(p)}" style="display:inline-block; margin:0 6px 6px 0; padding:4px 10px; border-radius:10px; font-size:12.5px; cursor:pointer; font-family:inherit; border:1px solid ${active ? 'var(--gold)' : 'var(--line)'}; background:${active ? 'var(--gold)' : 'var(--bg-main)'}; color:${active ? 'var(--bg-main)' : 'var(--text-primary)'};">${escapeHtml(p)}</button>`;
-  }).join('');
+  }).join(''));
 }
 
 function renderLoadDeckList() {
@@ -12180,7 +12189,7 @@ function renderLoadDeckList() {
     listArea.innerHTML = `<div style="color:var(--text-soft); font-size:13px; padding:10px 0;">No saved decks match.</div>`;
     return;
   }
-  listArea.innerHTML = entries.map(e => {
+  listArea.innerHTML = sanitizeHtml(entries.map(e => {
     const dateLabel = e.savedAt ? new Date(e.savedAt).toLocaleDateString() : '';
     const secretToggle = e.mine
       ? `<button type="button" data-toggle-secret-key="${escapeHtml(e.key)}" style="background:none; border:1px solid var(--line); color:${e.secret ? 'var(--gold)' : 'var(--text-soft)'}; border-radius:3px; padding:4px 9px; cursor:pointer; font-size:13px; font-family:inherit;" title="${e.secret ? 'Secret — only you can load this. Click to share with your pod.' : 'Click to keep this deck secret from your pod'}">${e.secret ? '🔒' : '🔓'}</button>`
@@ -12195,7 +12204,7 @@ function renderLoadDeckList() {
       </div>
       <div style="display:flex; gap:6px;">${secretToggle}${deleteBtn}</div>
     </div>`;
-  }).join('');
+  }).join(''));
 }
 
 document.addEventListener('click', (e) => {
@@ -12524,8 +12533,8 @@ function pmRenderDecksTable(tid) {
   const chainLine = `<div style="margin-bottom:6px; font-size:12.5px; color:var(--text-soft);">Sorted by: ${chain.map(c => `<strong style="color:var(--text-primary);">${escapeHtml(labelOf(c.key))}</strong> ${c.dir === 'asc' ? '▲' : '▼'}`).join(' → ')}`
     + ` &nbsp;<button type="button" class="ghost" data-sort-clear="${tid}" style="padding:2px 8px; font-size:11.5px;">Clear</button>`
     + `<span style="display:block; font-size:11.5px; margin-top:2px;">Tap more columns to sort within ties, like a spreadsheet. Tap a sorted column again to flip it.</span></div>`;
-  area.innerHTML = chainLine + `<div style="overflow-x:auto;"><table style="border-collapse:collapse; width:100%; min-width:760px;"><thead><tr>${headerHtml}</tr></thead><tbody>${rowsHtml}</tbody></table></div>` +
-    `<div style="margin-top:8px; font-size:12.5px; color:var(--text-soft); line-height:1.5;">Precon %, Tuned % and cEDH % show where each deck's Spark sits within the PodMates reference decks of that tier: the share of those decks it scores above (${escapeHtml(referenceSetSummary())}). A deck at 50% in a tier is level with that tier's middle deck.</div>`;
+  area.innerHTML = sanitizeHtml(chainLine + `<div style="overflow-x:auto;"><table style="border-collapse:collapse; width:100%; min-width:760px;"><thead><tr>${headerHtml}</tr></thead><tbody>${rowsHtml}</tbody></table></div>` +
+    `<div style="margin-top:8px; font-size:12.5px; color:var(--text-soft); line-height:1.5;">Precon %, Tuned % and cEDH % show where each deck's Spark sits within the PodMates reference decks of that tier: the share of those decks it scores above (${escapeHtml(referenceSetSummary())}). A deck at 50% in a tier is level with that tier's middle deck.</div>`);
 }
 
 document.addEventListener('click', (e) => {
@@ -12700,7 +12709,7 @@ function renderMatchLog() {
     groups[title].push(m);
   });
 
-  area.innerHTML = order.map(title => {
+  area.innerHTML = sanitizeHtml(order.map(title => {
     const entriesHtml = groups[title].map(m => {
       const decks = (m.decks || []).map(d => {
         const cmd = d.commander || d.name || '?';
@@ -12732,7 +12741,7 @@ function renderMatchLog() {
       <div style="font-family:'Cinzel',Georgia,serif; font-size:13px; letter-spacing:0.05em; text-transform:uppercase; color:var(--gold); margin-bottom:8px; padding-bottom:4px; border-bottom:1px solid var(--line-strong);">${escapeHtml(title)}</div>
       ${entriesHtml}
     </div>`;
-  }).join('');
+  }).join(''));
 }
 
 // Wire save/load
@@ -12798,35 +12807,28 @@ function wireCloudAuth() {
 
     if (!pendingJoinCode) return;
     if (user && !user.isAnonymous) {
-      // Signed in for real, and a pod invite is waiting -- following an
-      // invite link is a strong enough signal of intent to just join
-      // directly (same convention Discord/Slack invite links use) rather
-      // than adding an extra confirmation click.
       const code = pendingJoinCode;
       pendingJoinCode = null;
-      try {
-        const result = await window.PodmatesCloud.joinPodByInviteCode(code);
-        // Clean the ?join= param out of the address bar either way, so a
-        // page refresh doesn't try to rejoin (or re-show the same message).
-        window.history.replaceState({}, '', window.location.pathname);
-        if (result.ok) {
-          currentPodViewId = result.podId;
-          showToast(`Joined "${result.podName}."`);
-          setMode('pod');
-          $('podMode').scrollIntoView({ behavior: 'smooth' });
-        } else {
-          showToast(result.error);
-        }
-      } catch (e) {
-        // joinPodByInviteCode's Firestore calls aren't individually
-        // guarded (unlike fetchDeckByLink/the auth functions, which all
-        // guarantee they never throw) -- catching here means a permission
-        // or network error still cleans up the URL and tells the person
-        // something went wrong, instead of failing with zero feedback and
-        // an already-consumed invite code.
-        window.history.replaceState({}, '', window.location.pathname);
-        showToast('Could not join the pod: ' + e.message);
-      }
+      window.history.replaceState({}, '', window.location.pathname);
+      showActionConfirmModal(
+        'Join the pod from this invite? Its members will be able to see your non-secret saved decks.',
+        'Join pod',
+        async () => {
+          try {
+            const result = await window.PodmatesCloud.joinPodByInviteCode(code);
+            if (result.ok) {
+              currentPodViewId = result.podId;
+              showToast(`Joined "${result.podName}."`);
+              setMode('pod');
+              $('podMode').scrollIntoView({ behavior: 'smooth' });
+            } else {
+              showToast(result.error);
+            }
+          } catch (e) {
+            showToast('Could not join the pod: ' + e.message);
+          }
+        },
+      );
     } else if (!hasPromptedForPendingJoin) {
       hasPromptedForPendingJoin = true;
       showToast('Sign in or create an account to join this pod.');
@@ -13047,7 +13049,7 @@ document.addEventListener('DOMContentLoaded', () => setupIconTooltipsFor(documen
   function renderList(modal) {
     const list = modal.querySelector('#pmNotifList'); if (!list) return;
     const open = modal.querySelector('details') && modal.querySelector('details').open;
-    modal.querySelector('#pmNotifBody').innerHTML = bodyHtml();
+    modal.querySelector('#pmNotifBody').innerHTML = sanitizeHtml(bodyHtml());
     const d = modal.querySelector('details'); if (d && open) d.open = true;
     wire(modal);
   }
@@ -13055,7 +13057,7 @@ document.addEventListener('DOMContentLoaded', () => setupIconTooltipsFor(documen
   async function openInbox() {
     const { modal } = openTadOverlay({ modalClass: 'tad-modal pm-notif-modal', modalStyle: 'max-width:460px' });
     openSince = seenAt;
-    modal.innerHTML = '<button class="tad-close" id="tadCloseBtn">Close ×</button><h2 style="margin-bottom:10px;">Notifications</h2><div id="pmNotifBody">' + bodyHtml() + '</div>';
+    modal.innerHTML = sanitizeHtml('<button class="tad-close" id="tadCloseBtn">Close ×</button><h2 style="margin-bottom:10px;">Notifications</h2><div id="pmNotifBody">' + bodyHtml() + '</div>');
     document.getElementById('tadCloseBtn').addEventListener('click', closeTryADeckModal);
     wire(modal);
     markSeen(); updateBadge();

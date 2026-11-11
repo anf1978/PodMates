@@ -27,5 +27,6 @@ export function cardNameLinkHtml(name: string): string {
  * names joined by ", " stays one text node, matching the legacy string templates' layout.
  */
 export function cardNameLink(name: string) {
+  // Trusted: cardNameLinkHtml escapes both the text and quoted data-card-name attribute.
   return trustedHtml(cardNameLinkHtml(name));
 }

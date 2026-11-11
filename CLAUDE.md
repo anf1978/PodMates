@@ -59,8 +59,9 @@ CI runs `check` + e2e + rules tests on every PR (including stacked bases) and `m
    `// GENERATED` header — not even through shell commands. Change the pipeline instead. Weekly bots publish
    `cards.json`, `tags.json` and `winrates.json` on the `data` branch and never edit source.
 4. **Never change Firestore paths or field names** (`users/{uid}/…`, `pods/{podId}/…`). Real user data depends on them.
-5. **Render with the `html` template from `src/ui/html.ts`.** Never assign `innerHTML` with interpolated data in
-   `src/` (`no-unsanitized` is an error). In `index.html`, wrap user/pod text in `escapeHtml(…)`.
+5. **Render with the `html` template from `src/ui/html.ts`.** `no-unsanitized` is an error in modules and
+   inline HTML scripts. Legacy rich markup goes through `sanitizeHtml` (DOMPurify); still escape text with
+   `escapeHtml(…)`. Every `trustedHtml()` call needs a nearby `Trusted:` comment explaining its provenance.
 6. **No new globals or `window.*`.** Import what you need. Lint allows `window` writes only in the shims and the
    boot-bar progress in `load-dataset.ts`.
 7. **Features don't import other features;** share through `src/ui`, `src/engine`, `src/cards` or services.
@@ -83,14 +84,15 @@ CI runs `check` + e2e + rules tests on every PR (including stacked bases) and `m
 
 | ~Line | Huge single line — do not print                 |  Size |
 | ----: | ----------------------------------------------- | ----: |
-|     6 | `<link rel="icon"` (inline base64 PNG)          | 11 KB |
-|  1384 | `<img src="data:image/jpeg;base64` (header art) | 25 KB |
+|    13 | `<link rel="icon"` (inline base64 PNG)          | 11 KB |
+|  1391 | `<img src="data:image/jpeg;base64` (header art) | 25 KB |
 
 ### Line map (approximate — always re-grep the identifier)
 
 |       ~Line | Region                                                       | Identifier to grep                                                                                     |
 | ----------: | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-|          15 | Module entry                                                 | `src="./src/main.ts"`                                                                                  |
+|        5–11 | CSP, synchronous sanitizer dependency and legacy boundary    | `Content-Security-Policy`, `rendering-security-script`                                                 |
+|          22 | Module entry                                                 | `src="./src/main.ts"`                                                                                  |
 |     16–1069 | Main CSS (Terraria × MTG Arena theme at ~534)                | `<style>` (first one), `Terraria x MTG Arena theme`                                                    |
 |   1070–1221 | Colour themes (runs in `<head>`)                             | `<script id="theme-script">`                                                                           |
 |   1233–1367 | Visual overhaul CSS                                          | `<style id="pm-visual-overhaul">`                                                                      |
@@ -130,7 +132,7 @@ CI runs `check` + e2e + rules tests on every PR (including stacked bases) and `m
 |       12400 | Retired pod rosters (dead code)                              | `POD ROSTERS -- retired`                                                                               |
 | 12939–13086 | Notifications inbox                                          | `<script id="notif-script">`                                                                           |
 
-Updated for P3-6. Regenerate with:
+Updated for P4-2 (remaining ranges approximate). Regenerate with:
 
 ```sh
 grep -n -E '<script|</script>|<style|</style>|<body' index.html | cut -c1-120          # block boundaries

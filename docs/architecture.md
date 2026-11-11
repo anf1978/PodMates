@@ -42,6 +42,27 @@ It builds five entries (`main`, `datasets`, `cardDb`, `cardsLegacy`, `engineLega
 keeps one module instance across chunks, so a shim imported both by `main.ts` and by an inline `import()` runs
 once. A missing loader entry fails the build. See [deploy.md](deploy.md) for Pages deployment.
 
+The build also emits the locked DOMPurify browser bundle as a same-origin asset. It loads synchronously
+before the legacy inline scripts, because some render during parsing, before module initialization.
+The small `sanitizeHtml` boundary is the deliberate legacy-global exception; new features use lit templates.
+`scripts/rendering-lint.mjs` checks every inline script with original HTML line numbers and shared scope.
+Nonliteral HTML sinks require sanitization, `document.write`/`writeln` are banned, and every `trustedHtml`
+call requires a reviewed `Trusted:` rationale. SVG, styles, IDs and data attributes remain supported;
+executable attributes and unsafe URL schemes are removed. Former inline click handlers use delegated events.
+
+The CSP meta defaults to no resources, then allows only the app's required origins and resource types.
+`scripts/content-security-policy.mjs` computes inline-script hashes after production URL substitution
+(and after Vite's development transforms); do not hardcode or hand-update hashes. Inline styles remain
+allowed for legacy layout; inline executable handlers and arbitrary scripts do not. Browser fixtures fail
+on CSP violations. The adversarial sanitizer case deliberately removes CSP to verify the sanitizer
+independently, since Chromium can report event-attribute compilation in the sanitizer's inert document.
+
+Invite URLs now show a sharing warning and require explicit consent before joining a pod. The public
+deck-sync source is currently `deck-link-sync-worker.js`, not `workers/deck-sync/`: it accepts only GET/OPTIONS,
+known app/development origins, and bounded HTTPS deck paths. Fixed upstream endpoints disallow redirects,
+time out after ten seconds and cap streamed responses at 2 MiB. Deploying that Worker remains separate
+from the Pages deployment.
+
 ## Layers
 
 | Folder                 | Owns                                                                                            | May import                                                          |

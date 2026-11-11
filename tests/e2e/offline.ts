@@ -12,6 +12,11 @@ export const test = base.extend({
       if (message.type() === "error") errors.push(`console.error: ${message.text()}`);
     });
     page.on("pageerror", (error) => errors.push(`pageerror: ${error.message}`));
+    await context.addInitScript(() => {
+      document.addEventListener("securitypolicyviolation", (event) => {
+        console.error(`CSP violation: ${event.effectiveDirective} ${event.blockedURI}`);
+      });
+    });
 
     await context.route("**/*", async (route) => {
       const request = route.request();

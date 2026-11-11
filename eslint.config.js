@@ -1,5 +1,6 @@
 import tseslint from "typescript-eslint";
 import noUnsanitized from "eslint-plugin-no-unsanitized";
+import { renderingPlugin, renderingRules } from "./scripts/rendering-lint.mjs";
 
 const legacyFiles = [
   ".github/scripts/**/*.mjs",
@@ -72,10 +73,25 @@ export default tseslint.config(
   {
     ignores: ["node_modules/**", "dist/**", "public/**", "playwright-report/**", "test-results/**"],
   },
-  ...recommended,
+  ...recommended.map((config) => ({
+    ...config,
+    ignores: [...(config.ignores ?? []), "**/*.html"],
+  })),
   {
     plugins: { "no-unsanitized": noUnsanitized },
-    rules: noUnsanitized.configs.recommended.rules,
+    rules: renderingRules,
+  },
+  {
+    plugins: { rendering: renderingPlugin },
+    rules: { "rendering/trusted-comment": "error" },
+  },
+  {
+    files: ["index.html"],
+    processor: "rendering/inline",
+    languageOptions: { ecmaVersion: "latest", sourceType: "module" },
+    rules: {
+      ...renderingRules,
+    },
   },
   {
     ignores: ["src/services/cloud/**", "src/ui/html.ts", "firebase/**"],

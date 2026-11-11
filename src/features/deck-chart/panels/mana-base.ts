@@ -36,6 +36,7 @@ export interface ManaBaseInput {
  * sentence out exactly as the legacy string template did.
  */
 function cardNameList(names: string[]) {
+  // Trusted: every name is escaped by cardNameLinkHtml; the separator is constant.
   return trustedHtml(names.map(cardNameLinkHtml).join(", "));
 }
 
@@ -132,7 +133,8 @@ export function manaBaseTemplate(input: ManaBaseInput): TemplateResult {
   return html`${rows.map(rowTemplate)}
   ${
     colorlessSources > 0
-      ? html`<div class="dc-mb-note">${trustedHtml(colorlessNote)}</div>`
+      ? // Trusted: constant prose, engine numeric counts, and escaped cardNameLinkHtml markup.
+        html`<div class="dc-mb-note">${trustedHtml(colorlessNote)}</div>`
       : nothing
   }
   ${

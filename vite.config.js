@@ -1,15 +1,32 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
+import { withScriptHashes } from "./scripts/content-security-policy.mjs";
 
 export default defineConfig({
   base: "./",
   plugins: [
     {
+      name: "development-csp",
+      apply: "serve",
+      transformIndexHtml: { order: "post", handler: withScriptHashes },
+    },
+    {
       name: "preserve-legacy-html",
       apply: "build",
       generateBundle(_options, bundle) {
         let html = readFileSync(new URL("./index.html", import.meta.url), "utf8");
+        const sanitizer = this.emitFile({
+          type: "asset",
+          name: "purify.min.js",
+          source: readFileSync(
+            new URL("./node_modules/dompurify/dist/purify.min.js", import.meta.url),
+          ),
+        });
+        html = html.replace(
+          "./node_modules/dompurify/dist/purify.min.js",
+          `./${this.getFileName(sanitizer)}`,
+        );
         // `main` is the page's module tag; the others are imported by the inline start-up code.
         for (const [name, source] of [
           ["main", "./src/main.ts"],
@@ -39,7 +56,7 @@ export default defineConfig({
         this.emitFile({
           type: "asset",
           fileName: "index.html",
-          source: html,
+          source: withScriptHashes(html),
         });
       },
     },

@@ -45,5 +45,6 @@ export function manaSymbolHtml(color: string, size?: number): string {
 
 /** The same symbol for features that render with lit-html. */
 export function manaSymbol(color: string, size?: number): ReturnType<typeof trustedHtml> {
+  // Trusted: artwork and palette are constants; callers supply mana colors and numeric sizes.
   return trustedHtml(manaSymbolHtml(color, size));
 }
