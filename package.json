@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.18"
   },
   "scripts": {
     "dev": "vite",
@@ -38,7 +38,6 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "dompurify": "^3.4.17",
     "firebase": "^12.19.0",
     "lit-html": "^3.3.3"
   }

@@ -10,6 +10,14 @@ export interface ErrorContext {
     | "app-update"
     | "card-database"
     | "card-art"
+    | "deck-library"
+    | "deck-export"
+    | "card-scan"
+    | "deck-crafter"
+    | "gatherings"
+    | "spoiler-bait"
+    | "pricescry"
+    | "notifications"
     | "global-error"
     | "unhandled-rejection";
   userTriggered?: boolean;

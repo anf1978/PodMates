@@ -1,8 +1,12 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { createCloudApi } from "./api";
+import { logInWithEmail } from "./auth";
+import { addLinkedDeck } from "./linked-decks";
+import { action, load } from "./operations";
+import { deleteTrade, loadTrades } from "./trades";
+import { watchGathering } from "./gatherings";
 import { countDocs } from "./shared";
-import { logActivity } from "./activity";
+import { logActivity, watchActivity } from "./activity";
 import * as fb from "./testing/fake-firebase";
 import * as toast from "../../ui/toast";
 
@@ -32,7 +36,7 @@ it.each(["http", "network", "invalid-json"] as const)(
     else if (kind === "invalid-json") fetch.mockResolvedValue(new Response("not JSON"));
     else fetch.mockResolvedValue(Response.json({ error: "Source unavailable" }, { status: 503 }));
     vi.stubGlobal("fetch", fetch);
-    const result = await createCloudApi().addLinkedDeck("https://private.example/deck");
+    const result = await action(addLinkedDeck)("https://private.example/deck");
     expect(result).toMatchObject({ ok: false, error: expect.any(String) });
     expect(console.error).toHaveBeenCalledOnce();
     expect(console.error).toHaveBeenCalledWith(
@@ -47,9 +51,7 @@ it("reports auth failure results without credentials or raw messages", async () 
     code: "auth/network-request-failed",
     message: "private@example.test secret-password",
   });
-  await expect(
-    createCloudApi().logInWithEmail("private@example.test", "secret-password"),
-  ).resolves.toEqual({
+  await expect(logInWithEmail("private@example.test", "secret-password")).resolves.toEqual({
     ok: false,
     error: "Network error -- check your connection and try again.",
   });
@@ -64,7 +66,7 @@ it("reports rejected cloud actions without replacing their rejection", async () 
     code: "permission-denied",
   });
   vi.spyOn(fb, "deleteDoc").mockRejectedValueOnce(err);
-  await expect(createCloudApi().deleteTrade("private")).rejects.toBe(err);
+  await expect(action(deleteTrade)("private")).rejects.toBe(err);
   expect(console.error).toHaveBeenCalledExactlyOnceWith(
     "[PodMates] cloud failed (permission-denied).",
   );
@@ -74,7 +76,7 @@ it("reports rejected cloud actions without replacing their rejection", async () 
 it("reports read failures without a background toast", async () => {
   const err = new Error("private");
   vi.spyOn(fb, "getDocs").mockRejectedValueOnce(err);
-  await expect(createCloudApi().loadTrades()).rejects.toBe(err);
+  await expect(load(loadTrades)()).rejects.toBe(err);
   expect(console.error).toHaveBeenCalledOnce();
   expect(toast.showToast).not.toHaveBeenCalled();
 });
@@ -87,11 +89,10 @@ it("preserves best-effort counts, activity writes and listener fallback behavior
     logActivity("deck", "private title", { podIds: ["private"] }),
   ).resolves.toBeUndefined();
   fb.fake.failSnapshots(new Error("private listener"));
-  const api = createCloudApi();
   const items = vi.fn();
   const onError = vi.fn();
-  const stop = api.watchActivity("private", items);
-  api.watchGathering("private", "private", vi.fn(), onError);
+  const stop = watchActivity("private", items);
+  watchGathering("private", "private", vi.fn(), onError);
   expect(stop).toBeTypeOf("function");
   expect(items).toHaveBeenCalledWith([]);
   expect(onError).toHaveBeenCalledOnce();

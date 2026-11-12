@@ -106,7 +106,6 @@ test("pasted analysis loads only fingerprints/metadata; suggestions load knowled
       .locator("#ixSugOverlay")
       .getByRole("dialog", { name: "Cards you could add" });
     await expect(suggestions).toBeVisible();
-    expect(await page.evaluate("KNOW_MAP.size")).toBeGreaterThan(0);
     await page.locator("#ixSugClose").click();
     await page.getByRole("button", { name: /Cards you could add/ }).click();
     await expect(suggestions).toBeVisible();
@@ -119,25 +118,30 @@ test("pasted analysis loads only fingerprints/metadata; suggestions load knowled
 test("Impact and sample-table entry points await their data without boot-time reads", async ({
   page,
 }) => {
+  const requested: string[] = [];
+  page.on("request", (request) => requested.push(new URL(request.url()).pathname));
   await page.goto("/");
   await expect(page.locator("#dbStatus")).toContainText(/^Ready /);
-  expect(await page.evaluate("typeof IMPACT_CANDS")).toBe("undefined");
-  await page.evaluate("openImpactCardsModal()");
+  const decks = JSON.parse(
+    readFileSync(new URL("../../public/data/TRY_A_DECK_OPTIONS.json", import.meta.url), "utf8"),
+  ) as { key: string; decklist: string; commander: string }[];
+  const sample = decks.find((deck) => deck.key === "uril")!;
+  await page.locator("#decklistInput").fill(sample.decklist);
+  await page.locator("#commanderInput").fill(sample.commander);
+  await page.getByRole("button", { name: "Chart Deck", exact: true }).click();
+  await expect(page.locator("#status")).toContainText(/^Charted /);
+  expect(requested).not.toContain("/data/IMPACT_CANDS.json");
+  await page.locator("#impactCardsBtn").click();
   await expect(page.locator("#impactBody")).not.toContainText("Loading");
-  expect(await page.evaluate("IMPACT_CANDS.length")).toBeGreaterThan(0);
-  expect(await page.evaluate("getCardPopularity().size")).toBeGreaterThan(0);
-  await page.evaluate("loadAnalysisDatasets()");
-  expect(await page.evaluate("TRY_A_DECK_METADATA.map(deck => deck.key)")).toEqual(
-    await page.evaluate("TRY_A_DECK_OPTIONS.map(deck => deck.key)"),
-  );
+  await expect(page.locator("[data-impact-more]")).toBeVisible();
+  expect(requested.filter((path) => path === "/data/IMPACT_CANDS.json")).toHaveLength(1);
+  // Rankings come from the loaded library (src/cards/search.ts cardPopularity).
+  expect(requested.filter((path) => path === "/data/TRY_A_DECK_OPTIONS.json")).toHaveLength(1);
+  requested.length = 0;
   await page.reload();
   await expect(page.locator("#dbStatus")).toContainText(/^Ready /);
-  expect(await page.evaluate("typeof TRY_A_DECK_OPTIONS")).toBe("undefined");
-  // Isolate this entry-point check from the pre-existing pod SVG height="auto" errors.
-  await page.evaluate(
-    "renderPodAnalysisResults = decks => { window.__sampleDeckCount = decks.length; }; runSampleGathering()",
-  );
-  expect(await page.evaluate("window.__sampleDeckCount")).toBe(6);
+  expect(requested).not.toContain("/data/TRY_A_DECK_OPTIONS.json");
+  // The sample-table entry point (no signed-out UI) is covered in gatherings.modules.spec.ts.
 });
 
 test("card search waits for library rankings and discards a superseded query", async ({ page }) => {
@@ -152,14 +156,13 @@ test("card search waits for library rankings and discards a superseded query", a
   try {
     await page.goto("/");
     await expect(page.locator("#dbStatus")).toContainText(/^Ready /);
-    await page.evaluate("openDeckBuilderOverlay({ blank: true })");
+    await page.locator("#openDeckBuilderBtn").click();
     await page.locator("#dbCardSearch").fill("Sol");
     await expect(page.locator("#dbCardResults")).toContainText("Loading...");
     await page.locator("#dbCardSearch").fill("Arcane");
     release();
     await expect(page.locator("#dbCardResults")).toContainText("Arcane Signet");
     await expect(page.locator("#dbCardResults")).not.toContainText("Sol Ring");
-    expect(await page.evaluate("getCardPopularity().size")).toBeGreaterThan(0);
   } finally {
     release();
   }

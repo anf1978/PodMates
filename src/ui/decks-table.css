@@ -1,0 +1,59 @@
+/* The saved-decks comparison table (src/ui/decks-table.ts): Build Table and My Profile. */
+.decks-table-chain {
+  margin-bottom: 6px;
+  font-size: 12.5px;
+  color: var(--text-soft);
+}
+.decks-table-chain strong {
+  color: var(--text-primary);
+}
+.decks-table-chain .decks-table-clear {
+  padding: 2px 8px;
+  font-size: 11.5px;
+}
+.decks-table-hint {
+  display: block;
+  font-size: 11.5px;
+  margin-top: 2px;
+}
+.decks-table-scroll {
+  overflow-x: auto;
+}
+.decks-table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 760px;
+}
+.decks-table th {
+  cursor: pointer;
+  padding: 8px 10px;
+  text-align: left;
+  white-space: nowrap;
+  color: var(--gold);
+  border-bottom: 1px solid var(--line-strong);
+  font-size: 12.5px;
+}
+.decks-table th sup {
+  font-size: 9px;
+}
+.decks-table td {
+  padding: 7px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--text-soft);
+  white-space: nowrap;
+}
+.decks-table th.num,
+.decks-table td.num {
+  text-align: right;
+}
+.decks-table td.num {
+  color: var(--text-primary);
+}
+.decks-table-note {
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--text-soft);
+  line-height: 1.5;
+}

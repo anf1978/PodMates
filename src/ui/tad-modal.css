@@ -1,0 +1,71 @@
+.tad-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+.tad-modal {
+  background: linear-gradient(135deg, var(--bg-panel-raised), var(--bg-panel));
+  border: 1px solid var(--gold);
+  border-radius: 6px;
+  max-width: 640px;
+  width: 100%;
+  max-height: calc(85vh / var(--pm-zoom, 1));
+  overflow-y: auto;
+  padding: 22px 24px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+}
+.tad-modal h2 {
+  color: var(--gold);
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 19px;
+  margin: 0 0 6px;
+  letter-spacing: 0.03em;
+}
+.tad-modal .tad-sub {
+  color: var(--text-soft);
+  font-size: 13px;
+  margin: 0 0 16px;
+  font-style: italic;
+  line-height: 1.4;
+}
+.tad-close {
+  border: 1px solid var(--line);
+  color: var(--text-soft);
+  float: right;
+  cursor: pointer;
+  padding: 7px 14px;
+  border-radius: 3px;
+  font-size: 13px;
+  font-family: inherit;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--bg-panel-raised);
+  box-shadow: 0 0 0 5px var(--bg-panel-raised);
+}
+.tad-close:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: var(--bg-main);
+}
+/* Confirm dialogs (src/ui/confirm.ts). */
+.tad-modal .tad-confirm-text {
+  font-size: 14px;
+  color: var(--text-primary);
+  line-height: 1.6;
+  margin: 6px 0 20px;
+}
+.row.tad-confirm-actions {
+  justify-content: flex-end;
+  gap: 10px;
+}
+/* Beats button.ghost:hover, as the inline colours it replaces did. */
+.tad-modal button.ghost.tad-confirm-danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}

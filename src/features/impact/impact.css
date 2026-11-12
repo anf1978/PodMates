@@ -1,0 +1,221 @@
+.tad-modal.impact-modal {
+  max-width: 460px;
+}
+.tad-modal.impact-modal-loaded {
+  max-width: 560px;
+}
+.impact-modal .impact-title {
+  margin-bottom: 4px;
+}
+.impact-modal .impact-subtitle {
+  margin-bottom: 8px;
+}
+.impact-caption-button {
+  font-size: 12px;
+  padding: 3px 10px;
+}
+.impact-caption-count {
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+.impact-chart-pod {
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-top: 8px;
+}
+.impact-description {
+  font-size: 13px;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+.impact-account-note {
+  font-size: 12.5px;
+  color: var(--text-soft);
+  margin-top: 10px;
+}
+.impact-pod {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.impact-pod label,
+.impact-pod span {
+  font-size: 12px;
+  color: var(--text-soft);
+}
+.impact-pod select {
+  padding: 4px 6px;
+  font-size: 13px;
+}
+.impact-pod-summary {
+  font-size: 12.5px;
+  margin-top: 8px;
+  padding: 6px 8px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+}
+.impact-note {
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+.impact-updated {
+  margin-top: 4px;
+}
+.impact-list,
+.impact-search,
+.impact-nominate {
+  margin-top: 12px;
+}
+.impact-card {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line);
+}
+.impact-card-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.impact-card-name {
+  flex: 1;
+  font-size: 13.5px;
+}
+.impact-removed {
+  text-decoration: line-through;
+  color: var(--text-dim);
+}
+.impact-in-deck {
+  font-size: 11px;
+  color: var(--success-text);
+}
+.impact-changed {
+  font-size: 11px;
+  color: var(--gold);
+}
+.impact-reason-button {
+  padding: 1px 6px;
+  font-size: 13px;
+}
+.impact-reason {
+  font-size: 12px;
+  color: var(--text-soft);
+  margin: 2px 0 0 26px;
+  font-style: italic;
+}
+.impact-editor {
+  margin: 6px 0 4px 26px;
+}
+.impact-editor-label {
+  font-size: 12px;
+  color: var(--text-soft);
+  margin-bottom: 3px;
+}
+.impact-reason-input {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 13px;
+}
+.impact-editor-buttons {
+  margin-top: 4px;
+  display: flex;
+  gap: 6px;
+}
+.impact-editor-buttons button,
+.impact-small-button {
+  padding: 3px 10px;
+  font-size: 12px;
+}
+.impact-reader {
+  margin: 4px 0 4px 26px;
+  font-size: 12.5px;
+  color: var(--text-soft);
+}
+.impact-ideas {
+  margin-top: 18px;
+  padding-top: 10px;
+  border-top: 2px solid var(--line-strong);
+}
+.impact-ideas-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.impact-idea-sub {
+  font-size: 12px;
+  color: var(--text-soft);
+  margin-top: 2px;
+}
+.impact-nom-unavailable {
+  font-size: 12px;
+  margin-top: 6px;
+}
+.impact-queue-heading {
+  font-size: 12px;
+  font-weight: 700;
+  margin-top: 10px;
+}
+.impact-idea-row {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+.impact-idea-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.impact-idea-name {
+  flex: 1;
+  min-width: 140px;
+  font-size: 13.5px;
+}
+.impact-idea-button {
+  font-size: 12px;
+  padding: 3px 9px;
+}
+.impact-idea-why {
+  font-size: 12px;
+  color: var(--text-soft);
+  font-style: italic;
+  margin-top: 1px;
+}
+.impact-more {
+  margin-top: 8px;
+}
+.impact-ideas-explanation {
+  margin-top: 6px;
+}
+.impact-empty {
+  font-size: 12.5px;
+  color: var(--text-soft);
+  margin-top: 8px;
+}
+.impact-nominate-title {
+  font-size: 12px;
+  font-weight: 700;
+}
+.impact-nom-search,
+.impact-nom-note {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 4px;
+}
+.impact-nom-note {
+  font-size: 13px;
+}
+.impact-restore {
+  margin-top: 10px;
+}
+.impact-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 15px;
+}
+.impact-reset {
+  font-size: 12px;
+  padding: 4px 10px;
+}

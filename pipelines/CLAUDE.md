@@ -1,13 +1,15 @@
 # Pipeline rules
 
-Read the root `CLAUDE.md` and this folder's `README.md`. Run from the repo root with Node.js 22+.
+Read the root `CLAUDE.md` and this folder's `README.md`. Run from the repo root with Node.js 22.18+.
 
 - Never write into `src/` or splice application HTML. Pipeline output is data files
   (including data-only reports, manifests and workflow artifacts), not application source.
 - Do not hand-edit `public/data/`, generated files or golden baselines. Change the
   builder, then deliberately review its output; never regenerate baselines to hide a failure.
 - Preserve tuple positions, shard hashing, published filenames and dataset schemas.
-  PriceScry name/hash helpers and card mana-production logic still have app-side mirrors.
+  PriceScry name/hash/consensus helpers, `planTrade` and card mana-production logic live in
+  `src/shared/` (one copy with the app). Pipelines import those `.ts` files directly; plain `node`
+  (22.18+) strips the types, so keep them erasable TypeScript with no Node or DOM APIs.
 - Keep each provider's descriptive User-Agent, request spacing and retry policy.
   Scryfall needs at least 100 ms between API calls (tags use 120 ms);
   Playgroup.gg stays at 250/minute, below its 400/minute allowance.

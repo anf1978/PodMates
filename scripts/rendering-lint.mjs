@@ -1,28 +1,8 @@
-// Keep newlines and offsets so ESLint reports the original HTML lines. Classic
-// scripts deliberately share a scope in this app; external scripts are checked separately.
-export const inlineScripts = {
-  preprocess(text) {
-    let cursor = 0;
-    let code = "";
-    for (const match of text.matchAll(
-      /<!--[\s\S]*?-->|<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi,
-    )) {
-      if (match[0].startsWith("<!--")) continue;
-      if (/\bsrc\s*=/i.test(match[1])) continue;
-      const start = match.index + match[0].indexOf(">") + 1;
-      code += text.slice(cursor, start).replace(/[^\r\n]/g, " ") + match[2];
-      cursor = start + match[2].length;
-    }
-    return [code + text.slice(cursor).replace(/[^\r\n]/g, " ")];
-  },
-  postprocess(messages) {
-    return messages.flat();
-  },
-};
-
+// Rendering rules for every module: no raw HTML sinks (render lit templates from src/ui/html.ts)
+// and an explained provenance for each trustedHtml() escape hatch.
 export const renderingRules = {
-  "no-unsanitized/property": ["error", { escape: { methods: ["sanitizeHtml"] } }],
-  "no-unsanitized/method": ["error", { escape: { methods: ["sanitizeHtml"] } }],
+  "no-unsanitized/property": "error",
+  "no-unsanitized/method": "error",
   "no-restricted-properties": [
     "error",
     { object: "document", property: "write", message: "Use sanitized DOM rendering." },
@@ -56,6 +36,5 @@ export const trustedComment = {
 };
 
 export const renderingPlugin = {
-  processors: { inline: inlineScripts },
   rules: { "trusted-comment": trustedComment },
 };

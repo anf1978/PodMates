@@ -1,0 +1,103 @@
+// Pure lot accounting and form transitions; Firestore field names stay unchanged.
+import { PM_LIMITS as L } from "../../services/cloud/limits";
+import type { TradeDoc, TradeSale } from "../../services/cloud/types";
+import type { Lot } from "../../services/trade-ledger";
+export { COSTS, TAGS, lotMetrics, sellNet, signedYen } from "../../services/trade-ledger";
+export type { Lot };
+export type { TradeDraft as TradeOptions } from "../../services/trade-ledger";
+import type { TradeDraft as TradeOptions } from "../../services/trade-ledger";
+
+export interface Purchase {
+  card: string;
+  paper: boolean;
+  qty: number;
+  yen: number | "";
+  extra: number;
+  date: string;
+  shop: string;
+  tag: TradeDoc["tag"];
+  note: string;
+  finish: TradeDoc["finish"];
+}
+
+export function purchaseValues(opts: TradeOptions, today: string): Purchase {
+  const lot = opts.lot;
+  return lot
+    ? {
+        card: lot.card,
+        paper: lot.paper,
+        qty: lot.qty,
+        yen: lot.buyYen,
+        extra: lot.buyExtraYen || 0,
+        date: lot.buyDate,
+        shop: lot.shop || "",
+        tag: lot.tag || "",
+        note: lot.note || "",
+        finish: lot.finish || "",
+      }
+    : {
+        card: opts.card || "",
+        paper: !!opts.paper,
+        qty: opts.qty || 1,
+        yen: opts.yen != null ? Math.round(opts.yen) : "",
+        extra: 0,
+        date: today,
+        shop: "",
+        tag: opts.tag || "",
+        note: "",
+        finish: opts.finish || "",
+      };
+}
+
+export { toInt } from "../../services/trade-ledger";
+
+export function validDate(date: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) && !isNaN(new Date(date).getTime());
+}
+
+export function purchaseError(v: Purchase, sold: number): string | null {
+  if (!v.card) return "Pick a card.";
+  if (!(v.qty >= 1 && v.qty <= L.tradeQtyMax))
+    return `How many: a whole number from 1 to ${L.tradeQtyMax}.`;
+  if (v.qty < sold)
+    return `${sold} of these are already recorded as sold, so "how many" can't be less than ${sold}.`;
+  if (!(typeof v.yen === "number" && v.yen > 0 && v.yen <= L.tradeYenMax))
+    return "Price each: a whole number of yen above zero.";
+  if (!(v.extra >= 0 && v.extra <= L.tradeYenMax)) return "Extra cost: zero or more yen.";
+  if (!validDate(v.date)) return "Date: use the form 2026-10-09.";
+  return null;
+}
+
+export function markError(yen: number | null, date: string): string | null {
+  if (yen != null && !(yen > 0 && yen <= L.tradeYenMax))
+    return "Price: a whole number of yen above zero, or leave empty.";
+  if (yen != null && !validDate(date)) return "Date: use the form 2026-10-09.";
+  return null;
+}
+
+export function saleError(
+  s: TradeSale,
+  maxQty: number,
+  saleCount: number,
+  editing: boolean,
+): string | null {
+  if (!(s.qty >= 1 && s.qty <= maxQty)) return `How many sold: 1 to ${maxQty}.`;
+  if (!(s.yen > 0 && s.yen <= L.tradeYenMax))
+    return "Sale price: a whole number of yen above zero.";
+  if (!(s.feePct >= 0 && s.feePct <= 30)) return "Fee: a percentage from 0 to 30.";
+  if (!(s.shipYen >= 0 && s.packYen >= 0)) return "Shipping and packing: zero or more yen.";
+  if (!validDate(s.date)) return "Date: use the form 2026-10-09.";
+  if (!editing && saleCount >= L.tradeSells)
+    return "That position already has the maximum number of sales recorded.";
+  return null;
+}
+
+export function withSale(lot: Lot, sale: TradeSale, editIdx?: number): Lot {
+  return {
+    ...lot,
+    sells:
+      editIdx != null && lot.sells?.[editIdx]
+        ? lot.sells.map((s, i) => (i === editIdx ? sale : s))
+        : [...(lot.sells || []), sale],
+  };
+}

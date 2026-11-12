@@ -1,0 +1,276 @@
+/* My Profile and deck summaries, using the original token colours and geometry. */
+.tad-modal .profile-title {
+  margin-bottom: 4px;
+}
+.tad-modal .profile-intro {
+  font-size: 12.5px;
+  color: var(--text-soft);
+  margin: 0 0 16px;
+}
+.tad-modal .profile-header-area {
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+.tad-modal .profile-section {
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+.tad-modal .profile-label {
+  font-size: 12px;
+  color: var(--text-soft);
+  display: block;
+  margin-bottom: 6px;
+}
+.tad-modal .profile-row {
+  gap: 8px;
+  align-items: center;
+}
+.tad-modal .profile-input {
+  flex: 1;
+  background: var(--bg-main);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 8px 10px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13.5px;
+}
+.tad-modal .profile-nowrap {
+  white-space: nowrap;
+}
+.tad-modal .profile-small-status {
+  font-size: 12px;
+  margin-top: 6px;
+  min-height: 16px;
+}
+.tad-modal .profile-add-row {
+  margin-bottom: 14px;
+}
+.tad-modal .profile-sync-status {
+  font-size: 12.5px;
+  margin-bottom: 12px;
+}
+.tad-modal .profile-deck-details {
+  margin-bottom: 10px;
+}
+.tad-modal .profile-summary {
+  cursor: pointer;
+  color: var(--gold);
+  font-weight: 600;
+  font-size: 13px;
+}
+.tad-modal .profile-count {
+  color: var(--text-soft);
+  font-weight: 400;
+}
+.tad-modal .profile-gap8 {
+  margin-top: 8px;
+}
+.tad-modal .profile-gap12 {
+  margin-top: 12px;
+}
+.tad-modal .profile-skip {
+  text-align: center;
+  margin-top: 10px;
+}
+.tad-modal .profile-skip a {
+  font-size: 12.5px;
+  color: var(--text-soft);
+  text-decoration: underline;
+}
+.tad-modal .profile-lower-section {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.tad-modal .profile-bottom8 {
+  margin-bottom: 8px;
+}
+.tad-modal .profile-min-status {
+  min-height: 16px;
+}
+.tad-modal .profile-backup-hint {
+  font-size: 12px;
+  color: var(--text-soft);
+  margin: 0 0 10px;
+}
+.tad-modal .profile-backup-button {
+  width: 100%;
+  margin-bottom: 12px;
+  font-size: 12.5px;
+}
+.tad-modal .profile-restore-file {
+  width: 100%;
+  margin-bottom: 8px;
+  font-size: 12.5px;
+  color: var(--text-primary);
+}
+.tad-modal .profile-data-status {
+  font-size: 12px;
+  min-height: 16px;
+}
+.tad-modal .profile-price-button {
+  width: 100%;
+  font-size: 12.5px;
+}
+.tad-modal .profile-soft {
+  font-size: 12.5px;
+  color: var(--text-soft);
+}
+.tad-modal .profile-empty {
+  font-size: 13px;
+  color: var(--text-soft);
+}
+.tad-modal .profile-signin-row {
+  margin-bottom: 6px;
+}
+.tad-modal .profile-email {
+  flex: 1;
+  font-size: 14px;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+.tad-modal .profile-signin-method {
+  font-size: 12.5px;
+  color: var(--text-soft);
+  margin-bottom: 8px;
+}
+.tad-modal .profile-reset-button {
+  font-size: 12.5px;
+}
+.tad-modal .profile-link-archidekt {
+  margin-bottom: 8px;
+}
+.tad-modal .profile-link-moxfield {
+  margin-bottom: 10px;
+}
+.tad-modal .profile-link-label {
+  font-size: 11.5px;
+  color: var(--text-soft);
+  display: block;
+  margin-bottom: 4px;
+}
+.tad-modal .profile-link-input {
+  padding: 7px 9px;
+  font-size: 13px;
+}
+.tad-modal .profile-visit {
+  padding: 6px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+  text-decoration: none;
+  display: inline-block;
+}
+.tad-modal .profile-deck-row {
+  border-bottom: 1px solid var(--line);
+  padding: 10px 0;
+}
+.tad-modal .profile-deck-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.tad-modal .profile-deck-title {
+  min-width: 0;
+}
+.tad-modal .profile-deck-subtitle {
+  font-size: 11.5px;
+  color: var(--text-soft);
+  margin-top: 2px;
+}
+.tad-modal .profile-linked-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 2px;
+  font-style: italic;
+}
+.tad-modal .profile-deck-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.tad-modal .profile-deck-action {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+.tad-modal .profile-deck-remove {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.tad-modal .profile-summary-error {
+  padding: 12px 0;
+  font-size: 12.5px;
+  color: var(--text-soft);
+}
+.tad-modal .profile-summary-body {
+  padding: 12px 0 6px;
+}
+.tad-modal .profile-summary-commander {
+  font-size: 13px;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+.tad-modal .profile-summary-win {
+  font-size: 12.5px;
+  color: var(--text-soft);
+  margin-bottom: 10px;
+}
+.tad-modal .profile-scores {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.tad-modal .profile-score {
+  text-align: center;
+}
+.tad-modal .profile-spark {
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.tad-modal .profile-spark-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--gold);
+}
+.tad-modal .profile-axes {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+  justify-content: space-around;
+}
+.tad-modal .profile-axis-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--gold-bright);
+}
+.tad-modal .profile-axis-label {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-soft);
+}
+.tad-modal .profile-original {
+  text-align: center;
+  margin-top: 8px;
+}
+.tad-modal .profile-original a {
+  font-size: 11.5px;
+  color: var(--text-soft);
+  text-decoration: underline;
+}
+.tad-modal .profile-summary-title {
+  margin-bottom: 4px;
+  font-size: 17px;
+}
+.tad-modal .profile-loading {
+  text-align: center;
+  color: var(--text-soft);
+  font-size: 13px;
+}

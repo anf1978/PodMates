@@ -12,12 +12,12 @@ const ESCAPES: Record<string, string> = {
   "'": "&#39;",
 };
 
-/** The same escaping the legacy `escapeHtml()` in index.html applies. */
-function escapeHtml(value: string): string {
+/** Escapes text for the string-built markup that `trustedHtml()` inserts. */
+export function escapeHtml(value: string): string {
   return String(value).replace(/[&<>"']/g, (c) => ESCAPES[c]);
 }
 
-/** The clickable name as markup, for the legacy string builders in index.html. */
+/** The clickable name as markup, for string-built panels. */
 export function cardNameLinkHtml(name: string): string {
   return `<span translate="no" class="card-name-link" data-card-name="${escapeHtml(name)}">${escapeHtml(name)}</span>`;
 }

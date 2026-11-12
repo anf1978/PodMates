@@ -1,0 +1,548 @@
+/* PriceScry: the full-screen price tool, its tabs, card page, planner and password prompt. */
+.ps-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-main);
+  z-index: 1500;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+/* PriceScry sits above the normal pop-up layer, so any pop-up opened from inside it (trade form, confirmations) must sit above PriceScry */
+#pricescryOverlay ~ .tad-overlay {
+  z-index: 1600;
+}
+.ps-wrap {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 14px 16px 32px;
+}
+.ps-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--bg-main);
+  padding: 8px 0;
+  box-shadow: 0 0 0 6px var(--bg-main);
+}
+.ps-title {
+  flex: 1;
+  font-family: "Cinzel", "Trajan Pro", Georgia, serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--gold-bright);
+}
+.ps-asof {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  margin-bottom: 10px;
+  min-height: 14px;
+}
+
+.ps-board {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--bg-panel-raised);
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+.ps-board-h {
+  font-weight: 700;
+  color: var(--gold-bright);
+  margin-bottom: 6px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.ps-board-h2 {
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 14px 0 6px;
+  font-size: 13px;
+}
+.ps-board-r {
+  margin-bottom: 4px;
+}
+.ps-board-n {
+  font-size: 12px;
+  color: var(--text-soft);
+  margin-bottom: 8px;
+}
+.ps-badge {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 3px;
+  padding: 2px 7px;
+  border: 1px solid var(--line);
+  color: var(--text-soft);
+}
+.ps-b-good {
+  border-color: #4a9a5a;
+  color: #7fd18f;
+}
+.ps-b-bad {
+  border-color: #b05050;
+  color: #e08a8a;
+}
+.ps-b-wait {
+  border-color: var(--gold);
+  color: var(--gold-bright);
+}
+.ps-tablewrap {
+  overflow-x: auto;
+  margin: 6px 0;
+}
+.ps-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12.5px;
+}
+.ps-table th,
+.ps-table td {
+  border-bottom: 1px solid var(--line);
+  padding: 5px 8px;
+  text-align: left;
+  white-space: nowrap;
+}
+.ps-table th {
+  color: var(--text-soft);
+  font-weight: 600;
+}
+.ps-board-more {
+  margin: 8px 0;
+}
+.ps-board-more summary {
+  cursor: pointer;
+  color: var(--text-soft);
+}
+.ps-board-ev,
+.ps-radar-set,
+.ps-radar-found,
+.ps-radar-post {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.ps-link {
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: var(--gold-bright);
+  padding: 0;
+  font-size: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: inherit;
+  font-weight: 400;
+}
+.ps-link:hover {
+  background: none;
+  box-shadow: none;
+}
+.ps-radar-post a,
+.ps-radar-found a {
+  color: var(--gold-bright);
+}
+.ps-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.ps-tabs button,
+.ps-range button {
+  background: var(--bg-panel-raised);
+  border: 1px solid var(--line);
+  color: var(--text-soft);
+  border-radius: 3px;
+  padding: 7px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+/* This file loads before the page's main stylesheet, whose equal-specificity button:hover and button:disabled
+   rules would otherwise win; inline, these rules came after them. */
+.ps-tabs button:hover,
+.ps-range button:hover {
+  background: var(--bg-panel-raised);
+}
+.ps-tabs button:disabled,
+.ps-range button:disabled {
+  cursor: pointer;
+}
+.ps-tabs button.on,
+.ps-range button.on {
+  border-color: var(--gold);
+  color: var(--gold-bright);
+}
+.ps-range {
+  display: flex;
+  gap: 6px;
+  margin: 10px 0;
+  flex-wrap: wrap;
+}
+.ps-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--bg-main);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 11px;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-family: inherit;
+}
+.ps-mover {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: var(--bg-panel-raised);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 10px 12px;
+  margin-top: 6px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.ps-mover:hover {
+  border-color: var(--gold);
+}
+.ps-mover-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ps-shops {
+  display: block;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.ps-art-wrap {
+  margin: 8px 0 4px;
+}
+.ps-art {
+  display: block;
+  width: 230px;
+  max-width: 62%;
+  aspect-ratio: 488 / 680;
+  height: auto;
+  border-radius: 4.5% / 3.2%;
+  background: var(--bg-panel-raised);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+.ps-art-note {
+  margin-top: 4px;
+  font-size: 11px;
+}
+.ps-flabel {
+  display: block;
+  font-size: 12px;
+  color: var(--text-soft);
+  margin: 6px 0 3px;
+}
+.ps-frow {
+  display: flex;
+  gap: 10px;
+}
+.ps-frow > div {
+  flex: 1;
+  min-width: 0;
+}
+.ps-plan {
+  margin: 10px 0;
+  background: var(--bg-panel-raised);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 8px 12px;
+}
+.ps-plan summary {
+  cursor: pointer;
+  color: var(--gold);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.ps-planout {
+  margin-top: 8px;
+}
+.ps-warn {
+  background: rgba(217, 100, 90, 0.12);
+  border: 1px solid var(--danger);
+  color: var(--text-primary);
+  border-radius: 3px;
+  padding: 7px 10px;
+  font-size: 12.5px;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+.ps-sigday {
+  margin: 12px 0 4px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.ps-signal {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--bg-panel-raised);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 8px 11px;
+  margin-top: 5px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13.5px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.ps-signal:hover {
+  border-color: var(--gold);
+}
+.ps-spoil {
+  margin-bottom: 14px;
+}
+.ps-spoil-row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 4px 2px 10px;
+  scroll-snap-type: x proximity;
+}
+.ps-spoil-tile {
+  flex: 0 0 auto;
+  width: 146px;
+  scroll-snap-align: start;
+  text-align: left;
+  background: var(--bg-panel-raised);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px;
+  color: var(--text-primary);
+  font-family: inherit;
+  cursor: pointer;
+}
+.ps-spoil-tile:hover {
+  border-color: var(--gold);
+}
+.ps-spoil-tile img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 488/680;
+  object-fit: cover;
+  border-radius: 5px;
+  background: var(--bg-main);
+}
+.ps-spoil-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  margin-top: 5px;
+  line-height: 1.25;
+}
+.ps-spoil-meta {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.3;
+  margin-top: 2px;
+}
+.ps-spoil-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 488/680;
+  border-radius: 5px;
+  background: var(--bg-main);
+  color: var(--text-soft);
+  font-size: 12px;
+  text-align: center;
+  padding: 8px;
+  box-sizing: border-box;
+}
+.ps-sig-thumb {
+  float: left;
+  width: 46px;
+  border-radius: 3px;
+  margin: 0 10px 2px 0;
+}
+.ps-signal small {
+  color: var(--text-dim);
+}
+.ps-card-title {
+  font-family: "Cinzel", Georgia, serif;
+  color: var(--gold-bright);
+  font-size: 21px;
+  margin: 10px 0 4px;
+}
+.ps-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-height: 4px;
+}
+.ps-badge {
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--gold);
+  border: 1px solid var(--gold);
+  border-radius: 2px;
+  padding: 2px 7px;
+}
+.ps-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 12px 0 4px;
+}
+.ps-controls select {
+  flex: 1;
+  min-width: 140px;
+  background: var(--bg-panel-raised);
+  border: 1px solid var(--line);
+  color: var(--text-primary);
+  border-radius: 3px;
+  padding: 8px;
+  font-size: 13px;
+  font-family: inherit;
+}
+.ps-chart {
+  width: 100%;
+  height: auto;
+  background: var(--bg-panel-raised);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  touch-action: pan-y;
+}
+.ps-readout {
+  font-size: 12.5px;
+  color: var(--text-soft);
+  min-height: 18px;
+  margin: 6px 0;
+}
+.ps-legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-soft);
+  margin-bottom: 8px;
+}
+.ps-legend i {
+  display: inline-block;
+  width: 12px;
+  height: 3px;
+  margin-right: 5px;
+  vertical-align: middle;
+}
+.ps-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin: 10px 0;
+}
+.ps-stat {
+  background: var(--bg-panel-raised);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 9px 11px;
+}
+.ps-stat small {
+  display: block;
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.ps-stat b {
+  display: block;
+  font-size: 16px;
+  color: var(--text-primary);
+  margin-top: 2px;
+}
+.ps-stat span {
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+.ps-facts {
+  font-size: 13px;
+  color: var(--text-soft);
+  line-height: 1.55;
+  padding-left: 18px;
+}
+.ps-note {
+  font-size: 13px;
+  color: var(--text-soft);
+  line-height: 1.5;
+  padding: 8px 0;
+}
+.ps-up {
+  color: #5fbf6a;
+}
+.ps-down {
+  color: #d9645a;
+}
+.ps-foot {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  margin-top: 22px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+/* Former inline styles from the moved templates. */
+.ps-card-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.ps-spacer {
+  flex: 1;
+}
+.ps-gap {
+  width: 12px;
+}
+.ps-clear {
+  display: block;
+  clear: both;
+}
+.ps-note.ps-search-note {
+  margin-top: 12px;
+}
+.ps-note.ps-note-gap {
+  margin-top: 10px;
+}
+.ps-board-h .ps-note-inline {
+  margin: 0;
+}
+.ps-plan .ps-plan-paper {
+  margin-top: 8px;
+}
+.tad-modal .ps-pw-title {
+  margin-bottom: 4px;
+}
+.tad-modal .tad-sub.ps-pw-sub {
+  margin-bottom: 10px;
+}
+.status.ps-pw-status {
+  min-height: 18px;
+  margin-top: 6px;
+}
+.row.ps-pw-actions {
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}

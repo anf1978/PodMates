@@ -1,19 +1,37 @@
-// The page's one module entry. index.html loads it from <head>, so like every module it runs
-// after the document is parsed and before DOMContentLoaded. The imports evaluate in this order,
-// which the inline scripts rely on: UI primitives, Deck Chart panels, engine, size limits, cloud.
+// The page's one module entry. index.html is static markup and CSS; this boots the card data,
+// then wires every feature through the composition root in src/app/ (one module per feature,
+// imported for its side effects in this order, which keeps DOM listeners in their old order).
 //
-// The theme script and the card-database start-up are still inline in index.html; that code
-// dynamically imports src/data/load-dataset.ts, src/cards/load-db.ts and the card/engine shims.
-// Each legacy-globals.ts only republishes typed modules on window for the inline scripts and is
-// deleted with its last inline caller. Add new behaviour to a typed module, not here.
+// The colour-theme pre-paint script is src/features/themes/prepaint.ts, inlined into <head> at
+// build time because it must run before first paint. Nothing is published on `window`.
 
-import "./ui/legacy-globals.ts";
-import "./features/deck-chart/legacy-globals.ts";
-import "./engine/legacy-globals.ts";
-// Limits first and on their own, so local deck analysis keeps them even if Firebase fails.
-import "./services/cloud/limits-global.ts";
-// Publishes window.PodmatesCloud, then dispatches "podmates-cloud-init".
-import "./services/cloud/index.ts";
+import "./app/page.ts";
+import "./app/input-limits.ts";
+import "./app/card-clicks.ts";
+import "./app/deck-chart.ts";
+import "./app/try-a-deck.ts";
+import "./app/export.ts";
+import "./app/card-viewer.ts";
+import "./app/scan-cards.ts";
+import "./app/deck-crafter.ts";
+import "./app/impact.ts";
+import "./app/spoiler-bait.ts";
+import "./app/comparison.ts";
+import "./app/trades.ts";
+import "./app/pricescry.ts";
+import "./app/profile.ts";
+import "./app/auth.ts";
+import "./app/gatherings.ts";
+import "./app/chronicles.ts";
+import "./app/saved-decks.ts";
+import "./app/chronicles-auth.ts";
+import "./app/pods.ts";
+import "./app/ja-hint.ts";
 import { installGlobalErrorHandlers } from "./services/report-error";
+import { installStickyCloseNet } from "./ui/sticky-close";
+import { mount as mountNotifications } from "./features/notifications";
 
 installGlobalErrorHandlers();
+installStickyCloseNet();
+const authBar = document.getElementById("authBar");
+if (authBar) mountNotifications(authBar);

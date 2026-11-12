@@ -1,18 +1,10 @@
 import type { Page } from "@playwright/test";
 import { test, expect } from "./offline";
+import { openPriceScry } from "./pricescry-fixture";
 
 declare global {
   interface Window {
-    showInfoModal(headerHtml: string, bodyHtml: string): void;
-    showActionConfirmModal(
-      message: string,
-      confirmLabel: string,
-      onConfirm: () => void,
-      onCancel?: () => void,
-    ): void;
     showSingleCardArtModal(name: string): Promise<void>;
-    openPriceScry(): void;
-    __cancelled?: boolean;
   }
 }
 
@@ -84,11 +76,18 @@ test("Try a Deck closes on Escape and returns focus to its button", async ({ pag
 test("Escape closes only the top stacked layer, and cancels an action confirm", async ({
   page,
 }) => {
-  await page.goto("/");
-  await expect(page.locator("#dbStatus")).toContainText(/^Ready .* cards.*loaded/);
+  await chartSample(page);
 
-  await page.evaluate(() => window.showInfoModal("<h2>Base</h2>", "<p>Under</p>"));
-  await page.evaluate(() => void window.showSingleCardArtModal("Sol Ring"));
+  await page.locator("#resultsSection button.info-btn:visible").first().click();
+  await expect(page.locator("#tadOverlay")).toBeVisible();
+  // Any [data-card-name] opens the single-card art through the page's delegated click handler.
+  await page.locator("#tadOverlay .tad-modal").evaluate((modal) => {
+    const name = document.createElement("span");
+    name.dataset.cardName = "Sol Ring";
+    name.textContent = "Sol Ring";
+    modal.append(name);
+    name.click();
+  });
   await expect(page.locator("#tadArtOverlay")).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(2);
 
@@ -100,20 +99,20 @@ test("Escape closes only the top stacked layer, and cancels an action confirm", 
   await expect(page.getByRole("dialog")).toHaveCount(0);
   expect(await bodyOverflow(page)).toBe("");
 
+  // Escape on an action confirm runs its Cancel: Deck Crafter's "Start New" (shown for a restored
+  // draft) reopens the builder.
   await page.evaluate(() =>
-    window.showActionConfirmModal(
-      "Leave?",
-      "Leave",
-      () => {},
-      () => {
-        window.__cancelled = true;
-      },
+    localStorage.setItem(
+      "podmates-deck-builder-draft",
+      JSON.stringify({ cards: { Island: 3 }, commander: "Talrand, Sky Summoner", player: "Sam" }),
     ),
   );
-  await expect(page.getByRole("dialog")).toContainText("Leave?");
+  await page.locator("#openDeckBuilderBtn").click();
+  await page.locator("#dbStartNewBtn").click();
+  await expect(page.getByRole("dialog")).toContainText("Start a new deck?");
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  expect(await page.evaluate(() => window.__cancelled)).toBe(true);
+  await expect(page.getByRole("dialog")).toHaveCount(1);
+  await expect(page.getByRole("heading", { name: "Deck Crafter", exact: true })).toBeVisible();
 });
 
 test("the full-screen PriceScry overlay locks scroll and closes on Escape", async ({ page }) => {
@@ -129,7 +128,7 @@ test("the full-screen PriceScry overlay locks scroll and closes on Escape", asyn
           : {},
       }),
   );
-  await page.evaluate(() => window.openPriceScry());
+  await openPriceScry(page);
   const screen = page.getByRole("dialog", { name: "PriceScry" });
   await expect(screen).toBeVisible();
   await expect(page.locator("#psAsOf")).toContainText("Prices as of 2025-01-02");

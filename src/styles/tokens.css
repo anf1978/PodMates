@@ -26,11 +26,19 @@
   --line-strong: rgba(232, 193, 74, 0.45);
   --slot-border: #3a3228;
   --slot-border-hi: #5c4e3a;
+  --ledger-sale-border: #888;
 
   /* Status */
   --danger: #e0553a;
+  --spoiler-like: #6fd08c;
+  --spoiler-pass: #e0705f;
   --success-text: #8fdf6a;
   --success-bg: rgba(111, 191, 78, 0.22);
+  --comparison-tier-s: #f0c86a;
+  --comparison-tier-a: #e0b24d;
+  --comparison-tier-b: #c9bfae;
+  --comparison-tier-c: #d89a6a;
+  --comparison-tier-d: #e8836a;
   --medium-bg: rgba(232, 193, 74, 0.18);
 
   /* Helpers so translucent accents follow the colour theme (see the theme script below) */

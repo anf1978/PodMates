@@ -10,31 +10,25 @@ describe("rendering enforcement", () => {
     "node.insertAdjacentHTML('beforeend', input);",
     "document.write(input);",
     "document.writeln(input);",
-  ])("rejects unsafe markup in JavaScript and inline scripts: %s", async (code) => {
-    for (const [filePath, source] of [
-      ["probe.js", code],
-      ["index.html", `<!-- <script>not code</script> -->\n<script>${code}</script>`],
-    ]) {
-      const [result] = await eslint.lintText(source, { filePath });
-      expect(
-        result.messages.some(
-          (message) =>
-            message.ruleId?.startsWith("no-unsanitized") ||
-            message.ruleId === "no-restricted-properties",
-        ),
-      ).toBe(true);
-    }
+  ])("rejects unsafe markup in modules: %s", async (code) => {
+    const [result] = await eslint.lintText(code, { filePath: "probe.js" });
+    expect(
+      result.messages.some(
+        (message) =>
+          message.ruleId?.startsWith("no-unsanitized") ||
+          message.ruleId === "no-restricted-properties",
+      ),
+    ).toBe(true);
   });
 
-  it("allows literal and sanitized legacy markup, retaining original line numbers", async () => {
+  it("allows literal markup and flags every other sink, with no sanitizer escape left", async () => {
     const [result] = await eslint.lintText(
-      "<div></div>\n<script>node.innerHTML = sanitizeHtml(input);</script>\n" +
-        "<script>node.innerHTML = '<strong>Ready</strong>';</script>\n" +
-        "<script>node.outerHTML = input;</script>",
-      { filePath: "index.html" },
+      "node.innerHTML = '';\nnode.innerHTML = sanitizeHtml(input);\nnode.outerHTML = input;",
+      { filePath: "probe.js" },
     );
     expect(result.messages.map(({ ruleId, line }) => ({ ruleId, line }))).toEqual([
-      { ruleId: "no-unsanitized/property", line: 4 },
+      { ruleId: "no-unsanitized/property", line: 2 },
+      { ruleId: "no-unsanitized/property", line: 3 },
     ]);
   });
 

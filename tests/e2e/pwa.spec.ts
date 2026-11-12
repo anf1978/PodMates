@@ -83,8 +83,14 @@ test("code update downloads changed chunks, keeps data, and waits for Reload", a
   const chunks = changed.filter(
     (transfer) => transfer.path.includes("/assets/") && transfer.path.endsWith(".js"),
   );
-  expect(chunks).toHaveLength(1);
-  expect(chunks[0].path).toMatch(/\/main-[\w-]+\.js$/);
+  // main.ts changed. The lazy PriceScry chunk imports main's shared chunk by its hashed name, and Rollup keeps a
+  // small main entry facade beside that shared chunk, so all three re-download; no other chunk may.
+  expect(chunks.map((chunk) => chunk.path.replace(/-[\w-]{8}\.js$/, "")).sort()).toEqual([
+    "/PodMates/assets/main",
+    "/PodMates/assets/main",
+    "/PodMates/assets/pricescry-screen",
+  ]);
+  const main = chunks.filter((chunk) => /\/main-[\w-]+\.js$/.test(chunk.path));
   expect(changed.some((transfer) => transfer.path.includes("/data/"))).toBe(false);
   expect(changed.some((transfer) => transfer.path.endsWith(".css"))).toBe(false);
   await Promise.all([
@@ -99,7 +105,7 @@ test("code update downloads changed chunks, keeps data, and waits for Reload", a
     ),
   ).toEqual([]);
   console.log(
-    `PWA update transfer: ${changed.reduce((sum, transfer) => sum + transfer.bytes, 0)} gzip body bytes; changed JS ${chunks[0].bytes}; unchanged dataset bodies 0`,
+    `PWA update transfer: ${changed.reduce((sum, transfer) => sum + transfer.bytes, 0)} gzip body bytes; changed main JS ${main.reduce((sum, chunk) => sum + chunk.bytes, 0)}; unchanged dataset bodies 0`,
   );
 });
 

@@ -1,0 +1,293 @@
+/* Gatherings retain the legacy layout; static presentation lives here, not in templates. */
+.tad-modal .g-input {
+  background: var(--bg-main);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 8px 10px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+.tad-modal .g-input-small {
+  padding: 7px 9px;
+}
+.g-full {
+  width: 100%;
+}
+.g-flex {
+  flex: 1;
+}
+.g-min0 {
+  min-width: 0;
+}
+.g-nowrap {
+  white-space: nowrap;
+}
+.g-gap6 {
+  gap: 6px;
+}
+.g-gap8 {
+  gap: 8px;
+}
+.g-f12 {
+  font-size: 12px;
+}
+.g-f125 {
+  font-size: 12.5px;
+}
+.tad-modal .g-input.g-f125 {
+  font-size: 12.5px;
+}
+.g-f13 {
+  font-size: 13px;
+}
+.g-f135 {
+  font-size: 13.5px;
+}
+.tad-modal h2.g-mb2 {
+  margin-bottom: 2px;
+}
+.g-mb4,
+.tad-modal h2.g-mb4 {
+  margin-bottom: 4px;
+}
+.g-mb6 {
+  margin-bottom: 6px;
+}
+.g-mb8 {
+  margin-bottom: 8px;
+}
+.g-mb10,
+.tad-modal h2.g-mb10 {
+  margin-bottom: 10px;
+}
+.g-mb12 {
+  margin-bottom: 12px;
+}
+.g-mb14 {
+  margin-bottom: 14px;
+}
+.g-mb16 {
+  margin-bottom: 16px;
+}
+.g-mt6 {
+  margin-top: 6px;
+}
+.g-mt8 {
+  margin-top: 8px;
+}
+.g-gold {
+  color: var(--gold);
+}
+.g-soft {
+  color: var(--text-soft);
+}
+.g-leaf {
+  color: var(--leaf);
+}
+.g-danger {
+  color: var(--danger);
+}
+.tad-modal .g-danger-button {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.g-gold-border {
+  border-color: var(--gold);
+}
+.g-weight600 {
+  font-weight: 600;
+}
+.g-label {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--gold);
+  display: block;
+  margin-bottom: 6px;
+}
+.g-label-note {
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-soft);
+}
+.g-host-seat {
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.g-host-guest {
+  gap: 6px;
+  margin-bottom: 6px;
+  align-items: center;
+}
+.g-seat-label {
+  font-size: 12.5px;
+  color: var(--text-soft);
+  white-space: nowrap;
+}
+.g-host-note {
+  font-size: 11.5px;
+  color: var(--text-soft);
+  margin: 8px 0 0;
+}
+.g-host-status {
+  font-size: 12.5px;
+  margin-top: 8px;
+}
+.g-invite-title {
+  font-size: 13px;
+  margin: 0 0 4px;
+}
+.g-invite-summary {
+  font-size: 12.5px;
+  color: var(--text-soft);
+  margin: 0 0 12px;
+}
+.g-invite-note {
+  font-size: 12px;
+  color: var(--text-soft);
+  margin: 0 0 12px;
+}
+.g-invite-row {
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.g-seat,
+.g-empty-seat {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+.g-empty-seat {
+  border-style: dashed;
+  color: var(--text-soft);
+  font-size: 13px;
+}
+.g-seat-declined {
+  border-color: rgba(200, 80, 80, 0.5);
+  opacity: 0.85;
+}
+.g-seat-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+.g-badge {
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+.g-deck-label {
+  font-size: 12.5px;
+  color: var(--text-soft);
+  margin-bottom: 8px;
+}
+.g-rsvp-box {
+  border: 1.5px solid var(--gold);
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+.g-reply {
+  font-size: 13px;
+  margin: 0 0 12px;
+}
+.g-reply-link {
+  font-size: 12px;
+  margin-left: 6px;
+}
+.g-wait-subtitle {
+  font-size: 12px;
+  color: var(--text-soft);
+  margin: 0 0 4px;
+}
+.g-confirmed {
+  font-size: 12.5px;
+  margin: 0 0 14px;
+  color: var(--gold);
+}
+.g-start-row {
+  margin: 6px 0 10px;
+}
+.g-edit-form {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+.g-waiting-message {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-soft);
+  margin-top: 10px;
+}
+.g-live-subtitle {
+  font-size: 11.5px;
+  color: var(--text-soft);
+  margin: 0 0 16px;
+}
+.g-loading {
+  text-align: center;
+  color: var(--text-soft);
+  font-size: 13px;
+}
+.g-error {
+  color: var(--danger);
+  font-size: 13px;
+}
+.g-ended {
+  color: var(--text-soft);
+  font-size: 13px;
+}
+.g-confirm-text {
+  font-size: 14px;
+  color: var(--text-primary);
+  line-height: 1.6;
+  margin: 6px 0 20px;
+}
+.g-confirm-actions {
+  justify-content: flex-end;
+  gap: 10px;
+}
+.g-live-card {
+  width: 100%;
+  margin-bottom: 10px;
+  background: var(--leaf);
+  border-color: var(--leaf);
+}
+.g-live-card-pod {
+  opacity: 0.85;
+  font-size: 12px;
+}
+.g-wait-card.ghost,
+.g-accepted-card.ghost {
+  width: 100%;
+  margin-bottom: 10px;
+  border-color: var(--gold);
+  text-align: left;
+}
+.g-accepted-card.ghost {
+  border-color: var(--leaf);
+}
+.g-invited-card {
+  border: 1.5px solid var(--gold);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.g-card-details {
+  font-size: 12px;
+  color: var(--text-soft);
+  margin: 2px 0 8px;
+}
+.g-clipboard {
+  position: fixed;
+  opacity: 0;
+}

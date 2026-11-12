@@ -21,14 +21,13 @@ Import from `index.ts`; it is the public surface.
   inputs, in reverse order, and requires identical results.
 - Keep each file at or under about 400 lines; split by responsibility rather than growing one file.
 
-## The legacy shim
+## The page's context
 
-`legacy-globals.ts` is the only engine file allowed to touch `window`. It republishes the engine under
-its original global names for the inline scripts, dropping the context argument: each call builds (and
-memoises) a context from the page's `CARD_DB`, `SPELLBOOK_INDEX` and `COMMANDER_TIER_DATA`; typed
-callers can import that `pageContext()` instead of reading globals. It is imported by `src/main.ts` (so
-globals exist before `DOMContentLoaded` and the cloud modules) and is also awaited by `initDatabase`. Add a name there only when inline code needs it; delete names as callers move to
-`src/features`.
+The app builds its `EngineContext` in `src/services/card-data.ts` (`pageContext()`, memoised on the loaded
+card DB, Spellbook index and commander win-rates) and passes it in. Nothing in the engine reads the page.
+
+`reference.ts` (percentiles and tier placement) and `benchmarks.ts` (closest precon, staples check, mana-base
+benchmark) take the reference datasets as arguments; `src/services/reference-data.ts` holds them.
 
 ## Golden tests
 

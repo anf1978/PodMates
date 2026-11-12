@@ -86,30 +86,19 @@ export async function updateDataFreshness(): Promise<void> {
   if (stale) console.warn(`PodMates: card data is over 14 days old (${cards.generatedAt}).`);
 }
 
-declare global {
-  interface Window {
-    __dbReady?: boolean;
-    __dbWatchdogFired?: boolean;
-    __dbLoadPct?: number;
-    __dbProgress?: (message?: string, percent?: number) => void;
-  }
+type DatasetProgress = (name: string, completed: number, total: number) => void;
+let progressListener: DatasetProgress | undefined;
+
+/** The boot bar listens here: called when a dataset fetch starts and when it finishes. */
+export function onDatasetProgress(listener: DatasetProgress): void {
+  progressListener = listener;
 }
 
 function reportProgress(name: string) {
-  if (typeof document === "undefined" || window.__dbReady || window.__dbWatchdogFired) return;
-  window.__dbProgress?.();
-  const message = document.getElementById("dbStatus");
-  const fill = document.getElementById("dbLoadFill");
-  if (message) message.textContent = `Loading ${name}... (${completed}/${datasets.size} datasets)`;
-  const percent = Math.max(window.__dbLoadPct ?? 8, 8 + (completed / datasets.size) * 12);
-  window.__dbLoadPct = percent;
-  if (fill) {
-    fill.classList.remove("indeterminate");
-    fill.style.width = `${percent}%`;
-  }
+  progressListener?.(name, completed, datasets.size);
 }
 
-// Spellbook stays a gzip/base64 JSON string; the legacy decoder still owns decompression.
+// Spellbook stays a gzip/base64 JSON string; services/card-db-boot owns decompression.
 export function loadDataset<T>(name: string): Promise<T> {
   if (!/^[A-Za-z0-9_-]+$/.test(name)) throw new Error(`Invalid dataset name: ${name}`);
   let promise = datasets.get(name);

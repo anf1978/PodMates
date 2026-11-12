@@ -1,0 +1,115 @@
+/* Save Deck's name dialog and Load a Deck. Id-scoped where the legacy inline styles had to beat
+   the global button/input rules (hover, focus and the phone-size input font). */
+.tad-modal h2.saved-decks-title {
+  margin-bottom: 10px;
+}
+.row.saved-decks-choice {
+  gap: 8px;
+  margin-top: 14px;
+}
+.saved-decks-choice button {
+  flex: 1;
+}
+#loadDeckSearch {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--bg-main);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 8px 10px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13.5px;
+  margin-bottom: 10px;
+}
+#loadDeckPlayerChips {
+  margin-bottom: 8px;
+}
+#loadDeckPlayerChips .load-deck-chip {
+  display: inline-block;
+  margin: 0 6px 6px 0;
+  padding: 4px 10px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  cursor: pointer;
+  font-family: inherit;
+  border: 1px solid var(--line);
+  background: var(--bg-main);
+  color: var(--text-primary);
+}
+#loadDeckPlayerChips .load-deck-chip.active {
+  border-color: var(--gold);
+  background: var(--gold);
+  color: var(--bg-main);
+}
+#loadDeckListArea {
+  max-height: calc(50vh / var(--pm-zoom, 1));
+  overflow-y: auto;
+}
+.load-deck-empty {
+  color: var(--text-soft);
+  font-size: 13px;
+  padding: 10px 0;
+}
+#loadDeckRetryNotice {
+  color: var(--text-soft);
+  font-size: 12.5px;
+  padding: 6px 0 8px;
+}
+#loadDeckRetryBtn {
+  background: none;
+  border: 1px solid var(--line);
+  color: var(--text-primary);
+  border-radius: 3px;
+  padding: 4px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.load-deck-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.load-deck-pick {
+  cursor: pointer;
+  flex: 1;
+}
+.load-deck-name {
+  font-size: 14px;
+  color: var(--gold-bright);
+  font-weight: 600;
+}
+.load-deck-meta {
+  font-size: 12px;
+  color: var(--text-soft);
+}
+.load-deck-linked {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  font-size: 11px;
+  color: var(--cyan);
+  white-space: nowrap;
+}
+.load-deck-actions {
+  display: flex;
+  gap: 6px;
+}
+#loadDeckListArea .load-deck-action {
+  background: none;
+  border: 1px solid var(--line);
+  color: var(--text-soft);
+  border-radius: 3px;
+  padding: 4px 9px;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+}
+#loadDeckListArea .load-deck-action.secret {
+  color: var(--gold);
+}

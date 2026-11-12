@@ -25,14 +25,14 @@ for (let run = 1; run <= 3; run++) {
           });
         }
       }).observe({ type: "longtask", buffered: true });
-      let ready = false;
-      Object.defineProperty(window, "__dbReady", {
-        get: () => ready,
-        set(value: boolean) {
-          ready = value;
-          if (value) performance.mark("pm-boot-ready");
-        },
-      });
+      // DB-ready enables Chart Deck; mark the moment its disabled attribute goes.
+      new MutationObserver((changes, observer) => {
+        const button = document.getElementById("chartBtn");
+        if (changes.length && button && !button.hasAttribute("disabled")) {
+          performance.mark("pm-boot-ready");
+          observer.disconnect();
+        }
+      }).observe(document, { attributes: true, attributeFilter: ["disabled"], subtree: true });
     });
     await page.goto("/");
     await expect(page.locator("#dbStatus")).toContainText(/^Ready .* cards.*loaded/, {

@@ -11,10 +11,31 @@ export type {
 export { analyzeDeck } from "./analyze.ts";
 export type { DeckAnalysis, DeckTallies } from "./analyze-tallies.ts";
 export { buildSpellbookIndex } from "./combos.ts";
-export { parseCommanderField, resolveCommanderName } from "./commanders.ts";
+export { detectCommander, parseCommanderField, resolveCommanderName } from "./commanders.ts";
 export { detectWinCondition } from "./win-condition.ts";
 export { scoreSpeed } from "./axes/speed.ts";
 export { scoreConsistency } from "./axes/consistency.ts";
 export { scoreVersatility } from "./axes/versatility.ts";
 export { scoreDisruption } from "./axes/disruption.ts";
 export { scorePowerLevel } from "./axes/power-level.ts";
+export {
+  computeAxisPercentile,
+  computeSparkPercentile,
+  computeTierPlacement,
+  describeTierPlacement,
+  referenceSetSummary,
+} from "./reference.ts";
+export type { ReferenceSet } from "./reference.ts";
+export {
+  computeArchetypeMatch,
+  computeManaBaseBenchmark,
+  computeStaplesDeviation,
+} from "./benchmarks.ts";
+export type {
+  ArchetypeMatch,
+  ManaBaseBaseline,
+  ManaBaseBenchmark,
+  PreconFingerprint,
+  SampleDeckMeta,
+  StaplesBaseline,
+} from "./benchmarks.ts";

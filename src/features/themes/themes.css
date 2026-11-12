@@ -1,0 +1,120 @@
+/* Display settings tray (My Profile). Tiles preview their own theme through the --pm-tile-*
+   values set on each tile; everything else uses the live theme tokens. Scoped under .tad-modal
+   so these rules outrank the global button styles, as the former inline styles did. */
+
+.tad-modal .pm-display-label {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+  margin: 12px 0 6px;
+}
+.tad-modal .pm-display-label-first {
+  margin: 0 0 6px;
+}
+.tad-modal .pm-display-note {
+  font-size: 12px;
+  color: var(--text-soft);
+  margin: 0 0 10px;
+}
+.tad-modal .pm-display-note-size {
+  margin: 0 0 14px;
+}
+.tad-modal .pm-display-current {
+  color: var(--text-primary);
+}
+
+.tad-modal .pm-size-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.tad-modal .pm-size-btn {
+  min-height: 44px;
+  padding: 6px 4px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: normal;
+  line-height: 1.1;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--text-primary);
+}
+.tad-modal .pm-size-btn[aria-checked="true"] {
+  border: 1px solid var(--gold);
+  background: var(--bg-panel-raised);
+}
+.tad-modal .pm-size-sample {
+  display: block;
+}
+.tad-modal .pm-size-label {
+  font-size: 10.5px;
+  color: var(--text-soft);
+}
+
+.tad-modal .pm-theme-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.tad-modal .pm-theme-tile {
+  background: var(--pm-tile-bg);
+  border: 1px solid var(--pm-tile-line);
+  padding: 10px 12px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--pm-tile-text);
+  text-align: left;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.tad-modal .pm-theme-tile[aria-checked="true"] {
+  border: 3px solid var(--pm-tile-accent);
+  padding: 8px 10px 10px;
+}
+.tad-modal .pm-theme-tile-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 22px;
+  margin-bottom: 6px;
+}
+.tad-modal .pm-theme-classic-pip {
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--pm-tile-accent), var(--pm-tile-cyan));
+  display: inline-block;
+}
+.tad-modal .pm-theme-check {
+  margin-left: auto;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--pm-tile-accent);
+}
+.tad-modal .pm-theme-name {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--pm-tile-text);
+}
+.tad-modal .pm-theme-sub {
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--pm-tile-soft);
+  margin-top: 2px;
+  min-height: 31px;
+}
+.tad-modal .pm-theme-swatches {
+  display: flex;
+  gap: 2px;
+  margin-top: 8px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.tad-modal .pm-theme-swatch {
+  flex: 1;
+  height: 6px;
+}

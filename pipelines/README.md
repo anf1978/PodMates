@@ -1,6 +1,6 @@
 # Data pipelines
 
-Run from the repository root with Node.js 22+. Scripts remain `.mjs`; `npm run typecheck`
+Run from the repository root with Node.js 22.18+ (built-in type stripping runs `src/shared/*.ts`). Scripts remain `.mjs`; `npm run typecheck`
 includes their JSDoc/`checkJs` project in `tsconfig.json`. `npm run check` includes the
 builder fixtures and deterministic PriceScry simulation tests. No live API is used by tests.
 Workflow definitions stay in `.github/workflows/`; paths below are relative to the repo root.
@@ -50,8 +50,9 @@ Workflow definitions stay in `.github/workflows/`; paths below are relative to t
   MTGJSON AllIdentifiers/AllPrices(Today), tcgcsv set/price data and exchange rates.
   Optional radar inputs are Reddit posts and publicly linked card images.
 - Outputs: gzip card shards, index, FX rates, movers, radar, shadow/cheap-watch logs
-  and evaluation data in the supplied data directory. `pricescry-lib.mjs` now lives
-  in `lib/`; its name normalization/hash/shard helpers still mirror the inline app.
+  and evaluation data in the supplied data directory. `pricescry-lib.mjs` lives
+  in `lib/`; its name normalization/hash/shard, day and consensus helpers are re-exported from
+  `src/shared/pricescry.ts` (shared with the app), and `planTrade` from `src/shared/trade-plan.ts`.
 - Schedule: `pricescry-daily.yml`, daily 06:30 UTC and manual. **Daily still
   publishes to production `pricescry-data`, even when dispatched on a feature branch.**
   Its production concurrency lock is unchanged; do not dispatch it merely to validate changes.

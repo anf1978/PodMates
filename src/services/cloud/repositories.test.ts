@@ -10,6 +10,7 @@ import { loadPodMembers } from "./members";
 import { createPod, joinPodByInviteCode } from "./pods";
 import { updateMyDisplayName } from "./profile";
 import { onAuthChange } from "./session";
+import { on } from "../events";
 import { loadSpoilerVotes, setSpoilerVote } from "./spoiler-votes";
 import { loadAllTableFormations, saveTableFormation } from "./table-formations";
 import { loadTrades, saveTrade } from "./trades";
@@ -22,6 +23,22 @@ const { fake, SERVER_TIMESTAMP } = fb;
 const NOW = 1_000;
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 const writesTo = (prefix: string) => fake.writes.filter((w) => w.path.startsWith(prefix));
+
+it("announces successful membership writes without depending on the legacy cloud API", async () => {
+  const changed = vi.fn();
+  const off = on("pods:membership", changed);
+  try {
+    await joinPodByInviteCode("");
+    expect(changed).not.toHaveBeenCalled();
+    await createPod("Friday");
+    expect(changed).toHaveBeenCalledOnce();
+    vi.spyOn(fb, "setDoc").mockRejectedValueOnce(new Error("offline"));
+    await expect(createPod("Saturday")).rejects.toThrow("offline");
+    expect(changed).toHaveBeenCalledOnce();
+  } finally {
+    off();
+  }
+});
 
 beforeEach(() => {
   fake.reset();
@@ -182,10 +199,6 @@ describe("linked decks", () => {
       }),
     );
     vi.stubGlobal("fetch", fetchDeck);
-    vi.stubGlobal("window", {
-      generateUniqueDeckName: (name: string, taken: Set<string>) =>
-        taken.has(name) ? `${name} (2)` : name,
-    });
     fake.seed("users/u1/decks/old", { key: "My Deck", deckName: "My Deck", secret: false });
 
     const result = await addLinkedDeck("https://archidekt.com/decks/123");

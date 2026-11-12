@@ -1,0 +1,627 @@
+/* Key Pieces & Combos, Synergy, Commander Track Record, Commander Centrality and the explainer
+   dialogs. Every rule replaces an inline style attribute the inline builders used to write,
+   so the declarations are deliberately identical to what they produced. A few selectors are
+   more specific than one class on purpose: inline styles used to beat page rules such as
+   `button:hover`, `.tad-modal h2` and `.card-name-link`. Only per-deck values (bar widths,
+   swatch and chip colours) are still set from the template. */
+
+/* ---- Key Pieces & Combos ---- */
+
+.kp-body {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-soft);
+}
+.kp-group {
+  margin-bottom: 10px;
+}
+.kp-gold {
+  color: var(--gold);
+}
+.kp-danger {
+  color: var(--danger);
+}
+.kp-soft {
+  color: var(--text-soft);
+}
+.kp-small {
+  font-size: 12px;
+}
+.kp-gc-thumbs {
+  margin: 6px 0;
+}
+.kp-section {
+  margin-bottom: 12px;
+}
+.kp-count {
+  font-size: 12.5px;
+}
+.kp-legend {
+  font-size: 12px;
+  color: var(--text-soft);
+  margin-top: 6px;
+}
+.kp-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 5px;
+  padding: 1px 6px;
+  margin-right: 5px;
+}
+.kp-tag-win {
+  background: var(--gold);
+  color: #1a1208;
+}
+.kp-tag-warp {
+  background: #3d8f8a;
+  color: #06201f;
+}
+.kp-tag-plain {
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  color: var(--text-soft);
+}
+.kp-chip {
+  display: inline-block;
+  border-radius: 7px;
+  padding: 2px 8px;
+  margin: 2px 4px 2px 0;
+  font-size: 12.5px;
+}
+.kp-chip-have {
+  border: 1px solid rgba(61, 143, 138, 0.55);
+  background: rgba(61, 143, 138, 0.14);
+}
+.kp-chip-miss {
+  border: 1.5px dashed var(--gold);
+  background: rgba(201, 162, 75, 0.08);
+}
+.kp-plus {
+  color: var(--gold);
+  font-weight: 700;
+}
+.kp-star {
+  color: var(--gold);
+}
+.kp-how {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.kp-how-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+.kp-how-cards {
+  margin-top: 8px;
+}
+.kp-how-text {
+  margin-top: 3px;
+}
+.kp-how-general {
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--text-soft);
+}
+.kp-role {
+  font-size: 12.5px;
+  margin-top: 2px;
+}
+.kp-combo {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px 10px 10px 4px;
+  padding: 12px;
+}
+.kp-combo-win {
+  border-left-color: var(--gold);
+}
+.kp-combo-warp {
+  border-left-color: #3d8f8a;
+}
+.kp-thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.kp-result {
+  font-size: 13.5px;
+  margin-top: 10px;
+}
+.kp-turn {
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--text-soft);
+}
+.kp-bracket {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-soft);
+}
+.kp-loop-chips {
+  margin-top: 6px;
+}
+.kp-loop-what {
+  font-size: 13px;
+  margin-top: 4px;
+}
+.kp-sub {
+  margin-top: 16px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.kp-near-intro {
+  font-size: 12px;
+  color: var(--text-soft);
+  margin-top: 2px;
+}
+.kp-near {
+  margin-top: 10px;
+  border: 1.5px dashed var(--gold);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+.kp-near-head {
+  font-size: 14px;
+}
+.kp-near-line {
+  margin-top: 6px;
+}
+.kp-near-summary {
+  cursor: pointer;
+  list-style: none;
+  outline: none;
+}
+.kp-near-chips {
+  margin-top: 3px;
+}
+.kp-near-result {
+  font-size: 12.5px;
+}
+.kp-footer {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  margin-top: 14px;
+}
+.kp-thumb.card-name-link {
+  display: inline-block;
+  border-bottom: none;
+}
+.kp-thumb-img {
+  object-fit: cover;
+  border: 1.5px solid var(--line);
+  border-radius: 0;
+  cursor: pointer;
+}
+.kp-thumb-gc {
+  width: 130px;
+  height: 181.5px;
+  margin: 0 6px 6px 0;
+}
+.kp-thumb-combo {
+  width: 101px;
+  height: 141px;
+  margin: 0;
+}
+
+/* ---- Synergy ---- */
+
+.syn-block {
+  margin-bottom: 14px;
+}
+.syn-block-12 {
+  margin-bottom: 12px;
+}
+.syn-h {
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 8px;
+}
+.syn-h-6 {
+  margin-bottom: 6px;
+}
+.syn-h-help {
+  cursor: help;
+  border-bottom: 1px dotted var(--text-soft);
+  display: inline-block;
+}
+.syn-h-note {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--text-soft);
+}
+.syn-theme {
+  display: inline-block;
+  margin: 0 8px 6px 0;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  font-size: 13px;
+}
+.syn-gold {
+  color: var(--gold);
+}
+.syn-soft {
+  color: var(--text-soft);
+}
+.syn-primary {
+  color: var(--text-primary);
+}
+.syn-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.syn-help {
+  cursor: help;
+  border-bottom: 1px dotted var(--text-soft);
+}
+.syn-edge {
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--line);
+}
+.syn-edge-names {
+  font-size: 13.5px;
+}
+.syn-edge-why {
+  font-size: 12px;
+  color: var(--text-soft);
+}
+.syn-empty {
+  color: var(--text-soft);
+  font-size: 13px;
+}
+.syn-legend {
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: var(--text-soft);
+}
+.syn-legend-item {
+  margin-right: 12px;
+}
+.syn-swatch {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  margin-right: 4px;
+}
+.syn-known {
+  font-size: 13px;
+  color: var(--text-soft);
+  margin-bottom: 4px;
+}
+.syn-staple {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.syn-under {
+  color: var(--danger);
+}
+.syn-over {
+  color: var(--gold-bright);
+}
+.syn-staple-base {
+  color: var(--text-soft);
+  font-weight: 400;
+}
+.syn-note-13 {
+  font-size: 13px;
+  color: var(--text-soft);
+}
+.syn-add-row {
+  margin: 2px 0 8px;
+}
+#synergyArea button.syn-add-btn {
+  background: none;
+  border: 1px solid var(--line-strong);
+  color: var(--gold);
+  border-radius: 8px;
+  padding: 5px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.syn-thin {
+  font-size: 11.5px;
+  color: var(--text-soft);
+  margin-top: 5px;
+}
+.syn-small-note {
+  font-size: 11.5px;
+  color: var(--text-soft);
+}
+.syn-cond {
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+.syn-cond-why {
+  color: var(--text-soft);
+  font-size: 12px;
+}
+.syn-idle-note {
+  font-size: 11.5px;
+  color: var(--text-soft);
+  margin-top: 4px;
+}
+.syn-more {
+  margin-bottom: 14px;
+}
+.syn-more-summary {
+  cursor: pointer;
+  color: var(--gold);
+  font-size: 12px;
+}
+.syn-mix {
+  font-size: 13px;
+  color: var(--text-soft);
+  margin-top: 8px;
+}
+.syn-free {
+  font-size: 12px;
+}
+
+/* ---- Commander Track Record ---- */
+
+.tr-empty {
+  font-size: 13.5px;
+  color: var(--text-soft);
+  line-height: 1.5;
+}
+.tr-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--line);
+}
+.tr-tier {
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  width: 28px;
+  text-align: center;
+}
+.tr-tier-S {
+  color: #f0c86a;
+}
+.tr-tier-A {
+  color: #e0b24d;
+}
+.tr-tier-B {
+  color: #c9bfae;
+}
+.tr-tier-C {
+  color: #d89a6a;
+}
+.tr-tier-D {
+  color: #e8836a;
+}
+.tr-main {
+  flex: 1;
+}
+.tr-name {
+  font-size: 14px;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.tr-stats {
+  font-size: 12.5px;
+  color: var(--text-soft);
+}
+.tr-disc {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: var(--bg-panel-raised);
+  border-left: 3px solid;
+  border-radius: 2px;
+  font-size: 13px;
+  color: var(--text-soft);
+  line-height: 1.5;
+}
+.tr-under {
+  border-left-color: var(--gold);
+}
+.tr-over {
+  border-left-color: var(--danger);
+}
+.tr-matched {
+  border-left-color: var(--success-text);
+}
+.tr-disc-label {
+  color: var(--text-primary);
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+}
+
+/* ---- Commander Centrality (the cc-* base rules live in index.html) ---- */
+
+.cc-blurb {
+  font-size: 13px;
+  color: var(--text-soft);
+}
+.cc-foot {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+.cc-bar-typ {
+  opacity: 0.7;
+}
+.cc-legend i.cc-sw-l4 {
+  background: var(--gold-bright);
+  border: 2px solid #fff;
+}
+.cc-legend i.cc-sw-l3 {
+  background: var(--gold-bright);
+}
+.cc-legend i.cc-sw-l2 {
+  background: #8a6d2a;
+}
+.cc-legend i.cc-sw-l1 {
+  background: #3d8f8a;
+}
+.cc-legend i.cc-sw-l0 {
+  background: var(--bg-panel-raised);
+}
+.cc-key-h {
+  font-family: Cinzel, Georgia, serif;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin: 12px 0 4px;
+}
+.cc-key-intro {
+  font-size: 13px;
+  color: var(--text-soft);
+}
+.cc-key-foot {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 8px;
+}
+
+/* ---- Explainer dialogs ---- */
+
+.tad-modal .ex-title {
+  margin-bottom: 10px;
+}
+.tad-modal .ex-title-tight {
+  margin-bottom: 4px;
+}
+.tad-modal .tad-sub.ex-sub-flush {
+  margin-bottom: 0;
+}
+.ex-reason {
+  margin-top: 10px;
+  font-size: 14px;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+.ex-body {
+  font-size: 13.5px;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+.ex-section {
+  margin-top: 14px;
+}
+.ex-section-title {
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 4px;
+}
+.ex-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  font-size: 12.5px;
+}
+.ex-head {
+  color: var(--text-soft);
+  border-bottom: 1px solid var(--line);
+}
+.ex-th-first {
+  text-align: left;
+  font-weight: 400;
+  padding: 3px 6px 3px 0;
+}
+.ex-th-mid {
+  text-align: right;
+  font-weight: 400;
+  padding: 3px 6px;
+}
+.ex-th-last {
+  text-align: right;
+  font-weight: 400;
+  padding: 3px 0 3px 6px;
+}
+.ex-td-first {
+  padding: 3px 6px 3px 0;
+}
+.ex-td-mid {
+  padding: 3px 6px;
+  text-align: right;
+}
+.ex-td-last {
+  padding: 3px 0 3px 6px;
+  text-align: right;
+}
+.ex-total {
+  border-top: 1px solid var(--line-strong);
+  font-weight: 700;
+}
+.ex-tot-first {
+  padding: 4px 6px 3px 0;
+}
+.ex-tot-mid {
+  padding: 4px 6px 3px;
+  text-align: right;
+}
+.ex-tot-last {
+  padding: 4px 0 3px 6px;
+  text-align: right;
+}
+.ex-note {
+  margin-top: 4px;
+  color: var(--text-soft);
+  font-size: 12px;
+}
+.ex-plain {
+  margin-top: 6px;
+  color: var(--text-soft);
+}
+.ex-rules {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12.5px;
+  color: var(--text-soft);
+}
+.ex-rule {
+  margin-bottom: 4px;
+}
+.ex-contrib {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+  font-size: 12.5px;
+}
+.ex-pct {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-size: 12.5px;
+  color: var(--text-soft);
+}
