@@ -15,17 +15,18 @@ arrive and merge the stack at the [checkpoints](#merge-checkpoints).
 
 ## Current status (read this first, 2026-11-12)
 
-**Merged to `main`:** everything up to and including R15 `p5-3-shared-code` (the R1–R15 stack, PRs #44–#68, merged
-2026-11-12). `index.html` is static markup now. There are **no Claude hooks** in the repo (removed in #24; never add
-them back). The `pre-refactor` tag marks the last commit before the refactor (a manual save point for the humans,
-not a rollback target for sessions).
+**Merged to `main`:** every session, R1–R17 (the R1–R15 stack, PRs #44–#68; R16 `p6-1`, PRs #69 and #71; R17's
+feature docs, auto-merged; all 2026-11-12). Every feature has a doc in `docs/changes/` (`005`–`019`, `021`–`026`).
+`index.html` is static markup now. There are **no Claude hooks** in the repo (removed in #24; never add them back).
+The `pre-refactor` tag marks the last commit before the refactor (a manual save point for the humans, not a rollback
+target for sessions; see `docs/changes/004_refactor_typescript-migration.md`).
 
-**Remaining sessions:**
+**Sessions after R15** (all done; the refactor plan is complete):
 
 | #   | Branch                      | Prompt                                 | How it lands                                                                            |
 | --- | --------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------- |
-| R16 | `p6-1-phone-first-delivery` | [p6-1](./p6-1-phone-first-delivery.md) | PR against `main` (everything below is merged, so no stack); a human reviews and merges |
-| R17 | `ccr-…` (auto-merged)       | [p6-2](./p6-2-feature-docs.md)         | After R16 is merged: the first session using the branch workflow, and the phone trial   |
+| R16 | `p6-1-phone-first-delivery` | [p6-1](./p6-1-phone-first-delivery.md) | **Done** 2026-11-12: PRs #69 and #71, reviewed and merged by a human                    |
+| R17 | `claude/r17-feature-docs-…` | [p6-2](./p6-2-feature-docs.md)         | **Done** 2026-11-12: three auto-merged branches (docs 004–019, 021–027); from a desktop |
 
 **Done (historical):** the R1–R15 table below records how the stack ran. A session's predecessor was the row above
 it; the first one based on `main`.

@@ -18,8 +18,8 @@ Change docs: [docs/changes/](docs/changes/README.md) · Decisions (Proposed unti
 Node.js 22.18+ (pipelines run `src/shared/*.ts` with built-in type stripping). `npm ci` installs; `npx playwright install chromium` once for e2e (`--with-deps` on Linux CI).
 
 - `npm run dev` / `npm run build` / `npm run preview` — Vite dev server, production `dist/`, serve the build.
-- `npm run check` — typecheck + lint + unit + golden tests (and the change-doc test). CI runs it on every pushed
-  branch, so running it locally is optional (useful when `node_modules` exists; it takes about a minute).
+- `npm run check` — typecheck + lint + unit + golden tests (and the change-doc and feature-doc tests). CI runs it on
+  every pushed branch, so running it locally is optional (useful when `node_modules` exists; it takes about a minute).
 - `npm run test:rules` — Firestore emulator tests (Java 21+), separate from `check`; no rules deployment.
 - `npm run build && npm run budget` — gzip code + boot-data ratchet (also CI and post-assembly deploy).
   Interim limits and the unmet plan §10 target are documented in `docs/deploy.md`.

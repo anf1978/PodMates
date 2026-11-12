@@ -85,6 +85,12 @@ Reload** banner.
   on `main` and push again.
 - **CI red on `main`** (rare: two changes merged close together and clash): the live site stays on the last good
   build, and weekly data refreshes still deploy that build. Ask a session to fix it on a new branch, or to revert.
+  A common cause is two sessions picking the same change-doc number (`tests/change-docs.test.ts` "never reuses a
+  number"): the later one renames its doc to a number that is free on `origin/main` **and** not already used by
+  another session's pushed branch, then pushes again.
+- **`ci-status.mjs` says "API rate limit exceeded"** (HTTP 403 with a stack trace): GitHub allows about 60 calls an
+  hour without a login, shared by everything on that network. Wait for the limit to reset (up to an hour), or use
+  `gh run list` if `gh` is logged in. Polling every 3–5 minutes, as `CLAUDE.md` says, stays under it.
 - **A PR is waiting** for a change to `.github/workflows/`: if its CI is green, tap **Merge** in GitHub Mobile.
 
 ## Rolling back

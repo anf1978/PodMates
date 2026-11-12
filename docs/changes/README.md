@@ -25,6 +25,9 @@ trivial: it gets an `ops` doc.)
 ## Rules
 
 - **Before changing a feature, read its docs here first** (search for the feature folder name).
+- **Every feature folder has a feature doc.** Each `src/features/<name>/` needs at least one
+  `NNN_feature_<name>.md` (or `NNN_feature_<name>-<more>.md`) describing it; `tests/feature-docs.test.ts` fails
+  otherwise. `/new-feature` writes it for you.
 - When a change alters something an earlier doc describes, add a last line `Later changes: NNN` to that earlier
   doc (append numbers, comma-separated, if the line already exists) so a reader can follow the chain. Don't
   rewrite old docs otherwise; they're history.
