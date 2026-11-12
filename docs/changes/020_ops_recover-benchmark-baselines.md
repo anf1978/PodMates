@@ -1,4 +1,4 @@
-# 003: Rebuild the staples and mana-base baselines from recovered scripts
+# 020: Rebuild the staples and mana-base baselines from recovered scripts
 
 Date: 2026-11-12
 
