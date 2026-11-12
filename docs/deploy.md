@@ -5,10 +5,10 @@ step; adding these workflows does not change the repository's Pages settings.
 
 ## CI and deployment
 
-`.github/workflows/ci.yml` runs on every push to `main`, on pull requests and on manual dispatch. It uses
+`.github/workflows/ci.yml` runs on every push to `main`, `claude/**` and `wip/**`, on pull requests and on manual dispatch. It uses
 Node 22, cached npm downloads, `npm ci`, `npm run check` (types, lint, unit and golden tests), the build and
 bundle budget, then Playwright Chromium against a production build; a second job runs the Firestore rules
-tests. Superseded PR runs are cancelled, but every commit on `main` runs to completion so each one has its
+tests. Superseded branch and PR runs are cancelled, but every commit on `main` runs to completion so each one has its
 own verdict. Failed browser tests upload a seven-day `playwright-report` artifact.
 
 Each job ends with `scripts/ci-summary.mjs`, which writes a short Markdown summary to the run's
@@ -46,17 +46,42 @@ script ignores the triggering run's commit apart from comparing it, a CI run rep
 named `main` can never be checked out or deployed. `tests/deploy-gate.test.ts` covers every row.
 
 **Rollback:** Actions → Deploy Pages → Run workflow → branch `main`, `ref` = the good commit, tick **deploy**.
-It is instant but temporary: the next green push or data refresh deploys `main` again, so also revert the bad
-commit (`git revert <sha>`, push). Rollback works for any commit on `main` whose CI run still exists. No
+It is instant but temporary: the next merge or data refresh deploys `main` again, so also revert the bad
+commit (`git revert <sha>` on a `claude/` branch). Rollback works for any commit on `main` whose CI run still exists. No
 PR-preview hosting environment is created here ([ADR 0008](adr/0008-no-pr-previews.md)).
+
+### Auto-merge: `claude/` branches ship themselves
+
+Sessions never push to `main` ([phone-workflow.md](phone-workflow.md)). They push `claude/<topic>` branches, and
+`ci.yml` runs the full CI on them. When a `CI` run on a `claude/` branch of this repository (not a fork) succeeds,
+`.github/workflows/auto-merge.yml` runs `scripts/auto-merge.sh` from a checkout of `main`:
+
+1. It skips if the branch has moved on since the tested commit (that commit's own CI decides), and refuses unless
+   the branch's latest commit has a successful `CI` run.
+2. It rebases the branch onto `main`. When `main` hasn't moved this is a no-op and `main` gets exactly the tested
+   commits. A conflict fails the run and nothing is pushed. It then pushes `main` (retrying on a race, never
+   forcing) and deletes the branch with a lease, so a newer push to the branch is never lost.
+3. Pushes made with the Actions token start no workflows, so `scripts/dispatch-and-watch.sh` dispatches `CI` on
+   `main` and waits for it. If it passes, Deploy Pages is dispatched (deploy ticked, no `ref`), and the gate above
+   deploys the newest green commit. If CI on `main` fails, the Auto-merge run fails and nothing deploys.
+
+Runs share one concurrency group, so merges happen one at a time, each on top of the previous one. `wip/` branches
+get CI and are never merged. The Actions token can't push changes to `.github/workflows/`, so for those branches
+the script opens a PR (this needs Settings → Actions → "Allow GitHub Actions to create and approve pull requests")
+and a human merges it. `tests/auto-merge.test.ts` runs the script against throwaway git repositories: fast-forward,
+rebase, red CI, moved branch, conflict, workflow files and non-`claude/` branches.
+
+`node scripts/ci-status.mjs <branch>` follows a branch through CI, Auto-merge, CI on `main` and Deploy Pages with
+the public API. It prints failing jobs' error annotations and the next step, and exits 0 when deployed, 1 on
+failure and 2 while in progress.
 
 ### Snapshot updates without a terminal
 
 `.github/workflows/update-snapshots.yml` (manual, required `reason` input) runs `npm run golden:update` and
-`npm run e2e -- --update-snapshots` on Linux, commits any changes to the branch it was started on with the
-reason in the message, pushes, and dispatches `CI` for that branch (pushes made with `GITHUB_TOKEN` start no
-workflows). A green dispatched run then lets the gate deploy the new commit. Use it only for an intended engine
-change whose change doc explains the golden diff (`/engine-change`).
+`npm run e2e -- --update-snapshots` on Linux. It commits any changes with the reason in the message: to the branch
+it was started on when that's a `claude/` or `wip/` branch, otherwise to a new `claude/snapshots-<run id>` branch.
+It then dispatches and waits for `CI` on that branch and, for `claude/` branches, dispatches Auto-merge. Use it only
+for an intended engine change whose change doc explains the golden diff (`/engine-change`).
 
 ### Weekly data refreshes
 
@@ -245,9 +270,8 @@ approval/policies, or weekly cross-workflow triggering. The human build-only dis
 and first rebuild-to-deploy checks above are required rollout evidence; no production settings
 should be changed merely to validate this PR.
 
-The CI deploy gate (p6-1) likewise only takes effect once `deploy.yml` is on `main`. After merging, confirm
-that the merge's `CI` run is followed by a **Deploy Pages** run whose Summary says "Deploy gate: deploying
-<sha>", that the next weekly rebuild deploys, and that a manual build-only run with an older `ref` resolves
-without publishing. Whether a `CI` run dispatched by **Update Snapshots** (a `GITHUB_TOKEN` dispatch) starts
-Deploy Pages through `workflow_run` is unverified; if it does not, run Deploy Pages from `main` with **deploy**
-ticked and no `ref`, which redeploys the newest green commit.
+The CI deploy gate (p6-1) was verified on its first merge: the merge commit's `CI` run started Deploy Pages,
+whose Summary said "Deploy gate: deploying 5c85862 … CI passed on main". Auto-merge and Update Snapshots only run
+once they are on `main`. Their first real use is the next session (R17): check that its `claude/` branch is merged,
+CI runs on `main` and Deploy Pages follows. A `CI` run dispatched with the Actions token may or may not also start
+Deploy Pages through `workflow_run`; Auto-merge dispatches Deploy Pages itself, so at worst a commit deploys twice.

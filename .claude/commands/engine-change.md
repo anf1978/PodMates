@@ -14,11 +14,17 @@ Add a focused regression case for the intended behaviour. Only when the task
 explicitly authorises changed results, run `npm run golden:update`; do not
 replace its pinned input fixtures or update outputs blindly.
 
-Inspect and include the actual golden diff in the PR (use a fenced diff or an
-attached diff if large). Write a justification naming changed fields, affected
-decks, why the changes are intended and any calibration impact on all five axes,
-Spark, bracket or centrality. Say explicitly when no golden output changes.
-The PR's "Golden diff explained" field must reflect this evidence, not just "yes".
-Run `npm run check` and any required browser checks after the update.
+Write a change doc, `docs/changes/NNN_change_<slug>.md` (or `_fix_`; template in
+`docs/changes/README.md`; read the earlier docs for the affected area first and add
+`Later changes: NNN` to any it supersedes). Its **Testing** section carries the
+golden diff evidence: `git diff --stat -- tests/golden` plus the key changed values
+(a fenced diff), and a justification naming changed fields, affected decks, why the
+changes are intended and any calibration impact on all five axes, Spark, bracket or
+centrality. Say explicitly when no golden output changes. If you can't run the
+update yourself (no `node_modules`), ask the human to run Actions → Update Snapshots
+on your `claude/` branch with a `reason` naming the change doc, then pull it. When the change goes through a PR, its "Golden diff
+explained" field must reflect the same evidence, not just "yes".
+Run `npm run check` after the update if you can; CI on the pushed branch runs it and
+the browser checks either way.
 If the harness or update script is missing, report that prerequisite instead of
 inventing a success or bypassing verification.

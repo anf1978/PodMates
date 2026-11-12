@@ -6,10 +6,11 @@ Context: `docs/changes/README.md` (the change-doc convention from p6-1), `CLAUDE
 ## Workflow
 
 Run this **after R16 (`p6-1-phone-first-delivery`) is merged**. It's the first session that uses the new
-direct-push workflow instead of a stacked PR, and it doubles as the phone trial: ideally a human starts it from the
-Claude iOS app. Follow the direct-push rules in `CLAUDE.md` exactly (check before every push, `git pull --rebase` on
-rejection, never force-push, confirm CI is green afterwards). Note anything in `docs/phone-workflow.md` that turned
-out wrong or unclear, and fix it in the same session.
+branch workflow instead of a stacked PR, and it doubles as the phone trial: ideally a human starts it from the
+Claude iOS app. Follow Rule 1 in `CLAUDE.md` exactly: work on a `claude/` branch from the latest `main`, push it, and
+follow it with `node scripts/ci-status.mjs` until it's merged and deployed (CI tests it; Auto-merge merges it). Note
+anything in `docs/phone-workflow.md` that turned out wrong or unclear (sandbox setup, network, pushing, `gh`, the
+status script, notifications), and fix it in a later branch.
 
 ## Why
 
@@ -47,12 +48,14 @@ says what it does and how it's built. This is a **docs-only** session: no behavi
 
 - Docs and the one test only. Don't change code, styles, data or workflows. If you find a bug, list it under
   Follow-ups in the refactor-summary doc instead of fixing it.
-- Push in a few commits (for example one per group of features), each with `npm run check` green.
+- Ship in a few branches (for example one per group of features), each with green CI before the next starts from
+  the new `main`.
 - Keep each feature doc readable on a phone: aim for under ~150 lines, short paragraphs and lists.
 
 ## Done when
 
 - Every feature folder has its doc, the refactor summary exists, and the new test passes.
-- `npm run check` was green before every push, and CI went green on `main` after the last push.
+- Every branch merged itself and `node scripts/ci-status.mjs` printed "Done" for the last one (CI green on `main`,
+  deployed).
 - Any fixes to `docs/phone-workflow.md` from the trial are pushed, and the final message lists what was hard to do
   from a phone.
