@@ -85,7 +85,12 @@ human decides to use.
   - No unit test covers the deck form's Clear and Deck Name auto-naming (`006`), and no e2e opens View Deck or the
     Card Type galleries (`011`).
   - Stale header comments: `deck-crafter/index.ts` ("until p3-6") and `saved-decks/ports.ts` ("not a typed module
-    yet") (`010`, `012`).
+    yet") (`010`, `012`); `profile/public-runtime.ts` ("still owned by the page"), `pods/integration.ts`
+    ("temporary ports … not-yet-moved Gathering invitation painter") and `gatherings/view.ts` ("the legacy
+    chart") (`014`–`016`).
+  - The `IMPACT_CANDS.json` builder (`impact-cands.cjs`) is still missing from the repo (`018`).
+  - Signed-in profiles, pods, Gatherings, Chronicles and Impact have no browser test against a real account; they
+    are covered by repository-mocked unit tests only (`014`–`018`).
 
 ## Related
 
