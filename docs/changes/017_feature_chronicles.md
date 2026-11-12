@@ -47,8 +47,9 @@ Events: none of its own (refreshes are driven by the app wiring above).
 Data (Firestore, `src/services/cloud/chronicles.ts` and `gatherings.ts`; names exact):
 
 - `pods/{podId}/chronicles/{autoId}`: `date`, `notes`, `decks` (up to `PM_LIMITS.chronicleDecks`), `createdAt`,
-  `loggedBy`, `gatheringId`, `gatheringTitle`, `participants`, `feedbackResponses` (array of `{ uid, displayName,
-fun, accuracy, bestMoment, submittedAt }`, added with `arrayUnion`), `notesEditedAt`, `notesEditedBy`.
+  `loggedBy`, `gatheringId`, `gatheringTitle`, `participants`, `feedbackResponses` (array of
+  `{ uid, displayName, fun, accuracy, bestMoment, submittedAt }`, added with `arrayUnion`), `notesEditedAt`,
+  `notesEditedBy`.
 - Logging also sets `lastLoggedChronicleId` and `lastLoggedAt` on `pods/{podId}/gatherings/{id}`; New Battle resets
   the seats' decks; End Gathering sets `status: "ended"` and `endedAt`.
 

@@ -50,8 +50,8 @@ Data (Firestore, via `src/services/cloud/`; names exact):
   `decklistText`, `cardCount`, `addedAt`, `syncedAt`. Cap: `PM_LIMITS.maxLinkedDecks`.
 - Podmates' decks are read from each member's `users/{uid}/decks` across every pod you are in (`loadMyPods`,
   `loadPodMembers`); secret ones are excluded.
-- Seat handoff: `pods/{podId}/gatherings/{gatheringId}` field `seats.{index}.deck` = `{ commander, list,
-cardCount }`, plus `updatedAt`.
+- Seat handoff: `pods/{podId}/gatherings/{gatheringId}` field `seats.{index}.deck` =
+  `{ commander, list, cardCount }`, plus `updatedAt`.
 
 No local storage.
 

@@ -25,9 +25,9 @@ the cards your podmates banged most. It lives in two places: a pod's detail and 
   `onOpen`); `openSpoilerBaitOverlay(pod)`; `connect()` subscribes to `spoilers:open` and `pods:active`. Votes are
   optimistic; a failed write shows a toast and reports. Replacing or dismissing the host retires pending renders,
   animation timers and global pointer listeners; an account switch stops further writes.
-- `data.ts`: `fetchSpoilers()` queries Scryfall search `(is:spoiler or date>=<10 days ago>) -is:reprint
-game:paper`, newest spoiled first, at most three pages, cached in memory for 30 minutes; fills missing rarities
-  via `/cards/collection` in batches of 75. `signalCards()` turns PriceScry's recorded signals into cards.
+- `data.ts`: `fetchSpoilers()` queries Scryfall search
+  `(is:spoiler or date>=<10 days ago>) -is:reprint game:paper`, newest spoiled first, at most three pages, cached in
+  memory for 30 minutes; fills missing rarities via `/cards/collection` in batches of 75. `signalCards()` turns PriceScry's recorded signals into cards.
 - `state.ts`: pure queue, rarity filters, vote map and board ordering. `gestures.ts`: swipe handling.
 - `view.ts`: templates (names escaped). `spoiler-bait.css`, prefix `sb-`.
 

@@ -42,9 +42,9 @@ Events: listens to `chart:radar` (Deck Chart).
 Data:
 
 - Firestore (`src/services/cloud/impact.ts`; names exact): `pods/{podId}/settings/impactCards` = `changes` (map of
-  `{ card, action: "add" | "remove", reason, by, byName, at, reasonBy, reasonAt }`), `dismissed` (map of `{ card,
-by, byName, at }`), `updatedAt`, `resetBy`; `pods/{podId}/impactNominations/{key}` = `{ card, note, by, byName,
-at }`.
+  `{ card, action: "add" | "remove", reason, by, byName, at, reasonBy, reasonAt }`), `dismissed` (map of
+  `{ card, by, byName, at }`), `updatedAt`, `resetBy`; `pods/{podId}/impactNominations/{key}` =
+  `{ card, note, by, byName, at }`.
 - Datasets: the default list is curated in `src/data/impact-defaults.ts`; candidates are the lazy
   `public/data/IMPACT_CANDS.json`.
 - Local storage `pm_impact_pod`: the last pod chosen in the dialog.
