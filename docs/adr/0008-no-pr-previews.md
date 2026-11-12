@@ -4,7 +4,7 @@
 
 ## Context
 
-Changes go straight to `main` from Claude cloud sessions on a phone ([ADR 0001](0001-development-workflow.md)).
+Changes reach `main` from Claude cloud sessions on a phone, merged automatically once CI passes ([ADR 0001](0001-development-workflow.md)).
 A preview site per PR or branch would need a second hosting setup (GitHub Pages serves one site per repository),
 a service-account secret for that host, and a Firebase Auth authorized domain added by hand for every preview
 domain, because Firebase does not accept wildcards. That is a lot of setup and upkeep for a one-developer site
@@ -19,5 +19,5 @@ published), and roll back with one tap if needed: Deploy Pages → Run workflow 
 ## Consequences
 
 Every change that goes live is seen by real users first, so CI (unit, golden and browser tests) carries the weight
-a preview would. Risky changes can still use an optional PR and a build-only Deploy Pages run, which builds and
-validates without publishing. No new secrets, accounts or Firebase settings are needed.
+a preview would. Risky changes can still use a `wip/` branch with a PR and a build-only Deploy Pages run (with that branch's
+commit as `ref`), which builds and validates without publishing. No new secrets, accounts or Firebase settings are needed.

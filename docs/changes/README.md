@@ -1,13 +1,15 @@
 # Change docs
 
-Changes are pushed straight to `main` without review ([ADR 0001](../adr/0001-development-workflow.md)), so these
+Changes reach `main` without review (a `claude/` branch merges itself once CI passes;
+[ADR 0001](../adr/0001-development-workflow.md)), so these
 docs are the record of **what changed and why**. Every change ships with one numbered doc, in the same push as
 the code. `tests/change-docs.test.ts` (part of `npm run check`) enforces the name, unique numbers and headings.
 
 ## Naming: `NNN_<type>_<slug>.md`
 
-- **`NNN`**: three digits, the highest existing number + 1. If `git pull --rebase` brings in a doc with your
-  number (another session pushed first), rename yours to the next free number and fix any links before pushing.
+- **`NNN`**: three digits, the highest existing number + 1 on `origin/main`. If another branch takes your number
+  first (you'll see it after `git pull --rebase origin main`, or the change-doc test fails on `main`), rename yours to
+  the next free number, fix any links and push again.
 - **`<type>`**, one of:
   - `feature`: a new capability
   - `fix`: a bug fix

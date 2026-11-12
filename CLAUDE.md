@@ -18,8 +18,8 @@ Change docs: [docs/changes/](docs/changes/README.md) · Decisions (Proposed unti
 Node.js 22.18+ (pipelines run `src/shared/*.ts` with built-in type stripping). `npm ci` installs; `npx playwright install chromium` once for e2e (`--with-deps` on Linux CI).
 
 - `npm run dev` / `npm run build` / `npm run preview` — Vite dev server, production `dist/`, serve the build.
-- `npm run check` — typecheck + lint + unit + golden tests (and the change-doc test). **Must pass before every push
-  and before you say you're done.**
+- `npm run check` — typecheck + lint + unit + golden tests (and the change-doc test). CI runs it on every pushed
+  branch, so running it locally is optional (useful when `node_modules` exists; it takes about a minute).
 - `npm run test:rules` — Firestore emulator tests (Java 21+), separate from `check`; no rules deployment.
 - `npm run build && npm run budget` — gzip code + boot-data ratchet (also CI and post-assembly deploy).
   Interim limits and the unmet plan §10 target are documented in `docs/deploy.md`.
@@ -29,15 +29,19 @@ Node.js 22.18+ (pipelines run `src/shared/*.ts` with built-in type stripping). `
   port when another session is testing. Not part of `check`.
 - `npm run typecheck`, `npm run lint`, `npm test` — one check at a time.
 - `npm run golden` — engine snapshots for all 178 sample decks. `npm run golden:update` **only** when an engine
-  change is intended (use `/engine-change`; explain the diff in the PR). `npm run golden:fixture` re-pins
+  change is intended (use `/engine-change`; explain the diff in the change doc). `npm run golden:fixture` re-pins
   fixtures from local data; run it only deliberately.
-- `npx prettier --write <files>` on the files you changed. Not `npm run format` (reformats unrelated files),
-  and never on `index.html`.
+- `npx prettier --write <files>` on the files you changed, when `node_modules` exists. Not `npm run format`
+  (reformats unrelated files), and never on `index.html`.
+- `node scripts/ci-status.mjs claude/<topic>` — where your pushed branch is (CI → Auto-merge → CI on `main` →
+  deploy), with failing tests and the next step. Public API, no login; wait 3–5 minutes between calls.
 
-CI runs `check` + build/budget + e2e + rules tests on every push to `main` and every PR, and writes a readable
-summary on the run's Summary page (`scripts/ci-summary.mjs`). Deploy Pages publishes only a commit on `main`
-whose CI passed (`scripts/resolve-deploy-commit.mjs`); **Update Snapshots** (Actions, manual) rewrites golden and
-Playwright snapshots without a terminal. See `.github/workflows/` and `docs/deploy.md`.
+CI (`ci.yml`) runs `check` + build/budget + e2e + rules tests on every push to `main`, `claude/**` and `wip/**`
+and on PRs, and writes a readable summary on the run's Summary page (`scripts/ci-summary.mjs`). **Auto-merge**
+(`auto-merge.yml`, `scripts/auto-merge.sh`) rebases a green `claude/` branch onto `main`, pushes it, runs CI on
+`main` and starts **Deploy Pages**, which publishes only a commit on `main` whose CI passed
+(`scripts/resolve-deploy-commit.mjs`). **Update Snapshots** (manual) rewrites golden and Playwright snapshots on a
+branch without a terminal. Details: `docs/deploy.md`.
 
 ## Map
 
@@ -83,7 +87,7 @@ Playwright snapshots without a terminal. See `.github/workflows/` and `docs/depl
 - `.github/actions/scryfall-bulk/` — shared current-export download/cache; all Scryfall bulk workflows use it.
   Actions are SHA-pinned and Dependabot maintains Actions/npm updates.
 - `firebase/` — unchanged Firestore rules, emulator-only config and rules tests; read `firebase/CLAUDE.md`.
-- `tests/golden/` (engine snapshots) · `tests/e2e/` (Playwright) · `scripts/` (build, lint and manifest tools; `resolve-deploy-commit.mjs` is the deploy gate, `ci-summary.mjs` the CI Summary page).
+- `tests/golden/` (engine snapshots) · `tests/e2e/` (Playwright) · `scripts/` (build, lint and manifest tools; `resolve-deploy-commit.mjs` is the deploy gate, `auto-merge.sh` merges green `claude/` branches, `ci-summary.mjs` writes the CI Summary page, `ci-status.mjs` follows a branch).
 
 `tests/e2e/accessibility.spec.ts` enforces axe serious/critical findings on the deck form, Try-a-Deck,
 expanded chart panels, info dialog and account screens. The one exact contrast deferral is documented in
@@ -91,19 +95,29 @@ expanded chart panels, info dialog and account screens. The one exact contrast d
 
 ## Rules
 
-1. **Push straight to `main`** (ADR 0001; [docs/phone-workflow.md](docs/phone-workflow.md)). Only commits whose
-   CI passed are deployed, so a red push never goes live, but fix it at once. Before every push:
-   1. Read the feature's docs in `docs/changes/` before changing it.
-   2. `npx prettier --write <changed files>`, then `npm run check`. Never push with it red.
-   3. One logical change per commit with a clear message, so a bad change is one `git revert` away.
-   4. **Docs updated** in the same push: the change doc and the living docs (table below).
+1. **Ship through a `claude/<topic>` branch; GitHub tests, merges and deploys it** (ADR 0001,
+   [docs/phone-workflow.md](docs/phone-workflow.md)). Never push to `main` yourself and never force-push it.
+   1. Start from the latest `main`: `git fetch origin && git switch -c claude/<topic> origin/main` (if the session
+      already put you on a `claude/` branch, rebase it onto `origin/main`). Never stack on an unmerged branch.
+   2. Read the feature's docs in `docs/changes/` before changing it.
+   3. One logical change per commit with a clear message. Commits land on `main` as they are, so a bad one is one
+      `git revert` away.
+   4. Local checks are optional: CI runs everything on GitHub's runners. If `node_modules` exists, cheap checks
+      (Prettier on changed files, `npm run typecheck`, `npm run lint`, `npx vitest run <file>`) save a 5-minute
+      round trip. Don't install browsers or run e2e in the sandbox.
+   5. **Docs updated** in the same branch: the change doc and the living docs (table below).
 
-   Then `git push origin HEAD:main`. If it's rejected (another session pushed first), `git pull --rebase`
-   (renumber your change doc if its number was taken) and push again. **Never force-push `main`.** Afterwards check
-   CI went green on your commit (`gh run watch`, `gh run view --log-failed` if `gh` works; otherwise ask the human
-   to look at Actions). If it's red, fix it in a follow-up commit right away, or revert.
+   Then `git push -u origin claude/<topic>` and follow it with `node scripts/ci-status.mjs claude/<topic>` (or
+   `gh run watch` if `gh` works) until it prints **Done** (exit 0). It also prints the failing tests and the next
+   step:
+   - CI red on the branch → fix, commit and push to the same branch. Nothing merged.
+   - Auto-merge conflict → `git pull --rebase origin main`, then `git push --force-with-lease` (your branch only).
+   - CI red on `main` after the merge (two merges clashed) → fix it on a new `claude/` branch at once, or revert.
+     The live site stays on the last good build meanwhile.
 
-   Branches and PRs are optional, for big or risky work the human wants to look at first.
+   Report the commits now on `main`. Use a `wip/<topic>` branch instead when the human wants to look first: CI runs
+   but it never merges itself (open a PR; they tap Merge in GitHub Mobile). Changes to `.github/workflows/` can't
+   be pushed by the Actions token, so Auto-merge opens a PR for those and a human merges it.
 
 2. **No behaviour change unless asked:** no visual, score or data-model changes as side effects. Golden must stay
    byte-identical; intentional engine changes go through `/engine-change`.
@@ -129,7 +143,7 @@ expanded chart panels, info dialog and account screens. The one exact contrast d
 
 ## Docs ship with every change
 
-Nobody reviews a direct push, so the docs are the record. Every change except typos, formatting and dependency
+Nobody reviews a change before it merges, so the docs are the record. Every change except typos, formatting and dependency
 bumps gets a numbered change doc, `docs/changes/NNN_<type>_<slug>.md` (convention and template:
 [docs/changes/README.md](docs/changes/README.md); `tests/change-docs.test.ts` checks names and headings). When it
 alters something an earlier doc describes, add `Later changes: NNN` at the bottom of that doc. Also update, in the
@@ -176,7 +190,6 @@ p, r, pm, rt, pw, tg, x, ly, ob, bt`), matching `build-card-db.mjs`. Use its acc
 ## Claude workspace
 
 `.claude/commands/` supplies `/check`, `/new-feature <name>` and `/engine-change` (both write the change doc).
-There are no hooks (removed on purpose; don't add any): run Prettier on changed files and `npm run check` yourself
-before every push, and report the result. A cloud session's environment setup script (`npm ci`, Playwright Chromium)
-is configured by a human in the Claude app; see `docs/phone-workflow.md`. `.claude/settings.json` also denies the
+There are no hooks (removed on purpose; don't add any). Cloud sessions may have no `node_modules` (the optional
+environment setup script runs `npm ci`; see `docs/phone-workflow.md`); CI tests every pushed branch either way. `.claude/settings.json` also denies the
 generated-path patterns to Claude's Edit/Write tools. CI is the real gate.

@@ -21,9 +21,10 @@ golden diff evidence: `git diff --stat -- tests/golden` plus the key changed val
 (a fenced diff), and a justification naming changed fields, affected decks, why the
 changes are intended and any calibration impact on all five axes, Spark, bracket or
 centrality. Say explicitly when no golden output changes. If you can't run the
-update yourself, ask the human to run Actions → Update Snapshots with a `reason`
-naming the change doc. When the change goes through a PR, its "Golden diff
+update yourself (no `node_modules`), ask the human to run Actions → Update Snapshots
+on your `claude/` branch with a `reason` naming the change doc, then pull it. When the change goes through a PR, its "Golden diff
 explained" field must reflect the same evidence, not just "yes".
-Run `npm run check` and any required browser checks after the update.
+Run `npm run check` after the update if you can; CI on the pushed branch runs it and
+the browser checks either way.
 If the harness or update script is missing, report that prerequisite instead of
 inventing a success or bypassing verification.

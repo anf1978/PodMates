@@ -9,5 +9,5 @@ live in [`docs/`](./docs/) (start with [`docs/overview.md`](./docs/overview.md) 
 workflows ([`rebuild-card-database.yml`](./.github/workflows/rebuild-card-database.yml) and
 [`rebuild-winrate-database.yml`](./.github/workflows/rebuild-winrate-database.yml), Mondays), which publish fresh
 data to the `data` branch; each deploy assembles it with the app. **How to contribute:** see [`CLAUDE.md`](./CLAUDE.md);
-day-to-day work happens from a phone in Claude cloud sessions that push to `main`, deployed only after CI passes:
+day-to-day work happens from a phone in Claude cloud sessions whose `claude/` branches merge and deploy themselves once CI passes:
 [`docs/phone-workflow.md`](./docs/phone-workflow.md). What changed and why: [`docs/changes/`](./docs/changes/README.md).
