@@ -144,8 +144,10 @@ Unrecovered knowledge/reference builders have not been fabricated.
 All Scryfall bulk workflows use the shared composite action in
 `.github/actions/scryfall-bulk/` and its streaming `pipelines/lib/scryfall-bulk.mjs`
 helper. Current upstream revisions are cached without stale fallback; consumers
-retain plain/gzip magic-byte handling. Weekly schedules and deployment triggers
-remain separate and unchanged. One-off PriceScry workflow definitions are archived
+retain plain/gzip magic-byte handling. Weekly schedules stay separate from deployment:
+Deploy Pages publishes only a commit on `main` whose CI passed, chosen by `scripts/resolve-deploy-commit.mjs`
+(after CI, after each rebuild, or a manual rollback; see `docs/deploy.md`), and `scripts/ci-summary.mjs` writes
+each CI job's Summary page. One-off PriceScry workflow definitions are archived
 by commit in the pipeline README; the manual Spellbook artifact builder remains.
 
 ### Engine (`src/engine`)
