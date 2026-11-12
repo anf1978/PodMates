@@ -29,4 +29,7 @@ function types and no unexplained `any`; keep files under roughly 400 lines.
 Features may use services, engine, cards and UI but never import another feature
 directly. Only cloud services may import Firebase; engine/cards stay pure.
 Do not install a rendering framework or invent missing shared abstractions.
+Write the feature's first change doc, `docs/changes/NNN_feature_<name>.md` (next free
+number; template and rules in `docs/changes/README.md`), and add the feature to the
+`CLAUDE.md` map and `docs/architecture.md` in the same commit.
 Run `npm run check`, inspect the diff and report exactly what was scaffolded.

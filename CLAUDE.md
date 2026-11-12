@@ -6,18 +6,20 @@ Actions. `index.html` is static markup and CSS; all behaviour is typed modules i
 `src/app/`. Nothing is published on `window`.
 Full context: [docs/overview.md](docs/overview.md) · Architecture: [docs/architecture.md](docs/architecture.md) ·
 Terms: [docs/glossary.md](docs/glossary.md) · Plan: [docs/refactor-plan.md](docs/refactor-plan.md) ·
-Deploy: [docs/deploy.md](docs/deploy.md) · Decisions (Proposed until human agreement):
+Deploy: [docs/deploy.md](docs/deploy.md) · **Phone workflow: [docs/phone-workflow.md](docs/phone-workflow.md)** ·
+Change docs: [docs/changes/](docs/changes/README.md) · Decisions (Proposed until human agreement):
 [D1](docs/adr/0001-development-workflow.md), [D2](docs/adr/0002-ui-approach.md),
 [D3](docs/adr/0003-pricescry-location.md), [D4](docs/adr/0004-hosting.md),
 [D5](docs/adr/0005-generated-data.md), [D6](docs/adr/0006-history-rewrite.md),
-[D7](docs/adr/0007-typescript-strictness.md).
+[D7](docs/adr/0007-typescript-strictness.md), [D8](docs/adr/0008-no-pr-previews.md).
 
 ## Commands
 
 Node.js 22.18+ (pipelines run `src/shared/*.ts` with built-in type stripping). `npm ci` installs; `npx playwright install chromium` once for e2e (`--with-deps` on Linux CI).
 
 - `npm run dev` / `npm run build` / `npm run preview` — Vite dev server, production `dist/`, serve the build.
-- `npm run check` — typecheck + lint + unit + golden tests. **Must pass before you say you're done.**
+- `npm run check` — typecheck + lint + unit + golden tests (and the change-doc test). **Must pass before every push
+  and before you say you're done.**
 - `npm run test:rules` — Firestore emulator tests (Java 21+), separate from `check`; no rules deployment.
 - `npm run build && npm run budget` — gzip code + boot-data ratchet (also CI and post-assembly deploy).
   Interim limits and the unmet plan §10 target are documented in `docs/deploy.md`.
@@ -81,7 +83,7 @@ Playwright snapshots without a terminal. See `.github/workflows/` and `docs/depl
 - `.github/actions/scryfall-bulk/` — shared current-export download/cache; all Scryfall bulk workflows use it.
   Actions are SHA-pinned and Dependabot maintains Actions/npm updates.
 - `firebase/` — unchanged Firestore rules, emulator-only config and rules tests; read `firebase/CLAUDE.md`.
-- `tests/golden/` (engine snapshots) · `tests/e2e/` (Playwright) · `scripts/` (build, lint and manifest tools).
+- `tests/golden/` (engine snapshots) · `tests/e2e/` (Playwright) · `scripts/` (build, lint and manifest tools; `resolve-deploy-commit.mjs` is the deploy gate, `ci-summary.mjs` the CI Summary page).
 
 `tests/e2e/accessibility.spec.ts` enforces axe serious/critical findings on the deck form, Try-a-Deck,
 expanded chart panels, info dialog and account screens. The one exact contrast deferral is documented in
@@ -89,8 +91,20 @@ expanded chart panels, info dialog and account screens. The one exact contrast d
 
 ## Rules
 
-1. **Stack, don't branch from `main`** while the refactor stack is open (`docs/prompts/00-README.md`). Open a
-   PR; never push to `main`. One feature or fix per PR.
+1. **Push straight to `main`** (ADR 0001; [docs/phone-workflow.md](docs/phone-workflow.md)). Only commits whose
+   CI passed are deployed, so a red push never goes live, but fix it at once. Before every push:
+   1. Read the feature's docs in `docs/changes/` before changing it.
+   2. `npx prettier --write <changed files>`, then `npm run check`. Never push with it red.
+   3. One logical change per commit with a clear message, so a bad change is one `git revert` away.
+   4. **Docs updated** in the same push: the change doc and the living docs (table below).
+
+   Then `git push origin HEAD:main`. If it's rejected (another session pushed first), `git pull --rebase`
+   (renumber your change doc if its number was taken) and push again. **Never force-push `main`.** Afterwards check
+   CI went green on your commit (`gh run watch`, `gh run view --log-failed` if `gh` works; otherwise ask the human
+   to look at Actions). If it's red, fix it in a follow-up commit right away, or revert.
+
+   Branches and PRs are optional, for big or risky work the human wants to look at first.
+
 2. **No behaviour change unless asked:** no visual, score or data-model changes as side effects. Golden must stay
    byte-identical; intentional engine changes go through `/engine-change`.
 3. **Never edit generated files** — `public/data/**`, `**/generated/**`, `*.generated.*`, anything with a
@@ -110,8 +124,23 @@ expanded chart panels, info dialog and account screens. The one exact contrast d
 10. **Edit `index.html` in place; never regenerate it.** It holds two huge single lines (the base64 favicon near
     the top and the header artwork `<img src="data:image/jpeg;base64` near `<header>`): grep for an id and do a
     ranged read rather than printing the file.
-11. Update `CLAUDE.md` and `docs/architecture.md` when code moves. Never commit secrets (the Firebase web
+11. Keep the docs current (table below). Never commit secrets (the Firebase web
     `apiKey` in `src/services/cloud/firebase.ts` is public by design).
+
+## Docs ship with every change
+
+Nobody reviews a direct push, so the docs are the record. Every change except typos, formatting and dependency
+bumps gets a numbered change doc, `docs/changes/NNN_<type>_<slug>.md` (convention and template:
+[docs/changes/README.md](docs/changes/README.md); `tests/change-docs.test.ts` checks names and headings). When it
+alters something an earlier doc describes, add `Later changes: NNN` at the bottom of that doc. Also update, in the
+same push:
+
+| Kind of change                      | Also update                                                          |
+| ----------------------------------- | -------------------------------------------------------------------- |
+| Code moves, new modules or features | `CLAUDE.md` Map and `docs/architecture.md`                           |
+| Commands, workflows, deploy, CI     | `CLAUDE.md` Commands, `docs/deploy.md`, `docs/phone-workflow.md`     |
+| New domain terms                    | `docs/glossary.md`                                                   |
+| Lasting decisions                   | a new ADR in `docs/adr/` (next number), linked from the header above |
 
 ## Gotchas
 
@@ -146,6 +175,8 @@ p, r, pm, rt, pw, tg, x, ly, ob, bt`), matching `build-card-db.mjs`. Use its acc
 
 ## Claude workspace
 
-`.claude/commands/` supplies `/check`, `/new-feature <name>` and `/engine-change`. There are no hooks: run Prettier
-on changed files and `npm run check` yourself before finishing, and paste the result in the PR. `.claude/settings.json`
-also denies the generated-path patterns to Claude's Edit/Write tools. CI is the real gate.
+`.claude/commands/` supplies `/check`, `/new-feature <name>` and `/engine-change` (both write the change doc).
+There are no hooks (removed on purpose; don't add any): run Prettier on changed files and `npm run check` yourself
+before every push, and report the result. A cloud session's environment setup script (`npm ci`, Playwright Chromium)
+is configured by a human in the Claude app; see `docs/phone-workflow.md`. `.claude/settings.json` also denies the
+generated-path patterns to Claude's Edit/Write tools. CI is the real gate.
