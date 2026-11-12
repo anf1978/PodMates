@@ -1,5 +1,6 @@
 name: CI
 
+# Deploy Pages listens for this workflow by name ("CI"); keep them in sync if renaming it.
 on:
   workflow_dispatch:
   pull_request:
@@ -10,7 +11,14 @@ permissions: {}
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Every commit on main keeps its own verdict (the deploy gate and reverts rely on it);
+  # superseded PR runs are cancelled.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+defaults:
+  run:
+    # Explicit bash turns on pipefail, so `cmd | tee log` still fails when cmd fails.
+    shell: bash
 
 jobs:
   rules:
@@ -20,6 +28,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
@@ -29,7 +39,14 @@ jobs:
           distribution: temurin
           java-version: "21"
       - run: npm ci
-      - run: npm run test:rules
+      - name: Firestore rules tests
+        id: rules
+        run: mkdir -p logs && npm run test:rules 2>&1 | tee logs/rules.log
+      - name: Write summary
+        if: ${{ !cancelled() }}
+        run: >-
+          node scripts/ci-summary.mjs "Firestore rules"
+          "Rules tests (emulator)::${{ steps.rules.outcome }}::logs/rules.log"
 
   check:
     permissions:
@@ -38,17 +55,37 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run check
-      - run: npm run build && npm run budget
+      - name: npm run check
+        id: check
+        run: mkdir -p logs && npm run check 2>&1 | tee logs/check.log
+      - name: Golden diff stats
+        # Shows which engine snapshots a change would rewrite; the update stays in this runner.
+        if: ${{ failure() && steps.check.outcome == 'failure' }}
+        run: |
+          npm run golden:update > /dev/null 2>&1 || true
+          git diff --stat -- tests/golden > logs/golden.log
+      - name: Build and bundle budget
+        id: budget
+        run: (npm run build && npm run budget) 2>&1 | tee logs/budget.log
       - run: npx playwright install --with-deps chromium
       - name: Run browser smoke tests
         id: e2e
-        run: npm run e2e -- --reporter=line,html
+        run: npm run e2e -- --reporter=line,html 2>&1 | tee logs/e2e.log
+      - name: Write summary
+        if: ${{ !cancelled() }}
+        run: >-
+          node scripts/ci-summary.mjs "Checks"
+          "Typecheck, lint, unit and golden (npm run check)::${{ steps.check.outcome }}::logs/check.log"
+          "Golden snapshot diff (what --update would change)::info::logs/golden.log"
+          "Build and bundle budget::${{ steps.budget.outcome }}::logs/budget.log"
+          "Browser tests (Playwright)::${{ steps.e2e.outcome }}::logs/e2e.log"
       - name: Upload Playwright report
         if: ${{ failure() && steps.e2e.outcome == 'failure' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

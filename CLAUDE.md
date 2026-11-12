@@ -32,7 +32,10 @@ Node.js 22.18+ (pipelines run `src/shared/*.ts` with built-in type stripping). `
 - `npx prettier --write <files>` on the files you changed. Not `npm run format` (reformats unrelated files),
   and never on `index.html`.
 
-CI runs `check` + e2e + rules tests on every PR (including stacked bases) and `main`; see `.github/workflows/{ci,deploy}.yml`.
+CI runs `check` + build/budget + e2e + rules tests on every push to `main` and every PR, and writes a readable
+summary on the run's Summary page (`scripts/ci-summary.mjs`). Deploy Pages publishes only a commit on `main`
+whose CI passed (`scripts/resolve-deploy-commit.mjs`); **Update Snapshots** (Actions, manual) rewrites golden and
+Playwright snapshots without a terminal. See `.github/workflows/` and `docs/deploy.md`.
 
 ## Map
 
