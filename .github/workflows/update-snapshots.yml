@@ -1,9 +1,10 @@
 name: Update Snapshots
 
-# Regenerates the engine golden snapshots and Playwright snapshots on Linux and commits them to the
-# branch this run was started on (Actions → Update Snapshots → Run workflow; main by default).
-# Only for an intended change: the change doc and the reason must say why the golden diff is expected
-# (the /engine-change rule). The commit message carries the reason.
+# Regenerates the engine golden snapshots and Playwright snapshots on Linux (Actions → Update Snapshots →
+# Run workflow). Run on a claude/ or wip/ branch, it commits to that branch; run on main, it commits to a
+# new claude/snapshots-<run id> branch. Then it runs CI on that branch and, for claude/ branches, starts
+# Auto-merge, which ships the commit like any other. Only for an intended change: the change doc and the
+# reason must say why the golden diff is expected (the /engine-change rule).
 on:
   workflow_dispatch:
     inputs:
@@ -26,9 +27,9 @@ jobs:
   update:
     permissions:
       contents: write
-      actions: write # to dispatch CI on the new commit (GITHUB_TOKEN pushes start no runs)
+      actions: write # dispatch CI and Auto-merge (the token's pushes start no workflows)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Require a reason
         env:
@@ -51,12 +52,16 @@ jobs:
         run: npm run golden:update
       - name: Update Playwright snapshots
         run: npm run e2e -- --update-snapshots --reporter=line
-      - name: Commit, push and start CI
+      - name: Commit and push to a branch
+        id: commit
         env:
           REASON: ${{ inputs.reason }}
-          BRANCH: ${{ github.ref_name }}
-          GH_TOKEN: ${{ github.token }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
+          case "$REF_NAME" in
+            claude/* | wip/*) BRANCH="$REF_NAME" ;;
+            *) BRANCH="claude/snapshots-$GITHUB_RUN_ID" ;;
+          esac
           git add -A -- tests/golden/__snapshots__ tests/e2e
           if git diff --cached --quiet; then
             echo "No snapshot changes." | tee -a "$GITHUB_STEP_SUMMARY"
@@ -71,11 +76,20 @@ jobs:
             git diff --cached --stat
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-          git commit -m "test: update snapshots" -m "Reason: $REASON" -m "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          for attempt in 1 2 3; do
-            git push origin "HEAD:$BRANCH" && break
-            [ "$attempt" = 3 ] && exit 1
-            git pull --rebase origin "$BRANCH"
-          done
-          gh workflow run ci.yml --ref "$BRANCH"
-          echo "Pushed $(git rev-parse --short HEAD) to $BRANCH and started CI on it." | tee -a "$GITHUB_STEP_SUMMARY"
+          git commit -q -m "test: update snapshots" -m "Reason: $REASON" -m "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          git push -q origin "HEAD:refs/heads/$BRANCH"
+          echo "Pushed $(git rev-parse --short HEAD) to $BRANCH." | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: CI on the branch, then Auto-merge
+        if: ${{ steps.commit.outputs.branch != '' }}
+        env:
+          BRANCH: ${{ steps.commit.outputs.branch }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          bash scripts/dispatch-and-watch.sh ci.yml "$BRANCH" "${{ steps.commit.outputs.sha }}"
+          case "$BRANCH" in
+            claude/*) gh workflow run auto-merge.yml --ref main -f branch="$BRANCH"
+                      echo "Started Auto-merge for $BRANCH." >> "$GITHUB_STEP_SUMMARY" ;;
+            *) echo "$BRANCH is a wip/ branch: not merged automatically." >> "$GITHUB_STEP_SUMMARY" ;;
+          esac

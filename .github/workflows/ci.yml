@@ -1,18 +1,19 @@
 name: CI
 
-# Deploy Pages listens for this workflow by name ("CI"); keep them in sync if renaming it.
+# Deploy Pages and Auto-merge listen for this workflow by name ("CI"); keep them in sync if renaming it.
+# Sessions push claude/<topic> (auto-merged when green) or wip/<topic> (never auto-merged) branches.
 on:
   workflow_dispatch:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, "claude/**", "wip/**"]
 
 permissions: {}
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   # Every commit on main keeps its own verdict (the deploy gate and reverts rely on it);
-  # superseded PR runs are cancelled.
+  # superseded branch and PR runs are cancelled (Auto-merge only merges a branch's latest commit).
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 defaults:
