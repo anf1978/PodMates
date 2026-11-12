@@ -8,15 +8,22 @@ the task in `docs/prompts/<file>`"*), and the session follows the [stacking proc
 run several sessions at the same time; each one waits for its predecessor where needed. Review the PRs as they
 arrive and merge the stack at the [checkpoints](#merge-checkpoints).
 
-## Current status (read this first, 2026-11-11)
+## Current status (read this first, 2026-11-12)
 
-**Merged to `main`:** everything up to and including `p5-2-workflows-tidy`, except the work below. `p3-6-remove-shims`
-(#25) ran early as a **scoped** pass after only `p3-5-01`, so the old shims and globals are still in `index.html`.
-There are no open PRs, and there are **no Claude hooks** in the repo (removed in #24; never add them back).
+**Merged to `main`:** everything up to and including R15 `p5-3-shared-code` (the R1–R15 stack, PRs #44–#68, merged
+2026-11-12). `index.html` is static markup now. There are **no Claude hooks** in the repo (removed in #24; never add
+them back). The `pre-refactor` tag marks the last commit before the refactor (a manual save point for the humans,
+not a rollback target for sessions).
 
-**Remaining sessions**, a fresh linear stack starting from `main`. This list replaces the
-[stack order](#stack-order) table for them. A session's predecessor is the row above it; the first one bases on
-`main`.
+**Remaining sessions:**
+
+| # | Branch | Prompt | How it lands |
+|---|---|---|---|
+| R16 | `p6-1-phone-first-delivery` | [p6-1](./p6-1-phone-first-delivery.md) | PR against `main` (everything below is merged, so no stack); a human reviews and merges |
+| R17 | none (direct push) | [p6-2](./p6-2-feature-docs.md) | After R16 is merged: the first session using the direct-push workflow, and the phone trial |
+
+**Done (historical):** the R1–R15 table below records how the stack ran. A session's predecessor was the row above
+it; the first one based on `main`.
 
 | # | Branch | Prompt | Predecessor |
 |---|---|---|---|
@@ -35,12 +42,8 @@ There are no open PRs, and there are **no Claude hooks** in the repo (removed in
 | R13 | `p3-5-14-pricescry` | p3-5, FEATURE = `pricescry` | R12 |
 | R14 | `p3-6-remove-shims-2` | [p3-6](./p3-6-remove-shims.md): finish what #25 deferred (see `docs/architecture.md`, "What is not done yet") | R13 |
 | R15 | `p5-3-shared-code` | [p5-3](./p5-3-shared-code.md) | R14 |
-| R16 | `p6-1-phone-first-delivery` | [p6-1](./p6-1-phone-first-delivery.md), **last** | R15 |
 
-Sessions can **work** in parallel and rebase onto their predecessor before submitting (step 2 of the
-[stacking procedure](#stacking-procedure)). Expect small rebase conflicts in shared files (`CLAUDE.md` map,
-`legacy-globals.ts`, `vite.config`, e2e specs); keep both sides. After R16 merges, the stacked-PR workflow ends and
-sessions push straight to `main` (ADR 0001).
+After R16 merges, the stacked-PR workflow ends and sessions push straight to `main` (ADR 0001), starting with R17.
 
 ## Order and dependencies
 
