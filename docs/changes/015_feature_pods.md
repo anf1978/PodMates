@@ -76,5 +76,5 @@ created or deleted. Roll back code with `git revert`.
 
 ## Related
 
-`004`, `013` (sign-in), `014` (profiles), `016` (Gatherings), `017` (Chronicles), `019` (Spoiler Bait), `023`
+`004`, `013` (sign-in), `014` (profiles), `016` (Gatherings), `017` (Chronicles), `019` (Spoiler Bait), `024`
 (Notifications open pods).

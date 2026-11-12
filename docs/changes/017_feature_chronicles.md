@@ -16,7 +16,7 @@ Battle** and **End Gathering**.
   grouped by Gathering…", the entries (date, decks with commander, player and Spark, notes, average ratings and
   highlights), **Add notes** / **Edit notes** and delete for participants and Stewards, and **Clear Chronicles**
   (Steward only, confirmed). Guests can read; editing asks them to sign in.
-- **Under a charted Gathering battle** (`022`): the host sees **Log Battle** (with a confirm); others see "Waiting for
+- **Under a charted Gathering battle** (`023`): the host sees **Log Battle** (with a confirm); others see "Waiting for
   <host> to log this battle." After logging: "Battle logged. What's next?" with **Repeat Battle**, **Start New
   Battle** and **End Gathering** (host only).
 - **"How was the battle?"** (non-hosts, once per new logged result): **Fun** and **Alignment accuracy** ratings, **Best
@@ -75,5 +75,5 @@ None.
 
 ## Related
 
-`004`, `014` (public profiles read Chronicles), `015` (active pod), `016` (Gatherings), `022` (comparison shows the
+`004`, `014` (public profiles read Chronicles), `015` (active pod), `016` (Gatherings), `023` (comparison shows the
 battle).

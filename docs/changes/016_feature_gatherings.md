@@ -6,7 +6,7 @@ Date: 2026-11-12
 
 A Gathering is one game night for a pod. The host picks who sits where (podmates or named guests, up to six
 seats), either sends invites and waits for replies or starts at once, and everyone loads a deck into their seat.
-Then the host charts the battle: the table's decks are compared side by side (`022`), and the result can be logged
+Then the host charts the battle: the table's decks are compared side by side (`023`), and the result can be logged
 to the pod's Chronicles (`017`). Anyone can also try a **sample table** of six library decks without an account.
 
 ## What users see
@@ -79,5 +79,5 @@ fields. Roll back code with `git revert`.
 
 ## Related
 
-`004`, `012` (seat deck picker), `015` (pods emit host/sample/paint), `017` (battle logging and results), `022`
-(comparison), `023` (notifications open Gatherings).
+`004`, `012` (seat deck picker), `015` (pods emit host/sample/paint), `017` (battle logging and results), `023`
+(comparison), `024` (notifications open Gatherings).

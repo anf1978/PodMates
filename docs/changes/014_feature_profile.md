@@ -15,7 +15,7 @@ pod's decks, colours, card types, bracket spread and play style, worked out from
   profile"): your public header, sign-in details, **Display name** + **Save Name** (refused if someone in one of your
   pods already uses it), profile links, **Add Deck** from an Archidekt/Moxfield link, **Show my decks** (saved and
   linked decks merged, each with refresh/remove and a quick summary; tap to chart it), **Build Table**, **Display
-  settings — colour themes** (`024`), **Backup & Restore** and a **PriceScry** button. Welcome mode offers "Skip for
+  settings — colour themes** (`025`), **Backup & Restore** and a **PriceScry** button. Welcome mode offers "Skip for
   now".
 - **Player profile** (from a pod's member list) and **Pod profile** (from a pod): header, Player/Pod Type (Timmy,
   Johnny, Spike… from table vibes), colour and card-type pies, bracket distribution, archetype table, a deck
@@ -50,7 +50,7 @@ Data (Firestore via `src/services/cloud/`, names exact):
 - Backup file: `podmates-backup-YYYY-MM-DD.json` = `{ type: "podmates_backup", version: 1, exportedAt, decks }`,
   saved decks only (linked decks have a live source elsewhere).
 
-No local storage of its own (the themes tray uses its own keys, `024`).
+No local storage of its own (the themes tray uses its own keys, `025`).
 
 ## Testing
 
@@ -73,4 +73,4 @@ Name changes and restores write real documents; a revert does not undo them. Rol
 ## Related
 
 `004`, `012` (deck lists), `013` (welcome flow, save guard), `015` (pods open profiles), `017` (Chronicles feed the
-public analytics), `024` (Display settings), `025` (PriceScry).
+public analytics), `025` (Display settings), `026` (PriceScry).

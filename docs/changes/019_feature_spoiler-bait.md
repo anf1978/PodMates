@@ -11,7 +11,7 @@ the cards your podmates banged most. It lives in two places: a pod's detail and 
 ## What users see
 
 - **Entry points**: **Spoiler Bait — swipe on this week's new cards** in a pod's detail (dialog, pod board for that
-  pod), and PriceScry's **Bait** tab (`025`; uses PriceScry's recorded spoiler signals and the active pod).
+  pod), and PriceScry's **Bait** tab (`026`; uses PriceScry's recorded spoiler signals and the active pod).
 - **Signed out**: a sign-in gate; nothing loads.
 - **The queue**: a card image with **💥 Bang** / **✕ Bin** buttons, swipe gestures and keyboard; undo the last vote;
   rarity filters (common/uncommon/rare/mythic; unknown rarities stay visible) with a note about hidden cards.
@@ -27,7 +27,8 @@ the cards your podmates banged most. It lives in two places: a pod's detail and 
   animation timers and global pointer listeners; an account switch stops further writes.
 - `data.ts`: `fetchSpoilers()` queries Scryfall search
   `(is:spoiler or date>=<10 days ago>) -is:reprint game:paper`, newest spoiled first, at most three pages, cached in
-  memory for 30 minutes; fills missing rarities via `/cards/collection` in batches of 75. `signalCards()` turns PriceScry's recorded signals into cards.
+  memory for 30 minutes; fills missing rarities via `/cards/collection` in batches of 75. `signalCards()` turns
+  PriceScry's recorded signals into cards.
 - `state.ts`: pure queue, rarity filters, vote map and board ordering. `gestures.ts`: swipe handling.
 - `view.ts`: templates (names escaped). `spoiler-bait.css`, prefix `sb-`.
 
@@ -63,4 +64,4 @@ None.
 
 ## Related
 
-`004`, `015` (pod entry point), `025` (PriceScry's Bait tab).
+`004`, `015` (pod entry point), `026` (PriceScry's Bait tab).

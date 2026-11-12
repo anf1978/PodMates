@@ -30,7 +30,7 @@ workflows spliced in on `main`. GitHub Pages served the file as committed; there
   theme pre-paint. Behaviour is strict TypeScript in `src/`, wired together only in `src/app/`. Nothing is
   published on `window`; lint enforces the layer rules.
 - **Typed features.** Each user-facing area is a folder in `src/features/<name>/` with its own state, views, CSS and
-  tests; docs `005` to `025` describe each one as it is today.
+  tests; docs `005`–`019` and `021`–`026` describe each one as it is today.
 - **Data out of the page.** Static datasets are files in `public/data/`; the weekly bots publish `cards.json`,
   `tags.json` and `winrates.json` on the `data` branch, and the deploy copies them in. Big datasets load lazily.
 - **Pipelines** are typed Node builders in `pipelines/`; code shared with the app is in `src/shared/`.
@@ -88,6 +88,8 @@ human decides to use.
     yet") (`010`, `012`); `profile/public-runtime.ts` ("still owned by the page"), `pods/integration.ts`
     ("temporary ports … not-yet-moved Gathering invitation painter") and `gatherings/view.ts` ("the legacy
     chart") (`014`–`016`).
+  - More stale comments: `comparison/index.ts` ("the remaining inline datasets") and `pricescry/runtime.ts` ("the
+    legacy card picker") (`023`, `026`).
   - The `IMPACT_CANDS.json` builder (`impact-cands.cjs`) is still missing from the repo (`018`).
   - Signed-in profiles, pods, Gatherings, Chronicles and Impact have no browser test against a real account; they
     are covered by repository-mocked unit tests only (`014`–`018`).
@@ -95,4 +97,4 @@ human decides to use.
 ## Related
 
 `001` (phone-first delivery), `002` (refactor-plan folder), `003` (auto-merge for `ccr-` branches); ADRs D1–D8;
-feature docs `005`–`025`.
+feature docs `005`–`019` and `021`–`026`.
