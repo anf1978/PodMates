@@ -1,4 +1,15 @@
 # PodMates Product Bible
+
+> **Historical document, frozen as of 2026-11-10.** This is the hand-kept handover log from before the
+> TypeScript refactor (doc [004](../changes/004_refactor_typescript-migration.md)). Its architecture, file layout,
+> workflow ("Claude delivers complete files") and known-issues sections are out of date. Wherever it disagrees
+> with [CLAUDE.md](../../CLAUDE.md), [architecture.md](../architecture.md), [overview.md](../overview.md) or the
+> change docs in [docs/changes/](../changes/README.md), those win. It is kept for the reasoning behind decisions:
+> the Revisions and Passes record why scoring, brackets and PriceScry work the way they do. The rules that still
+> bind are copied into [src/engine/CLAUDE.md](../../src/engine/CLAUDE.md) and
+> [src/features/pricescry/CLAUDE.md](../../src/features/pricescry/CLAUDE.md). Do not edit it; record new
+> decisions in a change doc.
+
 **Compiled:** October 2026 — end of a single, very long development session
 **Revised:** October 11, 2026 — Revision 3 (plus Revision 3.1, bracket timing rules, Revision 3.2, banned cards and the commander in scoring, Revision 3.3, the three-tier reference set, default impact cards and pod impact-list editing, Revision 3.4, the Commander Spellbook snapshot counted in the standard scores, Revision 3.5, spirit-band re-fit, cEDH-capable note and Centrality re-calibration, Revision 3.6, PriceScry backtests, cheap-pick watch and pasted spoilers, and Revision 3.7, Deck Crafter search, Load Deck reliability, logo, front page and colour themes), adding PriceScry (new Section 14), the Chronicles edit/delete and display-name changes, and the updated Firestore rules (see the Revision 3 summary right below). Revision 2 (October 3, 2026) covered everything built after the first compile. Section cross-references were also repaired: several pointed at an older numbering.
 **Purpose:** Everything a new Claude conversation needs to pick up PodMates development and architecture from exactly where this session left off, without re-discovering anything the hard way.

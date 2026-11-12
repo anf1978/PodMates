@@ -17,7 +17,7 @@ export type SupportCounts = Record<SupportKind, number>;
 // Pure function: no page access. Returns data; the page draws it.
 
 // How commanders work, as the scoring relies on it. Kept as data so the rules
-// are in one place (and mirrored in the Product Bible). Checked against the
+// are in one place (and mirrored in docs/history/product-bible-2026-11-10.md). Checked against the
 // Comprehensive Rules wording in Oct 2026 -- re-verify if the Commander rules
 // change; the zone-return rules (903.9) are the part that has been revised before.
 export const COMMANDER_RULES = [

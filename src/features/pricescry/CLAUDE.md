@@ -43,6 +43,24 @@ first; data plumbing is in `src/services/price-data.ts`, and the publishing side
   shard unreachable: `src/shared/pricescry.test.ts` pins shard numbers for known names.
 - `src/shared/trade-plan.ts` holds `planTrade()`, used by `plan.ts` and `pipelines/pricescry/pricescry-study.mjs`.
 
+## Standing decisions (Anthony's rules; do not relitigate without asking)
+
+From the [Product Bible](../../../docs/history/product-bible-2026-11-10.md) §14.1, still in force:
+
+- **Buying in Japan only; flipping on Mercari.** Anthony accepts the risk. Sellers of interest: Hareruya, Card Rush
+  / BigMagic, Mercari / Yahoo Auctions. The horizon is days (flips around spoiler reveals).
+- **The riser screen must never show a card unlikely to at least double.** The gate is one in three: `pShow: 0.33`
+  in `pipelines/pricescry/pricescry-risers.mjs`.
+- **Cost bar = Mercari's tracked rate:** 10 % fee + 230 yen shipping + 30 yen packing. Keep `japanCostModel`
+  (`pipelines/pricescry/pricescry-study.mjs`) and `COSTS` (`src/services/trade-ledger.ts`) in step.
+- Automatic reading of leaked images is allowed (API credits are fine); the spoiler radar may use non-official
+  sources too.
+- **No scraping, no spoofing, no evading blocks.** If a site refuses, say so and stop. Keep the honest User-Agent
+  `PodMatesPriceScry/1.0 (+https://github.com/anf1978/PodMates)`.
+
+(The Bible's last rule, "Claude delivers complete files; Anthony uploads them", is replaced by the branch workflow
+in the root `CLAUDE.md`.)
+
 ## The password is a soft gate
 
 The SHA-256 of the word is in `access.ts` and the page is public, so anyone can find or guess it. It keeps

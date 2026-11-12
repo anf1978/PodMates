@@ -142,7 +142,7 @@ export async function bulkJump({ bulkPath, dataDir, outDir, minLead = 30, maxYen
     }
   });
   // 2. one pass over every card: judge the picks, and the control cards
-  //    Three targets, because 300 yen from pennies turned out to be too rare to measure in 90 days (see the Bible, PriceScry backtests):
+  //    Three targets, because 300 yen from pennies turned out to be too rare to measure in 90 days (see docs/history/product-bible-2026-11-10.md, PriceScry backtests):
   //    "300 yen" (the original goal), "150 yen and 3x", "100 yen and 2x". A hit needs the price to stay at or above the target on each of
   //    SUSTAIN days in a row ending at the horizon, so a one-day blip does not count.
   const TARGETS = [

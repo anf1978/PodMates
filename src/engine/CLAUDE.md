@@ -61,3 +61,25 @@ the app for percentiles). Changing `PATTERNS`, weights, thresholds or curated ta
 - **Expected Spark by win-rate tier** (`commander-tiers.ts`): the band is deliberately wide. Archetype
   offsets (regenerated Oct 12, 2026) only nudge its centre, damped because the corpus is precon-weighted.
 - Pod "Impact card" edits only affect the separate Pod view line, never these scores.
+
+## Decisions behind the rules
+
+Owner decisions recorded in the [Product Bible](../../docs/history/product-bible-2026-11-10.md) (historical; the
+reasoning and effect counts are there). Changing any of them is an `/engine-change` and needs the owner's say.
+
+- **Bracket timing** (Rev. 3.1, `brackets.ts`): a true two-card combo forces Bracket 4 only if it can be online by
+  turn five (`EARLY_COMBO_BY_TURN = 5`) and wins by itself; otherwise it fits Bracket 3. Extra turns: 3+ cards means
+  at least Bracket 3, 5+ means Bracket 4 (`EXTRA_TURN_B3_AT`, `EXTRA_TURN_B4_AT`, this app's judgment, not Wizards').
+- **House rule** (Passes 37–38): any two-card infinite combo, curated or Spellbook, puts a deck at Bracket 3 or
+  higher. Two-card infinite value loops (`agg.infiniteLoopTwoCard`) set only that Bracket 3 floor: they are never
+  scored, listed or used for Bracket 4. Combos of 3+ pieces set no floor.
+- **Bracket 5 is never assigned.** "Could function at a cEDH level" (`cedhCapable`) is a separate note (Rev. 3.5).
+- **Banned cards are left out of scoring** but still listed; the commander is not treated as a drawable library card
+  (Rev. 3.2).
+- **Spellbook combos count in the standard scores** under the "win or warp" rule, at most the 6 strongest lines per
+  deck (Rev. 3.4).
+- **Default impact cards** add 0.25 Power each, capped at 2.0 (`IMPACT_PTS_PER_CARD`, `IMPACT_PTS_CAP`). No soft
+  cap or Game Changer taper: "some decks are just built to break their bracket; we can see that from the scores"
+  (Rev. 3.3).
+- **Archetype offsets and staples baselines describe precons**, not the tuned and cEDH tiers, so tier mix does not
+  contaminate archetype means (Rev. 3.3; baselines refit Nov 3, 2026, doc `020`).

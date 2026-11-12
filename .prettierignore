@@ -13,3 +13,4 @@ playwright-report/
 test-results/
 tests/golden/fixtures/
 tests/golden/__snapshots__/
+docs/history/

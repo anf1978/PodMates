@@ -1,7 +1,7 @@
 # Recovered scripts (record only, never run)
 
 These files are copied **word for word** from the saved record of the Claude chat session that did the
-Nov 3, 2026 baseline refit (Bible Pass 42). The session's working folder was lost, and the owner recovered
+Nov 3, 2026 baseline refit ([Product Bible](../../../docs/history/product-bible-2026-11-10.md) Pass 42). The session's working folder was lost, and the owner recovered
 them on Nov 12, 2026. They were written for the old single-file `index.html` (paths such as `/home/claude/` and
 globals such as `TRY_A_DECK_OPTIONS`, `analyzeOneList`), so none of them runs against today's code. Lint skips
 this folder on purpose. Don't edit them: their value is that they are exactly what ran.

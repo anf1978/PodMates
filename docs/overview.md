@@ -2,6 +2,8 @@
 
 > Snapshot of the project as of **2026-11-08** (commit `e817ad2`). This describes the system _as it is today_,
 > including its rough edges. For the proposed changes see [refactor-plan.md](./refactor-plan.md).
+> The pre-refactor handover log, with the reasoning behind scoring and PriceScry decisions, is kept as history in
+> [history/product-bible-2026-11-10.md](./history/product-bible-2026-11-10.md).
 
 ## 1. In one paragraph
 

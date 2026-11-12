@@ -2,11 +2,7 @@ import tseslint from "typescript-eslint";
 import noUnsanitized from "eslint-plugin-no-unsanitized";
 import { renderingPlugin, renderingRules } from "./scripts/rendering-lint.mjs";
 
-const legacyFiles = [
-  "pipelines/**/*.mjs",
-  "deck-link-sync-worker.js",
-  "spellbook-compact-2026-11-10.mjs",
-];
+const legacyFiles = ["pipelines/**/*.mjs", "deck-link-sync-worker.js"];
 const recommended = tseslint.configs.recommended;
 
 // Only the cloud layer may talk to Firebase; everything else goes through its repositories.
@@ -331,7 +327,7 @@ export default tseslint.config(
     },
   },
   {
-    // Pipelines, the deck-sync Worker and the one-off Spellbook script are plain JavaScript.
+    // Pipelines and the deck-sync Worker are plain JavaScript.
     // The recommended rules are errors here too; unused parameters and ignored catch bindings are
     // allowed because they document the call shape, and `cond ? a++ : b++` is the self-tests' idiom.
     files: legacyFiles,

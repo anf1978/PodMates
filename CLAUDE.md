@@ -6,6 +6,7 @@ Actions. `index.html` is static markup and CSS; all behaviour is typed modules i
 `src/app/`. Nothing is published on `window`.
 Full context: [docs/overview.md](docs/overview.md) · Architecture: [docs/architecture.md](docs/architecture.md) ·
 Terms: [docs/glossary.md](docs/glossary.md) · Plan: [docs/refactor-plan.md](docs/refactor-plan.md) ·
+History (frozen, pre-refactor): [docs/history/](docs/history/product-bible-2026-11-10.md) ·
 Deploy: [docs/deploy.md](docs/deploy.md) · **Phone workflow: [docs/phone-workflow.md](docs/phone-workflow.md)** ·
 Change docs: [docs/changes/](docs/changes/README.md) · Decisions (Proposed until human agreement):
 [D1](docs/adr/0001-development-workflow.md), [D2](docs/adr/0002-ui-approach.md),

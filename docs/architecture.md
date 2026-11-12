@@ -496,7 +496,7 @@ lifecycle; offline Chromium covers the gate, search → card → back and every 
   error everywhere (event-handler properties such as `self.onmessage` are fine). There are no exceptions.
 - **`max-lines` 500** (blank lines and comments excluded) for `src/` and `tests/`; curated `src/data` tables are
   exempt. Aim for about 400.
-- Pipelines (`pipelines/`), the deck-sync Worker and the one-off Spellbook script use the recommended rules
+- Pipelines (`pipelines/`) and the deck-sync Worker use the recommended rules
   as errors, allowing unused parameters, ignored catch bindings and `cond ? a++ : b++`.
 
 `index.html` has no inline scripts to lint; `tests/static-shell.test.ts` fails if one (or an inline event
