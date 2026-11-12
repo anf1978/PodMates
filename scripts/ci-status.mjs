@@ -1,4 +1,4 @@
-// Where is my change? Follows a claude/ branch through CI → Auto-merge → CI on main → Deploy Pages using
+// Where is my change? Follows a session branch (ccr-<id> or claude/<topic>) through CI → Auto-merge → CI on main → Deploy Pages using
 // the public GitHub API, so a session needs no `gh` login. Prints failing tests and errors (the CI
 // annotations) and what to do next.
 //
@@ -50,7 +50,7 @@ export function nextStep(s) {
     }
     return {
       code: 1,
-      next: "Auto-merge finished but the branch is still there: it changes .github/workflows/ (a human taps Merge on its PR) or it moved after CI; read the Auto-merge summary.",
+      next: "Auto-merge finished but the branch is still there: its latest commit is marked [wip], it changes .github/workflows/ (a human taps Merge on its PR), or it moved after CI; read the Auto-merge summary.",
     };
   }
   if (!s.branchCi)
@@ -63,7 +63,7 @@ export function nextStep(s) {
   if (s.merge && !ok(s.merge)) {
     return {
       code: 1,
-      next: "Merged, but CI failed on main (errors above). Production stays on the last good build. Fix it on a new claude/ branch now, or revert.",
+      next: "Merged, but CI failed on main (errors above). Production stays on the last good build. Fix it now (rebase your branch on origin/main, commit, push), or revert.",
     };
   }
   if (!after(s.deploy, s.merge) || !done(s.deploy))
@@ -132,8 +132,8 @@ async function errors(run) {
 
 async function main() {
   const branch = process.argv[2] ?? "";
-  if (!/^(claude|wip)\/[\w./-]+$/.test(branch)) {
-    console.error("Usage: node scripts/ci-status.mjs <claude/… or wip/… branch>");
+  if (!/^(?:(?:claude|wip)\/[\w./-]+|ccr-[\w.-]+)$/.test(branch)) {
+    console.error("Usage: node scripts/ci-status.mjs <ccr-…, claude/… or wip/… branch>");
     process.exit(64);
   }
   const branchExists = Boolean(await api(`branches/${encodeURIComponent(branch)}`));

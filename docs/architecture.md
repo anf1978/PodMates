@@ -147,7 +147,7 @@ helper. Current upstream revisions are cached without stale fallback; consumers
 retain plain/gzip magic-byte handling. Weekly schedules stay separate from deployment:
 Deploy Pages publishes only a commit on `main` whose CI passed, chosen by `scripts/resolve-deploy-commit.mjs`
 (after CI, after each rebuild, Auto-merge or a manual rollback; see `docs/deploy.md`). `scripts/auto-merge.sh`
-merges green `claude/` branches, `scripts/ci-summary.mjs` writes each CI job's Summary page and
+merges green session branches (`ccr-…`, `claude/…`), `scripts/ci-summary.mjs` writes each CI job's Summary page and
 `scripts/ci-status.mjs` lets a session follow its branch without `gh`. One-off PriceScry workflow definitions are archived
 by commit in the pipeline README; the manual Spellbook artifact builder remains.
 

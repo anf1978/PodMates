@@ -1,12 +1,12 @@
 # Working on PodMates from a phone
 
 The developer works only from a phone, through Claude Code cloud sessions in the Claude iOS app. Nobody reviews
-changes and the session may not be able to run tests, so **GitHub does the testing**. A session pushes a
-`claude/<topic>` branch. If CI passes on it, the branch merges itself into `main`, CI runs again on `main`, and
+changes and the session may not be able to run tests, so **GitHub does the testing**. A session pushes its own
+branch: `ccr-<id>`, the branch a Claude cloud session starts on (or `claude/<topic>` elsewhere). If CI passes on it, the branch merges itself into `main`, CI runs again on `main`, and
 the site deploys. Nobody taps anything ([ADR 0001](adr/0001-development-workflow.md)).
 
 ```
-session: edit + change doc → push claude/<topic>
+session: edit + change doc → push its ccr-<id> branch
 GitHub:  CI on the branch ──red──→ nothing merges; the session reads the errors, fixes, pushes again
             │ green
             ▼
@@ -24,7 +24,7 @@ A round trip takes about 10–15 minutes: CI on the branch (~5), CI on `main` (~
 
 1. **Give the Claude app access to the repo.** Claude app → Code → connect GitHub, then on GitHub configure the
    **Claude** GitHub app for `anf1978/PodMates` (github.com → Settings → Applications → Installed GitHub Apps →
-   Claude → Configure → Repository access). Sessions push `claude/…` branches. For a change to
+   Claude → Configure → Repository access). Sessions push their `ccr-…` branches. For a change to
    `.github/workflows/` the app also needs GitHub's _Workflows_ permission. Don't add branch protection on `main`:
    Auto-merge pushes to it with the Actions token.
 2. **Let Actions open pull requests** (only used for workflow-file changes): repo → Settings → Actions → General →
@@ -52,10 +52,11 @@ These are unverified until the first session runs this way (R17). That session i
 ## Start a session
 
 1. Claude app → **Code** → pick the PodMates repository (and the environment from step 3) → new session.
-2. Describe the change in plain words. The rules in `CLAUDE.md` take care of the rest: a `claude/` branch from the
-   latest `main`, a change doc, push, follow it until it's deployed.
-3. Want to look before it ships? Say "use a wip/ branch and open a PR". CI runs, nothing merges, and you tap
-   **Merge** in GitHub Mobile when happy.
+2. Describe the change in plain words. The rules in `CLAUDE.md` take care of the rest: start from the latest
+   `main`, write a change doc, push the session's branch, follow it until it's deployed. **Every push that passes CI
+   goes live**, so the session only pushes finished work.
+3. Want to look before it ships? Say "don't ship it yet". The session marks its commit `[wip]`, so CI runs but
+   nothing merges. When you're happy, say "ship it" (it pushes a commit without `[wip]`), or tap **Merge** on a PR.
 4. Keep the session open until it says the change is deployed. If you close it early, the merge and deploy still
    happen; only fixing a red CI needs a session.
 
@@ -65,7 +66,7 @@ The session's last message says:
 
 1. The change doc it wrote (`docs/changes/NNN_<type>_<slug>.md`, [convention](changes/README.md)) and any living
    docs it updated.
-2. The branch it pushed, and `node scripts/ci-status.mjs claude/<topic>` ending in **"Done: merged, CI green on
+2. The branch it pushed, and `node scripts/ci-status.mjs <branch>` ending in **"Done: merged, CI green on
    main and deployed"**.
 3. The commit ids now on `main` (needed for a revert).
 
@@ -78,7 +79,7 @@ Reload** banner.
   <https://github.com/anf1978/PodMates/actions>. Tap the red run → the failed job (or **Summary** in the
   browser). The summary lists each step's result, the failing test names, the first error lines and, if engine
   snapshots changed, which ones. The same lines appear as **Annotations**.
-- **CI red on a `claude/` branch:** nothing merged and nothing deployed. Tell the session "CI failed, fix it" (it can
+- **CI red on the session's branch:** nothing merged and nothing deployed. Tell the session "CI failed, fix it" (it can
   read the errors itself with `node scripts/ci-status.mjs`), or paste the summary into a new session.
 - **Auto-merge red:** usually a conflict with something merged in the meantime. Ask the session to rebase the branch
   on `main` and push again.
@@ -88,7 +89,7 @@ Reload** banner.
 
 ## Rolling back
 
-- **Lasting fix:** ask a session to "revert commit `<id>`". The revert goes through a `claude/` branch like any
+- **Lasting fix:** ask a session to "revert commit `<id>`". The revert goes through the session's branch like any
   change.
 - **Instant, temporary:** in the mobile browser (GitHub Mobile may not offer workflow inputs): Actions → **Deploy
   Pages** → **Run workflow** → branch `main`, **ref** = the last good commit id (from the commit list or an older
@@ -106,7 +107,7 @@ one ("upgrade Vite to the next major"). It gets a change doc.
 
 Only for an intended engine change whose change doc explains why scores move. Usually the session runs `npm run
 golden:update` itself and pushes the result. If it can't, it asks you to run, in the mobile browser: Actions →
-**Update Snapshots** → Run workflow on the session's `claude/` branch, with **reason** = what changed and the change
+**Update Snapshots** → Run workflow on the session's `ccr-…` branch, with **reason** = what changed and the change
 doc number. It regenerates golden and Playwright snapshots on Linux, commits them to that branch, runs CI and starts
 Auto-merge. Run on `main`, it uses a new `claude/snapshots-<run>` branch.
 
@@ -116,7 +117,7 @@ Auto-merge. Run on `main`, it uses a new `claude/snapshots-<run>` branch.
 | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Run the checks or e2e                | Not needed: CI runs them on every pushed branch                                                                                                                      |
 | Read a Playwright report             | Read the run's Summary or `node scripts/ci-status.mjs`; the zipped report is a fallback for a desktop                                                                |
-| Merge a PR (`gh pr merge`)           | Tap **Merge** in GitHub Mobile; `claude/` branches merge themselves                                                                                                  |
+| Merge a PR (`gh pr merge`)           | Tap **Merge** in GitHub Mobile; session branches merge themselves                                                                                                    |
 | `gh stack merge` / `gh stack link`   | Not needed any more: the refactor stack is finished                                                                                                                  |
 | Deploy, rebuild data, Pages settings | Mobile browser: Actions → workflow → Run workflow; Settings → Pages                                                                                                  |
 | `firebase deploy` (rules, indexes)   | Never done from sessions or the repo; rules stay unchanged ([firebase/CLAUDE.md](../firebase/CLAUDE.md)). If ever decided, paste the rules into the Firebase console |

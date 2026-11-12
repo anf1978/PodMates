@@ -1,12 +1,13 @@
 name: CI
 
 # Deploy Pages and Auto-merge listen for this workflow by name ("CI"); keep them in sync if renaming it.
-# Sessions push claude/<topic> (auto-merged when green) or wip/<topic> (never auto-merged) branches.
+# Sessions push ccr-<id> (Claude cloud) or claude/<topic> branches, auto-merged when green, or wip/<topic>
+# branches, never auto-merged.
 on:
   workflow_dispatch:
   pull_request:
   push:
-    branches: [main, "claude/**", "wip/**"]
+    branches: [main, "claude/**", "ccr-*", "wip/**"]
 
 permissions: {}
 

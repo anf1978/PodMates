@@ -170,8 +170,35 @@ describe("auto-merge.sh", () => {
     expect(readFileSync(join(root, "gh.log"), "utf8")).toContain("pr create");
   });
 
-  it("only merges claude/ branches", () => {
+  it("merges a Claude cloud session's ccr- branch", () => {
+    const dev = join(root, "dev");
+    git(dev, "switch", "-q", "-c", "ccr-80770cb9-3bgc4t");
+    const tip = commit(dev, "app.txt", "from the phone\n");
+    git(dev, "push", "-q", "origin", "ccr-80770cb9-3bgc4t");
+    const result = run("ccr-80770cb9-3bgc4t", { TESTED_SHA: tip });
+    expect(result.status, result.summary).toBe(0);
+    expect(originHas("refs/heads/main")).toBe(tip);
+    expect(originHas("refs/heads/ccr-80770cb9-3bgc4t")).toBe("");
+  });
+
+  it("leaves a branch whose latest commit is marked [wip]", () => {
+    const dev = join(root, "dev");
+    git(dev, "switch", "-q", "-c", "ccr-abc");
+    writeFileSync(join(dev, "app.txt"), "half done\n");
+    git(dev, "commit", "-q", "-am", "draft the new panel [WIP]");
+    const tip = git(dev, "rev-parse", "HEAD");
+    git(dev, "push", "-q", "origin", "ccr-abc");
+    const before = originHas("refs/heads/main");
+    const result = run("ccr-abc", { TESTED_SHA: tip });
+    expect(result.status).toBe(0);
+    expect(originHas("refs/heads/main")).toBe(before);
+    expect(originHas("refs/heads/ccr-abc")).toBe(tip);
+    expect(result.summary).toContain("marked [wip]");
+  });
+
+  it("only merges ccr- and claude/ branches", () => {
     expect(run("wip/idea").status).toBe(1);
     expect(run("main").status).toBe(1);
+    expect(run("ccr-bad/nested").status).toBe(1);
   });
 });

@@ -7,7 +7,7 @@ Context: `docs/changes/README.md` (the change-doc convention from p6-1), `CLAUDE
 
 Run this **after R16 (`p6-1-phone-first-delivery`) is merged**. It's the first session that uses the new
 branch workflow instead of a stacked PR, and it doubles as the phone trial: ideally a human starts it from the
-Claude iOS app. Follow Rule 1 in `CLAUDE.md` exactly: work on a `claude/` branch from the latest `main`, push it, and
+Claude iOS app. Follow Rule 1 in `CLAUDE.md` exactly: work on the session's `ccr-…` branch, rebased on the latest `main`, push it only when a batch is finished, and
 follow it with `node scripts/ci-status.mjs` until it's merged and deployed (CI tests it; Auto-merge merges it). Note
 anything in `docs/phone-workflow.md` that turned out wrong or unclear (sandbox setup, network, pushing, `gh`, the
 status script, notifications), and fix it in a later branch.

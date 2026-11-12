@@ -1,8 +1,8 @@
 name: Update Snapshots
 
 # Regenerates the engine golden snapshots and Playwright snapshots on Linux (Actions → Update Snapshots →
-# Run workflow). Run on a claude/ or wip/ branch, it commits to that branch; run on main, it commits to a
-# new claude/snapshots-<run id> branch. Then it runs CI on that branch and, for claude/ branches, starts
+# Run workflow). Run on a ccr-, claude/ or wip/ branch, it commits to that branch; run on main, it commits to a
+# new claude/snapshots-<run id> branch. Then it runs CI on that branch and, for ccr-/claude/ branches, starts
 # Auto-merge, which ships the commit like any other. Only for an intended change: the change doc and the
 # reason must say why the golden diff is expected (the /engine-change rule).
 on:
@@ -59,7 +59,7 @@ jobs:
           REF_NAME: ${{ github.ref_name }}
         run: |
           case "$REF_NAME" in
-            claude/* | wip/*) BRANCH="$REF_NAME" ;;
+            claude/* | ccr-* | wip/*) BRANCH="$REF_NAME" ;;
             *) BRANCH="claude/snapshots-$GITHUB_RUN_ID" ;;
           esac
           git add -A -- tests/golden/__snapshots__ tests/e2e
@@ -89,7 +89,7 @@ jobs:
         run: |
           bash scripts/dispatch-and-watch.sh ci.yml "$BRANCH" "${{ steps.commit.outputs.sha }}"
           case "$BRANCH" in
-            claude/*) gh workflow run auto-merge.yml --ref main -f branch="$BRANCH"
+            claude/* | ccr-*) gh workflow run auto-merge.yml --ref main -f branch="$BRANCH"
                       echo "Started Auto-merge for $BRANCH." >> "$GITHUB_STEP_SUMMARY" ;;
             *) echo "$BRANCH is a wip/ branch: not merged automatically." >> "$GITHUB_STEP_SUMMARY" ;;
           esac

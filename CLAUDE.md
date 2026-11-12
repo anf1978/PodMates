@@ -33,12 +33,12 @@ Node.js 22.18+ (pipelines run `src/shared/*.ts` with built-in type stripping). `
   fixtures from local data; run it only deliberately.
 - `npx prettier --write <files>` on the files you changed, when `node_modules` exists. Not `npm run format`
   (reformats unrelated files), and never on `index.html`.
-- `node scripts/ci-status.mjs claude/<topic>` — where your pushed branch is (CI → Auto-merge → CI on `main` →
+- `node scripts/ci-status.mjs <branch>` — where your pushed branch (`ccr-…` or `claude/…`) is (CI → Auto-merge → CI on `main` →
   deploy), with failing tests and the next step. Public API, no login; wait 3–5 minutes between calls.
 
-CI (`ci.yml`) runs `check` + build/budget + e2e + rules tests on every push to `main`, `claude/**` and `wip/**`
+CI (`ci.yml`) runs `check` + build/budget + e2e + rules tests on every push to `main`, `ccr-*`, `claude/**` and `wip/**`
 and on PRs, and writes a readable summary on the run's Summary page (`scripts/ci-summary.mjs`). **Auto-merge**
-(`auto-merge.yml`, `scripts/auto-merge.sh`) rebases a green `claude/` branch onto `main`, pushes it, runs CI on
+(`auto-merge.yml`, `scripts/auto-merge.sh`) rebases a green `ccr-`/`claude/` branch onto `main` (not `[wip]` commits), pushes it, runs CI on
 `main` and starts **Deploy Pages**, which publishes only a commit on `main` whose CI passed
 (`scripts/resolve-deploy-commit.mjs`). **Update Snapshots** (manual) rewrites golden and Playwright snapshots on a
 branch without a terminal. Details: `docs/deploy.md`.
@@ -87,7 +87,7 @@ branch without a terminal. Details: `docs/deploy.md`.
 - `.github/actions/scryfall-bulk/` — shared current-export download/cache; all Scryfall bulk workflows use it.
   Actions are SHA-pinned and Dependabot maintains Actions/npm updates.
 - `firebase/` — unchanged Firestore rules, emulator-only config and rules tests; read `firebase/CLAUDE.md`.
-- `tests/golden/` (engine snapshots) · `tests/e2e/` (Playwright) · `scripts/` (build, lint and manifest tools; `resolve-deploy-commit.mjs` is the deploy gate, `auto-merge.sh` merges green `claude/` branches, `ci-summary.mjs` writes the CI Summary page, `ci-status.mjs` follows a branch).
+- `tests/golden/` (engine snapshots) · `tests/e2e/` (Playwright) · `scripts/` (build, lint and manifest tools; `resolve-deploy-commit.mjs` is the deploy gate, `auto-merge.sh` merges green session branches, `ci-summary.mjs` writes the CI Summary page, `ci-status.mjs` follows a branch).
 
 `tests/e2e/accessibility.spec.ts` enforces axe serious/critical findings on the deck form, Try-a-Deck,
 expanded chart panels, info dialog and account screens. The one exact contrast deferral is documented in
@@ -95,29 +95,38 @@ expanded chart panels, info dialog and account screens. The one exact contrast d
 
 ## Rules
 
-1. **Ship through a `claude/<topic>` branch; GitHub tests, merges and deploys it** (ADR 0001,
-   [docs/phone-workflow.md](docs/phone-workflow.md)). Never push to `main` yourself and never force-push it.
-   1. Start from the latest `main`: `git fetch origin && git switch -c claude/<topic> origin/main` (if the session
-      already put you on a `claude/` branch, rebase it onto `origin/main`). Never stack on an unmerged branch.
+1. **Push your session branch; GitHub tests, merges and deploys it** (ADR 0001,
+   [docs/phone-workflow.md](docs/phone-workflow.md)). In a Claude cloud session that is the `ccr-<id>` branch the
+   session started on: stay on it (don't create another or open a PR). Elsewhere use `claude/<topic>`. Never push to
+   `main` yourself and never force-push it.
+
+   **Every green push ships.** When CI passes on your branch's latest commit, Auto-merge rebases the branch onto
+   `main`, pushes it, deletes the branch, runs CI on `main` and deploys to the live site. So push only a finished
+   change: code, change doc and living docs together. To save unfinished work, put `[wip]` in the latest commit's
+   message; CI still runs but nothing merges until you push a commit without it.
+   1. Start from the latest `main`: `git fetch origin && git rebase origin/main` (or
+      `git switch -c claude/<topic> origin/main` outside a cloud session).
    2. Read the feature's docs in `docs/changes/` before changing it.
    3. One logical change per commit with a clear message. Commits land on `main` as they are, so a bad one is one
       `git revert` away.
    4. Local checks are optional: CI runs everything on GitHub's runners. If `node_modules` exists, cheap checks
       (Prettier on changed files, `npm run typecheck`, `npm run lint`, `npx vitest run <file>`) save a 5-minute
       round trip. Don't install browsers or run e2e in the sandbox.
-   5. **Docs updated** in the same branch: the change doc and the living docs (table below).
+   5. **Docs updated** in the same push: the change doc and the living docs (table below).
 
-   Then `git push -u origin claude/<topic>` and follow it with `node scripts/ci-status.mjs claude/<topic>` (or
-   `gh run watch` if `gh` works) until it prints **Done** (exit 0). It also prints the failing tests and the next
-   step:
-   - CI red on the branch → fix, commit and push to the same branch. Nothing merged.
+   Then `git push -u origin HEAD` and follow it with `node scripts/ci-status.mjs "$(git branch --show-current)"` (or
+   `gh run watch` if `gh` works), every 3–5 minutes, until it prints **Done** (exit 0). It also prints the failing
+   tests and the next step:
+   - CI red on the branch → fix, commit and push again. Nothing merged.
    - Auto-merge conflict → `git pull --rebase origin main`, then `git push --force-with-lease` (your branch only).
-   - CI red on `main` after the merge (two merges clashed) → fix it on a new `claude/` branch at once, or revert.
-     The live site stays on the last good build meanwhile.
+   - CI red on `main` after the merge (two merges clashed) → fix it at once (rebase on `origin/main`, commit,
+     push), or revert. The live site stays on the last good build meanwhile.
 
-   Report the commits now on `main`. Use a `wip/<topic>` branch instead when the human wants to look first: CI runs
-   but it never merges itself (open a PR; they tap Merge in GitHub Mobile). Changes to `.github/workflows/` can't
-   be pushed by the Actions token, so Auto-merge opens a PR for those and a human merges it.
+   Report the commits now on `main`. For another change in the same session, `git fetch origin && git rebase
+origin/main` first (it drops the commits already merged), then work and push as before; the push recreates the
+   deleted branch. When the human wants to look before it ships, keep `[wip]` in the message (or push a
+   `wip/<topic>` branch) and tell them; they merge in GitHub Mobile. Changes to `.github/workflows/` can't be pushed
+   by the Actions token, so Auto-merge opens a PR for those and a human merges it.
 
 2. **No behaviour change unless asked:** no visual, score or data-model changes as side effects. Golden must stay
    byte-identical; intentional engine changes go through `/engine-change`.

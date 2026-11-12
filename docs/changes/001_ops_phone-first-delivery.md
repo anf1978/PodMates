@@ -75,4 +75,4 @@ deploys, `claude/` branches merge themselves, and the Actions tab has a rollback
 ADR 0001 (self-merging branches), ADR 0004 (GitHub Pages via Actions), ADR 0005 (data branch), ADR 0008 (no PR
 previews).
 
-Later changes: 002
+Later changes: 002, 003
