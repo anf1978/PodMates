@@ -3,7 +3,7 @@
 > **Done; hooks superseded.** The Claude hooks this session added were removed in #24 because they blocked
 > sessions. Don't add hooks again; keep only the permissions, commands and docs parts.
 
-Follow the session rules in `docs/prompts/00-README.md`. Context: `docs/refactor-plan.md` §5.1–5.2 and §9.
+Follow the session rules in `docs/refactor-plan/00-README.md`. Context: `docs/refactor-plan.md` §5.1–5.2 and §9.
 
 ## Inputs from the humans
 

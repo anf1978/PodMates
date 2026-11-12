@@ -1,6 +1,6 @@
 # Session p3-1 — Cards, lookup and decklist parser → `src/cards`
 
-Follow the session rules in `docs/prompts/00-README.md`. Context: `docs/refactor-plan.md` §3 (principles), §4.2–4.3,
+Follow the session rules in `docs/refactor-plan/00-README.md`. Context: `docs/refactor-plan.md` §3 (principles), §4.2–4.3,
 Phase 3 step 1, §5.2 (conventions).
 
 ## Task

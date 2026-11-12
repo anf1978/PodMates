@@ -1,6 +1,6 @@
 # Session p3-4 — UI primitives → `src/ui`
 
-Follow the session rules in `docs/prompts/00-README.md`. Context: `docs/refactor-plan.md` principle 4 ("one way to
+Follow the session rules in `docs/refactor-plan/00-README.md`. Context: `docs/refactor-plan.md` principle 4 ("one way to
 do each thing"), decision D2 (lit-html), Phase 3 step 3.
 
 ## Task

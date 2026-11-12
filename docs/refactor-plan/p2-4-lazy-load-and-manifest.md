@@ -1,6 +1,6 @@
 # Session p2-4 — Lazy-load feature data + "data as of" manifest
 
-Follow the session rules in `docs/prompts/00-README.md`. Context: `docs/refactor-plan.md` tasks 2.3 and 2.5, §4.4.
+Follow the session rules in `docs/refactor-plan/00-README.md`. Context: `docs/refactor-plan.md` tasks 2.3 and 2.5, §4.4.
 
 ## Task
 

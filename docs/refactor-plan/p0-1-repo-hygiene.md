@@ -1,6 +1,6 @@
 # Session p0-1 — Repo hygiene
 
-Follow the session rules in `docs/prompts/00-README.md`. Context: `docs/refactor-plan.md` Phase 0 (tasks 0.2, 0.4,
+Follow the session rules in `docs/refactor-plan/00-README.md`. Context: `docs/refactor-plan.md` Phase 0 (tasks 0.2, 0.4,
 0.6) and `docs/overview.md` §5.
 
 ## Task

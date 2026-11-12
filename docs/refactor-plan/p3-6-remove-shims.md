@@ -1,6 +1,6 @@
 # Session p3-6 — Remove shims and globals; final `CLAUDE.md`
 
-Follow the session rules in `docs/prompts/00-README.md`. Context: `docs/refactor-plan.md` Phase 3 step 5 + exit
+Follow the session rules in `docs/refactor-plan/00-README.md`. Context: `docs/refactor-plan.md` Phase 3 step 5 + exit
 criteria, Appendix A.
 
 Requires every p3-5 feature run to be merged.

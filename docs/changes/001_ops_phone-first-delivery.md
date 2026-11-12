@@ -38,7 +38,7 @@ deploys, `claude/` branches merge themselves, and the Actions tab has a rollback
 - **Docs**: `CLAUDE.md` Rule 1 (the branch workflow) and the "Docs ship with every change" table;
   `docs/phone-workflow.md`; `docs/changes/README.md` (this convention) with `tests/change-docs.test.ts`; ADR 0001
   (self-merging branches; the data bots don't touch `main`); ADR 0008 (no PR previews); `docs/deploy.md`;
-  `docs/prompts/00-README.md` (stacked PRs historical, phone routes for human tasks); `/new-feature`,
+  `docs/refactor-plan/00-README.md` (stacked PRs historical, phone routes for human tasks); `/new-feature`,
   `/engine-change` and `/check` write or check the change doc.
 - No data changes: no Firestore paths, datasets or local storage keys touched.
 
@@ -66,7 +66,7 @@ deploys, `claude/` branches merge themselves, and the Actions tab has a rollback
 
 ## Follow-ups
 
-- R17 (`docs/prompts/p6-2-feature-docs.md`) backfills a change doc per feature and is the phone trial for
+- R17 (`docs/refactor-plan/p6-2-feature-docs.md`) backfills a change doc per feature and is the phone trial for
   `docs/phone-workflow.md`.
 - Existing Dependabot PRs #33–#42 predate the grouping (all major bumps); a human merges or closes them.
 
@@ -74,3 +74,5 @@ deploys, `claude/` branches merge themselves, and the Actions tab has a rollback
 
 ADR 0001 (self-merging branches), ADR 0004 (GitHub Pages via Actions), ADR 0005 (data branch), ADR 0008 (no PR
 previews).
+
+Later changes: 002

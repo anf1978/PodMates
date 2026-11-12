@@ -1,6 +1,6 @@
 # Session p5-2 — Workflow tidy-up
 
-Follow the session rules in `docs/prompts/00-README.md`. Context: `docs/refactor-plan.md` Phase 5, §4.3
+Follow the session rules in `docs/refactor-plan/00-README.md`. Context: `docs/refactor-plan.md` Phase 5, §4.3
 (`.github/actions/scryfall-bulk/`). Requires p5-1.
 
 ## Task

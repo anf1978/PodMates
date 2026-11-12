@@ -7,3 +7,6 @@ test-results/
 blob-report/
 *-debug.log
 *-debug.*.log
+
+# Local git worktrees: keep them outside the repo (e.g. ../PodMates-wt/<name>); never commit them.
+.worktrees/

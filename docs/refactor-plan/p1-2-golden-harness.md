@@ -1,6 +1,6 @@
 # Session p1-2 — Golden tests for the engine
 
-Follow the session rules in `docs/prompts/00-README.md`. Context: `docs/refactor-plan.md` task 1.2, §7 and principle
+Follow the session rules in `docs/refactor-plan/00-README.md`. Context: `docs/refactor-plan.md` task 1.2, §7 and principle
 7 ("golden tests before moves"); `docs/overview.md` §3.2–3.3.
 
 ## Why

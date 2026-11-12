@@ -1,6 +1,6 @@
 # Session p6-1 — Phone-first delivery loop
 
-Follow the session rules in `docs/prompts/00-README.md`. Context: `docs/refactor-plan.md` §4.6, §5.3, decisions D1
+Follow the session rules in `docs/refactor-plan/00-README.md`. Context: `docs/refactor-plan.md` §4.6, §5.3, decisions D1
 and D4, and the workflows from p1-4 / p5-2.
 
 ## Why

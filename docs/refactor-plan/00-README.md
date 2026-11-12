@@ -9,7 +9,7 @@ The [refactor plan](../refactor-plan.md) split into prompts that **one AI coding
 PR** (Claude Code cloud session, Copilot agent, etc.). All the PRs form **one stacked-PR chain** managed with
 [`gh stack`](https://gh.io/stacks): each session's PR is based on the previous prompt's PR, in the
 [stack order](#stack-order) below. To use one: start a new session, paste the prompt file's contents (or say _"Do
-the task in `docs/prompts/<file>`"_), and the session follows the [stacking procedure](#stacking-procedure). You can
+the task in `docs/refactor-plan/<file>`"_), and the session follows the [stacking procedure](#stacking-procedure). You can
 run several sessions at the same time; each one waits for its predecessor where needed. Review the PRs as they
 arrive and merge the stack at the [checkpoints](#merge-checkpoints).
 
@@ -213,7 +213,7 @@ needed, a Claude cloud session can usually run it on the human's behalf.
 
 ## Rules for every session
 
-_Historical (R1–R16). Sessions from R17 on follow `CLAUDE.md` instead._ Every prompt says "follow the session rules in `docs/prompts/00-README.md`". They are:
+_Historical (R1–R16). Sessions from R17 on follow `CLAUDE.md` instead._ Every prompt says "follow the session rules in `docs/refactor-plan/00-README.md`". They are:
 
 1. **Stack, don't branch from `main`.** Follow the [stacking procedure](#stacking-procedure): wait for your
    predecessor, branch on top of it with `gh stack`, use the branch name from the [stack order](#stack-order), and

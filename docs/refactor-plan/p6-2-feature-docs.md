@@ -42,7 +42,7 @@ says what it does and how it's built. This is a **docs-only** session: no behavi
 3. **Enforce it.** Add a test to `npm run check` that every `src/features/<name>/` folder has at least one
    `docs/changes/NNN_feature_<name>.md` (or `NNN_feature_<name>-<more>.md`). Check that `/new-feature` writes that
    doc for new features (p6-1 should have done this; fix it if not).
-4. Mark R17 done in `docs/prompts/00-README.md`.
+4. Mark R17 done in `docs/refactor-plan/00-README.md`.
 
 ## Rules
 

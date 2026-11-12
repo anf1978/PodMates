@@ -1,9 +1,9 @@
 # Session p2-2 — Cut-over: bots publish data files, not `index.html` ⚠ code freeze
 
-Follow the session rules in `docs/prompts/00-README.md`. Context: `docs/refactor-plan.md` tasks 2.1 + 2.4, §4.4,
+Follow the session rules in `docs/refactor-plan/00-README.md`. Context: `docs/refactor-plan.md` tasks 2.1 + 2.4, §4.4,
 decision **D5** (see `docs/adr/`), and the "Feature work collides" risk in §8.
 
-**Coordinate a short freeze:** this PR is **checkpoint B** (see `docs/prompts/00-README.md`). The human merges the
+**Coordinate a short freeze:** this PR is **checkpoint B** (see `docs/refactor-plan/00-README.md`). The human merges the
 stack up to and including it with `gh stack merge`, soon after it's ready and on a day other than Monday (the weekly
 workflows run on Mondays, 06:00 / 07:00 UTC). Until then, no other PR touching `index.html` merges. In the PR,
 remind the human of this.

@@ -1,6 +1,6 @@
 # Session p4-3 — Service worker, caching and bundle budget
 
-Follow the session rules in `docs/prompts/00-README.md`. Context: `docs/refactor-plan.md` §4.4, Phase 4, §10
+Follow the session rules in `docs/refactor-plan/00-README.md`. Context: `docs/refactor-plan.md` §4.4, Phase 4, §10
 targets, decision D4.
 
 ## Task

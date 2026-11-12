@@ -1,6 +1,6 @@
 # Session p5-3 — `src/shared`: one copy of code used by app and pipelines
 
-Follow the session rules in `docs/prompts/00-README.md`. Context: `docs/refactor-plan.md` Phase 5 and §4.3
+Follow the session rules in `docs/refactor-plan/00-README.md`. Context: `docs/refactor-plan.md` Phase 5 and §4.3
 (`src/shared/`). Requires p5-1 and the `pricescry` run of p3-5.
 
 ## Task

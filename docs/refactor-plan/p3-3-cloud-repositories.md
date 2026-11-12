@@ -1,6 +1,6 @@
 # Session p3-3 — Cloud layer → typed repositories
 
-Follow the session rules in `docs/prompts/00-README.md`. Context: `docs/refactor-plan.md` §4.5, Phase 3 step 2;
+Follow the session rules in `docs/refactor-plan/00-README.md`. Context: `docs/refactor-plan.md` §4.5, Phase 3 step 2;
 `docs/overview.md` §3.4 (cloud init) and §3.5 (data model).
 
 **Hard rule:** Firestore paths, field names, document IDs and query shapes stay **exactly** the same. Real user data

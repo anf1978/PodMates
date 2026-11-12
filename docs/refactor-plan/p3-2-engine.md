@@ -1,6 +1,6 @@
 # Session p3-2 — Engine → `src/engine` (pure)
 
-Follow the session rules in `docs/prompts/00-README.md`. Context: `docs/refactor-plan.md` principle 3 ("the engine is
+Follow the session rules in `docs/refactor-plan/00-README.md`. Context: `docs/refactor-plan.md` principle 3 ("the engine is
 pure"), §4.2, Phase 3 step 1, §7.
 
 This is the highest-risk move. If the diff gets large, split it into several PRs (e.g. mana/brackets → combos/spellbook

@@ -1,6 +1,6 @@
 # Session p2-3 — Card DB decode and indexing in a Web Worker
 
-Follow the session rules in `docs/prompts/00-README.md`. Context: `docs/refactor-plan.md` task 2.2, §4.4;
+Follow the session rules in `docs/refactor-plan/00-README.md`. Context: `docs/refactor-plan.md` task 2.2, §4.4;
 `docs/overview.md` §3.4 (boot sequence, 30 s watchdog).
 
 ## Task

@@ -1,6 +1,6 @@
 # Session p5-1 — Pipelines: `.github/scripts` → `pipelines/` with tests
 
-Follow the session rules in `docs/prompts/00-README.md`. Context: `docs/refactor-plan.md` Phase 5, §4.3, §7;
+Follow the session rules in `docs/refactor-plan/00-README.md`. Context: `docs/refactor-plan.md` Phase 5, §4.3, §7;
 `docs/overview.md` §3.6. Can run in parallel with Phase 3 (after p2-2).
 
 ## Task

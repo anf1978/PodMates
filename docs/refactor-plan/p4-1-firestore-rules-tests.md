@@ -1,6 +1,6 @@
 # Session p4-1 — Firestore rules into `firebase/` with emulator tests
 
-Follow the session rules in `docs/prompts/00-README.md`. Context: `docs/refactor-plan.md` §4.5, Phase 4, §7;
+Follow the session rules in `docs/refactor-plan/00-README.md`. Context: `docs/refactor-plan.md` §4.5, Phase 4, §7;
 `docs/overview.md` §3.5 (data model). Can run any time after p1-4.
 
 ## Task

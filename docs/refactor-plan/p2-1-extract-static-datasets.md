@@ -1,6 +1,6 @@
 # Session p2-1 — Move hand-maintained datasets out of `index.html`
 
-Follow the session rules in `docs/prompts/00-README.md`. Context: `docs/refactor-plan.md` §4.4 and task 2.1;
+Follow the session rules in `docs/refactor-plan/00-README.md`. Context: `docs/refactor-plan.md` §4.4 and task 2.1;
 `docs/overview.md` §3.3 (dataset table) and §3.4 (boot sequence).
 
 ## Scope

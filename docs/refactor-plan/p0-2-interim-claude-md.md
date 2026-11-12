@@ -1,6 +1,6 @@
 # Session p0-2 — Interim `CLAUDE.md` for the single-file app
 
-Follow the session rules in `docs/prompts/00-README.md`. Context: `docs/refactor-plan.md` task 0.5 and §5;
+Follow the session rules in `docs/refactor-plan/00-README.md`. Context: `docs/refactor-plan.md` task 0.5 and §5;
 `docs/overview.md` §3.2 (anatomy of `index.html`), §3.3 (embedded datasets) and §5.1 (the data-revert bug).
 
 ## Task
@@ -10,7 +10,7 @@ AI-assisted edits safe immediately. Include:
 
 1. **What PodMates is** (2 lines) and links to `docs/overview.md` and `docs/refactor-plan.md`.
 2. **Golden rules:** always start from the latest `main` (refactor sessions instead stack on their predecessor per
-   `docs/prompts/00-README.md`); never regenerate, re-download or re-upload the whole file;
+   `docs/refactor-plan/00-README.md`); never regenerate, re-download or re-upload the whole file;
    edit only the lines needed; never touch `const CARD_DB_COMPRESSED_B64 = …`, `const IX_TAGS_JSON = …` or
    `const COMMANDER_TIER_DATA = …` (weekly bots replace them); never change Firestore paths/field names; open a PR instead of pushing to `main`.
 3. **Line map:** a table of the major regions of `index.html` (CSS, markup, card DB + lookup, engine/`analyzeDeck`,

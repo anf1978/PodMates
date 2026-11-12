@@ -192,7 +192,7 @@ has usage limits, so prefer small, focused sessions (one feature or fix per PR) 
 ## 6. Phased roadmap
 
 Sizes are rough, assuming part-time work with AI assistance. Each phase ends in a working, deployed site. The phases
-are broken into one-PR session prompts in [docs/prompts/](./prompts/00-README.md).
+are broken into one-PR session prompts in [docs/refactor-plan/](./refactor-plan/00-README.md).
 
 ### Phase 0 — Stabilise (≈1–2 days, no restructuring)
 

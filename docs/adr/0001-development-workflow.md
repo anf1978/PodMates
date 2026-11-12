@@ -20,7 +20,7 @@ branch. When it passes, the Auto-merge workflow rebases the branch onto `main` a
 pushes it, runs CI on `main`, and starts the deploy, which only publishes commits
 whose CI passed (p6-1, `docs/deploy.md`). Nobody approves anything. A `wip/` branch
 plus a pull request is the optional route when a human wants to look first. The
-stacked-PR refactor (`docs/prompts/`, R1–R16) is finished. How-to:
+stacked-PR refactor (`docs/refactor-plan/`, R1–R16) is finished. How-to:
 [phone-workflow.md](../phone-workflow.md).
 
 ## Consequences

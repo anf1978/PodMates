@@ -1,6 +1,6 @@
 # Session p1-4 — CI and deploy workflows
 
-Follow the session rules in `docs/prompts/00-README.md`. Context: `docs/refactor-plan.md` task 1.4, §4.6, decision
+Follow the session rules in `docs/refactor-plan/00-README.md`. Context: `docs/refactor-plan.md` task 1.4, §4.6, decision
 D4, and the "Deploy switch" risk in §8.
 
 ## Task

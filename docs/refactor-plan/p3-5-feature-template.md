@@ -1,12 +1,12 @@
 # Session p3-5 — Move one feature → `src/features/<name>` (template, run once per feature)
 
-Follow the session rules in `docs/prompts/00-README.md`. Context: `docs/refactor-plan.md` §4.2–4.3, Phase 3 step 4,
+Follow the session rules in `docs/refactor-plan/00-README.md`. Context: `docs/refactor-plan.md` §4.2–4.3, Phase 3 step 4,
 §5.2; `docs/overview.md` §2 for what each feature does.
 
 **Feature for this session:** `<FEATURE>` ← replace before starting.
 
 Run order (one session and one stacked PR each, branch `p3-5-NN-<feature>` as in the stack order in
-`docs/prompts/00-README.md`; split large ones into `-2`, `-3`… PRs, e.g. one per panel):
+`docs/refactor-plan/00-README.md`; split large ones into `-2`, `-3`… PRs, e.g. one per panel):
 
 1. `deck-chart` (panels/*) 2. `try-a-deck`, `export`, `scan-cards` 3. `deck-crafter` 4. `auth`, `profile`
 5. `pods` 6. `gatherings` 7. `chronicles` 8. `impact` 9. `spoiler-bait` 10. `trades` 11. `notifications`
