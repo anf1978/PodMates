@@ -1,0 +1,279 @@
+
+
+######## inline script 1 ########
+cd /tmp/claude-0/-home-claude/f5b5f45c-c8b1-5940-98e1-4d421b2ac278/scratchpad; python3 - <<'E'
+import json,statistics as S,collections
+r=json.load(open('feat174.json'))
+print(len(r), sum(1 for x in r if x['cen']))
+keys=['protection','recursion','tutor','costReducer','gear','direct']
+def med(v):
+    return S.median(v)
+allc={k:med([next(i['count'] for i in x['cen']['inv'] if i['key']==k) for x in r if x['cen']]) for k in keys}
+print('overall',allc)
+by=collections.defaultdict(list)
+for x in r:
+    if x['cen']: by[x['arch']].append(x)
+out={}
+for a,xs in sorted(by.items()):
+    out[a]={'n':len(xs),**{k:med([next(i['count'] for i in x['cen']['inv'] if i['key']==k) for x in xs]) for k in keys}}
+print(json.dumps(out))
+sc=[x['cen']['score'] for x in r if x['cen']]
+b=[0,25,43,52]
+import bisect
+c=collections.Counter(bisect.bisect_right(b,s)-1 for s in sc)
+print({k:round(v/len(sc)*100) for k,v in sorted(c.items())})
+E
+grep -n "CENTRALITY_SUPPORT_BASELINE_BY_ARCHETYPE =" index.html | cut -c1-600
+
+######## inline script 2 ########
+cd /tmp/claude-0/-home-claude/f5b5f45c-c8b1-5940-98e1-4d421b2ac278/scratchpad; python3 - <<'E'
+import json,statistics as S,collections,bisect
+r=json.load(open('cen174.json'))
+keys=['protection','recursion','tutor','costReducer','gear','direct']
+g=lambda x,k:dict(x['c']['inv'])[k]
+print('overall',{k:S.median([g(x,k) for x in r]) for k in keys})
+by=collections.defaultdict(list)
+for x in r:by[x['arch']].append(x)
+out={a:{'n':len(xs),**{k:S.median([g(x,k) for x in xs]) for k in keys}} for a,xs in sorted(by.items())}
+print(json.dumps(out))
+sc=[x['c']['score'] for x in r]
+c=collections.Counter(bisect.bisect_right([0,25,43,52],s)-1 for s in sc)
+print({k:round(v/len(sc)*100) for k,v in sorted(c.items())})
+print(S.quantiles(sc,n=20))
+json.dump(out,open('newcen.json','w'))
+E
+grep -n "CENTRALITY_SUPPORT_BASELINE_BY_ARCHETYPE = " /home/claude/index.html | cut -c1-900; sed -n 2915,2925p /home/claude/index.html|cut -c1-300
+
+######## inline script 3 ########
+cd /tmp/claude-0/-home-claude/f5b5f45c-c8b1-5940-98e1-4d421b2ac278/scratchpad; python3 - <<'E'
+import json,collections
+r=json.load(open('cen174.json'));sc=sorted(x['c']['score'] for x in r)
+import bisect
+for cuts in ([0,25,43,52],[0,27,45,56],[0,27,46,57],[0,28,46,58],[0,27,45,57]):
+    c=collections.Counter(bisect.bisect_right(cuts,s)-1 for s in sc);print(cuts,[round(c[i]/174*100) for i in range(4)])
+old=[ (k,v) for k,v in []]
+E
+grep -o '"Enchantments Matter": {[^}]*}' /home/claude/index.html | head -2
+
+######## inline script 4 ########
+cd /home/claude; cp index.html index.before96.html; python3 - <<'E'
+import json,re
+new=json.load(open('/tmp/claude-0/-home-claude/f5b5f45c-c8b1-5940-98e1-4d421b2ac278/scratchpad/newcen.json'))
+s=open('index.html').read()
+s=re.sub(r'const CENTRALITY_SUPPORT_BASELINE_BY_ARCHETYPE = \{.*?\};\n','const CENTRALITY_SUPPORT_BASELINE_BY_ARCHETYPE = '+json.dumps(new)+';\n',s,count=1,flags=re.S)
+open('index.html','w').write(s)
+E
+grep -c "CENTRALITY_SUPPORT_BASELINE_BY_ARCHETYPE = " index.html; sed -n 2900,2907p index.html | cut -c1-250
+cd /tmp/claude-0/-home-claude/f5b5f45c-c8b1-5940-98e1-4d421b2ac278/scratchpad; node pw170.cjs && python3 - <<'E'
+import json,collections,bisect
+r=json.load(open('cen174.json'));sc=[x['c']['score'] for x in r]
+for cuts in ([0,25,43,52],[0,27,45,56],[0,26,45,55],[0,27,44,55]):
+    c=collections.Counter(bisect.bisect_right(cuts,s)-1 for s in sc);print(cuts,[round(c[i]/174*100) for i in range(4)])
+E
+
+######## inline script 5 ########
+cd /home/claude; python3 - <<'E'
+s=open('index.html').read()
+def rep(a,b):
+    global s
+    assert s.count(a)==1,a
+    s=s.replace(a,b)
+rep("// Typical number of each kind of card in the original 159 PodMates precon and curated decks (median; not the wider reference set).\nconst CENTRALITY_SUPPORT_BASELINE = { protection: 3, recursion: 1,","// Typical number of each kind of card across the 174 PodMates precon and curated decks (median; not the wider reference set). Re-fitted Nov 3, 2026.\nconst CENTRALITY_SUPPORT_BASELINE = { protection: 3, recursion: 0,")
+rep("the median across the original 159\n// PodMates precon and curated decks","the median across the 174\n// PodMates precon and curated decks")
+rep("// Re-calibrated Oct 12, 2026 with Commander Spellbook combos counted: over the 159 precon/curated decks the cut-offs\n// below still give 25/42/23/10%.","// Re-fitted Nov 3, 2026 on the 174 precon/curated decks (baselines above recomputed first): the cut-offs\n// below give 24/44/22/10%.")
+rep("{ min: 25, label: 'Supported'","{ min: 27, label: 'Supported'")
+rep("{ min: 43, label: 'Reliant'","{ min: 45, label: 'Reliant'")
+rep("{ min: 52, label: 'All-in'","{ min: 56, label: 'All-in'")
+open('index.html','w').write(s)
+E
+sed -n 5025,5045p index.html | cut -c1-400; grep -n "const MANABASE_BASELINE" index.html | cut -c1-200; sed -n 5075,5110p index.html | cut -c1-220
+
+######## inline script 6 ########
+cd /home/claude; python3 - <<'E'
+s=open('index.html').read()
+a="const producible = (card.ci || '').split('').filter(ch => identitySet.has(ch));"
+assert s.count(a)==1
+s=s.replace(a,"const producible = (card.pm || '').split('').filter(ch => identitySet.has(ch));   // colours the land actually makes (color identity is empty for Command Tower and friends)")
+open('index.html','w').write(s)
+import re,json
+m=re.search(r'const STAPLES_BASELINE = (\{.*?\});\n',s);d=json.loads(m.group(1));print(list(d),list(d['baselines'])[:3],[k for k in d['baselines']['Voltron']][:3])
+m=re.search(r'const MANABASE_BASELINE = (\{.*?\});\n',s);d=json.loads(m.group(1));print(list(d),d['byCount'],list(d['byIdentity'])[:4])
+E
+cd /tmp/claude-0/-home-claude/f5b5f45c-c8b1-5940-98e1-4d421b2ac278/scratchpad; node pw160.cjs >/dev/null; python3 -c "
+import json;r=json.load(open('feat174.json'));print(r[3]['bm'],r[3]['lands'],r[3]['st'])"
+
+######## inline script 7 ########
+cd /home/claude; python3 - <<'E'
+import json,re,statistics as S,collections
+sp='/tmp/claude-0/-home-claude/f5b5f45c-c8b1-5940-98e1-4d421b2ac278/scratchpad/'
+r=json.load(open(sp+'feat174.json'))
+s=open('index.html').read()
+m=re.search(r'const STAPLES_BASELINE = (\{.*?\});\n',s);old=json.loads(m.group(1));keys=old['keys']
+by=collections.defaultdict(list)
+for x in r:by[x['arch']].append(x)
+new={'keys':keys,'baselines':{}}
+for a,xs in by.items():
+    d={'n':len(xs)}
+    for k in keys:d[k]=S.median([x['st'][k] for x in xs])
+    d={k:(int(v) if isinstance(v,float) and v==int(v) else v) for k,v in d.items()}
+    new['baselines'][a]=d
+print(len(old['baselines']),len(new['baselines']))
+ch=[(a,k,old['baselines'].get(a,{}).get(k),v) for a,d in new['baselines'].items() for k,v in d.items() if old['baselines'].get(a,{}).get(k)!=v]
+print(len(ch));print(ch[:40])
+s=s.replace(m.group(0),'const STAPLES_BASELINE = '+json.dumps(new,separators=(',',':'))+';\n')
+m=re.search(r'const MANABASE_BASELINE = (\{.*?\});\n',s);oldm=json.loads(m.group(1))
+def b(xs):
+    f=[x['bm']['fix'] for x in xs];n=[x['bm']['nb'] for x in xs];l=[x['lands'] for x in xs]
+    fx=lambda v:int(v) if v==int(v) else v
+    return {'n':len(xs),'medianFixingRatio':round(S.median(f),3),'medianNonbasicCount':fx(S.median(n)),'medianLandCount':fx(S.median(l))}
+cx=[x for x in r if x['bm']]
+bi=collections.defaultdict(list);bc=collections.defaultdict(list)
+for x in cx:bi[x['bm']['identity']].append(x);bc[str(x['bm']['nc'])].append(x)
+newm={'byIdentity':{k:b(v) for k,v in bi.items()},'byCount':{k:b(bc[k]) for k in sorted(bc)}}
+print(len(cx),oldm['byCount'],newm['byCount'])
+s=s.replace(m.group(0),'const MANABASE_BASELINE = '+json.dumps(newm,separators=(',',':'))+';\n')
+open('index.html','w').write(s)
+E
+
+######## inline script 8 ########
+cd /home/claude; python3 - <<'E'
+import re
+s=open('index.html').read()
+def rep(a,b,c=1):
+    global s
+    assert s.count(a)==c,(a,s.count(a))
+    s=s.replace(a,b)
+rep("the {N} coloured precon","the 173 coloured precon")
+rep("computed for all 159 real Commander precon and curated decks","computed for all 174 real Commander precon and curated decks")
+m=re.search(r"Bands were re-checked on Oct 12, 2026.*?cut-offs held\. Tuned and competitive decks read lower \(about 40% Self-sufficient\)",s)
+s=s.replace(m.group(0),"Bands were re-fitted on Nov 3, 2026 against the 174 precon and curated decks, which split about 24% Self-sufficient, 44% Supported, 22% Reliant and 10% All-in. Tuned and competitive decks read lower (about 40% Self-sufficient)")
+rep("<title>Pod Mates —","<title>PodMates —")
+rep(">Pod Mates</h1>",">PodMates</h1>")
+rep("<footer>Pod Mates ·","<footer>PodMates ·")
+rep("(measured over the 159)","(measured over the 159 original precon and curated decks)")
+rep("not just the 159-deck Try-a-Deck","not just the 174-deck Try-a-Deck")
+rep("across the original 159 precon and curated decks, regenerated Oct 12","across the 174 precon and curated decks (regenerated Nov 3; the first 159 on Oct 12)") if "across the original 159 precon and curated decks, regenerated Oct 12" in s else print('skip4306')
+rep("for each of the 158 colored precons","for each of the 173 colored precon and curated decks")
+open('index.html','w').write(s)
+E
+sed -n 4306,4308p index.html|cut -c1-300; grep -n "Spark REFERENCE\|REFERENCE_SCORES" index.html | head -3 | cut -c1-120
+
+######## inline script 9 ########
+cd /home/claude; python3 - <<'E'
+s=open('index.html').read()
+a="across the 174 precon and curated decks (regenerated Nov 3; the first 159 on Oct 12), 2026 with"
+assert a in s
+s=s.replace(a,"across the original 159 precon and curated decks, regenerated Oct 12, 2026 with")
+open('index.html','w').write(s)
+E
+cd /tmp/claude-0/-home-claude/f5b5f45c-c8b1-5940-98e1-4d421b2ac278/scratchpad; ls hc5.cjs pw85.cjs pw81.cjs pw126.cjs; node hc5.cjs /home/claude/index.before96.html /home/claude/index.html 2>&1 | tail -25
+
+######## inline script 10 ########
+cd /home/claude; cp index.html index.before97.html; python3 - <<'E'
+s=open('index.html').read()
+def rep(a,b,c=1):
+    global s
+    assert s.count(a)==c,(a,s.count(a)); s=s.replace(a,b)
+rep('<span class="card-name-link cc-tile cc-l${t.level}"','<span translate="no" class="card-name-link cc-tile cc-l${t.level}"')
+rep('return `<span class="card-name-link" data-card-name="${escapeHtml(name)}">${escapeHtml(name)}</span>`;','return `<span translate="no" class="card-name-link" data-card-name="${escapeHtml(name)}">${escapeHtml(name)}</span>`;')
+rep("Deck Compass is unofficial Fan Content","PodMates is unofficial Fan Content")
+banner='''<body>
+<div id="jaHint" translate="no" style="display:none; background:var(--panel, #fff); border:1px solid var(--gold, #c9a227); border-radius:8px; padding:10px 14px; margin:8px auto; max-width:900px; font-size:13.5px; line-height:1.6;">
+  <button type="button" id="jaHintClose" aria-label="閉じる" style="float:right; background:none; border:none; font-size:18px; cursor:pointer; color:inherit;">×</button>
+  <strong>日本語で使うには：</strong>このアプリは英語表示ですが、ブラウザの翻訳機能で日本語にできます。<br>
+  <span><strong>Chrome / Edge：</strong>アドレスバー右側の翻訳アイコン →「日本語」を選択。<strong>Safari（iPhone）：</strong>アドレスバー左の「ぁあ」→「日本語に翻訳」。</span><br>
+  <span style="color:var(--text-dim, #666); font-size:12.5px;">カード名は英語のままです。デッキリストは英語名で貼り付けてください。</span>
+</div>'''
+rep('<body>\n',banner+'\n')
+js='''<script>
+(function(){ try {
+  var lang = (navigator.language || '').toLowerCase();
+  var el = document.getElementById('jaHint'), x = document.getElementById('jaHintClose');
+  var seen = false; try { seen = localStorage.getItem('pm_ja_hint') === '1'; } catch (e) {}
+  if (el && lang.indexOf('ja') === 0 && !seen && !(document.documentElement.className || '').match(/translated/)) el.style.display = 'block';
+  if (x) x.addEventListener('click', function(){ el.style.display = 'none'; try { localStorage.setItem('pm_ja_hint', '1'); } catch (e) {} });
+} catch (e) {} })();
+</script>
+'''
+i=s.rindex('</body>')
+s=s[:i]+js+s[i:]
+open('index.html','w').write(s)
+E
+cd /tmp/claude-0/-home-claude/f5b5f45c-c8b1-5940-98e1-4d421b2ac278/scratchpad; cat > pwja.cjs <<'E'
+const { chromium } = require('/opt/npm-tools/node_modules/playwright');
+(async()=>{const b=await chromium.launch({executablePath:'/opt/pw-browsers/chromium',args:['--no-sandbox']});
+for(const loc of ['ja-JP','en-US']){const c=await b.newContext({locale:loc,viewport:{width:390,height:800}});const pg=await c.newPage();const errs=[];pg.on('pageerror',e=>errs.push(e.message));
+await pg.route(/^https?:\/\/(?!file)/,r=>r.abort());await pg.goto('file:///home/claude/index.html');await pg.waitForTimeout(1500);
+console.log(loc,await pg.$eval('#jaHint',e=>getComputedStyle(e).display),errs.length);
+if(loc==='ja-JP'){await pg.screenshot({path:'ja.png'});await pg.click('#jaHintClose');console.log(await pg.$eval('#jaHint',e=>getComputedStyle(e).display));}}
+await b.close();})();
+E
+node pwja.cjs && node hc5.cjs /home/claude/index.before97.html /home/claude/index.html | tail -1
+
+######## inline script 11 ########
+cd /home/claude; python3 - <<'E'
+s=open('index.html').read()
+a='background:var(--panel, #fff); border:1px solid var(--gold, #c9a227);'
+assert a in s
+s=s.replace(a,'background:#241b33; color:#f1ead8; border:1px solid #c9a227;')
+s=s.replace('color:var(--text-dim, #666); font-size:12.5px;">カード','color:#cfc6b0; font-size:12.5px;">カード')
+open('index.html','w').write(s)
+E
+cd /tmp/claude-0/-home-claude/f5b5f45c-c8b1-5940-98e1-4d421b2ac278/scratchpad; node pwja.cjs >/dev/null
+
+######## inline script 12 ########
+cd /home/claude; cp index.html index.before98.html; python3 - <<'E'
+s=open('index.html').read()
+def rep(a,b,c=1):
+    global s
+    assert s.count(a)==c,(a,s.count(a)); s=s.replace(a,b)
+rep("chartedAt: Date.now(), updatedAt: serverTimestamp(),\n    }, { merge: true });","chartedAt: Date.now(), lastLoggedChronicleId: null, lastLoggedAt: null, updatedAt: serverTimestamp(),   // a fresh battle starts un-logged, so the last battle's id can't pose as this one\n    }, { merge: true });")
+rep("if (gathering.lastLoggedChronicleId && gathering.lastLoggedChronicleId !== currentBattleContext.loggedChronicleId) {","if (gathering.lastLoggedChronicleId && gathering.lastLoggedChronicleId !== currentBattleContext.loggedChronicleId && gathering.lastLoggedChronicleId !== currentBattleContext.ignoreChronicleId) {")
+rep("          podId, gatheringId, gatheringTitle: gathering.title || '',\n          isHost: gathering.hostUid","          podId, gatheringId, gatheringTitle: gathering.title || '', ignoreChronicleId: gathering.lastLoggedChronicleId || null,\n          isHost: gathering.hostUid")
+rep("podId, gatheringId, gatheringTitle: gathering.title || '', isHost: true,","podId, gatheringId, gatheringTitle: gathering.title || '', ignoreChronicleId: gathering.lastLoggedChronicleId || null, isHost: true,")
+rep("  currentBattleContext.loggedChronicleId = null;\n  renderPodAnalysisResults(decks);","  currentBattleContext.ignoreChronicleId = gathering.lastLoggedChronicleId || currentBattleContext.loggedChronicleId || null;\n  currentBattleContext.loggedChronicleId = null;\n  renderPodAnalysisResults(decks);")
+open('index.html','w').write(s)
+E
+grep -n "ignoreChronicleId" index.html | cut -c1-120; sed -n 34686,34700p index.html | head -3 >/dev/null
+
+######## inline script 13 ########
+mkdir -p /tmp/claude-0/-home-claude/f5b5f45c-c8b1-5940-98e1-4d421b2ac278/scratchpad/ex && cd /tmp/claude-0/-home-claude/f5b5f45c-c8b1-5940-98e1-4d421b2ac278/scratchpad && python3 -I - <<'E'
+import json,re,collections
+f='/root/.claude/projects/-home-claude/f5b5f45c-c8b1-5940-98e1-4d421b2ac278.jsonl'
+w=collections.OrderedDict();hd=[]
+for line in open(f):
+    try:o=json.loads(line)
+    except:continue
+    m=o.get('message') or {}
+    c=m.get('content')
+    if not isinstance(c,list):continue
+    for b in c:
+        if b.get('type')!='tool_use':continue
+        i=b['input'];n=b['name']
+        if n=='Write':w.setdefault(i['file_path'],[]).append(i['content'])
+        elif n in('Bash','bash'):
+            cmd=i.get('command','')
+            for mm in re.finditer(r"cat\s*>\s*(\S+)\s*<<\s*'?(\w+)'?\n(.*?)\n\2\n",cmd+'\n',re.S):
+                w.setdefault(mm.group(1),[]).append(mm.group(3))
+for k,v in w.items():print(len(v),len(v[-1]),k)
+E
+
+######## inline script 14 ########
+cd /tmp/claude-0/-home-claude/f5b5f45c-c8b1-5940-98e1-4d421b2ac278/scratchpad && python3 -I - <<'E'
+import json,re,os
+f='/root/.claude/projects/-home-claude/f5b5f45c-c8b1-5940-98e1-4d421b2ac278.jsonl'
+n=0
+out=open('ex/inline-python-patches-and-calcs.txt','w')
+for line in open(f):
+    try:o=json.loads(line)
+    except:continue
+    c=(o.get('message') or {}).get('content')
+    if not isinstance(c,list):continue
+    for b in c:
+        if b.get('type')=='tool_use' and b['name'] in('Bash','bash'):
+            cmd=b['input'].get('command','')
+            if re.search(r"python3 (-I )?- <<|node -e|python3 -c",cmd):
+                n+=1;out.write(f"\n\n######## inline script {n} ########\n"+cmd)
+print(n)
+E
+cp pw170.cjs txt.py pwja.cjs ex/ 2>/dev/null; ls ex; grep -c "" ex/inline-python-patches-and-calcs.txt; grep -o "const REFERENCE_[A-Z_]* = \|const REFERENCE_DECKS[A-Za-z_]*" /mnt/user-data/attachments/*/7870ddea-index.html | sort | uniq -c

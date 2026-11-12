@@ -67,7 +67,15 @@ function engineBoundary(files, up) {
 
 export default tseslint.config(
   {
-    ignores: ["node_modules/**", "dist/**", "public/**", "playwright-report/**", "test-results/**"],
+    ignores: [
+      "node_modules/**",
+      "dist/**",
+      "public/**",
+      "playwright-report/**",
+      "test-results/**",
+      // Scripts recovered verbatim from old chat sessions: kept as a record, never run.
+      "pipelines/reference-corpus/recovered/**",
+    ],
   },
   ...recommended.map((config) => ({
     ...config,

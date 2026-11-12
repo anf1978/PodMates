@@ -151,7 +151,8 @@ runtime values by `scripts/extract-static-datasets.mjs`. Spellbook retains its o
 | `SPELLBOOK_SNAPSHOT_B64`                                                                              | Commander Spellbook export                   | manual (`spellbook-snapshot-probe.yml` → extracted JSON string) |
 | `KNOW_JSON` (~300 KB)                                                                                 | ranked community card lists                  | `know-build.cjs` — **not in repo**                              |
 | `IMPACT_CANDS`                                                                                        | derived from lists + precons                 | `impact-cands.cjs` — **not in repo**                            |
-| `REFERENCE_SCORES`, `REFERENCE_TIERS`, `PRECON_FINGERPRINTS`, `STAPLES_BASELINE`, `MANABASE_BASELINE` | engine run over the reference corpus         | scripts **not in repo**                                         |
+| `REFERENCE_SCORES`, `REFERENCE_TIERS`, `PRECON_FINGERPRINTS`                                         | engine run over the reference corpus         | scripts **not in repo**                                         |
+| `STAPLES_BASELINE`, `MANABASE_BASELINE`                                                               | engine run over 174 sample decks             | `pipelines/reference-corpus/benchmark-baselines.mjs` (manual)   |
 | `TRY_A_DECK_OPTIONS`                                                                                  | hand-curated decklists                       | extracted JSON                                                  |
 | `HARD_COMBOS`, `SOFT_SYNERGIES`, `DEFAULT_IMPACT_CARDS`, `GAME_CHANGER_REASONS`                       | hand-curated code-like tables (still inline) | edited by hand                                                  |
 
