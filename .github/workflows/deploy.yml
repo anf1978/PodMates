@@ -1,42 +1,85 @@
 name: Deploy Pages
 
+# Production only ever gets a commit on main whose CI passed (the deploy gate,
+# scripts/resolve-deploy-commit.mjs). There is no push trigger: CI's completion starts this.
 on:
-  push:
+  workflow_run:
+    # Names, not files: keep in sync with ci.yml and the two rebuild workflows.
+    # CI → deploy that commit if it is the newest green one on main.
+    # Rebuilds (GITHUB_TOKEN data pushes emit no push runs) → deploy the newest green commit.
+    workflows: [CI, Rebuild Card Database, Rebuild Commander Win-Rate Database]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
     inputs:
+      ref:
+        description: >-
+          Commit, tag or branch to build. Rollback = an older commit on main (it must have passed CI).
+          Leave empty for the newest green commit (deploy ticked) or the selected branch (build only).
+        type: string
+        default: ""
       deploy:
-        description: Publish to Pages (main only); leave disabled for a build-only check
+        description: Publish to Pages (run from main only); leave unticked for a build-only check
         type: boolean
         default: false
       data_ref:
         description: Optional data branch for build-only validation (production always uses data)
         type: string
         default: data
-  # GITHUB_TOKEN pushes do not emit push-triggered workflow runs.
-  workflow_run:
-    workflows: [Rebuild Card Database, Rebuild Commander Win-Rate Database]
-    types: [completed]
-    branches: [main]
 
 permissions: {}
 
+# One deploy at a time, never cancelling one in progress. A newer pending run replaces an older
+# pending one; each run picks its commit when it starts, so the newest green commit wins.
 concurrency:
   group: pages
   cancel-in-progress: false
 
 jobs:
-  build:
+  resolve:
     permissions:
       contents: read
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+      actions: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.gate.outputs.sha }}
+      build: ${{ steps.gate.outputs.build }}
+      deploy: ${{ steps.gate.outputs.deploy }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/resolve-deploy-commit.mjs
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Pick the commit (deploy gate)
+        id: gate
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          RUN_WORKFLOW: ${{ github.event.workflow_run.name }}
+          RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          INPUT_REF: ${{ inputs.ref }}
+          INPUT_DEPLOY: ${{ inputs.deploy }}
+        run: node scripts/resolve-deploy-commit.mjs
+
+  build:
+    needs: resolve
+    if: ${{ needs.resolve.outputs.build == 'true' }}
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          # Rebuilds publish data separately; source always comes from current main.
-          ref: ${{ github.event_name == 'workflow_run' && 'main' || github.sha }}
+          persist-credentials: false
+          ref: ${{ needs.resolve.outputs.sha }}
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
@@ -45,7 +88,7 @@ jobs:
       - run: npm run build
       - name: Assemble published datasets and record provenance
         env:
-          DATA_REF: ${{ github.ref != 'refs/heads/main' && inputs.data_ref || 'data' }}
+          DATA_REF: ${{ github.event_name == 'workflow_dispatch' && needs.resolve.outputs.deploy != 'true' && inputs.data_ref || 'data' }}
         run: node pipelines/lib/assemble-datasets.mjs "$DATA_REF"
       - run: npm run budget
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
@@ -53,8 +96,8 @@ jobs:
           path: dist/
 
   deploy:
-    needs: build
-    if: ${{ github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.deploy) }}
+    needs: [resolve, build]
+    if: ${{ needs.resolve.outputs.deploy == 'true' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

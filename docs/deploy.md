@@ -5,20 +5,58 @@ step; adding these workflows does not change the repository's Pages settings.
 
 ## CI and deployment
 
-`.github/workflows/ci.yml` runs on every pull request, including stacked PRs targeting another branch,
-and on pushes to `main`. It uses Node 22, cached npm downloads, `npm ci`, `npm run check` (types, lint,
-unit and golden tests), then Playwright Chromium against a production build. Failed browser tests
-upload a seven-day `playwright-report` artifact.
+`.github/workflows/ci.yml` runs on every push to `main`, on pull requests and on manual dispatch. It uses
+Node 22, cached npm downloads, `npm ci`, `npm run check` (types, lint, unit and golden tests), the build and
+bundle budget, then Playwright Chromium against a production build; a second job runs the Firestore rules
+tests. Superseded PR runs are cancelled, but every commit on `main` runs to completion so each one has its
+own verdict. Failed browser tests upload a seven-day `playwright-report` artifact.
+
+Each job ends with `scripts/ci-summary.mjs`, which writes a short Markdown summary to the run's
+**Summary** page (each step's result, failing test names, the first error lines and, when golden tests
+fail, `git diff --stat` of what `golden:update` would change) and adds `::error` annotations. That page is
+readable on a phone without downloading anything; see [phone-workflow.md](phone-workflow.md).
 
 `.github/workflows/deploy.yml` builds with Node 22 and Vite, uploads **only `dist/`** as the
 `github-pages` artifact, then publishes with `actions/deploy-pages`. The deployment job alone gets
 `pages: write` and `id-token: write`; builds get `contents: read`. The `pages` concurrency group
 serializes runs without cancelling a deployment in progress. Third-party actions are pinned to full
-commit SHAs with version comments; Dependabot checks Actions and npm updates weekly.
+commit SHAs with version comments; Dependabot opens one grouped weekly PR per ecosystem (Actions, npm) for
+minor and patch updates and ignores major bumps, which a session does on request.
 
-Pushes to `main` deploy automatically. Manual runs build by default without publishing; publishing
-requires selecting `main` and enabling the **deploy** input. A manual run on any other branch cannot
-publish even if that input is enabled. No PR-preview hosting environment is created here.
+### The deploy gate: only commits whose CI passed go live
+
+Deploy Pages has **no push trigger**. Its first job runs `scripts/resolve-deploy-commit.mjs`, which uses the
+GitHub API (read-only token) to pick the commit to build; a commit counts as green when its newest completed
+`CI` run on `main` (push or dispatch, not pull request) succeeded. The run's Summary page says what it chose
+and why.
+
+| Trigger                                             | What it builds                                                                      | Publishes?                                  |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------- |
+| `CI` completed on `main`, failed or cancelled       | nothing                                                                             | no: production stays on the last good build |
+| `CI` succeeded on `main`                            | that commit, if it is the newest green commit on `main`                             | yes; an older run finishing late is skipped |
+| A weekly rebuild succeeded                          | the **newest green commit** on `main` (walks back up to 40 commits past a red head) | yes                                         |
+| Manual run, `ref` set, **deploy** ticked (rollback) | that commit; refused unless it is on `main` and passed CI                           | yes, even over a newer commit               |
+| Manual run, no `ref`, **deploy** ticked             | the newest green commit                                                             | yes                                         |
+| Manual run, **deploy** unticked                     | `ref`, or the selected branch                                                       | no (build-only check)                       |
+
+Publishing also requires the run to start from `main` (the workflow file on `main`), so a manual run on any
+other branch cannot publish. Runs are serialized by the `pages` concurrency group and each picks its commit when
+it starts, so a newer pending run supersedes an older one and the newest green commit always wins. Because the
+script ignores the triggering run's commit apart from comparing it, a CI run reported for a fork's branch
+named `main` can never be checked out or deployed. `tests/deploy-gate.test.ts` covers every row.
+
+**Rollback:** Actions → Deploy Pages → Run workflow → branch `main`, `ref` = the good commit, tick **deploy**.
+It is instant but temporary: the next green push or data refresh deploys `main` again, so also revert the bad
+commit (`git revert <sha>`, push). Rollback works for any commit on `main` whose CI run still exists. No
+PR-preview hosting environment is created here ([ADR 0008](adr/0008-no-pr-previews.md)).
+
+### Snapshot updates without a terminal
+
+`.github/workflows/update-snapshots.yml` (manual, required `reason` input) runs `npm run golden:update` and
+`npm run e2e -- --update-snapshots` on Linux, commits any changes to the branch it was started on with the
+reason in the message, pushes, and dispatches `CI` for that branch (pushes made with `GITHUB_TOKEN` start no
+workflows). A green dispatched run then lets the gate deploy the new commit. Use it only for an intended engine
+change whose change doc explains the golden diff (`/engine-change`).
 
 ### Weekly data refreshes
 
@@ -28,7 +66,8 @@ not trigger `push` workflows**. Instead, deployment listens for successful `work
 of `Rebuild Card Database` and `Rebuild Commander Win-Rate Database`, restricted to runs on `main`.
 Failed rebuilds do not deploy; a successful no-change rebuild can harmlessly redeploy.
 
-The downstream checkout explicitly uses the latest `main`, not the upstream run's `head_sha`.
+The downstream checkout uses the newest commit on `main` whose CI passed (see the gate above), not the
+upstream run's `head_sha` and not `main`'s head, so a red `main` never holds back new data.
 After building, `assemble-datasets.mjs` resolves an exact data revision, validates the publication's hashes
 and copies the three bot datasets into `dist/data/`. It merges their metadata into `dist/data/manifest.json`,
 preserving static-dataset entries. `dist/data/build-manifest.json` and the Actions summary
@@ -193,8 +232,8 @@ Copy-Item public\manifest.webmanifest, public\apple-touch-icon.png, public\icon-
 
 Without those root copies, branch publishing serves the HTML but its manifest and icons return 404.
 Do not roll back by replacing `index.html` with an old download: that can revert current bot data.
-If rolling back an application bug rather than the publishing mechanism, revert only the offending
-code commit in a PR. Wait for the branch Pages build and recheck the live URLs. To return to Actions,
+If rolling back an application bug rather than the publishing mechanism, use the one-tap rollback above
+and `git revert` the offending commit on `main`. With branch publishing, wait for the branch Pages build and recheck the live URLs. To return to Actions,
 repeat the switch procedure and re-enable **Deploy Pages**.
 
 ## Verification boundary
@@ -205,3 +244,10 @@ triggers normally. A local production build and PR CI do **not** prove Pages pub
 approval/policies, or weekly cross-workflow triggering. The human build-only dispatch, first publish
 and first rebuild-to-deploy checks above are required rollout evidence; no production settings
 should be changed merely to validate this PR.
+
+The CI deploy gate (p6-1) likewise only takes effect once `deploy.yml` is on `main`. After merging, confirm
+that the merge's `CI` run is followed by a **Deploy Pages** run whose Summary says "Deploy gate: deploying
+<sha>", that the next weekly rebuild deploys, and that a manual build-only run with an older `ref` resolves
+without publishing. Whether a `CI` run dispatched by **Update Snapshots** (a `GITHUB_TOKEN` dispatch) starts
+Deploy Pages through `workflow_run` is unverified; if it does not, run Deploy Pages from `main` with **deploy**
+ticked and no `ref`, which redeploys the newest green commit.
