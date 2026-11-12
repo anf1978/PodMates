@@ -2,7 +2,7 @@
 
 > **The stacked-PR workflow below is historical.** It ran R1–R16 (PRs #44–#68 and the p6-1 PR). From R17 on, every
 > session follows Rule 1 and "Docs ship with every change" in [`CLAUDE.md`](../../CLAUDE.md) and
-> [`docs/phone-workflow.md`](../phone-workflow.md): change doc, push a `claude/` branch, CI, Auto-merge, deploy. No
+> [`docs/phone-workflow.md`](../phone-workflow.md): change doc, push the session branch, CI, Auto-merge, deploy. No
 > `gh stack`, no waiting for predecessors. Only "Current status" and "Human-only tasks" below are still current.
 
 The [refactor plan](../refactor-plan.md) split into prompts that **one AI coding session can each finish as one
@@ -25,7 +25,7 @@ not a rollback target for sessions).
 | #   | Branch                      | Prompt                                 | How it lands                                                                            |
 | --- | --------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------- |
 | R16 | `p6-1-phone-first-delivery` | [p6-1](./p6-1-phone-first-delivery.md) | PR against `main` (everything below is merged, so no stack); a human reviews and merges |
-| R17 | `claude/…` (auto-merged)    | [p6-2](./p6-2-feature-docs.md)         | After R16 is merged: the first session using the branch workflow, and the phone trial   |
+| R17 | `ccr-…` (auto-merged)       | [p6-2](./p6-2-feature-docs.md)         | After R16 is merged: the first session using the branch workflow, and the phone trial   |
 
 **Done (historical):** the R1–R15 table below records how the stack ran. A session's predecessor was the row above
 it; the first one based on `main`.
@@ -48,7 +48,7 @@ it; the first one based on `main`.
 | R14 | `p3-6-remove-shims-2`            | [p3-6](./p3-6-remove-shims.md): finish what #25 deferred (see `docs/architecture.md`, "What is not done yet") | R13         |
 | R15 | `p5-3-shared-code`               | [p5-3](./p5-3-shared-code.md)                                                                                 | R14         |
 
-After R16 merges, the stacked-PR workflow ends: sessions push `claude/` branches that merge themselves when CI
+After R16 merges, the stacked-PR workflow ends: sessions push their branches (`ccr-…`) and they merge themselves when CI
 passes (ADR 0001), starting with R17.
 The sections from "Order and dependencies" to "Rules for every session" record how R1–R16 ran; don't follow them.
 

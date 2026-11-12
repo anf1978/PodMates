@@ -22,7 +22,7 @@ golden diff evidence: `git diff --stat -- tests/golden` plus the key changed val
 changes are intended and any calibration impact on all five axes, Spark, bracket or
 centrality. Say explicitly when no golden output changes. If you can't run the
 update yourself (no `node_modules`), ask the human to run Actions → Update Snapshots
-on your `claude/` branch with a `reason` naming the change doc, then pull it. When the change goes through a PR, its "Golden diff
+on your session branch with a `reason` naming the change doc, then pull it. When the change goes through a PR, its "Golden diff
 explained" field must reflect the same evidence, not just "yes".
 Run `npm run check` after the update if you can; CI on the pushed branch runs it and
 the browser checks either way.

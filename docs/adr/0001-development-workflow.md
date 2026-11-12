@@ -1,6 +1,6 @@
 # ADR 0001: Cloud sessions ship through self-merging branches (D1)
 
-**Status:** Accepted (revised 2026-11-11: no PR review; revised 2026-11-12: `claude/` branches that merge
+**Status:** Accepted (revised 2026-11-11: no PR review; revised 2026-11-12: session branches (`ccr-…`/`claude/…`) that merge
 themselves when CI passes, instead of pushing straight to `main`)
 
 ## Context
@@ -14,7 +14,7 @@ the phone shouldn't pay for them anyway: GitHub's runners should.
 ## Decision
 
 Use Claude Code cloud sessions from the iOS app. Sessions make normal git commits
-with a change doc (`docs/changes/`) on a `claude/<topic>` branch and push it. Do not
+with a change doc (`docs/changes/`) on their own branch (`ccr-<id>` in a cloud session) and push it. Do not
 upload replacement copies of `index.html`. CI runs the full test suite on the
 branch. When it passes, the Auto-merge workflow rebases the branch onto `main` and
 pushes it, runs CI on `main`, and starts the deploy, which only publishes commits

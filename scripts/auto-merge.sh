@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Merges a claude/ branch whose CI passed into main, keeping its commits (rebased onto main when main
+# Merges a session branch (ccr-<id> or claude/<topic>) whose CI passed into main, keeping its commits (rebased onto main when main
 # has moved). Run by .github/workflows/auto-merge.yml from a checkout of main with full history.
-# Env: BRANCH (claude/...), TESTED_SHA (the commit CI passed on; empty for a manual run), GH_TOKEN.
+# Env: BRANCH (ccr-... or claude/...), TESTED_SHA (the commit CI passed on; empty for a manual run), GH_TOKEN.
 # Outputs: merged=true|false, sha=<new main head>.
 set -euo pipefail
 
@@ -9,8 +9,8 @@ say() { echo "$*" | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"; }
 output() { echo "$1" >> "${GITHUB_OUTPUT:-/dev/null}"; }
 output merged=false
 
-if [[ ! "$BRANCH" =~ ^claude/[A-Za-z0-9._/-]+$ ]]; then
-  say "::error title=Auto-merge::Only claude/ branches are merged automatically, not '$BRANCH'."
+if [[ ! "$BRANCH" =~ ^(claude/[A-Za-z0-9._/-]+|ccr-[A-Za-z0-9._-]+)$ ]]; then
+  say "::error title=Auto-merge::Only ccr- and claude/ branches are merged automatically, not '$BRANCH'."
   exit 1
 fi
 
@@ -18,6 +18,11 @@ git fetch --quiet origin main "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH"
 tip=$(git rev-parse "origin/$BRANCH")
 if [ -n "${TESTED_SHA:-}" ] && [ "$tip" != "$TESTED_SHA" ]; then
   say "Skipped: $BRANCH moved on to ${tip:0:7} after CI passed on ${TESTED_SHA:0:7}; the newer commit's CI decides."
+  exit 0
+fi
+
+if git log -1 --format=%B "$tip" | grep -qi '\[wip\]'; then
+  say "Not merged: the latest commit on $BRANCH is marked [wip]. Push a commit without [wip] to ship it."
   exit 0
 fi
 

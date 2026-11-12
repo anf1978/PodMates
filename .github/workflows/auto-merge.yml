@@ -1,18 +1,19 @@
 name: Auto-merge
 
-# The delivery loop: a session pushes a claude/<topic> branch → CI → (green) this workflow rebases it
-# onto main and pushes → CI on main → (green) Deploy Pages. Nobody needs to tap anything.
-# wip/<topic> branches get CI but are never merged here. Changes to .github/workflows/ can't be pushed
+# The delivery loop: a session pushes its branch (ccr-<id> from a Claude cloud session, or claude/<topic>)
+# → CI → (green) this workflow rebases it onto main and pushes → CI on main → (green) Deploy Pages.
+# Nobody needs to tap anything. wip/<topic> branches, and any branch whose latest commit message contains
+# [wip], get CI but are never merged here. Changes to .github/workflows/ can't be pushed
 # with the Actions token, so for those this opens a PR for a human to merge.
 on:
   workflow_run:
     workflows: [CI] # name, not file: keep in sync with ci.yml
     types: [completed]
-    branches: ["claude/**"]
+    branches: ["claude/**", "ccr-*"]
   workflow_dispatch:
     inputs:
       branch:
-        description: claude/ branch to merge (its latest commit must have passed CI)
+        description: ccr-… or claude/… branch to merge (its latest commit must have passed CI)
         type: string
         required: true
 

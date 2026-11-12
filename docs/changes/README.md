@@ -1,6 +1,6 @@
 # Change docs
 
-Changes reach `main` without review (a `claude/` branch merges itself once CI passes;
+Changes reach `main` without review (a session's branch merges itself once CI passes;
 [ADR 0001](../adr/0001-development-workflow.md)), so these
 docs are the record of **what changed and why**. Every change ships with one numbered doc, in the same push as
 the code. `tests/change-docs.test.ts` (part of `npm run check`) enforces the name, unique numbers and headings.
