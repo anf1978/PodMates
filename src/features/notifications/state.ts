@@ -47,6 +47,12 @@ export const TYPES = {
     tag: "Cancelled",
     text: (n: string, s?: string) => n + ' cancelled "' + (s || "the gathering") + '"',
   },
+  // Not a Firestore activity: built on the device from Try-a-Deck decks with an `addedAt` date.
+  tryADeck: {
+    label: "A deck is added to Try a Deck",
+    tag: "New deck",
+    text: (_n: string, s?: string) => "New in Try a Deck: " + (s || "a deck"),
+  },
   joined: {
     label: "Someone joins a pod",
     tag: "Joined",
@@ -65,18 +71,28 @@ export interface InboxState {
   uid: string | null;
   pods: Pod[];
   feeds: Map<string, ActivityItem[]>;
+  /** Recently added Try-a-Deck decks, as inbox items (podId "", ref = the deck's key). */
+  library: NotificationItem[];
   seenAt: number;
   prefs: Preferences;
 }
 
 export function initialState(): InboxState {
-  return { uid: null, pods: [], feeds: new Map(), seenAt: 0, prefs: { types: {}, muted: {} } };
+  return {
+    uid: null,
+    pods: [],
+    feeds: new Map(),
+    library: [],
+    seenAt: 0,
+    prefs: { types: {}, muted: {} },
+  };
 }
 
 /** The inbox kind of a stored activity record, or null for kinds this page does not know. */
 export function kindOf(item: ActivityItem): NotificationType | null {
   if (item.type === "deck" && item.ref === "updated") return "deckUpdated";
-  if (item.type === "deckUpdated" || !Object.hasOwn(TYPES, item.type)) return null;
+  if (["deckUpdated", "tryADeck"].includes(item.type) || !Object.hasOwn(TYPES, item.type))
+    return null;
   return item.type as NotificationType;
 }
 
@@ -93,6 +109,11 @@ export function visible(state: InboxState, now: number): NotificationItem[] {
       out.push({ ...item, type: kind });
     }
   });
+  if (state.prefs.types.tryADeck !== false) {
+    for (const item of state.library) {
+      if (item.createdAt && now - item.createdAt <= 30 * 86400000) out.push(item);
+    }
+  }
   return out.sort((a, b) => b.createdAt - a.createdAt);
 }
 
@@ -108,6 +129,25 @@ export function ago(ts: number, now: number): string {
   if (h < 24) return h + " h ago";
   const d = Math.round(h / 24);
   return d + (d === 1 ? " day ago" : " days ago");
+}
+
+/** The inbox item for a newly added Try-a-Deck deck. */
+export function sampleItem(deck: {
+  key: string;
+  name: string;
+  commander: string;
+  addedAt: number;
+}): NotificationItem {
+  return {
+    id: "try-a-deck-" + deck.key,
+    podId: "",
+    type: "tryADeck",
+    by: "",
+    byName: "Try a Deck",
+    subject: deck.name + (deck.commander ? " (" + deck.commander + ")" : ""),
+    ref: deck.key,
+    createdAt: deck.addedAt,
+  };
 }
 
 export function opensGathering(item: NotificationItem): boolean {

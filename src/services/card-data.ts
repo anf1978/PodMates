@@ -85,6 +85,42 @@ export function availableSampleDecks<D extends object>(decks: D[]): D[] {
   });
 }
 
+/** A Try-a-Deck deck added recently (the precon importer stamps `addedAt`, a YYYY-MM-DD date). */
+export interface NewSampleDeck {
+  key: string;
+  name: string;
+  commander: string;
+  addedAt: number;
+}
+
+/** Metadata rows whose `addedAt` date falls within the last `days` days (not in the future). */
+export function recentlyAdded<D extends object>(decks: D[], now: number, days: number): D[] {
+  return decks.filter((deck) => {
+    const added = (deck as { addedAt?: unknown }).addedAt;
+    const at = typeof added === "string" ? Date.parse(added) : NaN;
+    return at <= now && now - at <= days * 86400000;
+  });
+}
+
+/** Try-a-Deck decks added in the last `days` days that this card DB can offer, newest first. Uses
+ * the deck metadata (no decklists), the same cached file the first chart loads. */
+export async function loadNewSampleDecks(now: number, days = 30): Promise<NewSampleDeck[]> {
+  const metadata = await loadDataset<LibraryDeck[]>("TRY_A_DECK_METADATA");
+  const fresh = recentlyAdded(metadata, now, days);
+  if (!fresh.length) return [];
+  await databaseReady;
+  if (!ready) return [];
+  return availableSampleDecks(fresh)
+    .map((deck) => ({
+      key: String(deck.key || ""),
+      name: String(deck.flavorName || deck.key || "A new deck"),
+      commander: deck.commander,
+      addedAt: Date.parse(String(deck.addedAt)),
+    }))
+    .filter((deck) => deck.key)
+    .sort((a, b) => b.addedAt - a.addedAt);
+}
+
 export function loadDeckLibrary(): Promise<void> {
   return (libraryReady ||= (async () => {
     const decks = await loadDataset<LibraryDeck[]>("TRY_A_DECK_OPTIONS");

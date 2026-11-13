@@ -3,10 +3,15 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { findPodmateDeck } from "../../services/cloud/decks.ts";
 import { on } from "../../services/events.ts";
 import { configurePublicProfileRuntime, type PublicProfileRuntime } from "./public-runtime.ts";
-import { openDeckPreviewOverlay } from "./deck-preview.ts";
+import { openDeckPreviewOverlay, openSamplePreviewOverlay } from "./deck-preview.ts";
 import type { PublicProfileAnalysis } from "./public-types.ts";
 
 vi.mock("../../services/cloud/decks.ts", () => ({ findPodmateDeck: vi.fn() }));
+const library = vi.hoisted(() => ({ decks: [] as Record<string, unknown>[], load: vi.fn() }));
+vi.mock("../../services/card-data.ts", () => ({
+  loadDeckLibrary: library.load,
+  deckLibrary: () => library.decks,
+}));
 
 const request = { uid: "friend", name: "Alex", podId: "pod", deckName: "Atraxa (Alex)" };
 let modal: HTMLElement;
@@ -118,4 +123,34 @@ it("waits for the card database and reports load failures", async () => {
   await openDeckPreviewOverlay(request);
   await settle();
   expect(text()).toContain("Couldn't load this deck");
+});
+
+it("previews a deck newly added to Try a Deck and charts it", async () => {
+  library.load.mockResolvedValue(undefined);
+  library.decks = [
+    {
+      key: "cmd2027-new",
+      flavorName: "Brand New",
+      tagline: "Go wide <fast>.",
+      commander: "Atraxa, Praetors' Voice",
+      decklist: "1 Sol Ring",
+    },
+  ];
+  await openSamplePreviewOverlay({ key: "cmd2027-new" });
+  expect(library.load).toHaveBeenCalled();
+  expect(runtime.analyzeOneList).toHaveBeenCalledWith("1 Sol Ring", "", "Atraxa, Praetors' Voice");
+  expect(modal.querySelector(".pp-player-name")?.textContent).toBe("Brand New");
+  expect(modal.querySelector(".pp-player-count")?.textContent).toBe("Go wide <fast>.");
+  modal.querySelector<HTMLButtonElement>("#deckPreviewChartBtn")!.click();
+  expect(runtime.chartDeck).toHaveBeenCalledWith(
+    expect.objectContaining({ _rawList: "1 Sol Ring", _ownerName: "", _ownerUid: null }),
+  );
+});
+
+it("says so when the Try-a-Deck deck is not available", async () => {
+  library.load.mockResolvedValue(undefined);
+  library.decks = [];
+  await openSamplePreviewOverlay({ key: "gone" });
+  expect(text()).toContain("isn't in Try a Deck right now");
+  expect(modal.querySelector("#deckPreviewProfileBtn")).toBeNull();
 });

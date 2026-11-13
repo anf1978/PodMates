@@ -5,6 +5,7 @@ import {
   ago,
   initialState,
   opensGathering,
+  sampleItem,
   TYPES,
   unreadCount,
   visible,
@@ -84,4 +85,23 @@ it("shows a deck update as its own kind with its own switch", () => {
   expect(visible(state, now).map((i) => i.id)).toEqual(["new"]);
   state.prefs.types = { deck: false };
   expect(visible(state, now).map((i) => i.id)).toEqual(["updated"]);
+});
+
+it("adds recently added Try-a-Deck decks, with their own switch and no pod filters", () => {
+  const state = initialState();
+  state.uid = "me";
+  state.prefs.muted = { "": true };
+  state.library = [
+    sampleItem({ key: "new", name: "Fresh", commander: "Legend", addedAt: now - 1000 }),
+    sampleItem({ key: "old", name: "Stale", commander: "", addedAt: now - 31 * 86400000 }),
+  ];
+  state.feeds.set("pod", [item("forged", { type: "tryADeck" })]);
+  const shown = visible(state, now);
+  expect(shown.map((i) => [i.id, i.type, i.ref])).toEqual([["try-a-deck-new", "tryADeck", "new"]]);
+  expect(TYPES.tryADeck.text("Try a Deck", shown[0]?.subject)).toBe(
+    "New in Try a Deck: Fresh (Legend)",
+  );
+  expect(opensGathering(shown[0] as NotificationItem)).toBe(false);
+  state.prefs.types.tryADeck = false;
+  expect(visible(state, now)).toEqual([]);
 });

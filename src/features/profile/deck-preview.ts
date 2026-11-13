@@ -1,5 +1,7 @@
-// A podmate's shared deck at a glance, opened from a deck notice: who built it, the commander, its
-// Command Spark, bracket and five profile scores, then a choice to chart it on the Deck Chart.
+// A deck at a glance, opened from a notice: a podmate's shared deck ("charted/updated a deck") or a
+// deck just added to Try a Deck. Shows the commander, Command Spark, bracket, style, card count and
+// the five profile scores, then offers to chart it on the Deck Chart.
+import { deckLibrary, loadDeckLibrary } from "../../services/card-data.ts";
 import { findPodmateDeck } from "../../services/cloud/decks.ts";
 import { emit } from "../../services/events.ts";
 import { reportError } from "../../services/report-error.ts";
@@ -13,6 +15,13 @@ export interface DeckPreviewRequest {
   name: string;
   podId: string;
   deckName: string;
+}
+
+/** What the preview header says, and an optional way out when the deck can't be shown. */
+interface PreviewHeader {
+  title: string;
+  byline: string;
+  fallback?: { label: string; run(): void };
 }
 
 const AXES = [
@@ -37,29 +46,34 @@ function closeButton(): TemplateResult {
   </button>`;
 }
 
-function unavailable(request: DeckPreviewRequest, message: string): TemplateResult {
+function unavailable(header: PreviewHeader, message: string): TemplateResult {
   const runtime = publicProfileRuntime();
+  const fallback = header.fallback;
   return html`${closeButton()}
     <div class="public-profile pp-deck-preview">
-      <h2 class="pp-empty-title">${request.deckName || "Deck"}</h2>
+      <h2 class="pp-empty-title">${header.title || "Deck"}</h2>
       <p class="pp-empty">${message}</p>
-      <div class="row tad-confirm-actions">
-        <button
-          class="ghost"
-          id="deckPreviewProfileBtn"
-          @click=${() => {
-            runtime.closeTryADeckModal();
-            emit("profile:player", { uid: request.uid, name: request.name, podId: request.podId });
-          }}
-        >
-          ${`See ${request.name || "their"} profile`}
-        </button>
-      </div>
+      ${
+        fallback
+          ? html`<div class="row tad-confirm-actions">
+              <button
+                class="ghost"
+                id="deckPreviewProfileBtn"
+                @click=${() => {
+                  runtime.closeTryADeckModal();
+                  fallback.run();
+                }}
+              >
+                ${fallback.label}
+              </button>
+            </div>`
+          : null
+      }
     </div>`;
 }
 
 export function deckPreviewView(
-  request: DeckPreviewRequest,
+  header: PreviewHeader,
   deck: PublicProfileAnalysis,
   artUrl: string | null,
 ): TemplateResult {
@@ -69,9 +83,9 @@ export function deckPreviewView(
     <div class="public-profile pp-deck-preview">
       <div class="pp-header">
         ${artUrl ? html`<img src=${artUrl} alt=${commander} class="pp-commander-art" />` : null}
-        <div class="pp-player-name">${request.deckName}</div>
+        <div class="pp-player-name">${header.title}</div>
         <div class="pp-commander-name">${cardNameLink(commander)}</div>
-        <div class="pp-player-count">${`by ${request.name || "a podmate"}`}</div>
+        <div class="pp-player-count">${header.byline}</div>
       </div>
       <dl class="pp-deck-stats">
         <div>
@@ -114,8 +128,22 @@ export function deckPreviewView(
     </div>`;
 }
 
-/** Opens the preview overlay and fills it once the deck is found and analysed. */
-export async function openDeckPreviewOverlay(request: DeckPreviewRequest): Promise<void> {
+interface FoundDeck {
+  title: string;
+  list: string;
+  commander: string;
+  owner: string;
+  ownerUid: string | null;
+  /** Replaces the header's byline once the deck is found (a Try-a-Deck tagline). */
+  byline?: string;
+}
+
+/** Opens the overlay, finds and analyses the deck, then shows it (or why it can't be shown). */
+async function showPreview(
+  header: PreviewHeader,
+  find: () => Promise<FoundDeck | null>,
+  missing: string,
+): Promise<void> {
   const runtime = publicProfileRuntime();
   const { modal } = runtime.openTadOverlay();
   render(
@@ -127,34 +155,84 @@ export async function openDeckPreviewOverlay(request: DeckPreviewRequest): Promi
     if (modal.isConnected) render(view, modal);
   };
   if (!runtime.isDbReady()) {
-    show(unavailable(request, "Card database still loading — try again in a moment."));
+    show(unavailable(header, "Card database still loading — try again in a moment."));
     return;
   }
   try {
-    const saved = await findPodmateDeck(request.uid, request.deckName);
-    const deck =
-      saved && saved.list
-        ? runtime.analyzeOneList(saved.list, saved.player || request.name, saved.commander || "")
-        : null;
-    if (!saved || !deck) {
-      show(
-        unavailable(
-          request,
-          "This deck isn't shared any more. It may have been renamed, deleted or made secret.",
-        ),
-      );
+    const found = await find();
+    const deck = found?.list
+      ? runtime.analyzeOneList(found.list, found.owner, found.commander)
+      : null;
+    if (!found || !deck) {
+      show(unavailable(header, missing));
       return;
     }
-    deck._ownerUid = request.uid;
-    deck._ownerName = saved.player || request.name;
-    deck._rawList = saved.list;
-    deck._rawCommander = saved.commander;
+    deck._ownerUid = found.ownerUid;
+    deck._ownerName = found.owner;
+    deck._rawList = found.list;
+    deck._rawCommander = found.commander;
     const artUrl = await runtime
-      .fetchCardImageUrl(deck.commanders[0] || saved.commander, "normal")
+      .fetchCardImageUrl(deck.commanders[0] || found.commander, "normal")
       .catch(() => null);
-    show(deckPreviewView({ ...request, deckName: saved.deckName }, deck, artUrl));
+    show(
+      deckPreviewView(
+        { ...header, title: found.title, byline: found.byline || header.byline },
+        deck,
+        artUrl,
+      ),
+    );
   } catch (err) {
     reportError(err, { operation: "cloud", userTriggered: true });
-    show(unavailable(request, "Couldn't load this deck. Check your connection and try again."));
+    show(unavailable(header, "Couldn't load this deck. Check your connection and try again."));
   }
+}
+
+/** A podmate's shared deck, from a "charted/updated a deck" notice. */
+export function openDeckPreviewOverlay(request: DeckPreviewRequest): Promise<void> {
+  return showPreview(
+    {
+      title: request.deckName,
+      byline: `by ${request.name || "a podmate"}`,
+      fallback: {
+        label: `See ${request.name || "their"} profile`,
+        run: () =>
+          emit("profile:player", { uid: request.uid, name: request.name, podId: request.podId }),
+      },
+    },
+    async () => {
+      const saved = await findPodmateDeck(request.uid, request.deckName);
+      return saved
+        ? {
+            title: saved.deckName,
+            list: saved.list,
+            commander: saved.commander || "",
+            owner: saved.player || request.name,
+            ownerUid: request.uid,
+          }
+        : null;
+    },
+    "This deck isn't shared any more. It may have been renamed, deleted or made secret.",
+  );
+}
+
+/** A Try-a-Deck deck, from a "new in Try a Deck" notice. */
+export function openSamplePreviewOverlay({ key }: { key: string }): Promise<void> {
+  return showPreview(
+    { title: "New in Try a Deck", byline: "New in Try a Deck" },
+    async () => {
+      await loadDeckLibrary();
+      const sample = deckLibrary()?.find((deck) => deck.key === key);
+      if (!sample) return null;
+      const tagline = typeof sample.tagline === "string" ? sample.tagline : "";
+      return {
+        title: String(sample.flavorName || key),
+        list: sample.decklist,
+        commander: sample.commander,
+        owner: "",
+        ownerUid: null,
+        byline: tagline,
+      };
+    },
+    "This deck isn't in Try a Deck right now.",
+  );
 }

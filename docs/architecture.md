@@ -442,7 +442,10 @@ thirty-day filter, per-type preferences and pod muting. Existing `pm_notif_seen_
 `pm_notif_prefs_<uid>` device keys, activity text/colours and Firestore paths/fields are unchanged.
 First use starts the unread cutoff at the current time; opening marks seen without removing fresh-row
 highlights. Lit templates escape names and subjects; styles replace the inventoried inline declarations.
-A "deck" activity with `ref: "updated"` is shown as its own kind, `deckUpdated` (`kindOf()` in `state.ts`), with
+Decks added to Try a Deck in the last 30 days (`addedAt` in the deck metadata, read by
+`loadNewSampleDecks()` in `services/card-data.ts`) appear for signed-in accounts as `tryADeck` items built on the
+device, with their own switch; tapping one emits `samples:preview`, which the profile feature's deck preview
+answers with "Chart this deck". A "deck" activity with `ref: "updated"` is shown as its own kind, `deckUpdated` (`kindOf()` in `state.ts`), with
 its own switch; `services/cloud/deck-update-notice.ts` decides when `saveDeck` posts one (card list changed;
 linked-deck syncs at most daily per device via `pm_deck_update_notice_<uid>`; restores and repairs never).
 Auth changes clear old-account state immediately, and generation guards ignore obsolete pod loads/feed

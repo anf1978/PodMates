@@ -64,7 +64,7 @@ export function bodyView(
                     >${type.text(item.byName || "Someone", item.subject)}</span
                   ><span class="pm-notif-meta"
                     ><span class="pm-notif-tag">${type.tag}</span
-                    >${` · ${pod?.name || "Pod"} · ${ago(item.createdAt, now)}`}</span
+                    >${` · ${item.podId ? pod?.name || "Pod" : "Try a Deck"} · ${ago(item.createdAt, now)}`}</span
                   ></span
                 >
               </button>`;

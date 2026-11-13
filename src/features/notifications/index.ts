@@ -7,7 +7,14 @@ import { emit, on } from "../../services/events";
 import { reportError } from "../../services/report-error";
 import { render } from "../../ui/html";
 import { closeTryADeckModal, openTadOverlay } from "../../ui/tad-modal";
-import { initialState, opensGathering, unreadCount, type NotificationItem } from "./state";
+import { loadNewSampleDecks } from "../../services/card-data";
+import {
+  initialState,
+  opensGathering,
+  sampleItem,
+  unreadCount,
+  type NotificationItem,
+} from "./state";
 import { load, save } from "./storage";
 import { bellView, bodyView, modalView } from "./view";
 
@@ -97,6 +104,14 @@ export function mount(bar: HTMLElement): NotificationsFeature {
     state.uid = user.uid;
     Object.assign(state, load(user.uid, Date.now()));
     updateBadge();
+    loadNewSampleDecks(Date.now())
+      .then((decks) => {
+        if (disposed || version !== request || getCurrentUser()?.uid !== user.uid) return;
+        state.library = decks.map(sampleItem);
+        updateBadge();
+        redraw();
+      })
+      .catch((error: unknown) => reportError(error, { operation: "notifications" }));
     try {
       const pods = await loadMyPods();
       if (disposed || version !== request || getCurrentUser()?.uid !== user.uid) return;
@@ -133,6 +148,10 @@ export function mount(bar: HTMLElement): NotificationsFeature {
     closeTryADeckModal();
     if (opensGathering(item)) {
       emit("gatherings:open", { podId: item.podId, id: item.ref! });
+      return;
+    }
+    if (item.type === "tryADeck") {
+      emit("samples:preview", { key: item.ref || "" });
       return;
     }
     if (item.type === "deck" || item.type === "deckUpdated") {

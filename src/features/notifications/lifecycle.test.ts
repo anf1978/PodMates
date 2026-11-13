@@ -14,6 +14,7 @@ const fake = vi.hoisted(() => ({
   load: vi.fn(),
   watch: vi.fn(),
   report: vi.fn(),
+  samples: vi.fn(),
 }));
 vi.mock("../../services/cloud/session", () => ({
   getCurrentUser: () => fake.user,
@@ -22,6 +23,7 @@ vi.mock("../../services/cloud/session", () => ({
 vi.mock("../../services/cloud/pods", () => ({ loadMyPods: fake.load }));
 vi.mock("../../services/cloud/activity", () => ({ watchActivity: fake.watch }));
 vi.mock("../../services/report-error", () => ({ reportError: fake.report }));
+vi.mock("../../services/card-data", () => ({ loadNewSampleDecks: fake.samples }));
 
 const now = 1800000000000;
 const storage = new Storage();
@@ -60,6 +62,7 @@ beforeEach(() => {
   fake.auth = [];
   fake.user = { uid: "me", isAnonymous: false };
   fake.load.mockResolvedValue([pod]);
+  fake.samples.mockResolvedValue([]);
   fake.watch.mockImplementation((_id, cb: (items: ActivityItem[]) => void) => {
     cb([activity()]);
     return vi.fn();
@@ -225,4 +228,38 @@ it("initializes each account independently and reports corrupt storage and repos
   fake.load.mockRejectedValueOnce(failure);
   await feature.restart();
   expect(fake.report).toHaveBeenCalledWith(failure, { operation: "cloud" });
+});
+
+it("lists decks newly added to Try a Deck and opens their preview", async () => {
+  const preview = vi.fn();
+  disposers.push(on("samples:preview", preview));
+  fake.watch.mockImplementation(() => vi.fn());
+  fake.samples.mockResolvedValue([
+    { key: "cmd2027-new", name: "New <Deck>", commander: "Some Legend", addedAt: now - 1000 },
+  ]);
+  storage.setItem("pm_notif_seen_me", String(now - 5000)); // seen before the deck was added
+  await feature.restart();
+  await settle();
+  expect(fake.samples).toHaveBeenCalledWith(now);
+  expect(feature.unread()).toBe(1);
+  feature.open();
+  await settle();
+  const row = query<HTMLButtonElement>("[data-n]");
+  expect(row.textContent).toContain("New in Try a Deck: New <Deck> (Some Legend)");
+  expect(row.textContent).toContain("Try a Deck ·");
+  expect(row.innerHTML).not.toContain("<Deck>");
+  row.click();
+  expect(preview).toHaveBeenCalledWith({ key: "cmd2027-new" });
+  expect(query("#tadOverlay")).toBeNull();
+});
+
+it("shows Try-a-Deck notices to signed-in accounts only", async () => {
+  fake.user = null;
+  fake.samples.mockResolvedValue([
+    { key: "cmd2027-new", name: "New", commander: "", addedAt: now - 1000 },
+  ]);
+  await feature.restart();
+  await settle();
+  expect(fake.samples).not.toHaveBeenCalled();
+  expect(feature.unread()).toBe(0);
 });
