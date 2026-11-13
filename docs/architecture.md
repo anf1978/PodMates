@@ -321,7 +321,9 @@ draft restoration, draft/current-deck choices, signed-out save handoff and chart
 Also moved: `auth` (prefix `auth-`) — sign-up/log-in, provider and password-reset flows, the
 account bar and save guard; `profile` (prefix `profile-`, `pp-`) — My Profile/onboarding, saved/linked deck
 merging and mirror repair, display-name/profile-link edits, sign-in details, quick deck summaries, and
-public player/pod profiles with the unchanged aggregate analytics.
+public player/pod profiles with the unchanged aggregate analytics, and the deck preview
+(`deck-preview.ts`, event `decks:preview`): a podmate's shared deck from a deck notice, with its stats and
+"Chart this deck".
 
 Auth, profile and pods communicate through the typed `src/services/events.ts` bus,
 never through feature imports. Both mount from `src/app/`. Cloud operations

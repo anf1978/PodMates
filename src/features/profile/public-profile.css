@@ -179,3 +179,33 @@
   font-size: 11.5px;
   color: var(--text-soft);
 }
+.public-profile .pp-deck-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 12px;
+}
+.public-profile .pp-deck-stats div {
+  border: 1px solid var(--line-strong);
+  padding: 6px 8px;
+}
+.public-profile .pp-deck-stats dt {
+  font-size: 11.5px;
+  color: var(--text-soft);
+}
+.public-profile .pp-deck-stats dd {
+  margin: 2px 0 0;
+  font-size: 15px;
+}
+.public-profile .pp-deck-axes {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 14px;
+  font-size: 13px;
+}
+.public-profile .pp-deck-axes li {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--line-strong);
+}

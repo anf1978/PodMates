@@ -23,6 +23,8 @@ type AppEvents = {
   };
   "profile:pod": WithId<PodDoc>;
   "profile:player": { uid: string; name: string; podId: string };
+  /** Preview a podmate's shared deck (from a deck notice); `deckName` is the notice's subject. */
+  "decks:preview": { uid: string; name: string; podId: string; deckName: string };
   "spoilers:open": WithId<PodDoc>;
   "pods:active": string | null;
   "pods:navigate": undefined;

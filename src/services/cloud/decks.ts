@@ -179,6 +179,43 @@ export async function loadPodmateDecks(uid: string): Promise<Record<string, Podm
   }
 }
 
+/** One of a podmate's shared decks, found by the name a deck notice shows (its deck name or its
+ * key; notice subjects are cut at 160 characters). Null when it is no longer shared or readable. */
+export async function findPodmateDeck(
+  uid: string,
+  name: string,
+): Promise<(PodmateDeck & { key: string; deckName: string }) | null> {
+  requireUser();
+  const wanted = String(name || "");
+  if (!uid || !wanted) return null;
+  try {
+    const snap = await getDocs(query(decksCol(uid), where("secret", "==", false)));
+    let found: (PodmateDeck & { key: string; deckName: string }) | null = null;
+    snap.forEach((docSnap) => {
+      const d = docSnap.data() as DeckDoc;
+      const names = [d.deckName || d.key, d.key];
+      const match = names.some(
+        (n) => n === wanted || (wanted.length >= 160 && String(n).startsWith(wanted)),
+      );
+      if (match && !found)
+        found = {
+          key: d.key,
+          deckName: d.deckName || d.key,
+          list: d.list,
+          commander: d.commander,
+          player: d.player,
+          savedAt: d.savedAt,
+          secret: false,
+          docId: docSnap.id,
+        };
+    });
+    return found;
+  } catch (err) {
+    reportError(err, { operation: "cloud" });
+    return null;
+  }
+}
+
 // Same query, but lets a real permission error through. Must filter explicitly on `secret ==
 // false`, matching the rule's own condition; `!= true` would hide decks missing the field.
 export async function loadPodmateDecksRaw(uid: string): Promise<Record<string, PodmateDeck>> {

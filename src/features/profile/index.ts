@@ -12,6 +12,7 @@ import { renderMyDecksList } from "./deck-list";
 import { renderProfileLinksSection, renderProfileSignInBox, errorMessage } from "./account";
 import { profileTemplate } from "./view";
 import { profileRuntime } from "./runtime";
+import { openDeckPreviewOverlay } from "./deck-preview";
 import {
   openPlayerProfileOverlay,
   openPodProfileOverlay,
@@ -35,6 +36,7 @@ export function mount(): void {
   });
   on("profile:pod", (pod) => openPodProfileOverlay(pod));
   on("profile:player", ({ uid, name, podId }) => openPlayerProfileOverlay(uid, name, podId));
+  on("decks:preview", (request) => void openDeckPreviewOverlay(request));
 }
 
 export async function showProfileModal(options: ProfileOptions = {}): Promise<void> {

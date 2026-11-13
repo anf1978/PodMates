@@ -19,8 +19,16 @@ export interface PublicProfileAnalysis {
   commanders: string[];
   style: string;
   pace: number;
-  scores: { disruption: number };
-  bracket?: { bracketKey: string } | null;
+  scores: {
+    disruption: number;
+    speed?: number;
+    consistency?: number;
+    versatility?: number;
+    powerLevel?: number;
+  };
+  bracket?: { bracketKey: string; bracket?: string } | null;
+  commandSpark?: number;
+  totalCards?: number;
   _ownerUid?: string | null;
   _ownerName?: string;
   _rawList?: string;

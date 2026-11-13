@@ -62,3 +62,5 @@ read). Roll back with `git revert <sha>`; notices already written stay in the fe
 ## Related
 
 024 (notifications), 012 (saved decks), 014 (profile: linked decks), 029–030 (rules and console settings).
+
+Later changes: 033

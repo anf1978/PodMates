@@ -135,6 +135,15 @@ export function mount(bar: HTMLElement): NotificationsFeature {
       emit("gatherings:open", { podId: item.podId, id: item.ref! });
       return;
     }
+    if (item.type === "deck" || item.type === "deckUpdated") {
+      emit("decks:preview", {
+        uid: item.by,
+        name: item.byName,
+        podId: item.podId,
+        deckName: item.subject,
+      });
+      return;
+    }
     const pod = state.pods.find((p) => p.id === item.podId);
     if (pod) emit("pods:open", { pod, pods: state.pods });
   }

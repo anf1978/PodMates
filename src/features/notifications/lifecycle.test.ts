@@ -132,13 +132,34 @@ it("routes gatherings and other activity through typed events, closing the inbox
   expect(gathering).toHaveBeenCalledWith({ podId: "pod", id: "game" });
   expect(query("#tadOverlay")).toBeNull();
   fake.watch.mockImplementation((_id, cb: (items: ActivityItem[]) => void) => {
-    cb([activity()]);
+    cb([activity({ type: "joined", subject: "the pod" })]);
     return vi.fn();
   });
+  await feature.restart();
   feature.open();
   await settle();
   query<HTMLButtonElement>("[data-n]").click();
   expect(detail).toHaveBeenCalledWith({ pod, pods: [pod] });
+});
+
+it("opens a deck preview for new and updated deck notices instead of the pod", async () => {
+  const preview = vi.fn(),
+    podOpen = vi.fn();
+  disposers.push(on("decks:preview", preview), on("pods:open", podOpen));
+  for (const extra of [{}, { ref: "updated" }]) {
+    fake.watch.mockImplementation((_id, cb: (items: ActivityItem[]) => void) => {
+      cb([activity({ subject: "Atraxa (Alex)", ...extra })]);
+      return vi.fn();
+    });
+    await feature.restart();
+    feature.open();
+    await settle();
+    query<HTMLButtonElement>("[data-n]").click();
+    expect(query("#tadOverlay")).toBeNull();
+  }
+  const request = { uid: "friend", name: "<Alex>", podId: "pod", deckName: "Atraxa (Alex)" };
+  expect(preview.mock.calls).toEqual([[request], [request]]);
+  expect(podOpen).not.toHaveBeenCalled();
 });
 
 it("debounces membership changes and stops subscriptions on account changes and cleanup", async () => {
