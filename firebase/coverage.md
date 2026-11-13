@@ -57,6 +57,11 @@ This is branch/behavior coverage, not an exhaustive audit of every unvalidated n
 
 ## Indexes and deployment
 
-**TODO (human):** supply the Firestore console index export. `firestore.indexes.json` currently
-contains only `{"indexes":[]}` and does not claim index parity. Emulator tests do not validate production
-composite-index availability. No rules or indexes were deployed.
+Production indexes were read from the Firebase console on 2026-11-13 (project `podmates2027`): automatic
+single-field indexes at their defaults (ascending, descending and array-contains enabled for collection scope,
+collection-group scope disabled), no single-field exemptions and no composite indexes.
+`firestore.indexes.json` now states exactly that (`"indexes": []`, `"fieldOverrides": []`). The app needs no
+more: every query in `src/services/cloud` filters or sorts on a single field (`memberIds`, `inviteCode`,
+`createdAt`, `secret`, `status`) and none is a collection-group query. The emulator does not enforce
+indexes, so `tests/firestore-indexes.test.ts` checks the queries statically and fails if one starts to need a
+composite index. No rules or indexes were deployed.

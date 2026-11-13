@@ -231,7 +231,7 @@ table formations, chronicles, trades, impact, spoiler votes, activity) mirroring
 background calls with the redacted error reporting. `limits.ts` holds `PM_LIMITS` (used by the input limits in
 `src/app/input-limits.ts`, the friendly decklist check and the repositories). Tests mock `./firebase` with `testing/fake-firebase.ts`.
 The unchanged rules file is `firebase/firestore.rules`. `firebase/firebase.json` is emulator-only;
-the indexes file is a placeholder pending a human console export. Sessions never deploy rules.
+the indexes file matches the console (no composite indexes; `tests/firestore-indexes.test.ts` keeps queries single-field). Sessions never deploy rules.
 `npm run test:rules` (Java 21+) runs a separate CI job against `demo-podmates-rules`.
 See [rule-branch coverage and known security gaps](../firebase/coverage.md); expected-failure
 tests record unresolved policy/limit gaps rather than changing the deployed behavior.

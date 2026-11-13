@@ -206,7 +206,8 @@ pods/{podId}
 ```
 
 Security rules are versioned at `firebase/firestore.rules` with emulator tests. The deployed
-console configuration and real index export still need human verification.
+indexes were checked against the console on 2026-11-13 and match (no composite indexes). The rest of the
+console configuration (sign-in providers, authorised domains) is not yet recorded.
 
 Browser storage: `localStorage` (`podmates-theme`, `pm_ja_hint`, `pm_notif_prefs_*`, `pm_notif_seen_*`,
 `pm-sb-rarities`, `podmates_last_signin`) and `sessionStorage` (`pricescryUnlocked`). These hold only small
@@ -244,7 +245,8 @@ the committed snapshots are validated and used explicitly. Existing but invalid 
 
 - **Cloudflare Worker source** (`worker.js`) for deck sync (`spring-unit-49d9.anthony-ef7.workers.dev`).
 - Build scripts `know-build.cjs`, `impact-cands.cjs`, and whatever produced the reference corpus/baselines.
-- Firebase console configuration (auth providers, indexes) and the Cloudflare account.
+- Firebase console configuration (auth providers) and the Cloudflare account. (Indexes: recorded in
+  `firebase/firestore.indexes.json` on 2026-11-13; there are no composite indexes.)
 
 ## 4. How it is developed today
 
