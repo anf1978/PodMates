@@ -156,8 +156,8 @@ runtime values by `scripts/extract-static-datasets.mjs`. Spellbook retains its o
 | `SPELLBOOK_SNAPSHOT_B64`                                                                              | Commander Spellbook export                   | manual (`spellbook-snapshot-probe.yml` → extracted JSON string) |
 | `KNOW_JSON` (~300 KB)                                                                                 | ranked community card lists                  | `know-build.cjs` — **not in repo**                              |
 | `IMPACT_CANDS`                                                                                        | derived from lists + precons                 | `impact-cands.cjs` — **not in repo**                            |
-| `REFERENCE_SCORES`, `REFERENCE_TIERS`, `PRECON_FINGERPRINTS`                                         | engine run over the reference corpus         | scripts **not in repo**                                         |
-| `STAPLES_BASELINE`, `MANABASE_BASELINE`                                                               | engine run over 174 sample decks             | `pipelines/reference-corpus/benchmark-baselines.mjs` (manual)   |
+| `REFERENCE_SCORES`, `REFERENCE_TIERS`                                                                 | engine run over the reference corpus         | scripts **not in repo**                                         |
+| `PRECON_FINGERPRINTS`, `STAPLES_BASELINE`, `MANABASE_BASELINE`                                        | engine run over the 178 sample decks         | `pipelines/reference-corpus/benchmark-baselines.mjs` (manual)   |
 | `TRY_A_DECK_OPTIONS`                                                                                  | hand-curated decklists                       | extracted JSON                                                  |
 | `HARD_COMBOS`, `SOFT_SYNERGIES`, `DEFAULT_IMPACT_CARDS`, `GAME_CHANGER_REASONS`                       | hand-curated code-like tables (still inline) | edited by hand                                                  |
 
@@ -246,8 +246,8 @@ the committed snapshots are validated and used explicitly. Existing but invalid 
 
 ### 3.7 Things the app depends on that are _not_ in this repo
 
-- Build scripts `know-build.cjs`, `impact-cands.cjs`, and the builders of `REFERENCE_SCORES`, `REFERENCE_TIERS`
-  and `PRECON_FINGERPRINTS`. (The staples and mana-base baselines are rebuildable since 020.)
+- Build scripts `know-build.cjs`, `impact-cands.cjs`, and the builders of `REFERENCE_SCORES` and
+  `REFERENCE_TIERS` (searched for in full; frozen). The precon benchmarks are rebuildable since 020/034.
 - The deck-sync Worker's _deployment_ (`spring-unit-49d9.anthony-ef7.workers.dev`): its source is
   `deck-link-sync-worker.js`, which the owner confirmed matches the deployed code on 2026-11-13; deploying it is
   done by hand in Cloudflare.

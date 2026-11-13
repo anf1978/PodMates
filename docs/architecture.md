@@ -136,13 +136,14 @@ pipelines in a plain `node` child process to catch syntax Node cannot strip.
 ### Pipelines (`pipelines/`)
 
 Node `.mjs` builders are grouped into `card-db/`, `winrates/`, `spellbook/`, `pricescry/` and
-`reference-corpus/` (the staples and mana-base benchmark baselines, rebuilt from the engine).
+`reference-corpus/` (the precon benchmarks: Closest Match fingerprints and the staples and mana-base
+baselines, built from the engine over the sample decks).
 Shared HTTP, gzip/file I/O, manifest, publication and assembly helpers live in `lib/`.
 Their separate `tsconfig.json` enables JSDoc `checkJs` through `npm run typecheck`; Vitest
 builder fixtures and the former PriceScry self-tests run in `npm run check`. Inputs,
 outputs, schedules, named secrets and production-write cautions are in
 [`pipelines/README.md`](../pipelines/README.md). Builders write data, never application source.
-The knowledge, Impact-candidate, reference-score and fingerprint builders are still unrecovered and have not been fabricated.
+The knowledge, Impact-candidate and reference-score builders are still unrecovered and have not been fabricated.
 All Scryfall bulk workflows use the shared composite action in
 `.github/actions/scryfall-bulk/` and its streaming `pipelines/lib/scryfall-bulk.mjs`
 helper. Current upstream revisions are cached without stale fallback; consumers

@@ -1,9 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
-  buildBaselines,
+  buildBenchmarkFiles,
   deckFeatures,
-  EXCLUDED_FROM_NOV_3_FIT,
   median,
   roundHalfEven3,
 } from "./benchmark-baselines.mjs";
@@ -29,7 +28,7 @@ describe("Python-compatible arithmetic", () => {
   });
 });
 
-describe("Nov 3, 2026 benchmark refit", () => {
+describe("committed precon benchmarks", () => {
   // Pinned golden fixtures: the card subset is proven to analyse every sample exactly as the
   // full card DB does (tests/golden/generate-fixture.mjs), and weekly data cannot move it.
   const samples = json("../../public/data/TRY_A_DECK_OPTIONS.json");
@@ -38,19 +37,25 @@ describe("Nov 3, 2026 benchmark refit", () => {
     spellbook: json("../../tests/golden/fixtures/spellbook.json"),
     winRates: json("../../tests/golden/fixtures/winrates.json"),
   };
-  const fitted = samples.filter((s) => !EXCLUDED_FROM_NOV_3_FIT.includes(s.key));
-  const { staples, manabase } = buildBaselines(deckFeatures(fitted, data));
+  const files = buildBenchmarkFiles(deckFeatures(samples, data));
 
-  it("fits the 174 decks the committed files describe", () => {
-    expect(fitted).toHaveLength(174);
-    expect(EXCLUDED_FROM_NOV_3_FIT.every((key) => samples.some((s) => s.key === key))).toBe(true);
+  // A failure means the engine or the samples changed what these files should hold. Refitting
+  // moves the Deck Chart's Closest Match, staples and mana-base checks: run
+  // `node pipelines/reference-corpus/benchmark-baselines.mjs --update-public-data` only as a
+  // deliberate, documented change (see docs/changes/034).
+  it.each(Object.keys(files))("public/data/%s.json is this builder's output", (name) => {
+    expect(files[name]).toBe(read(`../../public/data/${name}.json`));
   });
 
-  it("reproduces the committed STAPLES_BASELINE byte for byte", () => {
-    expect(`${JSON.stringify(staples)}\n`).toBe(read("../../public/data/STAPLES_BASELINE.json"));
+  it("covers every sample deck, in sample order", () => {
+    expect(JSON.parse(files.PRECON_FINGERPRINTS).map(([key]) => key)).toEqual(
+      samples.map((s) => s.key),
+    );
   });
 
-  it("reproduces the committed MANABASE_BASELINE byte for byte", () => {
-    expect(`${JSON.stringify(manabase)}\n`).toBe(read("../../public/data/MANABASE_BASELINE.json"));
+  it("refuses implausible input", () => {
+    expect(() => buildBenchmarkFiles(deckFeatures(samples.slice(0, 10), data))).toThrow(
+      "Only 10 sample decks",
+    );
   });
 });

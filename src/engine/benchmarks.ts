@@ -213,7 +213,7 @@ export function computeStaplesDeviation(
   return { baseline, sampleSize: baseline.n, deviations: deviations.slice(0, 4) };
 }
 
-// Mana-base benchmarking: for each of the 173 colored precon and curated decks (the one
+// Mana-base benchmarking: for each of the 177 colored precon and curated decks (the one
 // colorless commander in the corpus is excluded -- fixing quality isn't a
 // meaningful question for it), a "fixing ratio" per nonbasic land -- the
 // average fraction of the deck's own color identity each nonbasic land can

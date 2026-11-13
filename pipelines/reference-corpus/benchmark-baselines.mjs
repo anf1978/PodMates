@@ -1,17 +1,21 @@
-// Rebuilds STAPLES_BASELINE and MANABASE_BASELINE (the "staples check" and "mana base" benchmarks
-// on the Deck Chart) from the Try-a-Deck sample decks, the way the Nov 3, 2026 refit did.
+// Builds the precon benchmarks from the Try-a-Deck sample decks: PRECON_FINGERPRINTS (the "Closest
+// Match" vectors), STAPLES_BASELINE (the staples check) and MANABASE_BASELINE (the mana-base check).
 //
-// Recovered, not invented: the aggregation below is a line-for-line port of the Python step that
-// produced the committed files (inline script 7 in recovered/inline-python-patches-and-calcs.txt).
-// The per-deck step it read (`feat174.json`, from the lost `pw160.cjs`) is rebuilt from the
-// engine functions the app itself uses. `benchmark-baselines.test.mjs` proves the result is
-// byte-identical to the committed public/data files, so any drift fails CI.
+// History: the original builders were lost. The baselines' aggregation is a line-for-line port of the
+// recovered Nov 3, 2026 Python step (recovered/inline-python-patches-and-calcs.txt, script 7), which
+// reproduced the old files byte for byte (change 020). Fingerprints are the engine's own
+// buildFingerprintVector() per sample, the same vector the page builds for the deck being charted.
+// All three were refit on 2026-11-13 over all 178 samples with today's engine (change 034).
+// benchmark-baselines.test.mjs proves the committed files equal this builder's output, so an engine
+// change that moves them fails CI until they are deliberately refit.
 //
-// Usage: node pipelines/reference-corpus/benchmark-baselines.mjs <out-dir> [--all-samples]
-// Writes <out-dir>/STAPLES_BASELINE.json and MANABASE_BASELINE.json. Never writes public/data:
-// adopting a new fit moves the Deck Chart for every deck and is a deliberate, reviewed change.
+// Usage: node pipelines/reference-corpus/benchmark-baselines.mjs <out-dir>
+//        node pipelines/reference-corpus/benchmark-baselines.mjs --update-public-data
+// The second form rewrites the three public/data files and their manifest entries. That moves the
+// Deck Chart's Closest Match, staples and mana-base checks: a deliberate, documented refit only.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { gunzipSync } from "node:zlib";
 import { decodeCardDatabase } from "../../src/cards/db-codec.js";
 import { buildLookupIndexes, matchDecklist } from "../../src/cards/lookup.ts";
@@ -23,7 +27,9 @@ import {
   createEngineContext,
   parseCommanderField,
 } from "../../src/engine/index.ts";
+import { buildFingerprintVector } from "../../src/engine/benchmarks.ts";
 import { isMain } from "../lib/cli.mjs";
+import { updateManifest } from "../lib/dataset-manifest.mjs";
 
 /** The 12 staples categories, in the committed file's order. */
 export const STAPLES_KEYS = [
@@ -41,20 +47,11 @@ export const STAPLES_KEYS = [
   "protection",
 ];
 
-/** Sample decks that were not part of the Nov 3, 2026 fit (174 decks). They are also absent
- * from PRECON_FINGERPRINTS. Including them is a new fit, not a rebuild. */
-export const EXCLUDED_FROM_NOV_3_FIT = [
-  "cmd2026-federationfleet",
-  "cmd2026-wearetheborg",
-  "cmd2026-klingonfury",
-  "cmd2026-landingparty",
-];
-
 /**
  * @typedef {{ key: string, archetype: string, commander: string, decklist: string }} SampleDeck
  * @typedef {{ identity: string, nc: number, nb: number, fix: number }} ManaBaseFeature
  * @typedef {{ k: string, arch: string, st: Record<string, number>, lands: number,
- *   bm: ManaBaseFeature | null }} DeckFeatures
+ *   bm: ManaBaseFeature | null, fp: number[] }} DeckFeatures
  */
 
 /** Python's statistics.median: the middle value, or the mean of the two middle values.
@@ -113,6 +110,7 @@ export function deckFeatures(samples, { cards, spellbook, winRates }) {
         nb: bm.nonbasicCount,
         fix: bm.avgFixingRatio,
       },
+      fp: buildFingerprintVector(/** @type {any} */ (agg)),
     };
   });
 }
@@ -166,6 +164,30 @@ export function buildBaselines(rows) {
   };
 }
 
+/** [deckKey, vector] per sample, in sample order (the committed file's shape). */
+export function buildFingerprints(rows) {
+  return rows.map((row) => [row.k, row.fp]);
+}
+
+/** Every benchmark file's contents, checked for plausible shapes before anything is written.
+ * @param {DeckFeatures[]} rows */
+export function buildBenchmarkFiles(rows) {
+  if (rows.length < 150) throw new Error(`Only ${rows.length} sample decks; expected 150 or more.`);
+  const fingerprints = buildFingerprints(rows);
+  for (const [key, vector] of fingerprints) {
+    if (vector.length !== 27 || !vector.every(Number.isFinite))
+      throw new Error(`Bad fingerprint for ${key}`);
+  }
+  const { staples, manabase } = buildBaselines(rows);
+  if (Object.keys(manabase.byCount).length !== 5) throw new Error("Mana-base buckets missing.");
+  const json = (value) => `${JSON.stringify(value)}\n`;
+  return {
+    PRECON_FINGERPRINTS: json(fingerprints),
+    STAPLES_BASELINE: json(staples),
+    MANABASE_BASELINE: json(manabase),
+  };
+}
+
 /** Reads the committed datasets the app loads (full card DB, Spellbook, win-rates). */
 function readPublishedData() {
   const read = (name) =>
@@ -182,20 +204,27 @@ function readPublishedData() {
 
 /** @param {string[]} argv */
 async function main(argv) {
-  const outDir = argv.find((arg) => !arg.startsWith("--"));
-  if (!outDir) throw new Error("Usage: benchmark-baselines.mjs <out-dir> [--all-samples]");
+  const publish = argv.includes("--update-public-data");
+  const outDir = publish
+    ? fileURLToPath(new URL("../../public/data/", import.meta.url))
+    : argv.find((arg) => !arg.startsWith("--"));
+  if (!outDir) throw new Error("Usage: benchmark-baselines.mjs <out-dir> | --update-public-data");
   const { samples, cardsPayload, spellbook, winRates } = readPublishedData();
   const cards = await decodeCardDatabase(cardsPayload);
-  const chosen = argv.includes("--all-samples")
-    ? samples
-    : samples.filter((s) => !EXCLUDED_FROM_NOV_3_FIT.includes(s.key));
-  const { staples, manabase } = buildBaselines(
-    deckFeatures(chosen, { cards, spellbook, winRates }),
-  );
+  const files = buildBenchmarkFiles(deckFeatures(samples, { cards, spellbook, winRates }));
   mkdirSync(outDir, { recursive: true });
-  writeFileSync(join(outDir, "STAPLES_BASELINE.json"), `${JSON.stringify(staples)}\n`);
-  writeFileSync(join(outDir, "MANABASE_BASELINE.json"), `${JSON.stringify(manabase)}\n`);
-  console.log(`Wrote baselines for ${chosen.length} sample decks to ${outDir}`);
+  for (const [name, contents] of Object.entries(files)) {
+    writeFileSync(join(outDir, `${name}.json`), contents);
+  }
+  if (publish)
+    updateManifest(
+      outDir,
+      Object.keys(files),
+      "pipelines/reference-corpus/benchmark-baselines.mjs",
+    );
+  console.log(
+    `Wrote ${Object.keys(files).join(", ")} for ${samples.length} sample decks to ${outDir}`,
+  );
 }
 
 if (isMain(import.meta.url)) await main(process.argv.slice(2));

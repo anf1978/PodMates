@@ -54,6 +54,9 @@ the app for percentiles). Changing `PATTERNS`, weights, thresholds or curated ta
   and all cEDH Tuned).
 - **cEDH-capable flag** (`brackets.ts`): not a Bracket 5 band. Fitted Oct 12, 2026; true for 18/20 cEDH,
   10/36 tuned, 0/153 precons.
+- **Precon benchmarks** (`benchmarks.ts` data): `PRECON_FINGERPRINTS`, `STAPLES_BASELINE` and
+  `MANABASE_BASELINE` were refit Nov 13, 2026 over all 178 samples by
+  `pipelines/reference-corpus/benchmark-baselines.mjs`; its test fails when engine changes make them stale.
 - **Centrality support medians** (`centrality-rules.ts`): medians of the 174 PodMates precon and curated
   decks, re-fitted Nov 3, 2026; the band thresholds' expected distributions are noted beside them.
 - **Power Level** (`axes/power-level.ts`): Game Changers alone must not saturate the axis (about 16 reach

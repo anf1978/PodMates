@@ -85,7 +85,8 @@ branch without a terminal. Details: `docs/deploy.md`.
   [src/features/pricescry/CLAUDE.md](src/features/pricescry/CLAUDE.md)). What each owns: `docs/architecture.md`.
 - `public/data/` — committed dataset snapshots (generated); `public/` — icons and manifest.
 - `pipelines/` — typed Node data builders and shared helpers run by Actions; see `pipelines/README.md`.
-  `reference-corpus/` rebuilds the staples/mana-base baselines by hand (a test pins them to the committed files);
+  `reference-corpus/` builds the precon benchmarks (fingerprints, staples and mana-base baselines) by hand; a
+  test pins the committed files to its output;
   its `recovered/` folder holds old chat-session scripts verbatim, never run.
 - `.github/actions/scryfall-bulk/` — shared current-export download/cache; all Scryfall bulk workflows use it.
   Actions are SHA-pinned and Dependabot maintains Actions/npm updates.

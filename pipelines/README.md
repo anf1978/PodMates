@@ -116,25 +116,24 @@ Their local pipeline scripts are retained; restoring a publishing workflow needs
 `spellbook-snapshot-probe.yml` is **not superseded**: it remains the only manual
 artifact builder for the Commander Spellbook snapshot, never a baseline publisher.
 
-## Benchmark baselines (`reference-corpus/`)
+## Precon benchmarks (`reference-corpus/`)
 
-- `benchmark-baselines.mjs <out-dir> [--all-samples]` rebuilds `STAPLES_BASELINE` and
-  `MANABASE_BASELINE` from the Try-a-Deck samples, the committed card DB and the engine. It
-  ports the recovered Nov 3, 2026 aggregation (Python `statistics.median` and `round(x, 3)`
-  semantics) and by default leaves out the four 2026 Star Trek precons that fit did not include
-  (`EXCLUDED_FROM_NOV_3_FIT`). Output goes to `<out-dir>` only, never `public/data/`.
-- `benchmark-baselines.test.mjs` proves the rebuild matches both committed files byte for byte.
-  If an engine change breaks it, the baselines have drifted: adopting a new fit (or
-  `--all-samples`) moves the Deck Chart's staples and mana-base checks, so treat it as an
-  intentional engine change (`/engine-change`).
-- No schedule, network access or secrets. `recovered/` keeps the original chat-session scripts
-  verbatim as a record (see its README); they are never run.
+- `benchmark-baselines.mjs <out-dir>` builds `PRECON_FINGERPRINTS`, `STAPLES_BASELINE` and
+  `MANABASE_BASELINE` from all Try-a-Deck samples with the engine and the committed card DB;
+  `--update-public-data` writes them into `public/data/` and refreshes their manifest entries.
+  The baselines' aggregation ports the recovered Nov 3, 2026 Python step (Python `statistics.median`
+  and `round(x, 3)` semantics); fingerprints are `buildFingerprintVector()` per sample.
+- `benchmark-baselines.test.mjs` requires the committed files to equal the builder's output (pinned
+  golden fixtures). If an engine or sample-deck change breaks it, the benchmarks are stale: refitting
+  moves the Deck Chart's Closest Match, staples and mana-base checks, so do it deliberately with a
+  change doc (as in 034).
+- Run by hand; no schedule, network access or secrets. `recovered/` keeps the original chat-session
+  scripts verbatim as a record (see its README); they are never run.
 
 ## Knowledge and reference corpus (not recovered)
 
-`know-build` (`KNOW_JSON`), `impact-cands` (`IMPACT_CANDS`) and the builders of
-`REFERENCE_SCORES`, `REFERENCE_TIERS` and `PRECON_FINGERPRINTS` are still not in this checkout.
-Running today's engine over the samples reproduces 123 of the 174 committed fingerprints exactly; the
-other 51 differ slightly (the file predates later engine changes), so a rebuild would change "Closest
-Match" results and is not a recovery. The committed datasets and extraction tools are unchanged.
-Recover original sources before adding builders for them; do not invent a replacement or rewrite baselines.
+`know-build` (`KNOW_JSON`), `impact-cands` (`IMPACT_CANDS`) and the builders of `REFERENCE_SCORES` and
+`REFERENCE_TIERS` are not in this repository; its full history (361 commits from 2026-09-07) and the
+owner's chat sessions were searched in November 2026. They also need inputs that are not here (ranked
+community card lists; the tuned and cEDH decklists). The committed datasets are frozen: they work, but
+cannot be refreshed. Do not invent replacements or rewrite them.
