@@ -17,3 +17,4 @@ requires reviewing the finding and promoting the test to an ordinary regression 
 single-field exemptions, only Firestore's automatic indexes. Every app query filters or sorts on one field, and
 `tests/firestore-indexes.test.ts` keeps it that way; a query that needs a composite index must have it created
 in the console first. The config exists only to run the emulator; no session may deploy it.
+Auth providers and authorised domains: [console-settings.md](console-settings.md).

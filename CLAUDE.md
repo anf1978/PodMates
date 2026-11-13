@@ -90,6 +90,7 @@ branch without a terminal. Details: `docs/deploy.md`.
 - `.github/actions/scryfall-bulk/` — shared current-export download/cache; all Scryfall bulk workflows use it.
   Actions are SHA-pinned and Dependabot maintains Actions/npm updates.
 - `firebase/` — unchanged Firestore rules, emulator-only config and rules tests; read `firebase/CLAUDE.md`.
+  `console-settings.md` records the live project's sign-in providers, authorised domains and indexes.
 - `tests/golden/` (engine snapshots) · `tests/e2e/` (Playwright) · `scripts/` (build, lint and manifest tools; `resolve-deploy-commit.mjs` is the deploy gate, `auto-merge.sh` merges green session branches, `ci-summary.mjs` writes the CI Summary page, `ci-status.mjs` follows a branch).
 
 `tests/e2e/accessibility.spec.ts` enforces axe serious/critical findings on the deck form, Try-a-Deck,
