@@ -8,6 +8,13 @@ export const TYPES = {
     tag: "Deck",
     text: (n: string, s?: string) => n + " charted a new deck" + (s ? ": " + s : ""),
   },
+  // Stored as a "deck" activity with ref "updated" (the live rules accept only the existing
+  // types); kindOf() turns it into this kind so it has its own label and switch.
+  deckUpdated: {
+    label: "A podmate updates a deck",
+    tag: "Deck",
+    text: (n: string, s?: string) => n + " updated a deck" + (s ? ": " + s : ""),
+  },
   gathering: {
     label: "A gathering is set up",
     tag: "Gathering",
@@ -66,8 +73,11 @@ export function initialState(): InboxState {
   return { uid: null, pods: [], feeds: new Map(), seenAt: 0, prefs: { types: {}, muted: {} } };
 }
 
-function isKnown(item: ActivityItem): item is NotificationItem {
-  return Object.hasOwn(TYPES, item.type);
+/** The inbox kind of a stored activity record, or null for kinds this page does not know. */
+export function kindOf(item: ActivityItem): NotificationType | null {
+  if (item.type === "deck" && item.ref === "updated") return "deckUpdated";
+  if (item.type === "deckUpdated" || !Object.hasOwn(TYPES, item.type)) return null;
+  return item.type as NotificationType;
 }
 
 export function visible(state: InboxState, now: number): NotificationItem[] {
@@ -75,11 +85,12 @@ export function visible(state: InboxState, now: number): NotificationItem[] {
   state.feeds.forEach((list, podId) => {
     if (state.prefs.muted[podId]) return;
     for (const item of list) {
-      if (!item || !isKnown(item) || item.by === state.uid) continue;
+      const kind = item ? kindOf(item) : null;
+      if (!kind || item.by === state.uid) continue;
       if (Array.isArray(item.to) && item.to.length && !item.to.includes(state.uid || "")) continue;
-      if (state.prefs.types[item.type] === false) continue;
+      if (state.prefs.types[kind] === false) continue;
       if (!item.createdAt || now - item.createdAt > 30 * 86400000) continue;
-      out.push(item);
+      out.push({ ...item, type: kind });
     }
   });
   return out.sort((a, b) => b.createdAt - a.createdAt);

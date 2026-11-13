@@ -76,12 +76,12 @@ describe("mergeSavedDecks", () => {
       bad: deck(1),
     });
     expect(result).toEqual({ added: 1, updated: 1, skipped: 1, overLimit: 0, failed: 1, total: 4 });
-    expect(cloud.saveDeck).toHaveBeenCalledWith("Fresh", {
-      list: "1 Island",
-      commander: "",
-      player: "",
-      savedAt: 0,
-    });
+    expect(cloud.saveDeck).toHaveBeenCalledWith(
+      "Fresh",
+      { list: "1 Island", commander: "", player: "", savedAt: 0 },
+      undefined,
+      { updateNotice: false }, // restoring a backup never announces deck updates
+    );
     expect(Object.keys(loadSavedDecks()).sort()).toEqual(["Fresh", "Older", "Same"]);
   });
 

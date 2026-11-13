@@ -1,7 +1,15 @@
 // Filtering and routing preserve the inbox's device-local, opt-out behaviour.
 import { expect, it } from "vitest";
 import type { ActivityItem } from "../../services/cloud/activity";
-import { ago, initialState, opensGathering, unreadCount, visible } from "./state";
+import {
+  ago,
+  initialState,
+  opensGathering,
+  TYPES,
+  unreadCount,
+  visible,
+  type NotificationItem,
+} from "./state";
 
 const now = 1800000000000;
 const item = (id: string, extra: Partial<ActivityItem> = {}): ActivityItem => ({
@@ -55,4 +63,25 @@ it("retains the thirty-day boundary, strict seen cutoff and relative-time roundi
   expect(ago(now - 3600000, now)).toBe("1 h ago");
   expect(ago(now - 86400000, now)).toBe("1 day ago");
   expect(ago(now - 2 * 86400000, now)).toBe("2 days ago");
+});
+
+it("shows a deck update as its own kind with its own switch", () => {
+  const state = initialState();
+  state.uid = "me";
+  state.feeds.set("pod", [
+    item("updated", { ref: "updated", subject: "Atraxa" }),
+    item("new", { createdAt: now - 2000 }),
+    item("forged", { type: "deckUpdated" }),
+  ]);
+  const shown = visible(state, now);
+  expect(shown.map((i) => [i.id, i.type])).toEqual([
+    ["updated", "deckUpdated"],
+    ["new", "deck"],
+  ]);
+  expect(TYPES.deckUpdated.text("Ann", "Atraxa")).toBe("Ann updated a deck: Atraxa");
+  expect(opensGathering(shown[0] as NotificationItem)).toBe(false);
+  state.prefs.types.deckUpdated = false;
+  expect(visible(state, now).map((i) => i.id)).toEqual(["new"]);
+  state.prefs.types = { deck: false };
+  expect(visible(state, now).map((i) => i.id)).toEqual(["updated"]);
 });

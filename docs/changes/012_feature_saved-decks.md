@@ -77,3 +77,5 @@ or deleted meanwhile. Roll back with `git revert` or Deploy Pages with an older 
 
 `004`, `006` (imported link, keep synced), `010` (Deck Crafter's Save), `013` (auth's save guard), `014` (My
 Profile uses the same lists), `016` (Gathering seats).
+
+Later changes: 032

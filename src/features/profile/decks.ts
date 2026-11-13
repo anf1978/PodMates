@@ -29,6 +29,7 @@ export async function loadAndMergeMyDecks(): Promise<ProfileDeck[]> {
           secret: false,
         },
         `linked-${deck.id}`,
+        { updateNotice: false }, // repairing a missing mirror is not an edit
       );
     } catch (error) {
       // The row stays visible even when the best-effort mirror repair fails.

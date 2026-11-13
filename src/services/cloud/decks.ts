@@ -14,7 +14,8 @@ import {
 import { logActivity } from "./activity";
 import { PM_LIMITS } from "./limits";
 import { requireUser } from "./session";
-import { countDocs, deckListProblem, docExistsSafe, requireText, safeDocId } from "./shared";
+import { shouldAnnounceUpdate, type UpdateNotice } from "./deck-update-notice";
+import { capCheckTimeout, countDocs, deckListProblem, requireText, safeDocId } from "./shared";
 import type { DeckDoc, DeckInput, PodmateDeck, SavedDeck } from "./types";
 import { reportError } from "../report-error";
 
@@ -23,10 +24,29 @@ export const deckRef = (uid: string, id: string) => doc(db, "users", uid, "decks
 
 // docIdOverride targets a deck by its real, stable document ID rather than its display key --
 // essential for a linked deck's mirror (linked-{platform}-{deckId}).
+// The stored deck before this save. A failed read is treated as "it exists" (so the saved-deck cap
+// is not applied) with an unknown list (so no update notice is sent).
+async function readExistingDeck(
+  ref: ReturnType<typeof deckRef>,
+): Promise<{ exists: boolean; list: string | null }> {
+  try {
+    const snap = await capCheckTimeout(getDoc(ref));
+    if (!snap.exists()) return { exists: false, list: null };
+    return { exists: true, list: String((snap.data() as Partial<DeckDoc>).list ?? "") };
+  } catch (e) {
+    reportError(e, { operation: "cloud" });
+    return { exists: true, list: null };
+  }
+}
+
+// New, non-secret decks always tell the pod ("charted a new deck"). Overwrites tell it only when
+// the card list changed, as a "deck" notice with ref "updated" (the live rules accept only the
+// existing notice types); `updateNotice` says how (see deck-update-notice.ts).
 export async function saveDeck(
   key: string,
   entry: DeckInput,
   docIdOverride?: string,
+  options: { updateNotice?: UpdateNotice } = {},
 ): Promise<void> {
   const user = requireUser();
   if (!key) throw new Error("Cannot save a deck with no name.");
@@ -37,9 +57,11 @@ export async function saveDeck(
   requireText(entry.player || "", L.playerName, "Player name");
   const listProblem = deckListProblem(entry.list || "");
   if (listProblem) throw new Error(listProblem);
-  const ref = deckRef(user.uid, safeDocId(docIdOverride || key));
+  const deckId = safeDocId(docIdOverride || key);
+  const ref = deckRef(user.uid, deckId);
   // Overwriting an existing deck never counts against the cap -- only creating a new one does.
-  const deckExisted = await docExistsSafe(ref);
+  const existing = await readExistingDeck(ref);
+  const deckExisted = existing.exists;
   if (L.maxSavedDecks && !deckExisted) {
     const have = await countDocs(decksCol(user.uid));
     if (have >= L.maxSavedDecks)
@@ -57,7 +79,18 @@ export async function saveDeck(
     secret: entry.secret === true,
     updatedAt: serverTimestamp(),
   });
-  if (!deckExisted && entry.secret !== true) logActivity("deck", entry.deckName || key);
+  if (entry.secret === true) return;
+  if (!deckExisted) logActivity("deck", entry.deckName || key);
+  else if (
+    shouldAnnounceUpdate(options.updateNotice ?? "now", {
+      uid: user.uid,
+      deckId,
+      before: existing.list,
+      after: entry.list || "",
+      now: Date.now(),
+    })
+  )
+    logActivity("deck", entry.deckName || key, { ref: "updated" });
 }
 
 export async function setDeckSecret(key: string, secret: unknown): Promise<void> {

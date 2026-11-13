@@ -439,6 +439,9 @@ thirty-day filter, per-type preferences and pod muting. Existing `pm_notif_seen_
 `pm_notif_prefs_<uid>` device keys, activity text/colours and Firestore paths/fields are unchanged.
 First use starts the unread cutoff at the current time; opening marks seen without removing fresh-row
 highlights. Lit templates escape names and subjects; styles replace the inventoried inline declarations.
+A "deck" activity with `ref: "updated"` is shown as its own kind, `deckUpdated` (`kindOf()` in `state.ts`), with
+its own switch; `services/cloud/deck-update-notice.ts` decides when `saveDeck` posts one (card list changed;
+linked-deck syncs at most daily per device via `pm_deck_update_notice_<uid>`; restores and repairs never).
 Auth changes clear old-account state immediately, and generation guards ignore obsolete pod loads/feed
 callbacks. Membership writes emit `pods:membership` after success, so direct repository callers refresh
 subscriptions too. Navigation uses `gatherings:open` and `pods:open`

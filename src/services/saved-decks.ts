@@ -237,12 +237,12 @@ export async function mergeSavedDecks(
         continue;
       }
       room--;
-      writes.push(cloud.saveDeck(key, incomingObj));
+      writes.push(cloud.saveDeck(key, incomingObj, undefined, { updateNotice: false }));
       added++;
     } else {
       const currentTime = (typeof current === "object" ? current.savedAt : 0) || 0;
       if ((incomingObj.savedAt || 0) > currentTime) {
-        writes.push(cloud.saveDeck(key, incomingObj));
+        writes.push(cloud.saveDeck(key, incomingObj, undefined, { updateNotice: false }));
         updated++;
       } else {
         skipped++;

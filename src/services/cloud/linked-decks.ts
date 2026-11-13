@@ -108,6 +108,7 @@ export async function addLinkedDeck(deckUrl: string) {
     finalName,
     { commander: d.commander, list: d.decklistText, player: user.displayName || "", secret: false },
     linkedDeckMirrorId(d.platform, d.deckId),
+    { updateNotice: "daily" },
   ).catch((err: unknown) => reportError(err, { operation: "cloud" })); // best-effort mirror
   return { ok: true as const, deck: { ...d, name: finalName }, id, renamed: finalName !== d.name };
 }
@@ -156,6 +157,7 @@ export async function refreshLinkedDeck(id: string, deckUrl: string) {
       secret: existingSecret,
     },
     linkedDeckMirrorId(d.platform, d.deckId),
+    { updateNotice: "daily" },
   ).catch((err: unknown) => reportError(err, { operation: "cloud" }));
   return { ok: true as const, deck: d };
 }
