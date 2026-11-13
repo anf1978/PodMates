@@ -107,8 +107,9 @@ scripts do not. Browser fixtures fail on CSP violations.
 Invite URLs now show a sharing warning and require explicit consent before joining a pod. The public
 deck-sync source is currently `deck-link-sync-worker.js`, not `workers/deck-sync/`: it accepts only GET/OPTIONS,
 known app/development origins, and bounded HTTPS deck paths. Fixed upstream endpoints disallow redirects,
-time out after ten seconds and cap streamed responses at 2 MiB. Deploying that Worker remains separate
-from the Pages deployment.
+time out after ten seconds and cap streamed responses at 2 MiB. The owner confirmed on 2026-11-13 that the
+deployed Worker matches this file. Deploying that Worker remains separate from the Pages deployment (by hand,
+in Cloudflare); after changing the file, paste it into the Cloudflare editor or the two drift apart.
 
 ## Layers
 

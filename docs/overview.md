@@ -17,7 +17,8 @@ tool, **PriceScry**, tracks card prices (shown in yen) and tries to predict pric
 - **Live site:** <https://anf1978.github.io/PodMates/> (GitHub Pages, served from `main`)
 - **Audience:** a Japan-based playgroup (prices in ¥, Japanese shops, an in-app hint for using the browser's
   Japanese translation). The UI itself is English-only.
-- **Installable:** has a web manifest and icons, but no service worker (so no offline mode).
+- **Installable:** web manifest, icons and a Workbox service worker (`src/services/pwa.ts`); the app shell and
+  previously loaded data work offline (details in [architecture.md](./architecture.md)).
 
 ## 2. Features
 
@@ -245,8 +246,11 @@ the committed snapshots are validated and used explicitly. Existing but invalid 
 
 ### 3.7 Things the app depends on that are _not_ in this repo
 
-- **Cloudflare Worker source** (`worker.js`) for deck sync (`spring-unit-49d9.anthony-ef7.workers.dev`).
-- Build scripts `know-build.cjs`, `impact-cands.cjs`, and whatever produced the reference corpus/baselines.
+- Build scripts `know-build.cjs`, `impact-cands.cjs`, and the builders of `REFERENCE_SCORES`, `REFERENCE_TIERS`
+  and `PRECON_FINGERPRINTS`. (The staples and mana-base baselines are rebuildable since 020.)
+- The deck-sync Worker's _deployment_ (`spring-unit-49d9.anthony-ef7.workers.dev`): its source is
+  `deck-link-sync-worker.js`, which the owner confirmed matches the deployed code on 2026-11-13; deploying it is
+  done by hand in Cloudflare.
 - The Cloudflare account. (Firebase console settings were read on 2026-11-13 and are recorded in
   `firebase/console-settings.md`.)
 
