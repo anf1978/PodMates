@@ -4,6 +4,7 @@ import {
   buildBenchmarkFiles,
   deckFeatures,
   median,
+  NOT_IN_REFERENCE,
   roundHalfEven3,
 } from "./benchmark-baselines.mjs";
 
@@ -37,7 +38,8 @@ describe("committed precon benchmarks", () => {
     spellbook: json("../../tests/golden/fixtures/spellbook.json"),
     winRates: json("../../tests/golden/fixtures/winrates.json"),
   };
-  const files = buildBenchmarkFiles(deckFeatures(samples, data));
+  const frozen = json("./frozen-reference-rows.json");
+  const files = buildBenchmarkFiles(deckFeatures(samples, data), frozen);
 
   // A failure means the engine or the samples changed what these files should hold. Refitting
   // moves the Deck Chart's Closest Match, staples and mana-base checks: run
@@ -53,8 +55,20 @@ describe("committed precon benchmarks", () => {
     );
   });
 
+  it("puts every sample but NOT_IN_REFERENCE into the reference set, then the frozen rows", () => {
+    const tiers = JSON.parse(files.REFERENCE_TIERS);
+    const included = samples.filter((s) => !NOT_IN_REFERENCE.includes(s.key));
+    expect(tiers).toHaveLength(included.length + 50);
+    expect(tiers.slice(0, included.length)).toEqual(
+      included.map((s) => (s.source === "precon" ? "p" : "t")),
+    );
+    expect(JSON.parse(files.REFERENCE_SCORES).slice(included.length)).toEqual(
+      frozen.rows.map(([, v]) => v),
+    );
+  });
+
   it("refuses implausible input", () => {
-    expect(() => buildBenchmarkFiles(deckFeatures(samples.slice(0, 10), data))).toThrow(
+    expect(() => buildBenchmarkFiles(deckFeatures(samples.slice(0, 10), data), frozen)).toThrow(
       "Only 10 sample decks",
     );
   });

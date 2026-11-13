@@ -12,10 +12,12 @@
 // constants (centrality bands, spark band) were not re-fitted. Rows 0-173 are the 6 curated and
 // 168 precon decks (rows 159-173 are the 15 additions), rows 174-203 the tuned EDHREC decks and
 // 204-223 the cEDH lists. The scores and tiers are the REFERENCE_SCORES / REFERENCE_TIERS
-// datasets (row-parallel); Spark is the curated REFERENCE_SPARK table. Used to give each axis
-// score a percentile and a tier placement against real decks rather than a bare 1-10 number.
+// datasets (row-parallel). Each row's Command Spark is computed from its five scores (computeSpark);
+// that reproduces the former hand-kept REFERENCE_SPARK table exactly for all 224 rows. Used to give
+// each axis score a percentile and a tier placement against real decks rather than a bare 1-10 number.
+// pipelines/reference-corpus/reference-set.mjs builds the datasets.
 
-import { REFERENCE_SPARK } from "../data/reference-spark.ts";
+import { computeSpark } from "./spark.ts";
 
 export interface ReferenceSet {
   /** One row per deck: [speed, consistency, versatility, disruption, powerLevel]. */
@@ -45,6 +47,13 @@ export interface TierPlacement {
   pctBelow: number;
 }
 
+/** Command Spark for every reference row, from its five scores. */
+export function referenceSparks(ref: ReferenceSet): number[] {
+  return ref.scores.map((r) =>
+    computeSpark(r[0] as number, r[1] as number, r[2] as number, r[3] as number, r[4] as number),
+  );
+}
+
 /** Where a value sits within each reference tier: the share of that tier's decks it scores
  * above (ties count half). A missing axisKey means Command Spark. */
 export function computeTierPlacement(
@@ -53,7 +62,7 @@ export function computeTierPlacement(
   axisKey?: string | null,
 ): TierPlacement[] {
   const idx = axisKey ? BENCHMARK_AXIS_INDEX[axisKey] : null;
-  const vals = axisKey ? ref.scores.map((r) => r[idx as number]) : REFERENCE_SPARK;
+  const vals = axisKey ? ref.scores.map((r) => r[idx as number]) : referenceSparks(ref);
   return ["p", "t", "c"].map((t) => {
     const tv = vals.filter((_, i) => ref.tiers[i] === t);
     const below = tv.filter((v) => (v as number) < value).length;
@@ -82,13 +91,14 @@ export function describeTierPlacement(
 /** Short caption naming the reference set and its three tiers. */
 export function referenceSetSummary(ref: ReferenceSet): string {
   const c = computeTierPlacement(ref, 0).map((p) => `${p.n} ${p.label}`);
-  return `${REFERENCE_SPARK.length} real decks scored by this same engine: ${c[0]}, ${c[1]} and ${c[2]}`;
+  return `${ref.scores.length} real decks scored by this same engine: ${c[0]}, ${c[1]} and ${c[2]}`;
 }
 
-export function computeSparkPercentile(value: number): number {
-  const below = REFERENCE_SPARK.filter((v) => v < value).length;
-  const equal = REFERENCE_SPARK.filter((v) => v === value).length;
-  const percentile = Math.round(((below + equal * 0.5) / REFERENCE_SPARK.length) * 100);
+export function computeSparkPercentile(ref: ReferenceSet, value: number): number {
+  const sparks = referenceSparks(ref);
+  const below = sparks.filter((v) => v < value).length;
+  const equal = sparks.filter((v) => v === value).length;
+  const percentile = Math.round(((below + equal * 0.5) / sparks.length) * 100);
   return Math.min(Math.max(percentile, 1), 99);
 }
 

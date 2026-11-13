@@ -14,6 +14,7 @@ this folder on purpose. Don't edit them: their value is that they are exactly wh
 | `pwja.cjs`                            | Browser check of the Japanese translation hint banner.                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 Still **not** recovered: `pw160.cjs` (it wrote `feat174.json`, the per-deck input to script 7; rebuilt from the
-engine in `benchmark-baselines.mjs`), `know-build.cjs` (`KNOW_JSON`), `impact-cands.cjs` (`IMPACT_CANDS`), and
-the builders of `REFERENCE_SCORES` and `REFERENCE_TIERS`. `PRECON_FINGERPRINTS` needed no separate script (the
-engine's `buildFingerprintVector()`); since change 034 `benchmark-baselines.mjs` builds it too.
+engine in `benchmark-baselines.mjs`), `know-build.cjs` (`KNOW_JSON`), `impact-cands.cjs` (`IMPACT_CANDS`) and the
+original reference-set builder. `PRECON_FINGERPRINTS` needed no separate script (the engine's
+`buildFingerprintVector()`); `benchmark-baselines.mjs` builds it (034) and the reference set's sample rows (035,
+which reproduce all 174 committed rows exactly).

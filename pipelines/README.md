@@ -130,10 +130,14 @@ artifact builder for the Commander Spellbook snapshot, never a baseline publishe
 - Run by hand; no schedule, network access or secrets. `recovered/` keeps the original chat-session
   scripts verbatim as a record (see its README); they are never run.
 
-## Knowledge and reference corpus (not recovered)
+- The same builder writes the reference set, `REFERENCE_SCORES` / `REFERENCE_TIERS`: one row of five
+  one-decimal axis scores per sample (precons `p`, curated decks `t`; `NOT_IN_REFERENCE` lists samples
+  not scored in yet), then the 30 tuned and 20 cEDH rows from `frozen-reference-rows.json`. Those decks'
+  lists are lost, so their rows are carried forward and cannot be re-scored if the engine changes.
 
-`know-build` (`KNOW_JSON`), `impact-cands` (`IMPACT_CANDS`) and the builders of `REFERENCE_SCORES` and
-`REFERENCE_TIERS` are not in this repository; its full history (361 commits from 2026-09-07) and the
-owner's chat sessions were searched in November 2026. They also need inputs that are not here (ranked
-community card lists; the tuned and cEDH decklists). The committed datasets are frozen: they work, but
-cannot be refreshed. Do not invent replacements or rewrite them.
+## Knowledge lists (not recovered)
+
+`know-build` (`KNOW_JSON`) and `impact-cands` (`IMPACT_CANDS`) are not in this repository; its full history
+(361 commits from 2026-09-07) and the owner's chat sessions were searched in November 2026. They also need
+inputs that are not here (the ranked community card lists). The committed datasets are frozen: they work,
+but cannot be refreshed. Do not invent replacements or rewrite them.

@@ -84,7 +84,7 @@ export function axisPercentile(axisKey: string, value: number): number | null {
 }
 
 export function sparkPercentile(value: number): number {
-  return computeSparkPercentile(value);
+  return computeSparkPercentile(loaded().set, value);
 }
 
 export function tierPlacement(value: number, axisKey?: string): string {

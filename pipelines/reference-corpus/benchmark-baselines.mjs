@@ -1,5 +1,8 @@
 // Builds the precon benchmarks from the Try-a-Deck sample decks: PRECON_FINGERPRINTS (the "Closest
-// Match" vectors), STAPLES_BASELINE (the staples check) and MANABASE_BASELINE (the mana-base check).
+// Match" vectors), STAPLES_BASELINE (the staples check), MANABASE_BASELINE (the mana-base check), and
+// the reference set behind every percentile, REFERENCE_SCORES / REFERENCE_TIERS: one row of five axis
+// scores per sample (precons "p", curated decks "t"), then the 50 tuned/cEDH rows carried forward
+// from frozen-reference-rows.json because their decklists are lost.
 //
 // History: the original builders were lost. The baselines' aggregation is a line-for-line port of the
 // recovered Nov 3, 2026 Python step (recovered/inline-python-patches-and-calcs.txt, script 7), which
@@ -13,7 +16,7 @@
 //        node pipelines/reference-corpus/benchmark-baselines.mjs --update-public-data
 // The second form rewrites the three public/data files and their manifest entries. That moves the
 // Deck Chart's Closest Match, staples and mana-base checks: a deliberate, documented refit only.
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gunzipSync } from "node:zlib";
@@ -25,7 +28,13 @@ import {
   buildSpellbookIndex,
   computeManaBaseBenchmark,
   createEngineContext,
+  detectWinCondition,
   parseCommanderField,
+  scoreConsistency,
+  scoreDisruption,
+  scorePowerLevel,
+  scoreSpeed,
+  scoreVersatility,
 } from "../../src/engine/index.ts";
 import { buildFingerprintVector } from "../../src/engine/benchmarks.ts";
 import { isMain } from "../lib/cli.mjs";
@@ -47,12 +56,38 @@ export const STAPLES_KEYS = [
   "protection",
 ];
 
+/** Samples not (yet) in the reference set. The four 2026 Star Trek precons were added to Try a Deck
+ * after the reference set was last scored; adding rows moves every percentile, so it is a deliberate
+ * change (the precon importer's pull requests do it for newly added decks). */
+export const NOT_IN_REFERENCE = [
+  "cmd2026-federationfleet",
+  "cmd2026-wearetheborg",
+  "cmd2026-klingonfury",
+  "cmd2026-landingparty",
+];
+
 /**
- * @typedef {{ key: string, archetype: string, commander: string, decklist: string }} SampleDeck
+ * @typedef {{ key: string, archetype: string, commander: string, decklist: string,
+ *   source?: string }} SampleDeck
  * @typedef {{ identity: string, nc: number, nb: number, fix: number }} ManaBaseFeature
  * @typedef {{ k: string, arch: string, st: Record<string, number>, lands: number,
- *   bm: ManaBaseFeature | null, fp: number[] }} DeckFeatures
+ *   bm: ManaBaseFeature | null, fp: number[], src: string, axes: number[] }} DeckFeatures
  */
+
+/** The five axis scores as the reference set stores them: one decimal, in
+ * [speed, consistency, versatility, disruption, powerLevel] order (the golden harness's scoring).
+ * @param {any} agg */
+function axisScores(agg) {
+  const winCons = detectWinCondition(agg);
+  const specific = winCons.length > 0 && winCons[0]?.confidence !== "fallback";
+  return [
+    scoreSpeed(agg, specific),
+    scoreConsistency(agg),
+    scoreVersatility(agg, winCons.length),
+    scoreDisruption(agg),
+    scorePowerLevel(agg),
+  ].map((value) => Math.round(value * 10) / 10);
+}
 
 /** Python's statistics.median: the middle value, or the mean of the two middle values.
  * @param {number[]} values */
@@ -111,6 +146,8 @@ export function deckFeatures(samples, { cards, spellbook, winRates }) {
         fix: bm.avgFixingRatio,
       },
       fp: buildFingerprintVector(/** @type {any} */ (agg)),
+      src: sample.source,
+      axes: axisScores(/** @type {any} */ (agg)),
     };
   });
 }
@@ -169,9 +206,21 @@ export function buildFingerprints(rows) {
   return rows.map((row) => [row.k, row.fp]);
 }
 
+/** REFERENCE_SCORES / REFERENCE_TIERS: sample rows in sample order, then the frozen rows.
+ * @param {DeckFeatures[]} rows @param {{ rows: [string, number[]][] }} frozen */
+export function buildReferenceSet(rows, frozen) {
+  const sampled = rows.filter((row) => !NOT_IN_REFERENCE.includes(row.k));
+  const scores = [...sampled.map((row) => row.axes), ...frozen.rows.map(([, v]) => v)];
+  const tiers = [
+    ...sampled.map((row) => (row.src === "precon" ? "p" : "t")),
+    ...frozen.rows.map(([tier]) => tier),
+  ];
+  return { scores, tiers };
+}
+
 /** Every benchmark file's contents, checked for plausible shapes before anything is written.
- * @param {DeckFeatures[]} rows */
-export function buildBenchmarkFiles(rows) {
+ * @param {DeckFeatures[]} rows @param {{ rows: [string, number[]][] }} frozen */
+export function buildBenchmarkFiles(rows, frozen) {
   if (rows.length < 150) throw new Error(`Only ${rows.length} sample decks; expected 150 or more.`);
   const fingerprints = buildFingerprints(rows);
   for (const [key, vector] of fingerprints) {
@@ -180,8 +229,17 @@ export function buildBenchmarkFiles(rows) {
   }
   const { staples, manabase } = buildBaselines(rows);
   if (Object.keys(manabase.byCount).length !== 5) throw new Error("Mana-base buckets missing.");
+  const reference = buildReferenceSet(rows, frozen);
+  const bad = reference.scores.findIndex(
+    (v, i) =>
+      v.length !== 5 || !v.every(Number.isFinite) || !["p", "t", "c"].includes(reference.tiers[i]),
+  );
+  if (bad !== -1) throw new Error(`Bad reference row ${bad}`);
+  if (frozen.rows.length !== 50) throw new Error("Expected the 50 frozen tuned/cEDH rows.");
   const json = (value) => `${JSON.stringify(value)}\n`;
   return {
+    REFERENCE_SCORES: json(reference.scores),
+    REFERENCE_TIERS: json(reference.tiers),
     PRECON_FINGERPRINTS: json(fingerprints),
     STAPLES_BASELINE: json(staples),
     MANABASE_BASELINE: json(manabase),
@@ -199,6 +257,9 @@ function readPublishedData() {
       gunzipSync(Buffer.from(read("SPELLBOOK_SNAPSHOT_B64"), "base64")).toString("utf8"),
     ),
     winRates: read("winrates"),
+    frozen: JSON.parse(
+      readFileSync(new URL("./frozen-reference-rows.json", import.meta.url), "utf8"),
+    ),
   };
 }
 
@@ -209,21 +270,20 @@ async function main(argv) {
     ? fileURLToPath(new URL("../../public/data/", import.meta.url))
     : argv.find((arg) => !arg.startsWith("--"));
   if (!outDir) throw new Error("Usage: benchmark-baselines.mjs <out-dir> | --update-public-data");
-  const { samples, cardsPayload, spellbook, winRates } = readPublishedData();
+  const { samples, cardsPayload, spellbook, winRates, frozen } = readPublishedData();
   const cards = await decodeCardDatabase(cardsPayload);
-  const files = buildBenchmarkFiles(deckFeatures(samples, { cards, spellbook, winRates }));
+  const files = buildBenchmarkFiles(deckFeatures(samples, { cards, spellbook, winRates }), frozen);
   mkdirSync(outDir, { recursive: true });
-  for (const [name, contents] of Object.entries(files)) {
-    writeFileSync(join(outDir, `${name}.json`), contents);
-  }
-  if (publish)
-    updateManifest(
-      outDir,
-      Object.keys(files),
-      "pipelines/reference-corpus/benchmark-baselines.mjs",
-    );
+  // Only files whose contents change are rewritten, so the manifest keeps the others' dates.
+  const changed = Object.keys(files).filter((name) => {
+    const path = join(outDir, `${name}.json`);
+    return !existsSync(path) || readFileSync(path, "utf8") !== files[name];
+  });
+  for (const name of changed) writeFileSync(join(outDir, `${name}.json`), files[name]);
+  if (publish && changed.length)
+    updateManifest(outDir, changed, "pipelines/reference-corpus/benchmark-baselines.mjs");
   console.log(
-    `Wrote ${Object.keys(files).join(", ")} for ${samples.length} sample decks to ${outDir}`,
+    `${samples.length} sample decks; changed in ${outDir}: ${changed.join(", ") || "nothing"}`,
   );
 }
 

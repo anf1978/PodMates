@@ -36,11 +36,11 @@
       "source": "pipelines/reference-corpus/benchmark-baselines.mjs"
     },
     "REFERENCE_SCORES.json": {
-      "version": "ef71caf187bd",
-      "generatedAt": "2026-11-10T14:22:23.366Z",
-      "sha256": "ef71caf187bde9e750d1a1ff80d51a2b8cd3fe6814644cfdfec50dd40fb97444",
+      "version": "d6bfe16ac189",
+      "generatedAt": "2026-11-13T13:09:24.813Z",
+      "sha256": "d6bfe16ac189dce978c9f3e2ec0f8fec2e998bdfe366341338ea9768e5afb16d",
       "bytes": 4695,
-      "source": "Committed extraction snapshot"
+      "source": "pipelines/reference-corpus/benchmark-baselines.mjs"
     },
     "REFERENCE_TIERS.json": {
       "version": "11726ede7992",

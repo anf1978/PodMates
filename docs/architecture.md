@@ -160,8 +160,8 @@ by commit in the pipeline README; the manual Spellbook artifact builder remains.
 `SOFT_SYNERGIES`, `GAME_CHANGER_REASONS`, `DEFAULT_IMPACT_CARDS`) are in `src/data/*.ts`. Inputs come
 through an explicit `EngineContext`. The page's context is `pageContext()` in `src/services/card-data.ts`,
 memoised on the loaded card DB, Spellbook index and commander win-rates. `reference.ts` computes percentiles and tier
-placement against the reference set (`REFERENCE_SCORES` / `REFERENCE_TIERS` plus the curated
-`src/data/reference-spark.ts`), and `benchmarks.ts` the closest-precon match, staples check and mana-base
+placement against the reference set (`REFERENCE_SCORES` / `REFERENCE_TIERS`; each row's Spark is computed
+from its scores by `referenceSparks()`), and `benchmarks.ts` the closest-precon match, staples check and mana-base
 benchmark; `src/services/reference-data.ts` holds their datasets. ESLint keeps the engine pure: no page
 globals, no module-level `let`.
 
