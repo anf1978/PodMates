@@ -135,6 +135,21 @@ artifact builder for the Commander Spellbook snapshot, never a baseline publishe
   not scored in yet), then the 30 tuned and 20 cEDH rows from `frozen-reference-rows.json`. Those decks'
   lists are lost, so their rows are carried forward and cannot be re-scored if the engine changes.
 
+## Precon importer (`precons/`)
+
+- Inputs: MTGJSON `DeckList.json`, `SetList.json` and one `decks/<file>.json` per candidate (public, no key),
+  the latest `cards.json` (the `data` branch, else the committed snapshot) and the committed datasets.
+- `import-precons.mjs --cards <cards.json> --report <md> [--change-doc-dir docs/changes]` appends new Commander
+  precons (released on/after `IMPORT_SINCE`, not already present by name, key or commanders, exactly 100 cards, every
+  card in the database) to `TRY_A_DECK_OPTIONS` with `addedAt` and suggested labels, refreshes the deck metadata
+  and manifest entries, and writes the report and a change doc. Decks still missing cards or not yet released are
+  reported as waiting.
+- `snapshot-guard.mjs <before.snap> <after.snap>` allows golden snapshot additions only.
+- Schedule: `precon-import.yml`, after each successful main `Rebuild Card Database`, and manual. It opens a
+  `wip/precon-import` pull request for a human; it never merges. Secrets: none (`GITHUB_TOKEN` only).
+- Traffic: identified User-Agent (`PodMatesPreconImport/1.0`), two list files plus one deck file per new deck,
+  1 s apart, bounded retries via `lib/http.mjs`; deck files are fetched only for new candidates.
+
 ## Knowledge lists (not recovered)
 
 `know-build` (`KNOW_JSON`) and `impact-cands` (`IMPACT_CANDS`) are not in this repository; its full history

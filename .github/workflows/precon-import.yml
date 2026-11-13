@@ -1,0 +1,115 @@
+name: Precon Import
+
+# Finds new official Commander precons on MTGJSON and proposes them for Try a Deck in a pull request
+# that a human reviews and merges (it never merges itself). Runs after each successful weekly card
+# database rebuild, so new cards are already in the database, and on demand.
+# See pipelines/precons/import-precons.mjs and docs/changes/037.
+on:
+  workflow_run:
+    workflows: ["Rebuild Card Database"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: precon-import
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  import:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      contents: write # push the proposal branch
+      pull-requests: write # open the pull request and ask for a review
+      actions: write # run CI on the branch (the token's pushes start no workflows)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      BRANCH: wip/precon-import
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Latest card database
+        run: |
+          if git fetch --quiet --no-tags --depth=1 origin data 2> /dev/null; then
+            git show FETCH_HEAD:cards.json > "$RUNNER_TEMP/cards.json"
+            echo "Card database from the data branch ($(git rev-parse --short FETCH_HEAD))." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            cp public/data/cards.json "$RUNNER_TEMP/cards.json"
+            echo "No data branch yet; using the committed card database." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Find new precons
+        id: find
+        run: |
+          node pipelines/precons/import-precons.mjs --cards "$RUNNER_TEMP/cards.json" \
+            --report "$RUNNER_TEMP/report.md" --change-doc-dir docs/changes
+          cat "$RUNNER_TEMP/report.md" >> "$GITHUB_STEP_SUMMARY"
+          if git diff --quiet -- public/data/TRY_A_DECK_OPTIONS.json; then
+            echo "new=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "new=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Pin the new decks' cards
+        if: ${{ steps.find.outputs.new == 'true' }}
+        run: node tests/golden/generate-fixture.mjs --add "$RUNNER_TEMP/cards.json"
+      - name: Rebuild the precon benchmarks and reference set
+        if: ${{ steps.find.outputs.new == 'true' }}
+        run: node pipelines/reference-corpus/benchmark-baselines.mjs --update-public-data --from-fixtures
+      - name: Golden snapshots for the new decks only
+        if: ${{ steps.find.outputs.new == 'true' }}
+        run: |
+          snap=tests/golden/__snapshots__/engine.golden.test.ts.snap
+          cp "$snap" "$RUNNER_TEMP/before.snap"
+          npx vitest run tests/golden/engine.golden.test.ts --update
+          node pipelines/precons/snapshot-guard.mjs "$RUNNER_TEMP/before.snap" "$snap"
+      - name: Check
+        if: ${{ steps.find.outputs.new == 'true' }}
+        run: npm run check
+      - name: Push the proposal and open its pull request
+        if: ${{ steps.find.outputs.new == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -q -C "$BRANCH"
+          git add -A -- public/data tests/golden docs/changes
+          doc="$(git diff --cached --name-only -- docs/changes | head -1)"
+          title="$(head -1 "$doc" | sed 's/^# [0-9]*: //')"
+          git commit -q -m "data: ${title}" -m "Proposed by the Precon Import workflow: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          # The proposal branch belongs to this workflow; each run replaces it with a fresh one from main.
+          git push -q --force origin "HEAD:refs/heads/$BRANCH"
+          body="$RUNNER_TEMP/body.md"
+          {
+            cat "$RUNNER_TEMP/report.md"
+            echo
+            echo "Review the suggested archetype, style and tagline (edit them in this branch if needed), wait for"
+            echo "CI to pass, then tap **Merge**. Merging adds the decks to Try a Deck and deploys."
+          } > "$body"
+          if gh pr view "$BRANCH" --json state -q .state 2> /dev/null | grep -q OPEN; then
+            gh pr edit "$BRANCH" --title "$title" --body-file "$body"
+          else
+            gh pr create --base main --head "$BRANCH" --title "$title" --body-file "$body" --reviewer "$OWNER" ||
+              gh pr create --base main --head "$BRANCH" --title "$title" --body-file "$body" ||
+              echo "::warning title=Precon Import::Could not open the pull request (Settings → Actions → allow GitHub Actions to create pull requests)."
+          fi
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+      - name: CI on the proposal
+        if: ${{ steps.find.outputs.new == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/dispatch-and-watch.sh ci.yml "$BRANCH" "$sha"

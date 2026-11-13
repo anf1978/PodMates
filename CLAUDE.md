@@ -29,7 +29,7 @@ Node.js 22.18+ (pipelines run `src/shared/*.ts` with built-in type stripping). `
   `withModules()` (`tests/e2e/modules.ts`) for flows that have no signed-out UI. Set `PM_E2E_PORT` to a free
   port when another session is testing. Not part of `check`.
 - `npm run typecheck`, `npm run lint`, `npm test` — one check at a time.
-- `npm run golden` — engine snapshots for all 178 sample decks. `npm run golden:update` **only** when an engine
+- `npm run golden` — engine snapshots for every sample deck (178 when pinned; the precon importer adds more). `npm run golden:update` **only** when an engine
   change is intended (use `/engine-change`; explain the diff in the change doc). `npm run golden:fixture` re-pins
   fixtures from local data; run it only deliberately.
 - `npx prettier --write <files>` on the files you changed, when `node_modules` exists. Not `npm run format`
@@ -41,7 +41,8 @@ CI (`ci.yml`) runs `check` + build/budget + e2e + rules tests on every push to `
 and on PRs, and writes a readable summary on the run's Summary page (`scripts/ci-summary.mjs`). **Auto-merge**
 (`auto-merge.yml`, `scripts/auto-merge.sh`) rebases a green `ccr-`/`claude/` branch onto `main` (not `[wip]` commits), pushes it, runs CI on
 `main` and starts **Deploy Pages**, which publishes only a commit on `main` whose CI passed
-(`scripts/resolve-deploy-commit.mjs`). **Update Snapshots** (manual) rewrites golden and Playwright snapshots on a
+(`scripts/resolve-deploy-commit.mjs`). **Precon Import** (weekly, after the card rebuild) proposes new precons for
+Try a Deck as a `wip/precon-import` pull request that a human merges. **Update Snapshots** (manual) rewrites golden and Playwright snapshots on a
 branch without a terminal. Details: `docs/deploy.md`.
 
 ## Map
@@ -86,7 +87,8 @@ branch without a terminal. Details: `docs/deploy.md`.
 - `public/data/` — committed dataset snapshots (generated); `public/` — icons and manifest.
 - `pipelines/` — typed Node data builders and shared helpers run by Actions; see `pipelines/README.md`.
   `reference-corpus/` builds the precon benchmarks (fingerprints, staples and mana-base baselines) and the
-  reference set's sample rows by hand; a test pins the committed files to its output;
+  reference set's sample rows by hand; a test pins the committed files to its output; `precons/` is the weekly
+  precon importer (MTGJSON → a reviewed Try-a-Deck pull request; `precon-import.yml`);
   its `recovered/` folder holds old chat-session scripts verbatim, never run.
 - `.github/actions/scryfall-bulk/` — shared current-export download/cache; all Scryfall bulk workflows use it.
   Actions are SHA-pinned and Dependabot maintains Actions/npm updates.

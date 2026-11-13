@@ -85,6 +85,20 @@ it was started on when that's a `ccr-`, `claude/` or `wip/` branch, otherwise to
 It then dispatches and waits for `CI` on that branch and, for `ccr-`/`claude/` branches, dispatches Auto-merge. Use it only
 for an intended engine change whose change doc explains the golden diff (`/engine-change`).
 
+### Precon import (proposals a human merges)
+
+`.github/workflows/precon-import.yml` runs after each successful `Rebuild Card Database` on `main` (and on demand).
+`pipelines/precons/import-precons.mjs` reads MTGJSON's `DeckList.json`/`SetList.json` and, for Commander decks
+released on or after `IMPORT_SINCE` that Try a Deck lacks and whose every card is in the `data` branch's
+`cards.json`, appends Try-a-Deck entries (`addedAt` = today; suggested archetype, style and tagline) and writes a
+numbered change doc. The workflow then extends the golden fixtures with `generate-fixture.mjs --add` (pinned cards
+kept first and unchanged), rebuilds the precon benchmarks and reference set from the fixtures, writes golden
+snapshots for the new decks and runs `snapshot-guard.mjs` (any changed existing snapshot fails the run), then
+`npm run check`. It force-pushes the proposal to its own `wip/precon-import` branch, opens or updates a pull request
+that requests the repository owner's review, and dispatches CI on it. `wip/` branches never auto-merge: a human
+reviews the labels and taps **Merge**, which deploys through the gate as usual. With nothing new, it ends after the
+report on its Summary page. Permissions: `contents`, `pull-requests` and `actions` write; no secrets.
+
 ### Weekly data refreshes
 
 The card and commander win-rate rebuilds publish JSON files to the force-updated `data` branch using
