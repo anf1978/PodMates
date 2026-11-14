@@ -68,9 +68,8 @@ more: every query in `src/services/cloud` filters or sorts on a single field (`m
 indexes, so `tests/firestore-indexes.test.ts` checks the queries statically and fails if one starts to need a
 composite index. No rules or indexes were deployed.
 
-## Deck Log rules (pending in the console)
+## Deck Log rules
 
 Change 038 added the podmate view-count update on `users/{uid}/decks/{id}` and the `changes` sub-collection.
-Until the owner pastes the updated `firestore.rules` into the Firebase console, production keeps the older
-rules: owners' own counters, wins and first-save dates still work, but podmates' views are refused and change
-entries cannot be written or read (the app reports and carries on). See `console-settings.md`.
+The owner published the updated `firestore.rules` in the Firebase console on 15 November 2026, so production
+now enforces them (see `console-settings.md`).

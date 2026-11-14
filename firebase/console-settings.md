@@ -33,9 +33,10 @@ Automatic single-field indexes at their defaults, no exemptions, no composite in
 
 ## Firestore rules
 
-The repository's `firestore.rules` is ahead of the console from change 038 (Deck Log) until the owner pastes
-it in: Firebase console → Firestore Database → **Rules** → replace everything → **Publish**. Record the date
-here once done.
+Published from the repository's `firestore.rules` on **15 November 2026** (the owner pasted the whole file
+over the console's rules), so the console matches the repository as of change 038 (Deck Log). For any later
+rule change: Firebase console → Firestore Database → **Rules** → replace everything → **Publish**, then record
+the date here.
 
 ## Not recorded yet
 
