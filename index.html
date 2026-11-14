@@ -38,6 +38,7 @@
 <link rel="stylesheet" href="./src/features/comparison/detail.css">
 <link rel="stylesheet" href="./src/features/ledger/ledger.css">
 <link rel="stylesheet" href="./src/features/themes/themes.css">
+<link rel="stylesheet" href="./src/features/deck-log/deck-log.css">
 <link rel="stylesheet" href="./src/features/pricescry/pricescry.css">
 <script type="module" src="./src/main.ts"></script>
 <style>
@@ -1305,6 +1306,13 @@ One card per line. Formats like &quot;1x Sol Ring&quot;, plain names, or Moxfiel
         </summary>
         <div id="legalityArea"></div>
         <p style="font-size:12px; color:var(--text-soft); margin:12px 0 0; font-style:italic; line-height:1.45;">Soft checks only — the Compass still scores the list. Color identity and full format rules aren’t validated offline. Use this as a heads-up for the pod, not a judge ruling.</p>
+      </details>
+    </div>
+
+    <div class="panel" id="deckLogPanel" hidden>
+      <details class="panel-collapsible">
+        <summary class="panel-toggle">Deck Log</summary>
+        <div id="deckLogArea"></div>
       </details>
     </div>
   </div>

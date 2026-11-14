@@ -12,6 +12,8 @@ Expected failures below are **unresolved security/policy decisions**, not passin
 | -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `users/{uid}` read; create/update; delete                                                                                                    | `user ownership`: owner CRUD, outsider denials                                                                                                                                                |
 | `users/{uid}/decks/{id}` owner read; shared-pod non-secret read; secret denial; owner create/update/delete                                   | `user ownership`: CRUD; `podmates read votes and non-secret mirrored decks`; missing/disjoint `podIds`; filtered and unfiltered list                                                          |
+| `users/{uid}/decks/{id}` podmate Deck Log view: only `podViewCount` (+1 exactly), `lastChartedAt`, `lastChartedBy`                           | `deck log`: +1 only, stale or skipped counts, other fields, long/invalid values, secret decks, outsiders                                                                                      |
+| `users/{uid}/decks/{id}/changes/{id}` owner/shared-pod non-secret read; owner create/update/delete                                           | `deck log`: owner CRUD with note/list guards; podmate read/list, writes denied; secret and outsider reads denied                                                                              |
 | `users/{uid}/trades/{id}` read/create/update/delete                                                                                          | `user ownership`: CRUD, private collection list denials                                                                                                                                       |
 | `users/{uid}/spoilerVotes/{id}` owner/shared-pod read; owner create/update/delete                                                            | `user ownership`: CRUD, shared reads/list, non-owner writes denied; vote enum in `limits.test.ts`                                                                                             |
 | `users/{uid}/linkedDecks/{id}` read/create/update/delete                                                                                     | `user ownership`: CRUD, private collection list denials                                                                                                                                       |
@@ -65,3 +67,10 @@ more: every query in `src/services/cloud` filters or sorts on a single field (`m
 `createdAt`, `secret`, `status`) and none is a collection-group query. The emulator does not enforce
 indexes, so `tests/firestore-indexes.test.ts` checks the queries statically and fails if one starts to need a
 composite index. No rules or indexes were deployed.
+
+## Deck Log rules (pending in the console)
+
+Change 038 added the podmate view-count update on `users/{uid}/decks/{id}` and the `changes` sub-collection.
+Until the owner pastes the updated `firestore.rules` into the Firebase console, production keeps the older
+rules: owners' own counters, wins and first-save dates still work, but podmates' views are refused and change
+entries cannot be written or read (the app reports and carries on). See `console-settings.md`.

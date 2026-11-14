@@ -228,7 +228,7 @@ reproduces derived metadata; byte-identical entries keep their dates. Never use 
 
 ### Cloud (`src/services/cloud`)
 
-One typed repository per Firestore area (decks, linked decks, users, profile, pods, members, gatherings,
+One typed repository per Firestore area (decks, deck log, linked decks, users, profile, pods, members, gatherings,
 table formations, chronicles, trades, impact, spoiler votes, activity) mirroring the existing paths and field names exactly. Only `firebase.ts` imports the SDK
 (bundled from npm). Callers import the repositories directly; `operations.ts` wraps user-triggered and
 background calls with the redacted error reporting. `limits.ts` holds `PM_LIMITS` (used by the input limits in
@@ -437,6 +437,15 @@ redacted sink while preserving the original form/toast messages. Repository-mock
 purchase/edit, sale/edit/removal, mark removal, deletion, failure/retry and stale completions.
 `trades.modules.spec.ts` covers dialog validation, preview and cancellation without authenticated writes;
 the purchase, sale and price-check screenshots are byte-identical to their pre-extraction views.
+
+`deck-log` (prefix `dlog-`) is the Deck Log panel under Structure & Legality. On each `chart:done` it reads
+`chartedDeck()` from `services/deck-form.ts` (the saved deck the form holds: set by Load a Deck, Save, pod
+profiles and deck-notice previews; cleared by refilling, clearing or typing), counts the chart with
+`recordDeckChart()` (the owner's `chartCount` or a podmate's `podViewCount`), then shows `loadDeckLog()`: first
+save, counts, last chart, battles (Chronicles entries whose deck carries this `deckRef`, plus older ones matched
+by player and commander as approximate), owner-only wins and the change log (`users/{uid}/decks/{id}/changes`,
+newest 50, written by `saveDeck` when cards change, with Spark before/after from the page via
+`configureDeckLog` in `src/app/deck-log.ts`). Change entries reuse the combo card and chip styles.
 
 `notifications` (prefix `pm-notif-`) owns the in-app bell, merged pod activity feeds, unread cutoff,
 thirty-day filter, per-type preferences and pod muting. Existing `pm_notif_seen_<uid>` and

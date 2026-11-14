@@ -9,6 +9,7 @@ import "./app/page.ts";
 import "./app/input-limits.ts";
 import "./app/card-clicks.ts";
 import "./app/deck-chart.ts";
+import "./app/deck-log.ts";
 import "./app/try-a-deck.ts";
 import "./app/export.ts";
 import "./app/card-viewer.ts";

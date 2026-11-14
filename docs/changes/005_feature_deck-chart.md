@@ -82,3 +82,5 @@ Display bugs show on the live site only; scores are protected by golden. Any cha
 ## Related
 
 `004` (refactor summary); `011` (card viewer: portraits, View Deck, galleries); `src/engine/CLAUDE.md`.
+
+Later changes: 038

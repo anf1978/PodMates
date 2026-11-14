@@ -31,6 +31,12 @@ If the site ever moves to another domain, add it here first, or Google/Yahoo sig
 Automatic single-field indexes at their defaults, no exemptions, no composite indexes. Recorded in
 [`firestore.indexes.json`](firestore.indexes.json). See [coverage.md](coverage.md#indexes-and-deployment).
 
+## Firestore rules
+
+The repository's `firestore.rules` is ahead of the console from change 038 (Deck Log) until the owner pastes
+it in: Firebase console → Firestore Database → **Rules** → replace everything → **Publish**. Record the date
+here once done.
+
 ## Not recorded yet
 
 Sign-up quota, password policy, email templates (used by password reset) and Firestore rules deployment
