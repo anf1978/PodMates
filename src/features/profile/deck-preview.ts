@@ -134,6 +134,7 @@ interface FoundDeck {
   commander: string;
   owner: string;
   ownerUid: string | null;
+  docId?: string;
   /** Replaces the header's byline once the deck is found (a Try-a-Deck tagline). */
   byline?: string;
 }
@@ -171,6 +172,7 @@ async function showPreview(
     deck._ownerName = found.owner;
     deck._rawList = found.list;
     deck._rawCommander = found.commander;
+    deck._docId = found.docId;
     const artUrl = await runtime
       .fetchCardImageUrl(deck.commanders[0] || found.commander, "normal")
       .catch(() => null);
@@ -208,6 +210,7 @@ export function openDeckPreviewOverlay(request: DeckPreviewRequest): Promise<voi
             commander: saved.commander || "",
             owner: saved.player || request.name,
             ownerUid: request.uid,
+            docId: saved.docId,
           }
         : null;
     },

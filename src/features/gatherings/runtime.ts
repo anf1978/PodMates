@@ -2,6 +2,8 @@
 export interface ChartDeck {
   uid?: string | null;
   color?: string;
+  /** The saved deck in the seat (owner + document id), when it was picked from saved decks. */
+  deckRef?: { uid: string; id: string } | null;
 }
 export interface BattleContext {
   podId: string;

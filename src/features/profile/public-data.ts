@@ -37,6 +37,7 @@ export function analyzeDecksForProfile(
       result._ownerName = deck._ownerName || deck.player || "";
       result._rawList = deck.list;
       result._rawCommander = deck.commander;
+      result._docId = deck.docId;
       out.push(result);
     }
   }

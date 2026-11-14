@@ -41,6 +41,8 @@ type AppEvents = {
   "pricescry:tab": "search" | "movers" | "signals" | "bait" | "radar" | "ledger";
   /** Deck Chart is charting these commanders (the portraits above the radar). */
   "chart:commanders": readonly string[];
+  /** A single-deck chart finished and its results are showing. */
+  "chart:done": undefined;
   /** The radar was drawn; its #impactChart mount point is in the page. */
   "chart:radar": { readonly deckCardNames: string[] };
 };

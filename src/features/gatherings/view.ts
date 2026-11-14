@@ -48,6 +48,14 @@ export function endGatheringConfirmation(battle: boolean): TemplateResult {
     </div>`;
 }
 
+/** A seat deck's saved-deck reference, if it is a well-formed one. */
+function validDeckRef(value: unknown): { uid: string; id: string } | null {
+  const ref = value as { uid?: unknown; id?: unknown } | null | undefined;
+  return ref && typeof ref.uid === "string" && typeof ref.id === "string" && ref.uid && ref.id
+    ? { uid: ref.uid, id: ref.id }
+    : null;
+}
+
 function chartDecks(g: Gathering): ChartDeck[] {
   const runtime = gatheringRuntime();
   const decks: ChartDeck[] = [];
@@ -60,6 +68,8 @@ function chartDecks(g: Gathering): ChartDeck[] {
     );
     if (result) {
       result.uid = s.guest ? null : s.uid;
+      const deckRef = validDeckRef(s.deck.deckRef);
+      if (deckRef) result.deckRef = deckRef;
       result.color = runtime.colors[decks.length % runtime.colors.length];
       decks.push(result);
     }

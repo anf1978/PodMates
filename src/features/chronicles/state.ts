@@ -42,6 +42,8 @@ export interface ChronicleBattleDeck {
   commandSpark: number;
   style: string;
   color?: string;
+  /** The saved deck played (owner + document id), so its Deck Log can count the battle. */
+  deckRef?: { uid: string; id: string } | null;
 }
 
 export function battleEntry(
@@ -59,6 +61,7 @@ export function battleEntry(
       uid: deck.uid || null,
       spark: deck.commandSpark.toFixed(1),
       style: deck.style,
+      ...(deck.deckRef ? { deckRef: { uid: deck.deckRef.uid, id: deck.deckRef.id } } : {}),
     })),
     gatheringId: battle.gatheringId,
     gatheringTitle: battle.gatheringTitle,

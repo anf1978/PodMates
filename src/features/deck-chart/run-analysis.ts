@@ -199,6 +199,7 @@ export async function runAnalysis(ports: ChartPorts, panels: ReportPorts): Promi
 
   resultsSection().style.display = "block";
   updateChart({ hasResult: true });
+  emit("chart:done", undefined);
 
   setStatus(statusMessage(agg, matched.length, commanders));
 

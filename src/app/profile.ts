@@ -10,7 +10,7 @@ import { fetchCardImageUrl } from "../services/card-art";
 import { runChart } from "../services/current-chart";
 import { POD_COLORS } from "../services/deck-analysis";
 import { analyzeDeckRows } from "../services/deck-rows";
-import { fillDeckForm, setDeckNameChosen } from "../services/deck-form";
+import { fillDeckForm, setChartedDeck, setDeckNameChosen } from "../services/deck-form";
 import { emit } from "../services/events";
 import { dropLinkedDuplicates } from "../services/linked-duplicates";
 import { referenceSummary } from "../services/reference-data";
@@ -79,6 +79,8 @@ configurePublicProfileRuntime({
       name: "",
     });
     setDeckNameChosen(false);
+    if (deck._ownerUid && deck._docId)
+      setChartedDeck({ uid: deck._ownerUid, id: deck._docId, name: deck.name || "" });
     setMode("single");
     void runChart();
   },

@@ -1,7 +1,12 @@
 // The Deck Chart form's own controls: Clear, Deck Name auto-naming and the Archidekt/Moxfield
 // deck-link import. Shared form state (chosen name, imported link) is src/services/deck-form.ts.
 import { fetchDeckByLink } from "../../services/cloud/linked-decks";
-import { autoFillDeckName, setDeckNameChosen, setImportedDeckUrl } from "../../services/deck-form";
+import {
+  autoFillDeckName,
+  setChartedDeck,
+  setDeckNameChosen,
+  setImportedDeckUrl,
+} from "../../services/deck-form";
 import { setStatusText } from "../../ui/status";
 
 const byId = <T extends HTMLElement = HTMLInputElement>(id: string) =>
@@ -14,6 +19,7 @@ function clearForm(): void {
   }
   setDeckNameChosen(false);
   setImportedDeckUrl(null);
+  setChartedDeck(null);
   const sync = byId<HTMLElement>("deckLinkSyncOption");
   if (sync) sync.style.display = "none";
   setStatusText(byId("status"), "");
@@ -71,6 +77,9 @@ async function importDeckLink(button: HTMLButtonElement): Promise<void> {
 
 export function mount(): void {
   byId("clearBtn")!.addEventListener("click", clearForm);
+  // Typing into the list or commander makes it a different deck from the saved one (Deck Log).
+  for (const id of ["decklistInput", "commanderInput"])
+    byId(id)?.addEventListener("input", () => setChartedDeck(null));
   byId("commanderInput")?.addEventListener("input", autoFillDeckName);
   byId("playerInput")?.addEventListener("input", autoFillDeckName);
   const name = byId("deckNameInput");

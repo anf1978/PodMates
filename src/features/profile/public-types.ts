@@ -33,6 +33,8 @@ export interface PublicProfileAnalysis {
   _ownerName?: string;
   _rawList?: string;
   _rawCommander?: string;
+  /** The saved deck's Firestore document id (with _ownerUid, its Deck Log). */
+  _docId?: string;
 }
 
 export interface PublicProfilePod {

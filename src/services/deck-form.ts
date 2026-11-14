@@ -40,6 +40,19 @@ export function setImportedDeckUrl(url: string | null): void {
   importedUrl = url;
 }
 
+/** The saved deck the form holds (owner, Firestore document id, name), for the Deck Log; null for
+ * pasted, edited, sample or crafted lists. */
+export interface ChartedDeck {
+  uid: string;
+  id: string;
+  name: string;
+}
+let charted: ChartedDeck | null = null;
+export const chartedDeck = (): ChartedDeck | null => charted;
+export function setChartedDeck(deck: ChartedDeck | null): void {
+  charted = deck && deck.uid && deck.id ? { ...deck } : null;
+}
+
 export interface DeckFormValues {
   decklist: string;
   commander?: string;
@@ -47,8 +60,10 @@ export interface DeckFormValues {
   name?: string;
 }
 
-/** Fills the form; fields left undefined keep their value. Callers set the name flag themselves. */
+/** Fills the form; fields left undefined keep their value. Callers set the name flag themselves.
+ * The form no longer holds a saved deck afterwards; callers that load one call setChartedDeck. */
 export function fillDeckForm(values: DeckFormValues): void {
+  charted = null;
   const set = (id: string, value: string | undefined) => {
     const input = field(id);
     if (input && value !== undefined) input.value = value;

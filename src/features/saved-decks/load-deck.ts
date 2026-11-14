@@ -5,6 +5,7 @@ import { setSeatDeck } from "../../services/cloud/gatherings";
 import { getCurrentUser } from "../../services/cloud/session";
 import { searchNorm } from "../../cards/search";
 import { decklistProblem } from "../../services/decklist-limits";
+import { setChartedDeck } from "../../services/deck-form";
 import { emit } from "../../services/events";
 import { dropLinkedDuplicates } from "../../services/linked-duplicates";
 import {
@@ -44,9 +45,18 @@ let target: DeckPickTarget | "main" = "main";
 const anyDecks = () =>
   Object.keys(loadSavedDecks()).length > 0 || Object.keys(podmateSavedDecks()).length > 0;
 
+/** Which saved deck an entry is (owner + document id), for the Deck Log and battle records. */
+function deckRefOf(entry: object): { uid: string; id: string } | null {
+  const e = entry as { docId?: string; ownerUid?: string };
+  const uid = e.ownerUid || getCurrentUser()?.uid || "";
+  return e.docId && uid ? { uid, id: e.docId } : null;
+}
+
 function loadDeckByKey(key: string, to: DeckPickTarget | "main"): void {
   const entry = loadSavedDecks()[key] || podmateSavedDecks()[key];
   if (!entry) return;
+  // Own entries carry no ownerUid, so deckRefOf falls back to the signed-in user.
+  const ref = typeof entry === "object" ? deckRefOf(entry) : null;
   if (to !== "main") {
     const g = to.gatheringSeat;
     const commander = entry.commander || key;
@@ -58,7 +68,12 @@ function loadDeckByKey(key: string, to: DeckPickTarget | "main"): void {
     }
     // Fire-and-forget: the row click that calls this doesn't wait either.
     cloud
-      .setSeatDeck(g.podId, g.gatheringId, g.seatIndex, { commander, list, cardCount: null })
+      .setSeatDeck(g.podId, g.gatheringId, g.seatIndex, {
+        commander,
+        list,
+        cardCount: null,
+        ...(ref ? { deckRef: ref } : {}),
+      })
       .then(() => {
         closeTryADeckModal();
         emit("gatherings:open", { podId: g.podId, id: g.gatheringId });
@@ -79,6 +94,7 @@ function loadDeckByKey(key: string, to: DeckPickTarget | "main"): void {
     name.value = ("deckName" in entry && entry.deckName) || key;
     ports().nameChosen();
   }
+  setChartedDeck(ref ? { ...ref, name: ("deckName" in entry && entry.deckName) || key } : null);
   setDeckStatus(`Loaded “${key}”.`);
   const chart = field("chartBtn");
   if (chart) {
