@@ -1,5 +1,6 @@
 // Fixed vectors taken from the card-database build before its copy of this logic was merged with the engine's.
-// The digest covers every pinned card face: a change here changes `pm`/`rt` in the next published card database.
+// The digest covers the 7621 originally pinned card faces (the precon importer only appends cards after them):
+// a change here changes `pm`/`rt` in the next published card database.
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
@@ -32,9 +33,9 @@ describe("mana production", () => {
     expect(produce(card!)[2]).toEqual({ pm, rt });
   });
   it("keeps every pinned card face's result", () => {
-    expect(CARDS).toHaveLength(7621);
+    expect(CARDS.length).toBeGreaterThanOrEqual(7621);
     const digest = createHash("sha256")
-      .update(JSON.stringify(CARDS.map(produce)))
+      .update(JSON.stringify(CARDS.slice(0, 7621).map(produce)))
       .digest("hex");
     expect(digest).toBe("9faa7c16adaf1386c56afec2dace2533440076881b2adf13ac3368942182a98f");
   });

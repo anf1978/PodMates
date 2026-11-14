@@ -102,6 +102,16 @@ Reload** banner.
   Deploy Pages summary), tick **deploy** → Run. It refuses a commit whose CI never passed. The next merge or weekly
   data refresh deploys `main` again, so follow up with the revert.
 
+## New precons for Try a Deck
+
+After each Monday card-database rebuild, the **Precon Import** workflow looks for new official Commander precons. If
+it finds some, it opens a pull request titled "Add N new precons to Try a Deck" and asks you to review it, so
+GitHub Mobile notifies you. Check the suggested archetype, style and tagline in its description; ask a session to
+change them on the `wip/precon-import` branch if they read wrong. Once its CI is green, tap **Merge**. The new decks
+appear in Try a Deck and signed-in players get a "New in Try a Deck" notice. If you leave it, next week's run
+replaces the pull request with a fresh one. Decks whose cards aren't in the card database yet are listed as
+"Waiting" and come back automatically.
+
 ## Dependabot
 
 Dependabot opens at most one PR per week per ecosystem (npm, GitHub Actions), with minor and patch updates only. If

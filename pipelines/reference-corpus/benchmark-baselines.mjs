@@ -12,8 +12,8 @@
 // benchmark-baselines.test.mjs proves the committed files equal this builder's output, so an engine
 // change that moves them fails CI until they are deliberately refit.
 //
-// Usage: node pipelines/reference-corpus/benchmark-baselines.mjs <out-dir>
-//        node pipelines/reference-corpus/benchmark-baselines.mjs --update-public-data
+// Usage: node pipelines/reference-corpus/benchmark-baselines.mjs <out-dir> [--from-fixtures]
+//        node pipelines/reference-corpus/benchmark-baselines.mjs --update-public-data [--from-fixtures]
 // The second form rewrites the three public/data files and their manifest entries. That moves the
 // Deck Chart's Closest Match, staples and mana-base checks: a deliberate, documented refit only.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -270,8 +270,23 @@ async function main(argv) {
     ? fileURLToPath(new URL("../../public/data/", import.meta.url))
     : argv.find((arg) => !arg.startsWith("--"));
   if (!outDir) throw new Error("Usage: benchmark-baselines.mjs <out-dir> | --update-public-data");
-  const { samples, cardsPayload, spellbook, winRates, frozen } = readPublishedData();
-  const cards = await decodeCardDatabase(cardsPayload);
+  const {
+    samples,
+    cardsPayload,
+    spellbook: published,
+    winRates: rates,
+    frozen,
+  } = readPublishedData();
+  // --from-fixtures: the pinned golden fixtures, exactly what benchmark-baselines.test.mjs checks
+  // against (the precon importer uses this after extending them).
+  const fromFixtures = argv.includes("--from-fixtures");
+  const fixture = (name) =>
+    JSON.parse(
+      readFileSync(new URL(`../../tests/golden/fixtures/${name}`, import.meta.url), "utf8"),
+    );
+  const cards = fromFixtures ? fixture("cards.json") : await decodeCardDatabase(cardsPayload);
+  const spellbook = fromFixtures ? fixture("spellbook.json") : published;
+  const winRates = fromFixtures ? fixture("winrates.json") : rates;
   const files = buildBenchmarkFiles(deckFeatures(samples, { cards, spellbook, winRates }), frozen);
   mkdirSync(outDir, { recursive: true });
   // Only files whose contents change are rewritten, so the manifest keeps the others' dates.

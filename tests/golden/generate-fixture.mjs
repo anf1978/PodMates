@@ -1,12 +1,31 @@
 // Regenerates pinned data from the published card DB and extracted Spellbook, then
 // proves the subset produces the same complete analyses as the full databases.
+//
+// `--add <cards.json>` (used by the precon importer): take cards from that newer card DB, but keep
+// every card already pinned exactly as pinned, so existing samples analyse exactly as before and
+// only newly added samples bring new cards. Parity is checked against that same overlaid DB.
 import assert from "node:assert/strict";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { decodeCardDatabase } from "../../src/cards/db-codec.js";
 import { HARD_COMBOS } from "../../src/data/combos.ts";
 import { createHarness, decodeSpellbook, fixtureUrl, readDataset, readFixture } from "./harness.ts";
 
-const cards = await decodeCardDatabase(readDataset("cards"));
+const addFrom = process.argv.includes("--add")
+  ? process.argv[process.argv.indexOf("--add") + 1]
+  : null;
+const cards = addFrom
+  ? overlayPinned(await decodeCardDatabase(JSON.parse(readFileSync(addFrom, "utf8"))))
+  : await decodeCardDatabase(readDataset("cards"));
+
+/** The newer DB with each already-pinned card replaced by its pinned version (and pinned cards
+ * the newer DB lacks kept), so pinned samples cannot change. */
+function overlayPinned(newer) {
+  const pinned = new Map(readFixture("cards.json").map((card) => [card.n, card]));
+  const merged = newer.map((card) => pinned.get(card.n) || card);
+  const names = new Set(newer.map((card) => card.n));
+  for (const [name, card] of pinned) if (!names.has(name)) merged.push(card);
+  return merged;
+}
 const spellbook = decodeSpellbook();
 const winRates = readFixture("winrates.json");
 const full = createHarness(cards, spellbook, winRates);
@@ -62,7 +81,14 @@ const pinnedSpellbook = {
     popularity,
   ]),
 };
-const pinnedCards = cards.filter((card) => needed.has(card.n));
+// With --add, the pinned cards stay first and in their order (tests digest the original 7621), and
+// cards new to the pin are appended.
+const previous = addFrom ? readFixture("cards.json") : [];
+const previousNames = new Set(previous.map((card) => card.n));
+const pinnedCards = [
+  ...previous,
+  ...cards.filter((card) => needed.has(card.n) && !previousNames.has(card.n)),
+];
 const pinned = createHarness(pinnedCards, pinnedSpellbook, winRates);
 for (const sample of full.samples) {
   assert.equal(
