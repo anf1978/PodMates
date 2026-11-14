@@ -104,6 +104,7 @@ describe("decks", () => {
       savedAt: NOW,
       secret: false,
       updatedAt: SERVER_TIMESTAMP,
+      firstSavedAt: NOW, // Deck Log: only on a deck's first save
     });
   });
 

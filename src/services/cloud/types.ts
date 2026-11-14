@@ -20,6 +20,26 @@ export interface DeckDoc {
   /** Missing on decks saved before the toggle existed; loadAllDecks backfills `false`. */
   secret?: boolean;
   updatedAt?: unknown;
+  /** Deck Log: set when the deck is first saved (missing on decks saved before Deck Logs). */
+  firstSavedAt?: number;
+  /** Deck Log: times the owner charted it, times podmates charted it, and the latest chart. */
+  chartCount?: number;
+  podViewCount?: number;
+  lastChartedAt?: number;
+  lastChartedBy?: string;
+  /** Deck Log: battles the owner marked as won. */
+  wins?: number;
+}
+
+/** users/{uid}/decks/{deckId}/changes/{changeId}: one Deck Log change entry. */
+export interface DeckChangeDoc {
+  at: number;
+  /** Card lines such as "1 Sol Ring", as saved. */
+  added: string[];
+  removed: string[];
+  sparkBefore: number | null;
+  sparkAfter: number | null;
+  note?: string;
 }
 
 export interface DeckInput {

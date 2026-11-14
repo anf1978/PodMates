@@ -45,6 +45,10 @@ export const PM_LIMITS = Object.freeze({
   tradeSells: 20,
   tradeQtyMax: 999,
   tradeYenMax: 10000000,
+  // Deck Log
+  deckChangeNote: 280,
+  deckChangeCards: 300, // card lines listed as added or removed in one change
+  deckChangeLog: 50, // change entries kept per deck (oldest pruned)
 });
 
 export type PmLimits = typeof PM_LIMITS;

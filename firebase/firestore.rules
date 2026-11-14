@@ -10,6 +10,12 @@ service cloud.firestore {
       return !(field in data) || data[field] == null ||
              (data[field] is list && data[field].size() <= max);
     }
+    // The signed-in user shares at least one pod with userId.
+    function sharesPodWith(userId) {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('podIds', []).hasAny(
+        get(/databases/$(database)/documents/users/$(userId)).data.get('podIds', [])
+      );
+    }
 
     match /users/{userId} {
       allow read: if request.auth != null && request.auth.uid == userId;
@@ -35,8 +41,36 @@ service cloud.firestore {
           && okStr(request.resource.data, 'deckName', 300)
           && okStr(request.resource.data, 'commander', 200)
           && okStr(request.resource.data, 'player', 80)
-          && okStr(request.resource.data, 'key', 400);
+          && okStr(request.resource.data, 'key', 400)
+          && okStr(request.resource.data, 'lastChartedBy', 80);
+        // Deck Log: a podmate who charts a shared deck adds exactly 1 to its view count and records
+        // when and by whom. Nothing else on the deck can change.
+        allow update: if request.auth != null && request.auth.uid != userId
+          && resource.data.get('secret', false) != true
+          && sharesPodWith(userId)
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['podViewCount', 'lastChartedAt', 'lastChartedBy'])
+          && request.resource.data.podViewCount == resource.data.get('podViewCount', 0) + 1
+          && request.resource.data.lastChartedAt is number
+          && request.resource.data.lastChartedBy is string
+          && request.resource.data.lastChartedBy.size() <= 80;
         allow delete: if request.auth != null && request.auth.uid == userId;
+
+        // Deck Log change entries: written by the deck's owner; readable like the deck itself.
+        match /changes/{changeId} {
+          allow read: if request.auth != null && (
+            request.auth.uid == userId ||
+            (
+              get(/databases/$(database)/documents/users/$(userId)/decks/$(deckId)).data.get('secret', false) != true &&
+              sharesPodWith(userId)
+            )
+          );
+          allow create, update: if request.auth != null && request.auth.uid == userId
+            && okList(request.resource.data, 'added', 300)
+            && okList(request.resource.data, 'removed', 300)
+            && okStr(request.resource.data, 'note', 280);
+          allow delete: if request.auth != null && request.auth.uid == userId;
+        }
       }
 
       match /trades/{tradeId} {

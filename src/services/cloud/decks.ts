@@ -12,6 +12,7 @@ import {
   where,
 } from "./firebase";
 import { logActivity } from "./activity";
+import { recordDeckChange } from "./deck-log";
 import { PM_LIMITS } from "./limits";
 import { requireUser } from "./session";
 import { shouldAnnounceUpdate, type UpdateNotice } from "./deck-update-notice";
@@ -28,14 +29,15 @@ export const deckRef = (uid: string, id: string) => doc(db, "users", uid, "decks
 // is not applied) with an unknown list (so no update notice is sent).
 async function readExistingDeck(
   ref: ReturnType<typeof deckRef>,
-): Promise<{ exists: boolean; list: string | null }> {
+): Promise<{ exists: boolean; list: string | null; commander: string }> {
   try {
     const snap = await capCheckTimeout(getDoc(ref));
-    if (!snap.exists()) return { exists: false, list: null };
-    return { exists: true, list: String((snap.data() as Partial<DeckDoc>).list ?? "") };
+    if (!snap.exists()) return { exists: false, list: null, commander: "" };
+    const data = snap.data() as Partial<DeckDoc>;
+    return { exists: true, list: String(data.list ?? ""), commander: String(data.commander ?? "") };
   } catch (e) {
     reportError(e, { operation: "cloud" });
-    return { exists: true, list: null };
+    return { exists: true, list: null, commander: "" };
   }
 }
 
@@ -69,16 +71,30 @@ export async function saveDeck(
         `You've reached the limit of ${L.maxSavedDecks} saved decks. Delete one you no longer use to make room.`,
       );
   }
-  await setDoc(ref, {
-    key,
-    commander: entry.commander || "",
-    player: entry.player || "",
-    list: entry.list || "",
-    deckName: entry.deckName || key,
-    savedAt: entry.savedAt || Date.now(),
-    secret: entry.secret === true,
-    updatedAt: serverTimestamp(),
-  });
+  // Merged, so the Deck Log's counters and first-saved date on an existing deck survive a re-save.
+  await setDoc(
+    ref,
+    {
+      key,
+      commander: entry.commander || "",
+      player: entry.player || "",
+      list: entry.list || "",
+      deckName: entry.deckName || key,
+      savedAt: entry.savedAt || Date.now(),
+      secret: entry.secret === true,
+      updatedAt: serverTimestamp(),
+      ...(deckExisted ? {} : { firstSavedAt: Date.now() }),
+    },
+    { merge: true },
+  );
+  // Deck Log change entry (also for secret decks: it is the owner's own history). Restores and
+  // mirror repairs (updateNotice false) are not edits.
+  if (deckExisted && existing.list !== null && options.updateNotice !== false)
+    void recordDeckChange(
+      { uid: user.uid, id: deckId },
+      { list: existing.list, commander: existing.commander },
+      { list: entry.list || "", commander: entry.commander || "" },
+    );
   if (entry.secret === true) return;
   if (!deckExisted) logActivity("deck", entry.deckName || key);
   else if (

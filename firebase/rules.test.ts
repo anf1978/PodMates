@@ -353,3 +353,60 @@ describe("SECURITY: unchanged-rule gaps requiring human decisions", () => {
     },
   );
 });
+
+describe("deck log", () => {
+  const view = (n: number, extra: object = {}) => ({
+    podViewCount: n,
+    lastChartedAt: 1700000000000,
+    lastChartedBy: "Bob",
+    ...extra,
+  });
+
+  test("a podmate may add exactly one view to a shared deck, and nothing else", async () => {
+    const ref = doc(db("bob"), "users/alice/decks/deck");
+    await assertSucceeds(updateDoc(ref, view(1)));
+    await assertFails(updateDoc(ref, view(1))); // must be the current count + 1
+    await assertFails(updateDoc(ref, view(5)));
+    await assertSucceeds(updateDoc(ref, view(2)));
+    await assertFails(updateDoc(ref, view(3, { wins: 9 })));
+    await assertFails(updateDoc(ref, view(3, { list: "1 Island" })));
+    await assertFails(updateDoc(ref, view(3, { lastChartedBy: "x".repeat(81) })));
+    await assertFails(updateDoc(ref, view(3, { lastChartedAt: "today" })));
+    await assertFails(updateDoc(ref, { chartCount: 1 }));
+  });
+
+  test("no views on secret decks or from outside the pod", async () => {
+    await assertFails(updateDoc(doc(db("bob"), "users/alice/decks/secret"), view(1)));
+    await assertFails(updateDoc(doc(db("mallory"), "users/alice/decks/deck"), view(1)));
+  });
+
+  test("the owner keeps every counter and the change log", async () => {
+    const ref = doc(db("alice"), "users/alice/decks/deck");
+    await assertSucceeds(
+      updateDoc(ref, { chartCount: 3, wins: 1, lastChartedAt: 1, lastChartedBy: "Alice" }),
+    );
+    await assertFails(updateDoc(ref, { lastChartedBy: "x".repeat(81) }));
+    const change = doc(db("alice"), "users/alice/decks/deck/changes/c1");
+    const entry = { at: 1, added: ["1 Sol Ring"], removed: [], sparkBefore: 5, sparkAfter: 5.2 };
+    await assertSucceeds(setDoc(change, entry));
+    await assertSucceeds(updateDoc(change, { note: "faster mana" }));
+    await assertFails(updateDoc(change, { note: "x".repeat(281) }));
+    await assertFails(setDoc(change, { ...entry, added: Array(301).fill("1 Island") }));
+    await assertSucceeds(deleteDoc(change));
+  });
+
+  test("podmates read a shared deck's change log but never write it", async () => {
+    await seed("users/alice/decks/deck/changes/c1", { at: 1, added: [], removed: [] });
+    await seed("users/alice/decks/secret/changes/c1", { at: 1, added: [], removed: [] });
+    await assertSucceeds(getDoc(doc(db("bob"), "users/alice/decks/deck/changes/c1")));
+    await assertSucceeds(getDocs(collection(db("bob"), "users/alice/decks/deck/changes")));
+    await assertFails(setDoc(doc(db("bob"), "users/alice/decks/deck/changes/c2"), { at: 2 }));
+    await assertFails(
+      updateDoc(doc(db("bob"), "users/alice/decks/deck/changes/c1"), { note: "x" }),
+    );
+    await assertFails(deleteDoc(doc(db("bob"), "users/alice/decks/deck/changes/c1")));
+    await assertFails(getDoc(doc(db("bob"), "users/alice/decks/secret/changes/c1")));
+    await assertFails(getDoc(doc(db("mallory"), "users/alice/decks/deck/changes/c1")));
+    await assertSucceeds(getDoc(doc(db("alice"), "users/alice/decks/secret/changes/c1")));
+  });
+});
