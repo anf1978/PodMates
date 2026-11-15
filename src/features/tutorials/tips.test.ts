@@ -149,3 +149,28 @@ describe("tip list", () => {
     expect(findTip(["tip-export"])?.tip.id).toBe("tip-view-deck");
   });
 });
+
+describe("tip markers", () => {
+  it("every class and id a tip relies on still exists in the app's markup", async () => {
+    const { readFileSync, readdirSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const root = process.cwd(); // vitest runs from the repository root
+    const features = join(root, "src", "features");
+    const files = readdirSync(features, { recursive: true, encoding: "utf8" })
+      .filter((f) => f.endsWith(".ts") && !f.startsWith("tutorials") && !f.endsWith(".test.ts"))
+      .map((f) => readFileSync(join(features, f), "utf8"));
+    const source = [...files, readFileSync(join(root, "index.html"), "utf8")].join("\n");
+    for (const tip of TIPS) {
+      for (const selector of [tip.when, tip.focus, tip.target].filter(Boolean) as string[]) {
+        for (const token of selector.match(/[.#][\w-]+/g) ?? []) {
+          const name = token.slice(1);
+          const pattern =
+            token[0] === "#"
+              ? new RegExp(`id=["'\`]${name}["'\`]|\\.id = "${name}"`)
+              : new RegExp(`class=["'\`][^"'\`]*\\b${name}\\b`);
+          expect(pattern.test(source), `${tip.id}: ${token}`).toBe(true);
+        }
+      }
+    }
+  });
+});

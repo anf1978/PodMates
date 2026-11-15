@@ -81,6 +81,84 @@ export const TIPS: readonly Tip[] = [
     title: "Saved",
     text: "Load a Deck brings it back on any device, and the Deck Log under the chart keeps its history. Tick the lock before saving to hide a deck from your pod.",
   },
+  {
+    id: "tip-profile",
+    when: ".profile-title",
+    title: "My Profile",
+    text: "Set your display name, link Moxfield or Archidekt decks to keep them in sync, and download a backup of your decks under My Data.",
+  },
+  {
+    id: "tip-mypods",
+    when: "#podMode",
+    title: "MyPods",
+    text: "Your playgroups. Create a pod or join one with an invite link. No pod yet? Try Sample a Gathering.",
+  },
+  {
+    id: "tip-pod",
+    when: ".pods-title",
+    title: "Your pod",
+    text: "Members, the invite link and game nights. The Full Ledger lists every deck your pod shares.",
+  },
+  {
+    id: "tip-host",
+    when: "#hostSeatsArea",
+    title: "Host a Gathering",
+    text: "Pick a time, invite podmates and add guests. Everyone chooses a deck for their seat.",
+  },
+  {
+    id: "tip-gathering",
+    when: "#gatheringSeatsArea",
+    title: "Gathering",
+    text: "Each seat gets a player and a deck. Chart the table to see how even it is, then log the battle.",
+  },
+  {
+    id: "tip-comparison",
+    when: "#podRankArea",
+    title: "Pod Comparison",
+    text: "Decks ranked by Command Spark. Close Sparks make a fairer game. Tap a deck for its details.",
+  },
+  {
+    id: "tip-chronicles",
+    when: ".chronicles-dialog-heading",
+    title: "Chronicles",
+    text: "Rate the battle and add notes. Your pod's history and each deck's battle count build from these.",
+  },
+  {
+    id: "tip-impact",
+    when: ".impact-title",
+    title: "Impact cards",
+    text: "High-impact cards your pod watches. Pod changes only affect the separate Pod view line, never the main scores.",
+  },
+  {
+    id: "tip-spoilers",
+    when: ".sb-heading",
+    title: "Spoiler Bait",
+    text: "Vote on new cards: Bang or Bin. Your pod's board shows everyone's votes.",
+  },
+  {
+    id: "tip-bell",
+    when: ".pm-notif-title",
+    title: "Notifications",
+    text: "What's new in your pods. Choose what to hear about under What to tell me about.",
+  },
+  {
+    id: "tip-player",
+    when: "#playerProfileContent .pp-header",
+    title: "Player profile",
+    text: "A podmate's style at a glance: colours, card types and play style from their shared decks.",
+  },
+  {
+    id: "tip-pod-profile",
+    when: "#podProfileContent .pp-header",
+    title: "Pod profile",
+    text: "The whole pod at a glance. Tap a dot in the pace chart to chart that deck.",
+  },
+  {
+    id: "tip-deck-preview",
+    when: ".pp-deck-preview .pp-deck-stats",
+    title: "Deck preview",
+    text: "A deck at a glance. Chart this deck for the full analysis.",
+  },
 ];
 
 export interface TipMatch {

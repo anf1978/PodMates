@@ -455,7 +455,11 @@ each step highlights its target (`.tut-target`) and waits for `samples:chosen` (
 `#tadOverlay` dialog is open. First-use tips (`tips.ts`) show once each: a tip triggers when its dialog
 heading is on screen (`when`), its field gets focus (`focus`) or on an app event (`decks:saved`, emitted by
 `saved-decks/save.ts`). A dialog's tip sits on top of it (`.tut-over`) and closes, as seen, when the dialog
-closes. Tips never show during the welcome or the tour, and "No more tips" switches them all off. Device-only
+closes. Tips cover the deck tools (paste, import, Deck Crafter, Scan, Export, View Deck, card view, Load a Deck,
+sign-in, after saving) and the social features (My Profile, MyPods, a pod, hosting and running a Gathering, Pod
+Comparison, Chronicles, Impact cards, Spoiler Bait, the bell, player and pod profiles, the deck preview); a test
+checks that every class and id they key on still exists in the markup. Tips never show during the welcome or the
+tour, and "No more tips" switches them all off. Device-only
 state: local storage `pm_tips` (`{ seen, off }`) and session storage `pm_tips_later`.
 
 `notifications` (prefix `pm-notif-`) owns the in-app bell, merged pod activity feeds, unread cutoff,

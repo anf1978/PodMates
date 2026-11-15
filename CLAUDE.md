@@ -202,6 +202,9 @@ p, r, pm, rt, pw, tg, x, ly, ob, bt`), matching `build-card-db.mjs`. Use its acc
   `vite.config.js`'s stylesheet loop.
 - Close overlays with `closeTryADeckModal()` / `closeModal(el)`, not `el.remove()`; set width via
   `modalStyle`, not `style.cssText`.
+- **New user-facing features get a first-use tip** in `src/features/tutorials/tips.ts` (short, plain text). Tips key
+  on markup (a dialog heading class or an id), and a test fails if that class or id disappears, so renaming a
+  heading means updating its tip.
 
 ## Claude workspace
 
