@@ -452,8 +452,11 @@ No thanks), the first-chart tour and the **?** Help and tips button in the accou
 on/off, show all tips again). `main.ts` mounts it after notifications. The tour never opens or closes dialogs:
 each step highlights its target (`.tut-target`) and waits for `samples:chosen` (emitted by `app/try-a-deck.ts`),
 `chart:done` or **Next**; steps whose panel isn't on the page are skipped, and the card hides while a
-`#tadOverlay` dialog is open. Device-only state: local storage `pm_tips` (`{ seen, off }`) and session storage
-`pm_tips_later`.
+`#tadOverlay` dialog is open. First-use tips (`tips.ts`) show once each: a tip triggers when its dialog
+heading is on screen (`when`), its field gets focus (`focus`) or on an app event (`decks:saved`, emitted by
+`saved-decks/save.ts`). A dialog's tip sits on top of it (`.tut-over`) and closes, as seen, when the dialog
+closes. Tips never show during the welcome or the tour, and "No more tips" switches them all off. Device-only
+state: local storage `pm_tips` (`{ seen, off }`) and session storage `pm_tips_later`.
 
 `notifications` (prefix `pm-notif-`) owns the in-app bell, merged pod activity feeds, unread cutoff,
 thirty-day filter, per-type preferences and pod muting. Existing `pm_notif_seen_<uid>` and

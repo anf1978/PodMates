@@ -63,3 +63,6 @@
   gap: 8px;
   margin-top: 10px;
 }
+.tut-host.tut-over {
+  z-index: 1100; /* a tip about the open dialog sits on top of it */
+}

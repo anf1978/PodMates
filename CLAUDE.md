@@ -51,7 +51,7 @@ branch without a terminal. Details: `docs/deploy.md`.
   build inlines `src/features/themes/prepaint.ts`, which must run before first paint).
   `tests/static-shell.test.ts` rejects inline scripts and inline event handlers.
 - `src/main.ts` — the one module entry: imports `src/app/` in order, then installs the global error handlers and
-  the sticky-Close net and mounts notifications and tutorials (the welcome card, tour and Help and tips button).
+  the sticky-Close net and mounts notifications and tutorials (welcome card, tour, first-use tips and the Help and tips button).
 - `src/app/` — the **composition root**, and the only code that wires features to each other. `page.ts` boots
   the card data and its loading bar and mounts the deck form and mode tabs; one module per feature supplies that
   feature's ports. `battle.ts` (current battle + compared decks), `mode.ts` (Deck Chart / MyPods tabs),

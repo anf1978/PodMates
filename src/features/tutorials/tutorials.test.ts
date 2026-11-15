@@ -15,7 +15,7 @@ const press = (label: string) =>
     .find((b) => b.textContent?.trim() === label)!
     .click();
 const stored = () => parseTips(localStorage.getItem(STORAGE_KEY));
-const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+const settle = () => new Promise((resolve) => setTimeout(resolve, 80)); // the page watcher waits 50 ms
 
 beforeEach(() => {
   localStorage.clear();

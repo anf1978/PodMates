@@ -6,6 +6,7 @@ import { safeDocId, uniqueDeckName } from "../../services/cloud/shared";
 import { getCurrentUser } from "../../services/cloud/session";
 import { setChartedDeck } from "../../services/deck-form";
 import { decklistProblem } from "../../services/decklist-limits";
+import { emit } from "../../services/events";
 import { loadSavedDecks, refreshSavedDecks } from "../../services/saved-decks";
 import { html, render } from "../../ui/html";
 import { closeTryADeckModal, openTadOverlay } from "../../ui/tad-modal";
@@ -40,6 +41,7 @@ function performDeckSave(
       if (uid) setChartedDeck({ uid, id: existingKeyToReuse ?? safeDocId(name), name });
       await refreshSavedDecks();
       setDeckStatus(`Saved "${name}" to your account.`);
+      emit("decks:saved", { name });
     })
     .catch((e: Error) => setDeckStatus("Could not save: " + e.message, true));
 }

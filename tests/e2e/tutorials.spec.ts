@@ -54,3 +54,16 @@ test("Later, then replay from Help and tips", async ({ page }) => {
   await page.getByRole("button", { name: "Take the tour" }).click();
   await expect(tip.getByRole("heading", { name: "Pick a deck" })).toBeVisible();
 });
+
+test("a first-use tip appears once, the first time its field is used", async ({ page }) => {
+  await page.goto("/");
+  const tip = page.locator("#pmTutorial .tut-card");
+  await tip.getByRole("button", { name: "No thanks" }).click();
+  await page.locator("#decklistInput").focus();
+  await expect(tip.getByRole("heading", { name: "Paste a decklist" })).toBeVisible();
+  await tip.getByRole("button", { name: "Got it" }).click();
+  await expect(tip).toHaveCount(0);
+  await page.locator("#chartBtn").focus();
+  await page.locator("#decklistInput").focus();
+  await expect(tip).toHaveCount(0);
+});

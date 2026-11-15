@@ -29,6 +29,8 @@ type AppEvents = {
   "samples:preview": { key: string };
   /** A Try-a-Deck deck was chosen and loaded into the deck form. */
   "samples:chosen": { key: string };
+  /** A deck was saved to the signed-in account from the deck form. */
+  "decks:saved": { name: string };
   "spoilers:open": WithId<PodDoc>;
   "pods:active": string | null;
   "pods:navigate": undefined;
