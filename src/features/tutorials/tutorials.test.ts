@@ -21,7 +21,9 @@ beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();
   document.body.innerHTML = `<div id="authBar"></div>
-    <button id="sampleBtn">Try a Deck</button><button id="chartBtn">Chart Deck</button>
+    <div class="row" id="toolRow"><button id="chartBtn">Chart Deck</button>
+    <button id="viewDeckBtn" aria-label="View Deck"><svg id="vdIcon"><path d="M0 0"/></svg></button>
+    <button id="sampleBtn">Try a Deck</button></div>
     <div class="panel"><div id="chartArea"></div></div>
     <div class="panel"><div id="bracketArea"></div></div>
     <div class="panel"><div id="archetypeMatchCallout"></div></div>
@@ -116,6 +118,7 @@ describe("first-chart tour", () => {
       "Closest match",
       "Structure and legality",
       "Deck Log",
+      "Deck tools",
       "That's the tour",
     ]);
     press("Done");
@@ -187,5 +190,62 @@ describe("state", () => {
     expect(parseTips('{"seen":["a",3],"off":"yes"}')).toEqual({ seen: ["a"], off: false });
     expect(shouldWelcome({ seen: [], off: false }, true)).toBe(false);
     expect(markSeen(markSeen({ seen: [], off: false }, "a"), "a").seen).toEqual(["a"]);
+  });
+});
+
+describe("staying on the control", () => {
+  it("outlines buttons themselves, the tools step their row, and shows real icons", () => {
+    start();
+    press("Show me");
+    expect(document.getElementById("sampleBtn")!.classList.contains("tut-target")).toBe(true);
+    expect(document.getElementById("toolRow")!.classList.contains("tut-target")).toBe(false);
+    emit("chart:done", undefined);
+    while (title() !== "Deck tools") press("Next");
+    expect(document.getElementById("toolRow")!.classList.contains("tut-target")).toBe(true);
+    const icon = card()!.querySelector('.tut-icon[data-from="#viewDeckBtn"] svg')!;
+    expect(icon).not.toBeNull();
+    expect(icon.id).toBe(""); // a copy, not the page's own element
+    expect(document.getElementById("vdIcon")!.closest("#pmTutorial")).toBeNull();
+  });
+
+  it("scrolls to the control again once the page's own scrolling settles", async () => {
+    vi.useFakeTimers();
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    start();
+    press("Show me");
+    expect(scroll).toHaveBeenCalledTimes(1);
+    // The page scrolled elsewhere (e.g. to new results): the control is now off screen.
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({
+      top: -500,
+      bottom: -450,
+      height: 50,
+      left: 0,
+      right: 0,
+      width: 0,
+      x: 0,
+      y: -500,
+      toJSON() {},
+    } as DOMRect);
+    await vi.advanceTimersByTimeAsync(500);
+    expect(scroll).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
+  });
+
+  it("moves the card to the top when the control is in the lower half", () => {
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({
+      top: window.innerHeight - 60,
+      bottom: window.innerHeight - 20,
+      height: 40,
+      left: 0,
+      right: 0,
+      width: 0,
+      x: 0,
+      y: 0,
+      toJSON() {},
+    } as DOMRect);
+    start();
+    press("Show me");
+    expect(document.getElementById("pmTutorial")!.classList.contains("tut-top")).toBe(true);
   });
 });

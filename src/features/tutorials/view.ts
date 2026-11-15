@@ -1,5 +1,6 @@
 // Tutorial templates: the tip card (welcome and tour steps) and the Help & tips menu.
 import { html, nothing, type TemplateResult } from "../../ui/html";
+import type { IconRef } from "./state";
 
 export interface CardButton {
   label: string;
@@ -13,6 +14,8 @@ export interface CardContent {
   /** "Step 3 of 10", or null. */
   progress: string | null;
   buttons: CardButton[];
+  /** Real control icons with their names (filled in by place.ts fillIcons). */
+  icons?: readonly IconRef[];
 }
 
 export function cardView(content: CardContent): TemplateResult {
@@ -20,6 +23,18 @@ export function cardView(content: CardContent): TemplateResult {
     ${content.progress ? html`<div class="tut-progress">${content.progress}</div>` : nothing}
     <h2 id="tutTitle" class="tut-title">${content.title}</h2>
     <p class="tut-text">${content.text}</p>
+    ${
+      content.icons?.length
+        ? html`<ul class="tut-icons">
+            ${content.icons.map(
+              (icon) =>
+                html`<li>
+                  <span class="tut-icon" data-from=${icon.from}></span><span>${icon.label}</span>
+                </li>`,
+            )}
+          </ul>`
+        : nothing
+    }
     <div class="tut-actions">
       ${content.buttons.map(
         (button) =>

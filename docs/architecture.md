@@ -452,7 +452,10 @@ No thanks), the first-chart tour and the **?** Help and tips button in the accou
 on/off, show all tips again). `main.ts` mounts it after notifications. The tour never opens or closes dialogs:
 each step highlights its target (`.tut-target`) and waits for `samples:chosen` (emitted by `app/try-a-deck.ts`),
 `chart:done` or **Next**; steps whose panel isn't on the page are skipped, and the card hides while a
-`#tadOverlay` dialog is open. First-use tips (`tips.ts`) show once each: a tip triggers when its dialog
+`#tadOverlay` dialog is open. Buttons are outlined themselves (a step can outline its row), result targets their
+panel. `place.ts` scrolls the outlined control to the middle of the screen and again after the page's own
+scrolling settles (the jump to new chart results), moves the card to the top (`.tut-top`) when the control is in
+the lower half, and copies real button icons into the card (`icons` on steps and tips) for phone users. First-use tips (`tips.ts`) show once each: a tip triggers when its dialog
 heading is on screen (`when`), its field gets focus (`focus`) or on an app event (`decks:saved`, emitted by
 `saved-decks/save.ts`). A dialog's tip sits on top of it (`.tut-over`) and closes, as seen, when the dialog
 closes. Tips cover the deck tools (paste, import, Deck Crafter, Scan, Export, View Deck, card view, Load a Deck,

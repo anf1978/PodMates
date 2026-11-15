@@ -2,6 +2,8 @@
 // `when` element is on screen (usually a dialog's heading), when its `focus` field gets focus, or on an
 // app event. Keep the text short and plain: browser translation reads it too.
 
+import type { IconRef } from "./state";
+
 export type TipEvent = "decks:saved";
 
 export interface Tip {
@@ -14,8 +16,10 @@ export interface Tip {
   focus?: string;
   /** Shown on this app event. */
   event?: TipEvent;
-  /** Outlined while the tip shows. */
+  /** Outlined (and scrolled into view) while the tip shows. */
   target?: string;
+  /** Icons shown in the card, so phone users can match them to the buttons. */
+  icons?: IconRef[];
 }
 
 export const TIPS: readonly Tip[] = [
@@ -46,12 +50,14 @@ export const TIPS: readonly Tip[] = [
   },
   {
     id: "tip-export",
+    icons: [{ from: "#exportDeckBtn", label: "Export" }],
     when: ".export-title",
     title: "Export",
     text: "Copy the list in the format Moxfield or Archidekt expects, then paste it into their import box.",
   },
   {
     id: "tip-view-deck",
+    icons: [{ from: "#viewDeckBtn", label: "View Deck" }],
     when: ".cv-title",
     title: "View Deck",
     text: "Every card in the deck with its art. Tap a card to see it larger.",
@@ -64,6 +70,7 @@ export const TIPS: readonly Tip[] = [
   },
   {
     id: "tip-load",
+    icons: [{ from: "#loadDeckBtn", label: "Load a Deck" }],
     when: "#loadDeckListArea",
     title: "Load a Deck",
     text: "Your saved decks and your podmates' shared ones. Tap a deck to load it, then Chart Deck.",
@@ -76,6 +83,10 @@ export const TIPS: readonly Tip[] = [
   },
   {
     id: "tip-saved",
+    icons: [
+      { from: "#loadDeckBtn", label: "Load a Deck" },
+      { from: ".icon-checkbox-label .icon-locked", label: "Keep secret" },
+    ],
     event: "decks:saved",
     target: "#loadDeckBtn",
     title: "Saved",
@@ -137,6 +148,7 @@ export const TIPS: readonly Tip[] = [
   },
   {
     id: "tip-bell",
+    icons: [{ from: "#pmBellBtn", label: "Notifications" }],
     when: ".pm-notif-title",
     title: "Notifications",
     text: "What's new in your pods. Choose what to hear about under What to tell me about.",

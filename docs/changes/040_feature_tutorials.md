@@ -65,4 +65,4 @@ The fixed card covers the bottom of the screen while it's open; every step can b
 
 007 (Try a Deck), 005 (Deck Chart), 024 (notifications, same account-bar slot), 038 (Deck Log).
 
-Later changes: 041
+Later changes: 041, 043

@@ -31,6 +31,12 @@ export const shouldWelcome = (tips: TipsState, later: boolean): boolean =>
 export const markSeen = (tips: TipsState, id: string): TipsState =>
   tips.seen.includes(id) ? tips : { ...tips, seen: [...tips.seen, id] };
 
+/** A control whose icon the card shows next to its name (copied from the page). */
+export interface IconRef {
+  from: string;
+  label: string;
+}
+
 /** How a tour step moves on: by an app event, or by the visitor tapping Next. */
 export type Advance = "samples:chosen" | "chart:done" | "next";
 
@@ -42,6 +48,10 @@ export interface TourStep {
   title: string;
   text: string;
   advance: Advance;
+  /** Icons shown in the card, so phone users can match them to the buttons. */
+  icons?: IconRef[];
+  /** Outline the target's whole row (its parent) instead of the target. */
+  outlineParent?: boolean;
 }
 
 export const TOUR_STEPS: readonly TourStep[] = [
@@ -51,6 +61,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
     title: "Pick a deck",
     text: "Tap Try a Deck and choose any precon. It loads into the form.",
     advance: "samples:chosen",
+    icons: [{ from: "#sampleBtn", label: "Try a Deck" }],
   },
   {
     id: "chart",
@@ -107,6 +118,23 @@ export const TOUR_STEPS: readonly TourStep[] = [
     title: "Deck Log",
     text: "Save a deck and its history lives here: charts, battles, wins and card changes.",
     advance: "next",
+  },
+  {
+    id: "tools",
+    target: "#chartBtn",
+    title: "Deck tools",
+    text: "The buttons next to Chart Deck:",
+    advance: "next",
+    outlineParent: true,
+    icons: [
+      { from: "#viewDeckBtn", label: "View Deck: every card with art" },
+      { from: "#exportDeckBtn", label: "Export for Moxfield or Archidekt" },
+      { from: "#sampleBtn", label: "Try a Deck" },
+      { from: "#clearBtn", label: "Clear the form" },
+      { from: "#saveDeckBtn", label: "Save Deck" },
+      { from: ".icon-checkbox-label .icon-locked", label: "Keep secret from your pod" },
+      { from: "#loadDeckBtn", label: "Load a Deck" },
+    ],
   },
   {
     id: "done",

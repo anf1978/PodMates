@@ -17,6 +17,7 @@ import {
   WELCOME,
   type TipsState,
 } from "./state";
+import { bringIntoView, fillIcons, placeCard } from "./place";
 import { findTip, tipGone, type TipEvent, type TipMatch } from "./tips";
 import { cardView, helpButtonView, helpMenuView, type CardContent } from "./view";
 
@@ -61,6 +62,9 @@ export function mount(bar: HTMLElement): TutorialsFeature {
   let welcoming = false;
   let tipShown: TipMatch | null = null;
   let target: HTMLElement | null = null;
+  /** What the card must not cover (the outlined control, or a focused field). */
+  let avoid: Element | null = null;
+  let cancelScroll: () => void = () => {};
 
   const host = document.createElement("div");
   host.id = "pmTutorial";
@@ -96,12 +100,26 @@ export function mount(bar: HTMLElement): TutorialsFeature {
   };
 
   function clearTarget(): void {
+    cancelScroll();
     target?.classList.remove("tut-target");
     target = null;
+    avoid = null;
+  }
+
+  /** Outlines `el`, scrolls it into view (again once the page's own scrolling settles) and keeps the card
+   * off it. */
+  function highlight(el: HTMLElement, scroll = true): void {
+    target = el;
+    avoid = el;
+    target.classList.add("tut-target");
+    cancelScroll = scroll ? bringIntoView(host, el) : () => {};
+    placeCard(host, el);
   }
 
   function show(content: CardContent | null): void {
     render(content ? cardView(content) : null, host);
+    if (content) fillIcons(host);
+    placeCard(host, avoid);
     syncOverlay();
   }
 
@@ -120,13 +138,13 @@ export function mount(bar: HTMLElement): TutorialsFeature {
     tipShown = match;
     clearTarget();
     const anchor = match.tip.target ? document.querySelector<HTMLElement>(match.tip.target) : null;
-    if (anchor) {
-      target = anchor;
-      target.classList.add("tut-target");
-    }
+    if (anchor) highlight(anchor);
+    // A focus tip: keep the card off the field being typed in (no scrolling: the keyboard handles that).
+    else if (context.focus instanceof Element) avoid = context.focus;
     show({
       title: match.tip.title,
       text: match.tip.text,
+      icons: match.tip.icons,
       progress: null,
       buttons: [
         {
@@ -166,22 +184,26 @@ export function mount(bar: HTMLElement): TutorialsFeature {
     // Skip "Next" steps whose target is not on the page (a panel this deck doesn't have).
     while (i < TOUR_STEPS.length) {
       const s = TOUR_STEPS[i]!;
-      const el = s.target ? document.querySelector(s.target) : null;
-      const panel = el?.closest<HTMLElement>(".panel") || (el as HTMLElement | null);
+      const el = s.target ? document.querySelector<HTMLElement>(s.target) : null;
+      // Buttons are outlined themselves (or their row); anything else, its whole results panel.
+      const panel = !el
+        ? null
+        : s.outlineParent
+          ? el.parentElement
+          : el.matches("button, input, label, a")
+            ? el
+            : el.closest<HTMLElement>(".panel") || el;
       if (s.target && s.advance === "next" && !visible(panel)) {
         i++;
         continue;
       }
       step = i;
-      if (s.target && panel) {
-        target = panel;
-        target.classList.add("tut-target");
-        target.scrollIntoView?.({ behavior: "smooth", block: "center" });
-      }
+      if (s.target && panel) highlight(panel);
       const last = i === TOUR_STEPS.length - 1;
       show({
         title: s.title,
         text: s.text,
+        icons: s.icons,
         progress: last ? null : `Step ${i + 1} of ${TOUR_STEPS.length - 1}`,
         buttons: last
           ? [{ label: "Done", primary: true, run: finish }]
@@ -266,6 +288,15 @@ export function mount(bar: HTMLElement): TutorialsFeature {
     else later();
   };
   const onFocus = (event: FocusEvent) => maybeTip({ focus: event.target });
+  let placing = 0;
+  const onScroll = () => {
+    if (placing || !avoid) return;
+    placing = requestAnimationFrame(() => {
+      placing = 0;
+      placeCard(host, avoid);
+    });
+  };
+  window.addEventListener("scroll", onScroll, { passive: true });
   document.addEventListener("keydown", onKey);
   document.addEventListener("focusin", onFocus);
   const offs = [
@@ -284,6 +315,7 @@ export function mount(bar: HTMLElement): TutorialsFeature {
       clearTimeout(pending);
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("focusin", onFocus);
+      window.removeEventListener("scroll", onScroll);
       clearTarget();
       host.remove();
       document.getElementById("pmHelpBtn")?.remove();

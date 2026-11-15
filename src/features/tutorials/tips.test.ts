@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { emit } from "../../services/events";
 import { mount, type TutorialsFeature } from "./index";
 import { parseTips, STORAGE_KEY } from "./state";
+import { TOUR_STEPS } from "./state";
 import { findTip, TIPS } from "./tips";
 
 vi.mock("../../services/report-error", () => ({ reportError: vi.fn() }));
@@ -160,8 +161,23 @@ describe("tip markers", () => {
       .filter((f) => f.endsWith(".ts") && !f.startsWith("tutorials") && !f.endsWith(".test.ts"))
       .map((f) => readFileSync(join(features, f), "utf8"));
     const source = [...files, readFileSync(join(root, "index.html"), "utf8")].join("\n");
-    for (const tip of TIPS) {
-      for (const selector of [tip.when, tip.focus, tip.target].filter(Boolean) as string[]) {
+    // Tour steps' targets and icons are checked the same way.
+    const tourChecks = TOUR_STEPS.map((step) => ({
+      id: step.id,
+      when: step.target ?? undefined,
+      icons: step.icons,
+    }));
+    for (const tip of [...TIPS, ...tourChecks] as Array<{
+      id: string;
+      when?: string;
+      focus?: string;
+      target?: string;
+      icons?: { from: string }[];
+    }>) {
+      const icons = (tip.icons ?? []).map((icon) => icon.from);
+      for (const selector of [tip.when, tip.focus, tip.target, ...icons].filter(
+        Boolean,
+      ) as string[]) {
         for (const token of selector.match(/[.#][\w-]+/g) ?? []) {
           const name = token.slice(1);
           const pattern =

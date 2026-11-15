@@ -66,3 +66,37 @@
 .tut-host.tut-over {
   z-index: 1100; /* a tip about the open dialog sits on top of it */
 }
+.tut-host.tut-top {
+  top: 0;
+  bottom: auto;
+  padding: 12px 12px 0;
+}
+.tut-icons {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  font-size: 13.5px;
+}
+.tut-icons li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.tut-icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  color: var(--gold);
+  font-weight: 700;
+}
+.tut-icon svg {
+  width: 20px;
+  height: 20px;
+}
