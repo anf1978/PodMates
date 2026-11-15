@@ -31,8 +31,12 @@ import "./app/ja-hint.ts";
 import { installGlobalErrorHandlers } from "./services/report-error";
 import { installStickyCloseNet } from "./ui/sticky-close";
 import { mount as mountNotifications } from "./features/notifications";
+import { mount as mountTutorials } from "./features/tutorials";
 
 installGlobalErrorHandlers();
 installStickyCloseNet();
 const authBar = document.getElementById("authBar");
-if (authBar) mountNotifications(authBar);
+if (authBar) {
+  mountNotifications(authBar);
+  mountTutorials(authBar);
+}

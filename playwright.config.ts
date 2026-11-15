@@ -5,6 +5,12 @@ const port = Number(process.env.PM_E2E_PORT ?? 4183);
 // controls, trade dialogs) by importing the page's own modules, which only the Vite dev server
 // serves by path. Everything else runs against the production build.
 const devPort = port + 1;
+// First-visit tips (the welcome card) would sit over controls the specs click, so every test starts
+// with tips switched off; tests/e2e/tutorials.spec.ts turns them back on.
+const tipsOff = (url: string) => ({
+  cookies: [],
+  origins: [{ origin: url, localStorage: [{ name: "pm_tips", value: '{"seen":[],"off":true}' }] }],
+});
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -21,12 +27,20 @@ export default defineConfig({
     {
       name: "chromium",
       testIgnore: "**/*.modules.spec.ts",
-      use: { ...devices["Desktop Chrome"], baseURL: `http://127.0.0.1:${port}` },
+      use: {
+        ...devices["Desktop Chrome"],
+        baseURL: `http://127.0.0.1:${port}`,
+        storageState: tipsOff(`http://127.0.0.1:${port}`),
+      },
     },
     {
       name: "modules",
       testMatch: "**/*.modules.spec.ts",
-      use: { ...devices["Desktop Chrome"], baseURL: `http://127.0.0.1:${devPort}` },
+      use: {
+        ...devices["Desktop Chrome"],
+        baseURL: `http://127.0.0.1:${devPort}`,
+        storageState: tipsOff(`http://127.0.0.1:${devPort}`),
+      },
     },
   ],
   webServer: [

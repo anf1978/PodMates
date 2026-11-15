@@ -51,7 +51,7 @@ branch without a terminal. Details: `docs/deploy.md`.
   build inlines `src/features/themes/prepaint.ts`, which must run before first paint).
   `tests/static-shell.test.ts` rejects inline scripts and inline event handlers.
 - `src/main.ts` — the one module entry: imports `src/app/` in order, then installs the global error handlers and
-  the sticky-Close net and mounts notifications.
+  the sticky-Close net and mounts notifications and tutorials (the welcome card, tour and Help and tips button).
 - `src/app/` — the **composition root**, and the only code that wires features to each other. `page.ts` boots
   the card data and its loading bar and mounts the deck form and mode tabs; one module per feature supplies that
   feature's ports. `battle.ts` (current battle + compared decks), `mode.ts` (Deck Chart / MyPods tabs),
@@ -82,7 +82,7 @@ branch without a terminal. Details: `docs/deploy.md`.
 - `src/features/<name>/` — one folder per user-facing area: `index.ts` (mount + ports), `state.ts`, `view.ts` /
   `panels/`, `<name>.css`, `*.test.ts`. Features: `deck-chart`, `deck-form`, `try-a-deck`, `export`, `scan-cards`,
   `deck-crafter`, `card-viewer`, `saved-decks`, `deck-log`, `auth`, `profile`, `pods`, `gatherings`, `chronicles`, `impact`,
-  `spoiler-bait`, `trades`, `ledger`, `comparison`, `notifications`, `themes`, `pricescry` (lazy chunk; read
+  `spoiler-bait`, `trades`, `ledger`, `comparison`, `notifications`, `tutorials`, `themes`, `pricescry` (lazy chunk; read
   [src/features/pricescry/CLAUDE.md](src/features/pricescry/CLAUDE.md)). What each owns: `docs/architecture.md`.
 - `public/data/` — committed dataset snapshots (generated); `public/` — icons and manifest.
 - `pipelines/` — typed Node data builders and shared helpers run by Actions; see `pipelines/README.md`.

@@ -27,6 +27,8 @@ type AppEvents = {
   "decks:preview": { uid: string; name: string; podId: string; deckName: string };
   /** Preview a Try-a-Deck deck by its key (from a "new in Try a Deck" notice). */
   "samples:preview": { key: string };
+  /** A Try-a-Deck deck was chosen and loaded into the deck form. */
+  "samples:chosen": { key: string };
   "spoilers:open": WithId<PodDoc>;
   "pods:active": string | null;
   "pods:navigate": undefined;

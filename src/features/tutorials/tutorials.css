@@ -1,0 +1,65 @@
+/* Tutorials (prefix tut-): the tip card pinned to the bottom of the screen, the highlight on what a
+   tour step points at, and the Help & tips button and menu. */
+.tut-host {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 900; /* above the page, below dialogs (.tad-overlay is 1000) */
+  display: flex;
+  justify-content: center;
+  padding: 0 12px 12px;
+  pointer-events: none;
+}
+.tut-host[hidden] {
+  display: none;
+}
+.tut-card {
+  pointer-events: auto;
+  width: 100%;
+  max-width: 440px;
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  border: 1px solid var(--gold);
+  border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  padding: 12px 14px;
+}
+.tut-progress {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+.tut-title {
+  margin: 2px 0 4px;
+  font-size: 16px;
+}
+.tut-text {
+  margin: 0 0 10px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.tut-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.tut-target {
+  outline: 2px solid var(--gold);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+.pm-help-btn {
+  font-weight: 700;
+}
+.tut-menu-title {
+  margin-bottom: 6px;
+}
+.tut-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}

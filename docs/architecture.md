@@ -447,6 +447,14 @@ by player and commander as approximate), owner-only wins and the change log (`us
 newest 50, written by `saveDeck` when cards change, with Spark before/after from the page via
 `configureDeckLog` in `src/app/deck-log.ts`). Change entries reuse the combo card and chip styles.
 
+`tutorials` (prefix `tut-`) owns first-use help: a welcome card on a device's first visit (Show me / Later /
+No thanks), the first-chart tour and the **?** Help and tips button in the account bar (replay the tour, tips
+on/off, show all tips again). `main.ts` mounts it after notifications. The tour never opens or closes dialogs:
+each step highlights its target (`.tut-target`) and waits for `samples:chosen` (emitted by `app/try-a-deck.ts`),
+`chart:done` or **Next**; steps whose panel isn't on the page are skipped, and the card hides while a
+`#tadOverlay` dialog is open. Device-only state: local storage `pm_tips` (`{ seen, off }`) and session storage
+`pm_tips_later`.
+
 `notifications` (prefix `pm-notif-`) owns the in-app bell, merged pod activity feeds, unread cutoff,
 thirty-day filter, per-type preferences and pod muting. Existing `pm_notif_seen_<uid>` and
 `pm_notif_prefs_<uid>` device keys, activity text/colours and Firestore paths/fields are unchanged.
@@ -546,6 +554,8 @@ the pipelines and the Worker are still JavaScript.
   win-rates and tags) are `*.modules.spec.ts` files in a second Playwright project that runs on the Vite dev
   server: there `withModules()` (`tests/e2e/modules.ts`) imports the page's own source modules by path,
   which are the same instances the page uses, so tests need no globals.
+  `playwright.config.ts` starts every test browser with tips switched off (`pm_tips` in `storageState`), so the
+  welcome card never covers controls; `tutorials.spec.ts` opts back in to test the welcome card and tour.
 
 ## What is not done yet
 

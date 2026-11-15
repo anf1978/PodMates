@@ -18,6 +18,7 @@ export interface ErrorContext {
     | "spoiler-bait"
     | "pricescry"
     | "notifications"
+    | "tutorials"
     | "global-error"
     | "unhandled-rejection";
   userTriggered?: boolean;
