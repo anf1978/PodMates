@@ -1,0 +1,25 @@
+{
+  "files": {
+    "cards.json": {
+      "version": "531ce49648d1",
+      "generatedAt": "2026-11-16T14:10:05.229Z",
+      "sha256": "531ce49648d1b31e5fb3632f806598311d318597448b3eeb5f6d165149aadfdc",
+      "bytes": 2940215,
+      "source": "Scryfall Oracle Cards"
+    },
+    "tags.json": {
+      "version": "06ab328639b4",
+      "generatedAt": "2026-11-16T14:10:05.232Z",
+      "sha256": "06ab328639b44863a3064f8b22b0e5ff2a5168839f266ad9b27b2a81f42920fd",
+      "bytes": 4821,
+      "source": "Scryfall function tags"
+    },
+    "winrates.json": {
+      "version": "0548214f4510",
+      "generatedAt": "2026-11-16T17:26:26.374Z",
+      "sha256": "0548214f4510742f3f8b33b734bdaaf42a6e596c8fe5e8cd4fc2617d7f67196d",
+      "bytes": 86119,
+      "source": "Playgroup.gg commander win-rates"
+    }
+  }
+}
