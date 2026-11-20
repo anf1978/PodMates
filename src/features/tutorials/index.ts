@@ -17,7 +17,7 @@ import {
   WELCOME,
   type TipsState,
 } from "./state";
-import { bringIntoView, fillIcons, placeCard } from "./place";
+import { bringIntoView, fillIcons, makeRoom, placeCard } from "./place";
 import { findTip, tipGone, type TipEvent, type TipMatch } from "./tips";
 import { cardView, helpButtonView, helpMenuView, type CardContent } from "./view";
 
@@ -76,12 +76,15 @@ export function mount(bar: HTMLElement): TutorialsFeature {
   bar.prepend(...helpSlot.childNodes);
 
   // The welcome and tour stay out of the way of any open dialog and come back when it closes. A tip about
-  // the open dialog itself shows on top of it.
+  // the open dialog itself shows on top of it, and the dialog shrinks to the space beside the card so the
+  // card never covers its buttons.
+  let roomFor: HTMLElement | null = null;
   const syncOverlay = () => {
     const overlay = document.getElementById("tadOverlay");
     const aboutDialog = Boolean(overlay && tipShown?.el && overlay.contains(tipShown.el));
     host.hidden = Boolean(overlay) && !aboutDialog;
     host.classList.toggle("tut-over", aboutDialog);
+    roomFor = makeRoom(host, roomFor, aboutDialog ? overlay : null);
   };
   let pending: ReturnType<typeof setTimeout> | undefined;
   const observer = new MutationObserver(() => {
@@ -316,6 +319,7 @@ export function mount(bar: HTMLElement): TutorialsFeature {
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("focusin", onFocus);
       window.removeEventListener("scroll", onScroll);
+      roomFor = makeRoom(host, roomFor, null);
       clearTarget();
       host.remove();
       document.getElementById("pmHelpBtn")?.remove();

@@ -33,6 +33,31 @@ export function bringIntoView(host: HTMLElement, el: HTMLElement): () => void {
   return () => clearTimeout(timer);
 }
 
+/** Makes room in an open dialog's overlay for a tip card shown on top of it: the overlay keeps the
+ * card's height free (top or bottom, wherever the card sits), so the dialog fits beside the card and none
+ * of its buttons sit under it. Clears the room on `previous` when the overlay changes or `overlay` is
+ * null. Returns the overlay now holding room. */
+export function makeRoom(
+  host: HTMLElement,
+  previous: HTMLElement | null,
+  overlay: HTMLElement | null,
+): HTMLElement | null {
+  if (previous && previous !== overlay) {
+    previous.classList.remove("tut-room", "tut-room-top");
+    previous.style.removeProperty("--tut-room");
+  }
+  const card = host.firstElementChild;
+  if (!overlay || !card) return null;
+  // Dynamic: the card's height depends on its text and the screen width.
+  overlay.style.setProperty(
+    "--tut-room",
+    `${Math.ceil(card.getBoundingClientRect().height) + 12}px`,
+  );
+  overlay.classList.add("tut-room");
+  overlay.classList.toggle("tut-room-top", host.classList.contains("tut-top"));
+  return overlay;
+}
+
 /** Fills each `.tut-icon[data-from]` slot with a copy of that control's icon (its SVG, or its text). */
 export function fillIcons(root: HTMLElement): void {
   for (const slot of root.querySelectorAll<HTMLElement>(".tut-icon[data-from]")) {

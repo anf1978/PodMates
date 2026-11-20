@@ -66,6 +66,18 @@
 .tut-host.tut-over {
   z-index: 1100; /* a tip about the open dialog sits on top of it */
 }
+/* The open dialog shrinks to the space beside a tip card on top of it, so the card covers none of its
+   buttons (--tut-room is the card's height, set by place.ts makeRoom). */
+.tad-overlay.tut-room {
+  padding-bottom: calc(var(--tut-room) + 8px);
+}
+.tad-overlay.tut-room.tut-room-top {
+  padding-top: calc(var(--tut-room) + 8px);
+  padding-bottom: 20px;
+}
+.tad-overlay.tut-room > * {
+  max-height: min(calc(85vh / var(--pm-zoom, 1)), 100%);
+}
 .tut-host.tut-top {
   top: 0;
   bottom: auto;

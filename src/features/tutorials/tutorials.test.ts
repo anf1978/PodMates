@@ -249,3 +249,27 @@ describe("staying on the control", () => {
     expect(document.getElementById("pmTutorial")!.classList.contains("tut-top")).toBe(true);
   });
 });
+
+describe("tips over a dialog", () => {
+  it("keeps the dialog clear of the card, and gives the room back when the tip closes", async () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ seen: ["welcome", "tour-first-chart"], off: false }),
+    );
+    start();
+    const overlay = document.createElement("div");
+    overlay.id = "tadOverlay";
+    overlay.className = "tad-overlay";
+    const area = document.createElement("div");
+    area.id = "gatheringSeatsArea";
+    overlay.append(area);
+    document.body.append(overlay);
+    await settle();
+    expect(title()).toBe("Gathering");
+    expect(overlay.classList.contains("tut-room")).toBe(true);
+    expect(overlay.style.getPropertyValue("--tut-room")).toMatch(/^\d+px$/);
+    press("Got it");
+    expect(overlay.classList.contains("tut-room")).toBe(false);
+    expect(overlay.style.getPropertyValue("--tut-room")).toBe("");
+  });
+});

@@ -198,6 +198,9 @@ export async function renderWaitingTray(
                   @click=${() => {
                     const form = content.querySelector<HTMLElement>("#wtEditForm")!;
                     form.hidden = !form.hidden;
+                    // It opens below the buttons: bring it on screen.
+                    if (!form.hidden)
+                      form.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
                   }}
                 >
                   Edit details
