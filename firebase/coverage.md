@@ -78,5 +78,6 @@ now enforces them (see `console-settings.md`).
 ## Deck notes rules
 
 Change 047 added `notes/current` and `sparkChecks` under each saved deck. Their limits (primer 20,000 characters,
-300 card notes) equal `PM_LIMITS` exactly and are pinned in `limits.test.ts`. They are not yet published: the
-owner pastes the full `firestore.rules` into the Firebase console (see `console-settings.md`).
+300 card notes) equal `PM_LIMITS` exactly and are pinned in `limits.test.ts`. The owner published the
+updated `firestore.rules` in the Firebase console on 22 November 2026, so production now enforces them (see
+`console-settings.md`).

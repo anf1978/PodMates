@@ -95,3 +95,5 @@ refused Spark answer is reported and skipped; the battle's ratings still save. R
 ## Related
 
 011 (View Deck), 017 (Chronicles), 038 (Deck Log), 040–042 (tips).
+
+Later changes: 048
