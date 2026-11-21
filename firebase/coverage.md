@@ -14,6 +14,7 @@ Expected failures below are **unresolved security/policy decisions**, not passin
 | `users/{uid}/decks/{id}` owner read; shared-pod non-secret read; secret denial; owner create/update/delete                                   | `user ownership`: CRUD; `podmates read votes and non-secret mirrored decks`; missing/disjoint `podIds`; filtered and unfiltered list                                                          |
 | `users/{uid}/decks/{id}` podmate Deck Log view: only `podViewCount` (+1 exactly), `lastChartedAt`, `lastChartedBy`                           | `deck log`: +1 only, stale or skipped counts, other fields, long/invalid values, secret decks, outsiders                                                                                      |
 | `users/{uid}/decks/{id}/changes/{id}` owner/shared-pod non-secret read; owner create/update/delete                                           | `deck log`: owner CRUD with note/list guards; podmate read/list, writes denied; secret and outsider reads denied                                                                              |
+| `users/{uid}/decks/{id}/notes/current` and `sparkChecks/{id}` owner write; shared-pod non-secret read                                        | `deck notes and Spark checks`: owner writes, other note ids, bad types and verdicts; podmate reads only; secret and outsider denied                                                           |
 | `users/{uid}/trades/{id}` read/create/update/delete                                                                                          | `user ownership`: CRUD, private collection list denials                                                                                                                                       |
 | `users/{uid}/spoilerVotes/{id}` owner/shared-pod read; owner create/update/delete                                                            | `user ownership`: CRUD, shared reads/list, non-owner writes denied; vote enum in `limits.test.ts`                                                                                             |
 | `users/{uid}/linkedDecks/{id}` read/create/update/delete                                                                                     | `user ownership`: CRUD, private collection list denials                                                                                                                                       |
@@ -73,3 +74,9 @@ composite index. No rules or indexes were deployed.
 Change 038 added the podmate view-count update on `users/{uid}/decks/{id}` and the `changes` sub-collection.
 The owner published the updated `firestore.rules` in the Firebase console on 15 November 2026, so production
 now enforces them (see `console-settings.md`).
+
+## Deck notes rules
+
+Change 047 added `notes/current` and `sparkChecks` under each saved deck. Their limits (primer 20,000 characters,
+300 card notes) equal `PM_LIMITS` exactly and are pinned in `limits.test.ts`. They are not yet published: the
+owner pastes the full `firestore.rules` into the Firebase console (see `console-settings.md`).

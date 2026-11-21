@@ -36,6 +36,17 @@ const guards: Guard[] = [
     ],
   },
   {
+    path: "users/alice/decks/deck/notes/current",
+    data: {},
+    strings: [["primer", 20000]],
+    maps: [["cards", 300]],
+  },
+  {
+    path: "users/alice/decks/deck/sparkChecks/new",
+    data: { verdict: "right" },
+    strings: [["podId", 80]],
+  },
+  {
     path: "users/alice/trades/new",
     data: {},
     strings: [
@@ -198,6 +209,14 @@ describe("every server field guard", () => {
       await assertFails(setDoc(ref, { vote: null }));
     },
   );
+});
+
+test("deck notes limits match PM_LIMITS exactly", async () => {
+  const ref = doc(db("alice"), "users/alice/decks/deck/notes/current");
+  await assertSucceeds(setDoc(ref, { primer: value("string", PM_LIMITS.deckPrimer) }));
+  await assertFails(setDoc(ref, { primer: value("string", PM_LIMITS.deckPrimer + 1) }));
+  await assertSucceeds(setDoc(ref, { cards: value("map", PM_LIMITS.cardNotes) }));
+  await assertFails(setDoc(ref, { cards: value("map", PM_LIMITS.cardNotes + 1) }));
 });
 
 describe("SECURITY: server limits do not match PM_LIMITS", () => {

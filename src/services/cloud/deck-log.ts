@@ -4,6 +4,7 @@
 // Everything here is best effort: a failed log write never gets in the way of saving or charting.
 import { parseDecklist } from "../../cards/parse-decklist";
 import { loadAllChronicles } from "./chronicles";
+import { loadSparkChecks } from "./deck-notes";
 import {
   collection,
   db,
@@ -44,6 +45,14 @@ export interface DeckLog {
   deck: DeckDoc;
   changes: DeckChange[];
   battles: BattleCount;
+  /** The owner's after-battle answers: how the deck played against its Spark. */
+  sparkChecks: SparkTally;
+}
+
+export interface SparkTally {
+  stronger: number;
+  right: number;
+  weaker: number;
 }
 
 const deckDoc = (ref: DeckRef) => doc(db, "users", ref.uid, "decks", ref.id);
@@ -227,5 +236,21 @@ export async function loadDeckLog(ref: DeckRef): Promise<DeckLog | null> {
   } catch (err) {
     reportError(err, { operation: "cloud" });
   }
-  return { ref, deck, changes, battles: await loadBattles(ref, deck) };
+  return {
+    ref,
+    deck,
+    changes,
+    battles: await loadBattles(ref, deck),
+    sparkChecks: await tallySparkChecks(ref),
+  };
+}
+
+async function tallySparkChecks(ref: DeckRef): Promise<SparkTally> {
+  const tally: SparkTally = { stronger: 0, right: 0, weaker: 0 };
+  try {
+    for (const check of await loadSparkChecks(ref)) tally[check.verdict]++;
+  } catch (err) {
+    reportError(err, { operation: "cloud" });
+  }
+  return tally;
 }

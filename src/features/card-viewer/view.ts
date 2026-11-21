@@ -25,10 +25,22 @@ export function flipButton(otherUrl: string | null | undefined, big: boolean) {
       </button>`;
 }
 
-function tile({ name, qty }: ViewerTile, urls: CardImageMap): TemplateResult {
+/** Per-card and header extras (deck notes), drawn by the page; see index.ts DeckViewExtras. */
+export interface ViewerExtras {
+  header(): unknown;
+  tile(name: string): unknown;
+}
+
+function tile(
+  { name, qty }: ViewerTile,
+  urls: CardImageMap,
+  extras?: ViewerExtras,
+): TemplateResult {
   const url = urls.get(name);
+  const extra = extras ? extras.tile(name) : nothing;
   if (!url) {
-    return html`<div class="cv-placeholder"><span class="cv-placeholder-name">${name}</span></div>`;
+    const label = html`<span class="cv-placeholder-name">${name}</span>`;
+    return html`<div class="cv-placeholder">${label}${extra}</div>`;
   }
   return html`<div class="cv-tile">
     ${flipButton(urls.getOther(name), false)}<img
@@ -38,12 +50,12 @@ function tile({ name, qty }: ViewerTile, urls: CardImageMap): TemplateResult {
       loading="lazy"
       title=${name}
     />
-    ${qty > 1 ? html`<span class="cv-qty">${`×${qty}`}</span>` : nothing}
+    ${qty > 1 ? html`<span class="cv-qty">${`×${qty}`}</span>` : nothing}${extra}
   </div>`;
 }
 
-const grid = (tiles: ViewerTile[], urls: CardImageMap) =>
-  html`<div class="cv-grid">${tiles.map((t) => tile(t, urls))}</div>`;
+const grid = (tiles: ViewerTile[], urls: CardImageMap, extras?: ViewerExtras) =>
+  html`<div class="cv-grid">${tiles.map((t) => tile(t, urls, extras))}</div>`;
 
 export const loadingTemplate = () => html`<p class="cv-loading">Loading card art…</p>`;
 
@@ -53,17 +65,19 @@ export function deckTemplate(
   urls: CardImageMap,
   missing: number,
   close: () => void,
+  extras?: ViewerExtras,
 ): TemplateResult {
   const summary =
     plural(lines, "card line") + (missing ? ` · ${plural(missing, "card")} shown without art` : "");
   return html`<button class="tad-close" id="tadCloseBtn" @click=${close}>Close ×</button>
     <h2 class="cv-title">View Deck</h2>
     <p class="cv-summary">${summary}</p>
+    ${extras ? extras.header() : nothing}
     ${groups.map(
       (g) =>
         html`<div class="cv-section">
           <div class="cv-section-title">${`${g.name} (${g.count})`}</div>
-          ${grid(g.tiles, urls)}
+          ${grid(g.tiles, urls, extras)}
         </div>`,
     )}`;
 }

@@ -410,3 +410,42 @@ describe("deck log", () => {
     await assertSucceeds(getDoc(doc(db("alice"), "users/alice/decks/secret/changes/c1")));
   });
 });
+
+describe("deck notes and Spark checks", () => {
+  const notes = {
+    primer: "Go wide, then win.",
+    cards: { "Sol Ring": { roles: ["ramp"], text: "Fast mana", at: 1 } },
+    shareForTuning: true,
+    updatedAt: 1,
+  };
+  const check = { verdict: "right", spark: 6.4, at: 1, podId: "pod" };
+
+  test("the owner writes notes and Spark checks; podmates only read them", async () => {
+    const mine = doc(db("alice"), "users/alice/decks/deck/notes/current");
+    await assertSucceeds(setDoc(mine, notes));
+    await assertSucceeds(updateDoc(mine, { primer: "Updated" }));
+    await assertFails(setDoc(doc(db("alice"), "users/alice/decks/deck/notes/other"), notes));
+    await assertFails(updateDoc(mine, { shareForTuning: "yes" }));
+    await assertSucceeds(getDoc(doc(db("bob"), "users/alice/decks/deck/notes/current")));
+    await assertFails(setDoc(doc(db("bob"), "users/alice/decks/deck/notes/current"), notes));
+    await assertFails(deleteDoc(doc(db("bob"), "users/alice/decks/deck/notes/current")));
+    await assertFails(getDoc(doc(db("mallory"), "users/alice/decks/deck/notes/current")));
+
+    const answer = doc(db("alice"), "users/alice/decks/deck/sparkChecks/game");
+    await assertSucceeds(setDoc(answer, check));
+    await assertFails(setDoc(answer, { ...check, verdict: "amazing" }));
+    await assertFails(setDoc(answer, { spark: 6 }));
+    await assertSucceeds(getDocs(collection(db("bob"), "users/alice/decks/deck/sparkChecks")));
+    await assertFails(setDoc(doc(db("bob"), "users/alice/decks/deck/sparkChecks/game"), check));
+    await assertSucceeds(deleteDoc(answer));
+    await assertSucceeds(deleteDoc(mine));
+  });
+
+  test("a secret deck's notes and Spark checks stay with its owner", async () => {
+    await seed("users/alice/decks/secret/notes/current", notes);
+    await seed("users/alice/decks/secret/sparkChecks/game", check);
+    await assertFails(getDoc(doc(db("bob"), "users/alice/decks/secret/notes/current")));
+    await assertFails(getDoc(doc(db("bob"), "users/alice/decks/secret/sparkChecks/game")));
+    await assertSucceeds(getDoc(doc(db("alice"), "users/alice/decks/secret/notes/current")));
+  });
+});

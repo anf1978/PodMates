@@ -42,6 +42,38 @@ export interface DeckChangeDoc {
   note?: string;
 }
 
+/** A crafter's quick tags for why a card is in the deck. */
+export type NoteRole = "ramp" | "draw" | "removal" | "protection" | "wincon" | "combo" | "synergy";
+
+/** One card's note in a deck's notes. */
+export interface CardNote {
+  roles: NoteRole[];
+  text: string;
+  at: number;
+}
+
+/** users/{uid}/decks/{deckId}/notes/current: the deck's primer and its card notes. */
+export interface DeckNotesDoc {
+  primer: string;
+  /** Keyed by card name, as the card database spells it. */
+  cards: Record<string, CardNote>;
+  /** The owner allows these notes (with the decklist) to be used to tune Spark. */
+  shareForTuning: boolean;
+  updatedAt: number;
+}
+
+/** How a deck played against its Command Spark, in the owner's view after one battle. */
+export type SparkVerdict = "stronger" | "right" | "weaker";
+
+/** users/{uid}/decks/{deckId}/sparkChecks/{chronicleId}: the owner's answer after a battle. */
+export interface SparkCheckDoc {
+  verdict: SparkVerdict;
+  /** The deck's Spark in that battle (null when it wasn't recorded). */
+  spark: number | null;
+  at: number;
+  podId: string;
+}
+
 export interface DeckInput {
   commander?: string;
   player?: string;

@@ -1,5 +1,6 @@
 // Notes and optional battle feedback templates; actions are supplied by the controller.
-import { html, type TemplateResult } from "../../ui/html";
+import { html, nothing, type TemplateResult } from "../../ui/html";
+import type { SparkVerdict } from "../../services/cloud/types";
 import type { Chronicle } from "./state";
 
 export function notesTemplate(
@@ -50,7 +51,47 @@ export function ratingTemplate(current: number, pick: (rating: number) => void):
   )}`;
 }
 
-export function feedbackTemplate(close: () => void, submit: () => void): TemplateResult {
+/** The player's own saved deck in the battle, for the Spark question. */
+export interface SurveyDeck {
+  name: string;
+  spark: number;
+}
+
+const VERDICTS: { value: SparkVerdict; label: string }[] = [
+  { value: "stronger", label: "Stronger" },
+  { value: "right", label: "About right" },
+  { value: "weaker", label: "Weaker" },
+];
+
+export function sparkCheckTemplate(
+  deck: SurveyDeck,
+  current: SparkVerdict | null,
+  pick: (verdict: SparkVerdict) => void,
+): TemplateResult {
+  return html`<label class="chronicles-feedback-label">
+      ${`How did ${deck.name} play against its Spark (${deck.spark.toFixed(1)})?`}
+    </label>
+    <div class="row chronicles-rating-row" role="group" aria-label="Your deck against its Spark">
+      ${VERDICTS.map(
+        (verdict) =>
+          html`<button
+            type="button"
+            data-verdict=${verdict.value}
+            aria-pressed=${verdict.value === current ? "true" : "false"}
+            class=${`ghost chronicles-rating${verdict.value === current ? " chronicles-rating-selected" : ""}`}
+            @click=${() => pick(verdict.value)}
+          >
+            ${verdict.label}
+          </button>`,
+      )}
+    </div>`;
+}
+
+export function feedbackTemplate(
+  close: () => void,
+  submit: () => void,
+  mine: SurveyDeck | null = null,
+): TemplateResult {
   return html`
     <button class="tad-close" id="tadCloseBtn" @click=${close}>Close ×</button>
     <h2 class="chronicles-dialog-heading">How was the battle?</h2>
@@ -63,6 +104,7 @@ export function feedbackTemplate(close: () => void, submit: () => void): Templat
       <label class="chronicles-feedback-label">Alignment accuracy</label>
       <div id="accuracyRatingRow" class="row chronicles-rating-row"></div>
     </div>
+    ${mine ? html`<div class="chronicles-feedback-rating" id="sparkCheckArea"></div>` : nothing}
     <div class="chronicles-feedback-moment">
       <label class="chronicles-feedback-label">Best moment</label>
       <textarea

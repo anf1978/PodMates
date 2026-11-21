@@ -8,7 +8,16 @@ import { reportError } from "../../services/report-error";
 import { render } from "../../ui/html";
 import { openTadOverlay, closeTryADeckModal } from "../../ui/tad-modal";
 import { showToast } from "../../ui/toast";
-import { feedbackTemplate, notesTemplate, ratingTemplate } from "./dialogs";
+import { saveSparkCheck } from "../../services/cloud/deck-notes";
+import type { DeckRef } from "../../services/cloud/deck-log";
+import type { SparkVerdict } from "../../services/cloud/types";
+import {
+  feedbackTemplate,
+  notesTemplate,
+  ratingTemplate,
+  sparkCheckTemplate,
+  type SurveyDeck,
+} from "./dialogs";
 import {
   emptyState,
   chronicleDeck,
@@ -172,30 +181,65 @@ export async function runLogBattle(): Promise<void> {
   }
 }
 
-export function showFeedbackSurvey(podId: string, chronicleId: string): void {
+/** The signed-in player's own saved deck in the current battle, for the Spark question. */
+export function myBattleDeck(): (SurveyDeck & { ref: DeckRef }) | null {
+  const me = getCurrentUser()?.uid;
+  const deck = me ? runtime?.battle()?.decks.find((d) => d.deckRef?.uid === me) : undefined;
+  if (!deck?.deckRef || !Number.isFinite(deck.commandSpark)) return null;
+  return {
+    ref: { uid: deck.deckRef.uid, id: deck.deckRef.id },
+    name: deck.name || deck.commanderLabel || "your deck",
+    spark: deck.commandSpark,
+  };
+}
+
+export function showFeedbackSurvey(
+  podId: string,
+  chronicleId: string,
+  mine: (SurveyDeck & { ref: DeckRef }) | null = myBattleDeck(),
+): void {
   let fun = 0;
   let accuracy = 0;
+  let verdict: SparkVerdict | null = null;
   const { modal } = openTadOverlay();
   render(
-    feedbackTemplate(closeTryADeckModal, async () => {
-      const bestMoment = modal.querySelector<HTMLTextAreaElement>("#bestMomentInput")!.value.trim();
-      try {
-        await chronicles.addChronicleFeedback(podId, chronicleId, {
-          fun: fun || null,
-          accuracy: accuracy || null,
-          bestMoment,
-        });
-        if (modal.isConnected) closeTryADeckModal();
-        showToast("Thanks for the feedback!");
-      } catch (error) {
-        reportError(error, { operation: "cloud", userTriggered: true });
-        const status = modal.querySelector<HTMLElement>("#feedbackStatus")!;
-        status.textContent = "Could not save: " + errorMessage(error);
-        status.className = "status err chronicles-feedback-status";
-      }
-    }),
+    feedbackTemplate(
+      closeTryADeckModal,
+      async () => {
+        const bestMoment = modal
+          .querySelector<HTMLTextAreaElement>("#bestMomentInput")!
+          .value.trim();
+        try {
+          // The Spark answer goes on the player's own deck (its Deck Log); the ratings on the battle.
+          // Best effort: a failed Spark answer never blocks the battle's ratings.
+          if (mine && verdict)
+            await saveSparkCheck(mine.ref, chronicleId, podId, verdict, mine.spark).catch(
+              (error: unknown) => reportError(error, { operation: "cloud" }),
+            );
+          await chronicles.addChronicleFeedback(podId, chronicleId, {
+            fun: fun || null,
+            accuracy: accuracy || null,
+            bestMoment,
+          });
+          if (modal.isConnected) closeTryADeckModal();
+          showToast("Thanks for the feedback!");
+        } catch (error) {
+          reportError(error, { operation: "cloud", userTriggered: true });
+          const status = modal.querySelector<HTMLElement>("#feedbackStatus")!;
+          status.textContent = "Could not save: " + errorMessage(error);
+          status.className = "status err chronicles-feedback-status";
+        }
+      },
+      mine,
+    ),
     modal,
   );
+  const sparkArea = modal.querySelector<HTMLElement>("#sparkCheckArea");
+  const setVerdict = (next: SparkVerdict): void => {
+    verdict = next;
+    if (mine && sparkArea) render(sparkCheckTemplate(mine, verdict, setVerdict), sparkArea);
+  };
+  if (mine && sparkArea) render(sparkCheckTemplate(mine, verdict, setVerdict), sparkArea);
   const funRow = modal.querySelector<HTMLElement>("#funRatingRow")!;
   const accuracyRow = modal.querySelector<HTMLElement>("#accuracyRatingRow")!;
   const setFun = (rating: number): void => {

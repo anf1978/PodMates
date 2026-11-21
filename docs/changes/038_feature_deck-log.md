@@ -88,4 +88,4 @@ change log.
 005 (Deck Chart), 006 (deck form), 012 (saved decks), 014 (profile), 016 (Gatherings), 017 (Chronicles), 029–030
 (Firebase records).
 
-Later changes: 039
+Later changes: 039, 047

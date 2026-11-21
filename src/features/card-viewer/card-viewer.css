@@ -58,6 +58,7 @@
   border: 1px solid var(--gold);
 }
 .cv-placeholder {
+  position: relative;
   aspect-ratio: 0.717;
   background: var(--bg-slot, var(--bg-main));
   border: 1.5px solid var(--line);

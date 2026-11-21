@@ -32,6 +32,7 @@ const NOW = new Date(2026, 10, 14, 12).getTime();
 const log = (
   extra: Partial<DeckLog["deck"]> = {},
   battles = { exact: 2, approximate: 1 },
+  sparkChecks = { stronger: 0, right: 0, weaker: 0 },
 ): DeckLog => ({
   ref: { uid: "u1", id: "d1" },
   deck: {
@@ -61,6 +62,7 @@ const log = (
     },
   ],
   battles,
+  sparkChecks,
 });
 
 let panel: HTMLElement;
@@ -85,6 +87,16 @@ beforeEach(() => {
   panel = document.getElementById("deckLogPanel")!;
   feature?.destroy();
   feature = mount(panel);
+});
+
+describe("Spark answers", () => {
+  it("shows how the deck played against its Spark once there are answers", async () => {
+    fake.load.mockResolvedValueOnce(
+      log({}, { exact: 2, approximate: 1 }, { stronger: 1, right: 3, weaker: 0 }),
+    );
+    await feature.refresh();
+    expect(rows()[6]).toEqual(["Against its Spark", "3 about right · 1 stronger"]);
+  });
 });
 
 describe("panel", () => {

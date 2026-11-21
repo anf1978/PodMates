@@ -447,6 +447,14 @@ by player and commander as approximate), owner-only wins and the change log (`us
 newest 50, written by `saveDeck` when cards change, with Spark before/after from the page via
 `configureDeckLog` in `src/app/deck-log.ts`). Change entries reuse the combo card and chip styles.
 
+`deck-notes` (prefix `dn-`) is the Deck Primer and card notes in View Deck. `src/app/card-viewer.ts` builds
+`deckNotesExtras()` from `chartedDeck()` and the signed-in user and passes it to `showDeckViewer()` as its
+`DeckViewExtras` slot (a header above the cards, a note button on each card, and View Deck's redraw). Notes are
+`users/{uid}/decks/{id}/notes/current` (`services/cloud/deck-notes.ts`): the owner edits them in stacked dialogs,
+podmates read them, and the owner can copy the decklist, primer, notes and Spark checks as one text. Spark checks
+(`users/{uid}/decks/{id}/sparkChecks/{chronicleId}`) are asked in the Chronicles battle survey for the player's own
+deck (`myBattleDeck()`) and tallied in the Deck Log.
+
 `tutorials` (prefix `tut-`) owns first-use help: a welcome card on a device's first visit (Show me / Later /
 No thanks), the first-chart tour and the **?** Help and tips button in the account bar (replay the tour, tips
 on/off, show all tips again). `main.ts` mounts it after notifications. The tour never opens or closes dialogs:

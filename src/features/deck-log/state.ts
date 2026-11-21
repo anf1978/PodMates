@@ -66,3 +66,17 @@ export function changeSummary(
   const count = (lines: string[]) => lines.reduce((n, line) => n + cardLine(line).qty, 0);
   return `+${count(change.added || [])} −${count(change.removed || [])} · Spark ${spark(change.sparkBefore)} → ${spark(change.sparkAfter)}`;
 }
+
+/** "3 about right · 1 stronger", or null before any answers. */
+export function sparkChecksLine(tally: {
+  stronger: number;
+  right: number;
+  weaker: number;
+}): string | null {
+  const parts = [
+    tally.right ? `${tally.right} about right` : "",
+    tally.stronger ? `${tally.stronger} stronger` : "",
+    tally.weaker ? `${tally.weaker} weaker` : "",
+  ].filter(Boolean);
+  return parts.length ? parts.join(" · ") : null;
+}

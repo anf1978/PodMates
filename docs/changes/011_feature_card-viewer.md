@@ -64,3 +64,5 @@ so keep requests batched. Roll back with `git revert`.
 ## Related
 
 `004`, `005` (Deck Chart emits `chart:commanders` and holds the charted deck).
+
+Later changes: 047

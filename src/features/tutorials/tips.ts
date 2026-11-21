@@ -63,6 +63,12 @@ export const TIPS: readonly Tip[] = [
     text: "Every card in the deck with its art. Tap a card to see it larger.",
   },
   {
+    id: "tip-deck-notes",
+    when: ".dn-owner-hint",
+    title: "Deck notes",
+    text: "Write a primer for the whole deck, and tap the note button on any card to say why it's in. Podmates can read them.",
+  },
+  {
     id: "tip-card",
     when: "#singleCardArtArea",
     title: "Card view",

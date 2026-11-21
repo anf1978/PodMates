@@ -22,19 +22,46 @@ import type { CardRecord } from "../../cards/tuple";
 
 const wideModal = { modalClass: "tad-modal tad-modal-wide" };
 
+/** Extra content the page can add to View Deck (deck notes): a header above the cards and something
+ * on each card. View Deck hands over its redraw and the card names it shows. */
+export interface DeckViewExtras {
+  header(): unknown;
+  tile(name: string): unknown;
+  attach(redraw: () => void, names: readonly string[]): void;
+}
+
 export async function showDeckViewer(
   matched: readonly { qty: number; card: Pick<CardRecord, "n" | "t"> }[],
   commanderNames: ReadonlySet<string>,
+  extras?: DeckViewExtras,
 ): Promise<void> {
-  const { modal } = openTadOverlay(wideModal);
+  const { overlay, modal } = openTadOverlay(wideModal);
   render(loadingTemplate(), modal);
   // Group first (cheap, synchronous), so the grouping never depends on the network.
   const gallery = groupDeck(matched, commanderNames);
-  const { urlMap, notFound } = await fetchCardImagesBatch(gallery.names);
-  render(
-    deckTemplate(matched.length, gallery.groups, urlMap, notFound.length, closeTryADeckModal),
-    modal,
+  let ready = false;
+  let art: Awaited<ReturnType<typeof fetchCardImagesBatch>> | null = null;
+  const draw = () => {
+    if (!ready || !art || !overlay.isConnected) return;
+    render(
+      deckTemplate(
+        matched.length,
+        gallery.groups,
+        art.urlMap,
+        art.notFound.length,
+        closeTryADeckModal,
+        extras,
+      ),
+      modal,
+    );
+  };
+  extras?.attach(
+    draw,
+    gallery.groups.flatMap((group) => group.tiles.map((t) => t.name)),
   );
+  art = await fetchCardImagesBatch(gallery.names);
+  ready = true;
+  draw();
 }
 
 /** Entries come from the same engine pass as the clicked count, so the two always agree. */

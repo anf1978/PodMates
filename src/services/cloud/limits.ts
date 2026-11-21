@@ -49,6 +49,10 @@ export const PM_LIMITS = Object.freeze({
   deckChangeNote: 280,
   deckChangeCards: 300, // card lines listed as added or removed in one change
   deckChangeLog: 50, // change entries kept per deck (oldest pruned)
+  // Deck notes (View Deck): the primer, one note per card, and how many cards can have a note
+  deckPrimer: 20000,
+  cardNote: 2000,
+  cardNotes: 300,
 });
 
 export type PmLimits = typeof PM_LIMITS;

@@ -6,6 +6,7 @@ import type { DeckChange } from "../../services/cloud/deck-log";
 import {
   ago,
   battlesTotal,
+  sparkChecksLine,
   cardLine,
   changeSummary,
   firstCharted,
@@ -120,6 +121,7 @@ export function panelView(state: PanelState, actions: DeckLogActions, now: numbe
   const wins = Number(deck.wins) || 0;
   const total = battlesTotal(battles);
   const rate = winRate(wins, total);
+  const spark = sparkChecksLine(state.log.sparkChecks ?? { stronger: 0, right: 0, weaker: 0 });
   const last = deck.lastChartedAt
     ? `${ago(deck.lastChartedAt, now)}${deck.lastChartedBy ? ` by ${deck.lastChartedBy}` : ""}`
     : "Not yet";
@@ -135,6 +137,7 @@ export function panelView(state: PanelState, actions: DeckLogActions, now: numbe
         battles.approximate ? `${total} (${battles.approximate} approximate)` : String(total),
       )}
       ${row("Wins", rate ? `${wins} · ${rate} win rate` : String(wins))}
+      ${spark ? row("Against its Spark", spark) : nothing}
     </dl>
     ${
       state.mine

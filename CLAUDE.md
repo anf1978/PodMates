@@ -81,7 +81,7 @@ branch without a terminal. Details: `docs/deploy.md`.
 - `src/styles/` — `tokens.css` (CSS variables) and `base.css`.
 - `src/features/<name>/` — one folder per user-facing area: `index.ts` (mount + ports), `state.ts`, `view.ts` /
   `panels/`, `<name>.css`, `*.test.ts`. Features: `deck-chart`, `deck-form`, `try-a-deck`, `export`, `scan-cards`,
-  `deck-crafter`, `card-viewer`, `saved-decks`, `deck-log`, `auth`, `profile`, `pods`, `gatherings`, `chronicles`, `impact`,
+  `deck-crafter`, `card-viewer`, `saved-decks`, `deck-log`, `deck-notes`, `auth`, `profile`, `pods`, `gatherings`, `chronicles`, `impact`,
   `spoiler-bait`, `trades`, `ledger`, `comparison`, `notifications`, `tutorials`, `themes`, `pricescry` (lazy chunk; read
   [src/features/pricescry/CLAUDE.md](src/features/pricescry/CLAUDE.md)). What each owns: `docs/architecture.md`.
 - `public/data/` — committed dataset snapshots (generated); `public/` — icons and manifest.

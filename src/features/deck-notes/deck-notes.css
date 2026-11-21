@@ -1,0 +1,161 @@
+/* Deck notes (prefix dn-): the primer header in View Deck, the note button on each card, and the
+   note, primer and copy dialogs. */
+.dn-head {
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg-main);
+}
+.tad-modal h3.dn-primer-title {
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin: 0 0 6px;
+}
+.dn-primer-text,
+.dn-note-text {
+  white-space: pre-wrap;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-primary);
+  margin: 0;
+}
+.dn-primer-text.dn-clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+button.dn-link.dn-link {
+  background: none;
+  border: 0;
+  padding: 2px 0;
+  color: var(--gold);
+  font-size: 12.5px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.row.dn-actions {
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 10px 0 0;
+}
+.dn-hint {
+  font-size: 12.5px;
+  color: var(--text-soft);
+  margin: 8px 0 0;
+}
+.cv-summary + .dn-hint {
+  margin: -8px 0 14px;
+}
+.dn-icon {
+  width: 14px;
+  height: 14px;
+  vertical-align: -2px;
+}
+.dn-removed {
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: var(--text-soft);
+}
+.dn-removed summary {
+  cursor: pointer;
+}
+.dn-removed ul {
+  margin: 6px 0 0 18px;
+  padding: 0;
+}
+/* The note button sits in the card's lower right (the flip button is lower left). */
+button.dn-note-btn.dn-note-btn {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(15, 12, 10, 0.78);
+  border: 1px solid var(--line);
+  color: var(--text-soft);
+  cursor: pointer;
+}
+button.dn-note-btn.dn-has {
+  border-color: var(--gold);
+  color: var(--gold-bright);
+}
+button.dn-note-btn .dn-icon {
+  width: 16px;
+  height: 16px;
+}
+.tad-modal h2.dn-title {
+  margin-bottom: 4px;
+}
+.dn-sub {
+  font-size: 12.5px;
+  color: var(--text-soft);
+  margin: 0 0 10px;
+}
+.dn-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.dn-chip,
+button.dn-chip.dn-chip {
+  font-size: 12.5px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+}
+.dn-chip.dn-chip-on,
+button.dn-chip.dn-chip-on {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.dn-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 8px 10px;
+  background: var(--bg-main);
+  color: var(--text-primary);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  resize: vertical;
+}
+.dn-share {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  margin: 10px 0 0;
+  cursor: pointer;
+}
+.dn-share input {
+  accent-color: var(--gold);
+}
+.row.dn-buttons {
+  gap: 8px;
+  justify-content: flex-end;
+  align-items: center;
+  margin-top: 12px;
+}
+.dn-error {
+  margin: 8px 0 0;
+}
+.dn-copy-status {
+  font-size: 12.5px;
+  color: var(--text-soft);
+}

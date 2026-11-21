@@ -4,6 +4,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import * as cloud from "../../services/cloud/chronicles";
 import { loadPodMembers } from "../../services/cloud/members";
 import { logBattle } from "../../services/cloud/gatherings";
+import { saveSparkCheck } from "../../services/cloud/deck-notes";
 import { reportError } from "../../services/report-error";
 import { closeTryADeckModal } from "../../ui/tad-modal";
 import {
@@ -33,6 +34,7 @@ vi.mock("../../services/cloud/chronicles", () => ({
 }));
 vi.mock("../../services/cloud/members", () => ({ loadPodMembers: vi.fn() }));
 vi.mock("../../services/cloud/gatherings", () => ({ logBattle: vi.fn() }));
+vi.mock("../../services/cloud/deck-notes", () => ({ saveSparkCheck: vi.fn(async () => {}) }));
 vi.mock("../../services/report-error", () => ({ reportError: vi.fn() }));
 vi.mock("../../ui/toast", () => ({ showToast: vi.fn() }));
 
@@ -286,6 +288,39 @@ describe("journal interactions", () => {
         bestMoment: "",
       }),
     );
+  });
+
+  it("asks the player how their own deck played against its Spark, and saves it on that deck", async () => {
+    const mine = { ref: { uid: "me", id: "d1" }, name: "Atraxa", spark: 6.4 };
+    showFeedbackSurvey("pod-a", "battle", null);
+    expect(document.querySelector("#sparkCheckArea")).toBeNull();
+    closeTryADeckModal();
+    showFeedbackSurvey("pod-a", "battle", mine);
+    expect(document.querySelector("#sparkCheckArea")!.textContent).toContain(
+      "How did Atraxa play against its Spark (6.4)?",
+    );
+    click('#sparkCheckArea [data-verdict="right"]');
+    expect(
+      document
+        .querySelector('#sparkCheckArea [data-verdict="right"]')!
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+    click("#submitFeedbackBtn");
+    await vi.waitFor(() =>
+      expect(saveSparkCheck).toHaveBeenCalledWith(mine.ref, "battle", "pod-a", "right", 6.4),
+    );
+    await vi.waitFor(() => expect(cloud.addChronicleFeedback).toHaveBeenCalled());
+    vi.mocked(saveSparkCheck).mockClear();
+    showFeedbackSurvey("pod-a", "battle", mine);
+    click("#submitFeedbackBtn");
+    await vi.waitFor(() => expect(cloud.addChronicleFeedback).toHaveBeenCalledTimes(2));
+    expect(saveSparkCheck).not.toHaveBeenCalled();
+    // A refused Spark answer still saves the battle's ratings.
+    vi.mocked(saveSparkCheck).mockRejectedValueOnce(new Error("permission-denied"));
+    showFeedbackSurvey("pod-a", "battle", mine);
+    click('#sparkCheckArea [data-verdict="weaker"]');
+    click("#submitFeedbackBtn");
+    await vi.waitFor(() => expect(cloud.addChronicleFeedback).toHaveBeenCalledTimes(3));
   });
 
   it("keeps failed feedback open with the existing error text", async () => {

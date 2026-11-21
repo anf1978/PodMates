@@ -10,6 +10,9 @@ service cloud.firestore {
       return !(field in data) || data[field] == null ||
              (data[field] is list && data[field].size() <= max);
     }
+    function okMap(data, field, max) {
+      return !(field in data) || (data[field] is map && data[field].size() <= max);
+    }
     // The signed-in user shares at least one pod with userId.
     function sharesPodWith(userId) {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('podIds', []).hasAny(
@@ -69,6 +72,39 @@ service cloud.firestore {
             && okList(request.resource.data, 'added', 300)
             && okList(request.resource.data, 'removed', 300)
             && okStr(request.resource.data, 'note', 280);
+          allow delete: if request.auth != null && request.auth.uid == userId;
+        }
+
+        // Deck notes (View Deck): one document, notes/current, holding the primer and card notes.
+        // Written by the owner; readable like the deck itself.
+        match /notes/{noteId} {
+          allow read: if request.auth != null && (
+            request.auth.uid == userId ||
+            (
+              get(/databases/$(database)/documents/users/$(userId)/decks/$(deckId)).data.get('secret', false) != true &&
+              sharesPodWith(userId)
+            )
+          );
+          allow create, update: if request.auth != null && request.auth.uid == userId
+            && noteId == 'current'
+            && okStr(request.resource.data, 'primer', 20000)
+            && okMap(request.resource.data, 'cards', 300)
+            && (!('shareForTuning' in request.resource.data) || request.resource.data.shareForTuning is bool);
+          allow delete: if request.auth != null && request.auth.uid == userId;
+        }
+
+        // Spark checks: the owner's "stronger / about right / weaker than its Spark" after a battle.
+        match /sparkChecks/{checkId} {
+          allow read: if request.auth != null && (
+            request.auth.uid == userId ||
+            (
+              get(/databases/$(database)/documents/users/$(userId)/decks/$(deckId)).data.get('secret', false) != true &&
+              sharesPodWith(userId)
+            )
+          );
+          allow create, update: if request.auth != null && request.auth.uid == userId
+            && request.resource.data.verdict in ['stronger', 'right', 'weaker']
+            && okStr(request.resource.data, 'podId', 80);
           allow delete: if request.auth != null && request.auth.uid == userId;
         }
       }

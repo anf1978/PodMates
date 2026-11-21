@@ -63,6 +63,7 @@ export default defineConfig({
           "./src/features/ledger/ledger.css",
           "./src/features/themes/themes.css",
           "./src/features/deck-log/deck-log.css",
+          "./src/features/deck-notes/deck-notes.css",
           "./src/features/tutorials/tutorials.css",
           "./src/features/pricescry/pricescry.css",
         ]) {

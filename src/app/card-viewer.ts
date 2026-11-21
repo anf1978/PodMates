@@ -1,9 +1,12 @@
-// Binds View Deck to the form and mounts the commander portraits. The delegated card/type clicks
+// Binds View Deck to the form (with the saved deck's notes) and mounts the commander portraits. The delegated card/type clicks
 // are src/app/card-clicks.ts.
 import { matchDecklist } from "../cards/lookup";
 import { parseDecklist } from "../cards/parse-decklist";
 import { parseCommanderField } from "../engine/commanders";
 import { mountCommanderHero, showDeckViewer } from "../features/card-viewer";
+import { deckNotesExtras } from "../features/deck-notes";
+import { getCurrentUser } from "../services/cloud/session";
+import { chartedDeck } from "../services/deck-form";
 import { cardDb, isDbReady, lookupIndexes, pageContext } from "../services/card-data";
 import { showToast } from "../ui/toast";
 
@@ -20,7 +23,17 @@ document.getElementById("viewDeckBtn")?.addEventListener("click", () => {
   const { matched } = matchDecklist(parsed.entries, cardDb(), lookupIndexes());
   if (!matched.length) return showToast("Could not read any cards from this decklist.");
   const commanders = parseCommanderField(pageContext(), fieldValue("commanderInput"));
-  void showDeckViewer(matched, new Set(commanders));
+  // Deck notes: the saved deck in the form (if any) and who is looking.
+  const saved = chartedDeck();
+  const user = getCurrentUser();
+  const notes = deckNotesExtras({
+    ref: saved ? { uid: saved.uid, id: saved.id } : null,
+    me: user && !user.isAnonymous ? user.uid : null,
+    deckName: saved?.name || fieldValue("deckNameInput"),
+    commander: fieldValue("commanderInput"),
+    list: fieldValue("decklistInput"),
+  });
+  void showDeckViewer(matched, new Set(commanders), notes);
 });
 
 mountCommanderHero();
