@@ -1,37 +1,72 @@
+/* The scan dialog fits one screen: the header, photo buttons and tips stay put, the found cards scroll
+   in their own box and the Add button stays at the bottom. */
+.tad-modal.scan-modal {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.scan-modal > * {
+  flex: none;
+}
+.scan-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.scan-head .tad-close {
+  float: none;
+  position: static;
+  flex: none;
+}
 .tad-modal h2.scan-title {
-  margin-bottom: 10px;
+  margin: 4px 0 6px;
 }
 .scan-subtitle {
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--text-soft);
-  margin: -4px 0 10px;
+  margin: 0 0 12px;
+}
+.scan-photo-actions {
+  margin-bottom: 8px;
 }
 .scan-instructions {
   font-size: 13px;
   color: var(--text-soft);
   line-height: 1.5;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
-.scan-instructions p {
-  margin: 0 0 8px;
+.scan-instructions summary {
+  cursor: pointer;
+  color: var(--gold);
+  padding: 4px 0;
 }
-.scan-instructions p:last-child {
-  margin: 0;
+.scan-instructions[open] {
+  max-height: 34vh;
+  overflow-y: auto;
 }
 .scan-instructions ul {
-  margin: 0 0 8px 18px;
+  margin: 6px 0 0 18px;
   padding: 0;
 }
-.scan-photo-actions {
-  margin-bottom: 12px;
+.scan-instructions li {
+  margin-bottom: 4px;
 }
 .scan-status {
   font-size: 12.5px;
   color: var(--text-soft);
-  margin-bottom: 10px;
+  margin-bottom: 6px;
+}
+.scan-modal > .scan-results {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 .scan-actions {
-  margin-top: 14px;
+  margin-top: 10px;
+}
+.scan-actions button {
+  width: 100%;
 }
 .scan-empty {
   font-size: 13px;

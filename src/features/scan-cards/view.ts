@@ -11,43 +11,38 @@ export interface ScanActions {
 }
 
 export function scanTemplate(actions: ScanActions, hasFiles: boolean): TemplateResult {
-  return html` <button class="tad-close" id="tadCloseBtn" @click=${actions.close}>Close ×</button>
-    <h2 class="scan-title">Scan Cards from Photo</h2>
-    <p class="scan-subtitle">Cards you tick are added to your Deck Crafter list.</p>
-    <div class="scan-instructions">
-      <p>
-        This reads card <strong>names only</strong> from a photo — it can't read quantities, so add
-        basics or extra copies yourself afterward.
-      </p>
-      <p><strong>For best results:</strong></p>
+  return html`<div class="scan-head">
+      <h2 class="scan-title">Scan Cards from Photo</h2>
+      <button class="tad-close" id="tadCloseBtn" @click=${actions.close}>Close ×</button>
+    </div>
+    <p class="scan-subtitle">
+      Reads card <strong>names only</strong>, not quantities. Cards you tick go to Deck Crafter.
+    </p>
+    <div class="row scan-photo-actions">
+      <button id="scanCardsAddPhotoBtn" @click=${actions.photo}>Add a Photo…</button>
+      <button id="scanCardsRescanBtn" class="ghost" ?disabled=${!hasFiles} @click=${actions.rescan}>
+        Rescan Same Photo(s)
+      </button>
+    </div>
+    <details class="scan-instructions">
+      <summary>Tips for a good photo</summary>
       <ul>
         <li>Fan or stack cards so every name is fully visible and not overlapped</li>
         <li>Good, even lighting — avoid glare, especially on foils</li>
         <li>About 10–15 cards per photo works better than cramming in more</li>
         <li>Add several photos one at a time — results build up as you go</li>
+        <li>
+          Every match is a real card name found in the photo's text, but small text can miss a card
+          or catch a stray name: check the list (tap a name to see its art)
+        </li>
+        <li>
+          OCR reads a photo a little differently each time: <strong>Rescan Same Photo(s)</strong>
+          often finds cards a first pass missed, and skips anything already found or in your deck
+        </li>
       </ul>
-      <p>
-        Every match below is a
-        <strong>real card name found somewhere in your photo's text</strong> — a photo with a lot of
-        small text (rules text, symbols) can still miss cards or occasionally catch a stray name, so
-        check the list (click a name to see its art) before adding it to your deck.
-      </p>
-      <p>
-        OCR doesn't read the same photo the same way twice —
-        <strong>Rescan Same Photo(s)</strong> re-reads whatever you last scanned without needing to
-        pick the file again, and anything already found (or already in your decklist) is
-        automatically skipped, so a few rescans of one photo often catches cards a single pass
-        missed.
-      </p>
-    </div>
-    <div class="row scan-photo-actions">
-      <button id="scanCardsAddPhotoBtn" class="ghost" @click=${actions.photo}>Add a Photo…</button>
-      <button id="scanCardsRescanBtn" class="ghost" ?disabled=${!hasFiles} @click=${actions.rescan}>
-        Rescan Same Photo(s)
-      </button>
-    </div>
+    </details>
     <div id="scanCardsStatus" class="scan-status"></div>
-    <div id="scanCardsResultsArea"></div>
+    <div id="scanCardsResultsArea" class="scan-results"></div>
     <div id="scanCardsActionRow" class="scan-actions" hidden>
       <button id="scanCardsAddToDeckBtn" @click=${actions.add}>
         Add Checked Cards to Deck Crafter

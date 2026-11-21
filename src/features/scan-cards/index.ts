@@ -87,7 +87,7 @@ export function mount(input: HTMLInputElement, options: ScanOptions): Scanner {
     if (status)
       status.textContent = failures
         ? lastFailure
-        : `Done — found ${results.length} new card(s) across ${files.length} photo(s) (anything already found or already in your decklist is skipped automatically). Review below.`;
+        : `Done — found ${results.length} new card(s) in ${files.length} photo(s). Untick any that are wrong.`;
     displayResults();
   }
 
@@ -114,7 +114,10 @@ export function mount(input: HTMLInputElement, options: ScanOptions): Scanner {
     open() {
       generation++;
       results = [];
-      const layer = openTadOverlay({ onDismiss: () => options.returnToBuilder() });
+      const layer = openTadOverlay({
+        modalClass: "tad-modal scan-modal",
+        onDismiss: () => options.returnToBuilder(),
+      });
       modal = layer.modal;
       overlay = layer.overlay;
       render(
