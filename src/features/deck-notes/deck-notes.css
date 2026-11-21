@@ -159,3 +159,8 @@ button.dn-chip.dn-chip-on {
   font-size: 12.5px;
   color: var(--text-soft);
 }
+.dn-read {
+  font-size: 12.5px;
+  color: var(--gold);
+  margin: -4px 0 10px;
+}

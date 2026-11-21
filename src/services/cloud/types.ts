@@ -43,13 +43,27 @@ export interface DeckChangeDoc {
 }
 
 /** A crafter's quick tags for why a card is in the deck. */
-export type NoteRole = "ramp" | "draw" | "removal" | "protection" | "wincon" | "combo" | "synergy";
+export type NoteRole =
+  | "ramp"
+  | "draw"
+  | "tutor"
+  | "removal"
+  | "wipe"
+  | "counter"
+  | "protection"
+  | "recursion"
+  | "stax"
+  | "wincon"
+  | "combo"
+  | "synergy";
 
 /** One card's note in a deck's notes. */
 export interface CardNote {
   roles: NoteRole[];
   text: string;
   at: number;
+  /** PodMates' own read of the card when the note was saved, so the crafter's changes can be compared. */
+  app?: NoteRole[];
 }
 
 /** users/{uid}/decks/{deckId}/notes/current: the deck's primer and its card notes. */

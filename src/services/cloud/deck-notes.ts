@@ -19,8 +19,13 @@ import type {
 export const NOTE_ROLES: readonly NoteRole[] = [
   "ramp",
   "draw",
+  "tutor",
   "removal",
+  "wipe",
+  "counter",
   "protection",
+  "recursion",
+  "stax",
   "wincon",
   "combo",
   "synergy",
@@ -39,14 +44,20 @@ export const emptyNotes = (): DeckNotesDoc => ({
 });
 
 /** Tidies a stored or typed note: known roles once each, text within the limit. */
-export function cleanNote(note: { roles?: unknown; text?: unknown; at?: unknown }): CardNote {
-  const roles = Array.isArray(note.roles)
-    ? NOTE_ROLES.filter((role) => (note.roles as unknown[]).includes(role))
-    : [];
+const knownRoles = (roles: unknown): NoteRole[] =>
+  Array.isArray(roles) ? NOTE_ROLES.filter((role) => roles.includes(role)) : [];
+
+export function cleanNote(note: {
+  roles?: unknown;
+  text?: unknown;
+  at?: unknown;
+  app?: unknown;
+}): CardNote {
   return {
-    roles,
+    roles: knownRoles(note.roles),
     text: clampText(String(note.text ?? "").trim(), PM_LIMITS.cardNote),
     at: Number(note.at) || 0,
+    ...(Array.isArray(note.app) ? { app: knownRoles(note.app) } : {}),
   };
 }
 
@@ -79,11 +90,12 @@ async function writeNotes(ref: DeckRef, next: DeckNotesDoc): Promise<DeckNotesDo
   return data;
 }
 
-/** Owner: sets (or, with null or an empty note, removes) one card's note. Returns the new notes. */
+/** Owner: sets (or, with null or an empty note, removes) one card's note, with PodMates' own read of
+ * the card (`app`) for comparison. Returns the new notes. */
 export async function saveCardNote(
   ref: DeckRef,
   card: string,
-  note: { roles: readonly NoteRole[]; text: string } | null,
+  note: { roles: readonly NoteRole[]; text: string; app?: readonly NoteRole[] } | null,
 ): Promise<DeckNotesDoc> {
   const current = (await loadDeckNotes(ref)) ?? emptyNotes();
   const cards = { ...current.cards };

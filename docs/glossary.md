@@ -29,7 +29,7 @@ These describe current behaviour, not promises about the refactored architecture
 | Deck Crafter            | In-app search-and-add deck builder, also labelled Build a Deck.                                                                 |
 | Deck Log                | The Deck Chart panel with a saved deck's history: first save, charts by its owner and podmates, battles, wins and card changes. |
 | Deck Primer             | The owner's write-up of a saved deck (how it plays and wins), shown at the top of View Deck.                                    |
-| Card note               | The owner's note on one card in View Deck: role chips (Ramp, Draw, ...) and text saying why the card is in the deck.            |
+| Card note               | The owner's note on one card in View Deck: role chips (pre-filled with PodMates' read) and text saying why the card is in.      |
 | Spark check             | A player's after-battle answer: their own deck played stronger, about right or weaker than its Command Spark.                   |
 | Help and tips           | The **?** button in the account bar: replays the first-chart tour and switches first-use tips on or off.                        |
 | Full Ledger             | The MyPods table of saved decks owned by you or shared with your pod; distinct from PriceScry's Ledger tab.                     |

@@ -4,7 +4,7 @@ import { html, nothing, type TemplateResult } from "../../ui/html";
 import { PM_LIMITS } from "../../services/cloud/limits";
 import { NOTE_ROLES } from "../../services/cloud/deck-notes";
 import type { CardNote, DeckNotesDoc, NoteRole } from "../../services/cloud/types";
-import { ROLE_LABELS } from "./state";
+import { ROLE_LABELS, roleList } from "./state";
 
 /** A small pencil-on-page icon; decorative (the button carries the name). */
 export const noteIcon = () =>
@@ -119,6 +119,7 @@ export function editorTemplate(
   name: string,
   note: CardNote | null,
   roles: readonly NoteRole[],
+  suggested: readonly NoteRole[] | null,
   busy: boolean,
   error: string,
   actions: EditorActions,
@@ -129,6 +130,17 @@ export function editorTemplate(
     </button>
     <h2 class="dn-title">${name}</h2>
     <p class="dn-sub">Why is this card in the deck? Pick any that fit, then add a few words.</p>
+    ${
+      suggested
+        ? html`<p class="dn-read">
+            ${
+              suggested.length
+                ? `PodMates reads this card as ${roleList(suggested)}. Change them if your deck uses it differently.`
+                : "PodMates has no role for this card. Pick any that fit."
+            }
+          </p>`
+        : nothing
+    }
     <div class="dn-chips" role="group" aria-label="Roles">
       ${NOTE_ROLES.map(
         (role) =>

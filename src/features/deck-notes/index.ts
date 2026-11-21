@@ -33,6 +33,8 @@ export interface DeckNotesTarget {
   deckName: string;
   commander: string;
   list: string;
+  /** PodMates' own read of a card in this deck as chips (null when the card data isn't ready). */
+  suggest?(name: string): NoteRole[] | null;
 }
 
 /** What View Deck draws: a header above the cards and an optional button on each card. */
@@ -93,10 +95,12 @@ export function deckNotesExtras(target: DeckNotesTarget): DeckNotesExtras {
       if (existing) render(readNoteTemplate(name, existing, close), modal);
       return;
     }
-    let roles: NoteRole[] = [...(existing?.roles ?? [])];
+    // PodMates' own read starts a new note; an existing note keeps the crafter's choice.
+    const suggested = target.suggest?.(name) ?? null;
+    let roles: NoteRole[] = [...(existing?.roles ?? suggested ?? [])];
     let busy = false;
     let error = "";
-    const save = async (note: { roles: NoteRole[]; text: string } | null) => {
+    const save = async (note: { roles: NoteRole[]; text: string; app?: NoteRole[] } | null) => {
       busy = true;
       error = "";
       draw();
@@ -112,13 +116,13 @@ export function deckNotesExtras(target: DeckNotesTarget): DeckNotesExtras {
     };
     const draw = () =>
       render(
-        editorTemplate(name, existing, roles, busy, error, {
+        editorTemplate(name, existing, roles, suggested, busy, error, {
           close,
           toggleRole(role) {
             roles = roles.includes(role) ? roles.filter((r) => r !== role) : [...roles, role];
             draw();
           },
-          save: (text) => void save({ roles, text }),
+          save: (text) => void save({ roles, text, ...(suggested ? { app: suggested } : {}) }),
           remove: () => void save(null),
         }),
         modal,

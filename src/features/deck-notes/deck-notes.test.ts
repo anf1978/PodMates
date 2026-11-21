@@ -4,7 +4,7 @@ import { render } from "../../ui/html";
 import { closeAllModals } from "../../ui/modal";
 import type { DeckNotesDoc } from "../../services/cloud/types";
 import { deckNotesExtras, type DeckNotesExtras } from "./index";
-import { notesBundle } from "./state";
+import { notesBundle, rolesFromTraits } from "./state";
 
 const cloud = vi.hoisted(() => ({
   notes: null as DeckNotesDoc | null,
@@ -14,7 +14,20 @@ const cloud = vi.hoisted(() => ({
   loadSparkChecks: vi.fn(async () => []),
 }));
 vi.mock("../../services/cloud/deck-notes", () => ({
-  NOTE_ROLES: ["ramp", "draw", "removal", "protection", "wincon", "combo", "synergy"],
+  NOTE_ROLES: [
+    "ramp",
+    "draw",
+    "tutor",
+    "removal",
+    "wipe",
+    "counter",
+    "protection",
+    "recursion",
+    "stax",
+    "wincon",
+    "combo",
+    "synergy",
+  ],
   loadDeckNotes: cloud.loadDeckNotes,
   saveCardNote: cloud.saveCardNote,
   saveDeckPrimer: cloud.saveDeckPrimer,
@@ -90,6 +103,37 @@ describe("deck notes in View Deck", () => {
     expect(button("Note for Opt")?.classList.contains("dn-has")).toBe(true);
   });
 
+  it("starts a new note from PodMates' read, and keeps it with the crafter's choice", async () => {
+    show(
+      deckNotesExtras({
+        ...target,
+        ref: deck,
+        me: "ann",
+        suggest: (name) => (name === "Opt" ? ["draw", "tutor"] : null),
+      }),
+    );
+    await settle();
+    button("Add a note for Opt")!.click();
+    expect(document.querySelector(".dn-read")?.textContent?.trim()).toBe(
+      "PodMates reads this card as Draw, Tutor. Change them if your deck uses it differently.",
+    );
+    expect(button("Draw")!.getAttribute("aria-pressed")).toBe("true");
+    expect(button("Tutor")!.getAttribute("aria-pressed")).toBe("true");
+    button("Tutor")!.click();
+    button("Combo piece")!.click();
+    button("Save note")!.click();
+    await settle();
+    expect(cloud.saveCardNote).toHaveBeenCalledWith(deck, "Opt", {
+      roles: ["draw", "combo"],
+      text: "",
+      app: ["draw", "tutor"],
+    });
+    // An existing note keeps the crafter's own chips.
+    button("Note for Sol Ring")!.click();
+    expect(button("Ramp")!.getAttribute("aria-pressed")).toBe("true");
+    expect(document.querySelector(".dn-read")).toBeNull();
+  });
+
   it("saves the primer and the tuning choice", async () => {
     show(deckNotesExtras({ ...target, ref: deck, me: "ann" }));
     await settle();
@@ -134,6 +178,38 @@ describe("deck notes in View Deck", () => {
   });
 });
 
+describe("PodMates' read as chips", () => {
+  it("maps the engine's tags onto the chips", () => {
+    expect(rolesFromTraits({}, false)).toEqual([]);
+    expect(rolesFromTraits({ manaRock: true, draw: true }, false)).toEqual(["ramp", "draw"]);
+    expect(
+      rolesFromTraits(
+        {
+          tutor: true,
+          removal: true,
+          wipe: true,
+          counterMagic: true,
+          protection: true,
+          reanimate: true,
+          stax: true,
+          infect: true,
+        },
+        true,
+      ),
+    ).toEqual([
+      "tutor",
+      "removal",
+      "wipe",
+      "counter",
+      "protection",
+      "recursion",
+      "stax",
+      "wincon",
+      "combo",
+    ]);
+  });
+});
+
 describe("the copied text", () => {
   it("holds the decklist, primer, card notes and Spark checks", () => {
     const text = notesBundle({
@@ -146,7 +222,7 @@ describe("the copied text", () => {
         shareForTuning: true,
         cards: {
           ...base().cards,
-          Opt: { roles: ["draw", "combo"], text: "Line one\nline two", at: 1 },
+          Opt: { roles: ["draw", "combo"], text: "Line one\nline two", at: 1, app: ["draw"] },
           "Mana Crypt": { roles: [], text: "Cut", at: 1 },
         },
       },
@@ -166,7 +242,7 @@ describe("the copied text", () => {
         "Go wide.",
         "",
         "== Card notes ==",
-        "- Opt [Draw, Combo piece]: Line one / line two",
+        "- Opt [Draw, Combo piece] (PodMates said: Draw): Line one / line two",
         "- Sol Ring [Ramp]: Fast mana",
         "",
         "== Notes on cards no longer in the deck ==",

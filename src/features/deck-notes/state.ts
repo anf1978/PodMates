@@ -11,12 +11,74 @@ import type {
 export const ROLE_LABELS: Record<NoteRole, string> = {
   ramp: "Ramp",
   draw: "Draw",
+  tutor: "Tutor",
   removal: "Removal",
+  wipe: "Board wipe",
+  counter: "Counterspell",
   protection: "Protection",
+  recursion: "Recursion",
+  stax: "Stax",
   wincon: "Win condition",
   combo: "Combo piece",
   synergy: "Synergy",
 };
+
+/** The engine tags a card carries (from classifyCard), as far as the chips need them. */
+export interface CardTraitFlags {
+  ramp?: boolean;
+  manaDork?: boolean;
+  manaRock?: boolean;
+  fastMana?: boolean;
+  extraLand?: boolean;
+  treasureRamp?: boolean;
+  ritual?: boolean;
+  costReducer?: boolean;
+  manaEnchantment?: boolean;
+  manaMultiplier?: boolean;
+  draw?: boolean;
+  tutor?: boolean;
+  removal?: boolean;
+  wipe?: boolean;
+  counterMagic?: boolean;
+  protection?: boolean;
+  reanimate?: boolean;
+  stax?: boolean;
+  altWin?: boolean;
+  infect?: boolean;
+}
+
+/** PodMates' own read of a card as chips: its engine tags, plus Combo piece when the card is in a
+ * combo found in this deck. Synergy is left to the crafter. */
+export function rolesFromTraits(t: CardTraitFlags, inCombo: boolean): NoteRole[] {
+  const roles: NoteRole[] = [];
+  if (
+    t.ramp ||
+    t.manaDork ||
+    t.manaRock ||
+    t.fastMana ||
+    t.extraLand ||
+    t.treasureRamp ||
+    t.ritual ||
+    t.costReducer ||
+    t.manaEnchantment ||
+    t.manaMultiplier
+  )
+    roles.push("ramp");
+  if (t.draw) roles.push("draw");
+  if (t.tutor) roles.push("tutor");
+  if (t.removal) roles.push("removal");
+  if (t.wipe) roles.push("wipe");
+  if (t.counterMagic) roles.push("counter");
+  if (t.protection) roles.push("protection");
+  if (t.reanimate) roles.push("recursion");
+  if (t.stax) roles.push("stax");
+  if (t.altWin || t.infect) roles.push("wincon");
+  if (inCombo) roles.push("combo");
+  return roles;
+}
+
+export const roleList = (roles: readonly NoteRole[]): string =>
+  roles.map((role) => ROLE_LABELS[role]).join(", ");
 
 export const VERDICT_LABELS: Record<SparkVerdict, string> = {
   stronger: "Stronger than its Spark",
@@ -49,8 +111,14 @@ export function notesBundle(bundle: NotesBundle): string {
   const { notes } = bundle;
   const inDeck = new Set(bundle.order);
   const line = (name: string, note: CardNote) => {
-    const roles = note.roles.map((role) => ROLE_LABELS[role]).join(", ");
-    return `- ${name}${roles ? ` [${roles}]` : ""}${note.text ? `: ${note.text.replace(/\s*\n\s*/g, " / ")}` : ""}`;
+    const roles = roleList(note.roles);
+    // Where the crafter changed PodMates' own read, show what PodMates said.
+    const differs =
+      note.app &&
+      (note.app.length !== note.roles.length || note.app.some((r) => !note.roles.includes(r)));
+    const app = differs ? ` (PodMates said: ${roleList(note.app!) || "nothing"})` : "";
+    const text = note.text ? `: ${note.text.replace(/\s*\n\s*/g, " / ")}` : "";
+    return `- ${name}${roles ? ` [${roles}]` : ""}${app}${text}`;
   };
   const cardLines = bundle.order
     .filter((name) => notes.cards[name])
