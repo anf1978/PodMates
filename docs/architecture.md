@@ -288,7 +288,7 @@ deck being charted lives in `src/services/current-chart.ts` for Impact, export, 
 explainers; the commander portraits and Impact caption follow the typed `chart:commanders` / `chart:radar`
 events. The shared read-only dialog is `src/ui/info-modal.ts`; `try-a-deck` (`tad-`) — all library browsing/navigation; `export` (`export-`) —
 Commander/Deck text and clipboard dialog; `scan-cards` (`scan-`) — local Tesseract loading, bounded
-preprocessing, longest-name-first matching, selection and rescan lifecycle; and `deck-crafter` (`db-`
+preprocessing with name-colour filter passes (`enhance.ts`), longest-name-first matching, selection and rescan lifecycle; and `deck-crafter` (`db-`
 inside `.deck-crafter`) — drafts, commander/partner selection, identity filtering, card search, quantities,
 removal and save/chart handoff; and `card-viewer` (`cv-`) — View Deck, Card Type Frequency galleries,
 single-card art and the commander portraits, over the in-memory Scryfall art cache in `src/services/card-art.ts`.

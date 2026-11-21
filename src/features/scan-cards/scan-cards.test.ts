@@ -3,7 +3,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { buildLookupIndexes } from "../../cards/lookup";
 import { cardFromTuple } from "../../cards/tuple";
 import { closeAllModals } from "../../ui/modal";
-import { mount, type Scanner } from "./index";
+import { mount, type ScanOptions, type Scanner } from "./index";
 import { addScannedCards, matchPhotoText, sortedNames } from "./state";
 
 const flags = { gameChanger: false, banned: false };
@@ -58,7 +58,7 @@ it("applies colour filtering, distinct-card capacity and copy limits at the buil
   expect(existing).toEqual({ "Sol Ring": 99 });
 });
 
-function setup(readPhoto: (file: Blob) => Promise<string>) {
+function setup(readPhoto: NonNullable<ScanOptions["readPhoto"]>) {
   const input = document.createElement("input");
   input.type = "file";
   document.body.append(input);
@@ -113,4 +113,33 @@ it("keeps a failed photo visible as an error even if a later photo succeeds", as
   });
   expect(document.querySelector("#scanCardsResultsArea")?.textContent).toContain("Sol Ring");
   expect(error).toHaveBeenCalledWith("[PodMates] card-scan failed (error).");
+});
+
+it("reads with the chosen name colour, keeps it between openings and shows each pass", async () => {
+  let report!: (pass: number, passes: number) => void;
+  let release!: (text: string) => void;
+  const read = vi.fn(
+    (_file: Blob, _colour: string, progress: (pass: number, passes: number) => void) =>
+      new Promise<string>((resolve) => {
+        report = progress;
+        release = resolve;
+      }),
+  );
+  const scan = setup(read);
+  expect(document.querySelector<HTMLInputElement>('input[value="black"]')?.checked).toBe(true);
+  const white = document.querySelector<HTMLInputElement>('input[value="white"]')!;
+  white.checked = true;
+  white.dispatchEvent(new Event("change"));
+  scan.select();
+  expect(read.mock.calls[0][1]).toBe("white");
+  report(2, 2);
+  expect(document.querySelector("#scanCardsStatus")?.textContent).toBe(
+    "Reading photo 1 of 1, pass 2 of 2…",
+  );
+  release("Sol Ring");
+  await vi.waitFor(() =>
+    expect(document.querySelector("#scanCardsResultsArea")?.textContent).toContain("Sol Ring"),
+  );
+  scan.scanner.open();
+  expect(document.querySelector<HTMLInputElement>('input[value="white"]')?.checked).toBe(true);
 });

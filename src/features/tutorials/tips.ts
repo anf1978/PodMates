@@ -46,7 +46,7 @@ export const TIPS: readonly Tip[] = [
     id: "tip-scan",
     when: ".scan-title",
     title: "Scan cards",
-    text: "Add a photo of your cards. PodMates reads the names. Untick any it got wrong, then add the rest.",
+    text: "Choose the colour of the card names, then add a photo. PodMates reads the names. Untick any it got wrong, then add the rest.",
   },
   {
     id: "tip-export",

@@ -2,15 +2,27 @@
 import { html, type TemplateResult } from "../../ui/html";
 import { cardNameLink } from "../../ui/card-name";
 import type { ScanResult } from "./state";
+import type { TextColour } from "./enhance";
 
 export interface ScanActions {
   close(): void;
   photo(): void;
   rescan(): void;
   add(): void;
+  colour(colour: TextColour): void;
 }
 
-export function scanTemplate(actions: ScanActions, hasFiles: boolean): TemplateResult {
+const COLOURS: { value: TextColour; label: string }[] = [
+  { value: "black", label: "Black text" },
+  { value: "white", label: "White text" },
+  { value: "mixed", label: "Mixed" },
+];
+
+export function scanTemplate(
+  actions: ScanActions,
+  hasFiles: boolean,
+  colour: TextColour,
+): TemplateResult {
   return html`<div class="scan-head">
       <h2 class="scan-title">Scan Cards from Photo</h2>
       <button class="tad-close" id="tadCloseBtn" @click=${actions.close}>Close ×</button>
@@ -18,6 +30,21 @@ export function scanTemplate(actions: ScanActions, hasFiles: boolean): TemplateR
     <p class="scan-subtitle">
       Reads card <strong>names only</strong>, not quantities. Cards you tick go to Deck Crafter.
     </p>
+    <fieldset class="scan-colour">
+      <legend>Names:</legend>
+      ${COLOURS.map(
+        (option) =>
+          html`<label class="scan-colour-option"
+            ><input
+              type="radio"
+              name="scanColour"
+              value=${option.value}
+              .checked=${option.value === colour}
+              @change=${() => actions.colour(option.value)}
+            /><span>${option.label}</span></label
+          >`,
+      )}
+    </fieldset>
     <div class="row scan-photo-actions">
       <button id="scanCardsAddPhotoBtn" @click=${actions.photo}>Add a Photo…</button>
       <button id="scanCardsRescanBtn" class="ghost" ?disabled=${!hasFiles} @click=${actions.rescan}>
@@ -27,6 +54,13 @@ export function scanTemplate(actions: ScanActions, hasFiles: boolean): TemplateR
     <details class="scan-instructions">
       <summary>Tips for a good photo</summary>
       <ul>
+        <li>
+          Sort your cards by name colour first. Photo the black-name cards with
+          <strong>Black text</strong> chosen, then the white-name cards with
+          <strong>White text</strong>. Each choice tunes the photo for that colour.
+          <strong>Mixed</strong> reads both, but takes longer
+        </li>
+        <li>Missed some? Switch the colour and tap <strong>Rescan Same Photo(s)</strong></li>
         <li>Fan or stack cards so every name is fully visible and not overlapped</li>
         <li>Good, even lighting — avoid glare, especially on foils</li>
         <li>About 10–15 cards per photo works better than cramming in more</li>

@@ -9,6 +9,7 @@ import { showToast } from "../../ui/toast";
 import { reportError } from "../../services/report-error";
 import { matchPhotoText, sortedNames, type ScanResult, type AddedCards } from "./state";
 import { readPhoto } from "./ocr";
+import type { TextColour } from "./enhance";
 import { resultsTemplate, scanTemplate } from "./view";
 
 export interface ScanOptions {
@@ -17,7 +18,11 @@ export interface ScanOptions {
   inDeck(): ReadonlySet<string>;
   returnToBuilder(): void;
   add(cards: CardRecord[]): AddedCards & { commander: string | null };
-  readPhoto?: (file: Blob) => Promise<string>;
+  readPhoto?: (
+    file: Blob,
+    colour: TextColour,
+    progress: (pass: number, passes: number) => void,
+  ) => Promise<string>;
 }
 
 export interface Scanner {
@@ -31,6 +36,8 @@ export function mount(input: HTMLInputElement, options: ScanOptions): Scanner {
   let modal: HTMLElement | undefined;
   let overlay: HTMLElement | undefined;
   let generation = 0;
+  /** The name colour chosen in the dialog; kept between openings. */
+  let colour: TextColour = "black";
   let cachedCards: readonly CardRecord[] | undefined;
   let names: ReturnType<typeof sortedNames> = [];
 
@@ -60,9 +67,13 @@ export function mount(input: HTMLInputElement, options: ScanOptions): Scanner {
     let lastFailure = "";
     for (const [index, file] of files.entries()) {
       if (!active()) return;
-      if (status) status.textContent = `Reading photo ${index + 1} of ${files.length}…`;
+      const photo = `Reading photo ${index + 1} of ${files.length}`;
+      if (status) status.textContent = `${photo}…`;
       try {
-        const text = await (options.readPhoto ?? readPhoto)(file);
+        const text = await (options.readPhoto ?? readPhoto)(file, colour, (pass, passes) => {
+          if (status && active() && passes > 1)
+            status.textContent = `${photo}, pass ${pass} of ${passes}…`;
+        });
         if (!active()) return;
         const cards = options.cards();
         if (cards !== cachedCards) {
@@ -129,8 +140,12 @@ export function mount(input: HTMLInputElement, options: ScanOptions): Scanner {
               void run(lastFiles);
             },
             add,
+            colour: (next) => {
+              colour = next;
+            },
           },
           !!lastFiles.length,
+          colour,
         ),
         modal,
       );

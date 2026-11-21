@@ -61,4 +61,4 @@ pinned to major version 5 only (`tesseract.js@5`), so a new 5.x release reaches 
 
 `004`, `010` (Deck Crafter, the only entry point).
 
-Later changes: 045
+Later changes: 045, 046
