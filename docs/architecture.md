@@ -299,8 +299,9 @@ lazy deck-library gate and card data (`services/card-data.ts`) and the current a
 `src/services/deck-editing.ts` connects scan and Deck Crafter through explicitly registered typed callbacks.
 No feature imports another feature or talks directly to Firebase.
 
-The deck form's own controls (Clear, Deck Name auto-naming, the Archidekt/Moxfield link import) are
-`src/features/deck-form`; its shared state (whether Deck Name was typed by hand, the last imported link) is
+The deck form's own controls (Clear, which asks first when the form holds an unsaved deck, Deck Name
+auto-naming, the Archidekt/Moxfield link import) are `src/features/deck-form`; its shared state (whether Deck Name
+was typed by hand, the last imported link, the saved deck held, an untouched precon) is
 `src/services/deck-form.ts`, which Try-a-Deck, profiles, Deck Crafter and Saved Decks use through their ports.
 
 Scanner files persist across dialog sessions, results reset on open, and obsolete asynchronous runs cannot

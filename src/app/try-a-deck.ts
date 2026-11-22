@@ -2,7 +2,7 @@
 import { mount } from "../features/try-a-deck";
 import type { SampleDeck } from "../features/try-a-deck/state";
 import { deckLibrary, loadDeckLibrary } from "../services/card-data";
-import { fillDeckForm, setDeckNameChosen } from "../services/deck-form";
+import { fillDeckForm, setDeckNameChosen, setSampleInForm } from "../services/deck-form";
 import { emit } from "../services/events";
 
 const button = document.getElementById("sampleBtn");
@@ -15,6 +15,7 @@ if (button)
     select(deck) {
       fillDeckForm({ decklist: deck.decklist, commander: deck.commander, player: "", name: "" });
       setDeckNameChosen(false);
+      setSampleInForm(true);
       emit("samples:chosen", { key: String((deck as { key?: unknown }).key ?? "") });
       const chart = document.getElementById("chartBtn");
       chart?.classList.add("tad-pulsing");

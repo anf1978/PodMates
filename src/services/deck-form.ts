@@ -53,6 +53,14 @@ export function setChartedDeck(deck: ChartedDeck | null): void {
   charted = deck && deck.uid && deck.id ? { ...deck } : null;
 }
 
+/** The form holds an untouched Try a Deck precon (it can be loaded again, so clearing it needs no
+ * warning). Refilling the form or typing into it clears this. */
+let sample = false;
+export const sampleInForm = (): boolean => sample;
+export function setSampleInForm(value: boolean): void {
+  sample = value;
+}
+
 export interface DeckFormValues {
   decklist: string;
   commander?: string;
@@ -64,6 +72,7 @@ export interface DeckFormValues {
  * The form no longer holds a saved deck afterwards; callers that load one call setChartedDeck. */
 export function fillDeckForm(values: DeckFormValues): void {
   charted = null;
+  sample = false;
   const set = (id: string, value: string | undefined) => {
     const input = field(id);
     if (input && value !== undefined) input.value = value;

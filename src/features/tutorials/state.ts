@@ -130,10 +130,10 @@ export const TOUR_STEPS: readonly TourStep[] = [
       { from: "#viewDeckBtn", label: "View Deck: every card with art" },
       { from: "#exportDeckBtn", label: "Export for Moxfield or Archidekt" },
       { from: "#sampleBtn", label: "Try a Deck" },
-      { from: "#clearBtn", label: "Clear the form" },
       { from: "#saveDeckBtn", label: "Save Deck" },
       { from: ".icon-checkbox-label .icon-locked", label: "Keep secret from your pod" },
       { from: "#loadDeckBtn", label: "Load a Deck" },
+      { from: "#clearBtn", label: "Clear the form (asks first if the deck isn't saved)" },
     ],
   },
   {
