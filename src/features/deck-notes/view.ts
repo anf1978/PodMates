@@ -5,6 +5,7 @@ import { PM_LIMITS } from "../../services/cloud/limits";
 import { NOTE_ROLES } from "../../services/cloud/deck-notes";
 import type { CardNote, DeckNotesDoc, NoteRole } from "../../services/cloud/types";
 import { ROLE_LABELS, roleList } from "./state";
+import type { SaveStatus } from "./autosave";
 
 /** A small pencil-on-page icon; decorative (the button carries the name). */
 export const noteIcon = () =>
@@ -111,8 +112,28 @@ export function noteButton(name: string, has: boolean, open: () => void): Templa
 export interface EditorActions {
   close(): void;
   toggleRole(role: NoteRole): void;
-  save(text: string): void;
+  /** The note's text changed (saved after a pause). */
+  input(text: string): void;
   remove(): void;
+  retry(): void;
+}
+
+const STATUS_TEXT: Record<Exclude<SaveStatus, "error">, string> = {
+  idle: "Changes save automatically.",
+  saving: "Saving…",
+  saved: "Saved.",
+};
+
+/** The save line under a dialog's title: saving, saved, or an error with Retry. */
+export function saveStatusTemplate(status: SaveStatus, error: string, retry: () => void) {
+  return status === "error"
+    ? html`<p class="status err dn-status" role="status">
+        ${`Couldn't save: ${error}`}
+        <button type="button" class="dn-link" @click=${retry}>Retry</button>
+      </p>`
+    : html`<p class=${`dn-status${status === "saved" ? " dn-saved" : ""}`} role="status">
+        ${STATUS_TEXT[status]}
+      </p>`;
 }
 
 export function editorTemplate(
@@ -120,15 +141,17 @@ export function editorTemplate(
   note: CardNote | null,
   roles: readonly NoteRole[],
   suggested: readonly NoteRole[] | null,
-  busy: boolean,
+  status: SaveStatus,
   error: string,
+  /** The card has a saved note (show Delete note). */
+  deletable: boolean,
   actions: EditorActions,
 ): TemplateResult {
-  const text = () => document.querySelector<HTMLTextAreaElement>("#dnNoteText")?.value ?? "";
   return html`<button class="tad-close" id="tadNoteCloseBtn" @click=${actions.close}>
       Close ×
     </button>
     <h2 class="dn-title">${name}</h2>
+    ${saveStatusTemplate(status, error, actions.retry)}
     <p class="dn-sub">Why is this card in the deck? Pick any that fit, then add a few words.</p>
     ${
       suggested
@@ -162,24 +185,15 @@ export function editorTemplate(
       aria-label="Note"
       placeholder="For example: turn-two ramp that powers out the commander"
       .value=${note?.text ?? ""}
+      @input=${(event: Event) => actions.input((event.target as HTMLTextAreaElement).value)}
     ></textarea>
-    ${error ? html`<p class="status err dn-error">${error}</p>` : nothing}
     <div class="row dn-buttons">
       ${
-        note
-          ? html`<button type="button" class="ghost" ?disabled=${busy} @click=${actions.remove}>
-              Delete note
-            </button>`
+        deletable
+          ? html`<button type="button" class="ghost" @click=${actions.remove}>Delete note</button>`
           : nothing
       }
-      <button
-        type="button"
-        id="dnNoteSaveBtn"
-        ?disabled=${busy}
-        @click=${() => actions.save(text())}
-      >
-        ${busy ? "Saving…" : "Save note"}
-      </button>
+      <button type="button" id="dnNoteDoneBtn" @click=${actions.close}>Done</button>
     </div>`;
 }
 
@@ -198,19 +212,27 @@ export function readNoteTemplate(name: string, note: CardNote, close: () => void
 
 export interface PrimerActions {
   close(): void;
-  save(primer: string, share: boolean): void;
+  /** The primer or the tuning tick changed (saved after a pause). */
+  input(primer: string, share: boolean): void;
+  retry(): void;
 }
 
 export function primerTemplate(
   notes: DeckNotesDoc,
-  busy: boolean,
+  status: SaveStatus,
   error: string,
   actions: PrimerActions,
 ): TemplateResult {
+  const changed = () =>
+    actions.input(
+      document.querySelector<HTMLTextAreaElement>("#dnPrimerText")?.value ?? "",
+      document.querySelector<HTMLInputElement>("#dnShareTuning")?.checked === true,
+    );
   return html`<button class="tad-close" id="tadNoteCloseBtn" @click=${actions.close}>
       Close ×
     </button>
     <h2 class="dn-title">Deck Primer</h2>
+    ${saveStatusTemplate(status, error, actions.retry)}
     <p class="dn-sub">
       How the deck plays, what it's trying to do and how it wins. Podmates who can see the deck can
       read it.
@@ -222,26 +244,19 @@ export function primerTemplate(
       maxlength=${PM_LIMITS.deckPrimer}
       aria-label="Deck primer"
       .value=${notes.primer}
+      @input=${changed}
     ></textarea>
     <label class="dn-share">
-      <input id="dnShareTuning" type="checkbox" .checked=${notes.shareForTuning} />
+      <input
+        id="dnShareTuning"
+        type="checkbox"
+        .checked=${notes.shareForTuning}
+        @change=${changed}
+      />
       <span>Share my notes and decklist to help tune Spark</span>
     </label>
-    ${error ? html`<p class="status err dn-error">${error}</p>` : nothing}
     <div class="row dn-buttons">
-      <button type="button" class="ghost" ?disabled=${busy} @click=${actions.close}>Cancel</button>
-      <button
-        type="button"
-        id="dnPrimerSaveBtn"
-        ?disabled=${busy}
-        @click=${() =>
-          actions.save(
-            document.querySelector<HTMLTextAreaElement>("#dnPrimerText")?.value ?? "",
-            document.querySelector<HTMLInputElement>("#dnShareTuning")?.checked === true,
-          )}
-      >
-        ${busy ? "Saving…" : "Save primer"}
-      </button>
+      <button type="button" id="dnPrimerDoneBtn" @click=${actions.close}>Done</button>
     </div>`;
 }
 

@@ -56,6 +56,13 @@ function show(extras: DeckNotesExtras) {
   draw();
 }
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+const type = (selector: string, value: string) => {
+  const field = document.querySelector<HTMLTextAreaElement>(selector)!;
+  field.value = value;
+  field.dispatchEvent(new Event("input"));
+};
+const statusLine = () =>
+  document.querySelector(".dn-status")?.textContent?.replace(/\s+/g, " ").trim();
 const button = (label: string) =>
   [...document.querySelectorAll<HTMLButtonElement>("button")].find(
     (b) => (b.getAttribute("aria-label") ?? b.textContent ?? "").trim() === label,
@@ -92,8 +99,8 @@ describe("deck notes in View Deck", () => {
     button("Add a note for Opt")!.click();
     button("Draw")!.click();
     expect(button("Draw")!.getAttribute("aria-pressed")).toBe("true");
-    document.querySelector<HTMLTextAreaElement>("#dnNoteText")!.value = "Smooths draws";
-    button("Save note")!.click();
+    type("#dnNoteText", "Smooths draws");
+    button("Done")!.click();
     await settle();
     expect(cloud.saveCardNote).toHaveBeenCalledWith(deck, "Opt", {
       roles: ["draw"],
@@ -121,7 +128,7 @@ describe("deck notes in View Deck", () => {
     expect(button("Tutor")!.getAttribute("aria-pressed")).toBe("true");
     button("Tutor")!.click();
     button("Combo piece")!.click();
-    button("Save note")!.click();
+    button("Done")!.click();
     await settle();
     expect(cloud.saveCardNote).toHaveBeenCalledWith(deck, "Opt", {
       roles: ["draw", "combo"],
@@ -138,13 +145,83 @@ describe("deck notes in View Deck", () => {
     show(deckNotesExtras({ ...target, ref: deck, me: "ann" }));
     await settle();
     button("Write a primer")!.click();
-    document.querySelector<HTMLTextAreaElement>("#dnPrimerText")!.value = "Go wide.";
-    document.querySelector<HTMLInputElement>("#dnShareTuning")!.checked = true;
-    button("Save primer")!.click();
+    type("#dnPrimerText", "Go wide.");
+    const tick = document.querySelector<HTMLInputElement>("#dnShareTuning")!;
+    tick.checked = true;
+    tick.dispatchEvent(new Event("change"));
+    button("Done")!.click();
     await settle();
-    expect(cloud.saveDeckPrimer).toHaveBeenCalledWith(deck, "Go wide.", true);
+    expect(cloud.saveDeckPrimer).toHaveBeenLastCalledWith(deck, "Go wide.", true);
+    expect(document.getElementById("tadNoteOverlay")).toBeNull();
     expect(root.querySelector(".dn-primer-text")?.textContent).toBe("Go wide.");
     expect(root.textContent).toContain("Edit primer");
+  });
+
+  it("saves on its own: after a chip tap, after a pause in typing, and on Escape", async () => {
+    vi.useFakeTimers();
+    try {
+      show(deckNotesExtras({ ...target, ref: deck, me: "ann" }));
+      await vi.advanceTimersByTimeAsync(0);
+      button("Add a note for Opt")!.click();
+      expect(statusLine()).toBe("Changes save automatically.");
+      button("Removal")!.click();
+      expect(cloud.saveCardNote).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(300);
+      expect(cloud.saveCardNote).toHaveBeenCalledWith(deck, "Opt", {
+        roles: ["removal"],
+        text: "",
+      });
+      expect(statusLine()).toBe("Saved.");
+      type("#dnNoteText", "Answers a threat");
+      await vi.advanceTimersByTimeAsync(500);
+      expect(cloud.saveCardNote).toHaveBeenCalledTimes(1);
+      type("#dnNoteText", "Answers any threat");
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(cloud.saveCardNote).toHaveBeenCalledTimes(2);
+      expect(cloud.saveCardNote).toHaveBeenLastCalledWith(deck, "Opt", {
+        roles: ["removal"],
+        text: "Answers any threat",
+      });
+      expect(document.getElementById("tadNoteOverlay")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("writes nothing when a note is only opened, and keeps a failed save open with Retry", async () => {
+    show(deckNotesExtras({ ...target, ref: deck, me: "ann", suggest: () => ["draw"] }));
+    await settle();
+    button("Add a note for Opt")!.click();
+    button("Done")!.click();
+    await settle();
+    expect(cloud.saveCardNote).not.toHaveBeenCalled();
+    expect(document.getElementById("tadNoteOverlay")).toBeNull();
+    cloud.saveCardNote.mockRejectedValueOnce(new Error("offline"));
+    button("Add a note for Opt")!.click();
+    button("Draw")!.click();
+    button("Done")!.click();
+    await settle();
+    expect(statusLine()).toBe("Couldn't save: offline Retry");
+    expect(document.getElementById("tadNoteOverlay")).not.toBeNull();
+    button("Retry")!.click();
+    await settle();
+    await settle();
+    expect(statusLine()).toBe("Saved.");
+    button("Done")!.click();
+    await settle();
+    expect(document.getElementById("tadNoteOverlay")).toBeNull();
+  });
+
+  it("deletes a note", async () => {
+    show(deckNotesExtras({ ...target, ref: deck, me: "ann" }));
+    await settle();
+    button("Note for Sol Ring")!.click();
+    button("Delete note")!.click();
+    await settle();
+    expect(cloud.saveCardNote).toHaveBeenCalledWith(deck, "Sol Ring", null);
+    expect(document.getElementById("tadNoteOverlay")).toBeNull();
+    expect(button("Add a note for Sol Ring")).not.toBeUndefined();
   });
 
   it("shows podmates only the notes, read-only", async () => {

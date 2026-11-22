@@ -15,6 +15,7 @@ import {
 import type { DeckRef } from "../../services/cloud/deck-log";
 import type { DeckNotesDoc, NoteRole } from "../../services/cloud/types";
 import { notesBundle, removedNotes } from "./state";
+import { createAutosaver, type SaveStatus } from "./autosave";
 import {
   copyTemplate,
   editorTemplate,
@@ -85,45 +86,71 @@ export function deckNotesExtras(target: DeckNotesTarget): DeckNotesExtras {
   function openNote(name: string): void {
     if (!ref || !notes) return;
     const existing = notes.cards[name] ?? null;
-    const { modal } = openTadOverlay({
+    // Escape or a tap outside saves anything waiting before the note closes.
+    const layer = openTadOverlay({
       stacked: true,
       id: NOTE_OVERLAY,
       modalStyle: "max-width:440px",
+      onDismiss: () => void (owner ? finish() : layer.handle.close()),
     });
-    const close = () => closeModal(document.getElementById(NOTE_OVERLAY));
+    const { modal } = layer;
     if (!owner) {
-      if (existing) render(readNoteTemplate(name, existing, close), modal);
+      if (existing)
+        render(
+          readNoteTemplate(name, existing, () => layer.handle.close()),
+          modal,
+        );
       return;
     }
     // PodMates' own read starts a new note; an existing note keeps the crafter's choice.
     const suggested = target.suggest?.(name) ?? null;
     let roles: NoteRole[] = [...(existing?.roles ?? suggested ?? [])];
-    let busy = false;
+    let text = existing?.text ?? "";
+    let status: SaveStatus = "idle";
     let error = "";
-    const save = async (note: { roles: NoteRole[]; text: string; app?: NoteRole[] } | null) => {
-      busy = true;
-      error = "";
-      draw();
-      try {
-        updated(await saveCardNote(ref, name, note));
-        close();
-      } catch (err) {
-        reportError(err, { operation: "cloud", userTriggered: true });
-        busy = false;
-        error = "Could not save: " + errorText(err);
+    // Nothing is written until the crafter changes something, so just opening a card adds no note.
+    const saver = createAutosaver<{ roles: NoteRole[]; text: string } | null>(
+      async (note) =>
+        updated(
+          await saveCardNote(
+            ref,
+            name,
+            note && { ...note, ...(suggested ? { app: suggested } : {}) },
+          ),
+        ),
+      (next, err) => {
+        status = next;
+        error = err ? errorText(err) : "";
+        if (err) reportError(err, { operation: "cloud", userTriggered: true });
         draw();
-      }
+      },
+    );
+    const changed = (delay: number) => saver.schedule({ roles: [...roles], text }, delay);
+    const finish = async () => {
+      await saver.flush();
+      if (saver.status() !== "error") layer.handle.close();
     };
     const draw = () =>
       render(
-        editorTemplate(name, existing, roles, suggested, busy, error, {
-          close,
+        editorTemplate(name, existing, roles, suggested, status, error, !!notes?.cards[name], {
+          close: () => void finish(),
           toggleRole(role) {
             roles = roles.includes(role) ? roles.filter((r) => r !== role) : [...roles, role];
+            changed(300);
             draw();
           },
-          save: (text) => void save({ roles, text, ...(suggested ? { app: suggested } : {}) }),
-          remove: () => void save(null),
+          input(next) {
+            text = next;
+            changed(900);
+          },
+          remove() {
+            saver.cancel();
+            saver.schedule(null, 0);
+            void saver.flush().then(() => {
+              if (saver.status() !== "error") layer.handle.close();
+            });
+          },
+          retry: () => changed(0),
         }),
         modal,
       );
@@ -132,29 +159,39 @@ export function deckNotesExtras(target: DeckNotesTarget): DeckNotesExtras {
 
   function editPrimer(): void {
     if (!ref || !notes || !owner) return;
-    const { modal } = openTadOverlay({ stacked: true, id: NOTE_OVERLAY });
-    const close = () => closeModal(document.getElementById(NOTE_OVERLAY));
-    let busy = false;
+    const layer = openTadOverlay({
+      stacked: true,
+      id: NOTE_OVERLAY,
+      onDismiss: () => void finish(),
+    });
+    const { modal } = layer;
+    let status: SaveStatus = "idle";
     let error = "";
+    let latest = { primer: notes.primer, share: notes.shareForTuning };
     const current = notes;
+    const saver = createAutosaver<{ primer: string; share: boolean }>(
+      async ({ primer, share }) => updated(await saveDeckPrimer(ref, primer, share)),
+      (next, err) => {
+        status = next;
+        error = err ? errorText(err) : "";
+        if (err) reportError(err, { operation: "cloud", userTriggered: true });
+        draw();
+      },
+    );
+    async function finish() {
+      await saver.flush();
+      if (saver.status() !== "error") layer.handle.close();
+    }
     const draw = () =>
       render(
-        primerTemplate(current, busy, error, {
-          close,
-          async save(primer, share) {
-            busy = true;
-            error = "";
-            draw();
-            try {
-              updated(await saveDeckPrimer(ref, primer, share));
-              close();
-            } catch (err) {
-              reportError(err, { operation: "cloud", userTriggered: true });
-              busy = false;
-              error = "Could not save: " + errorText(err);
-              draw();
-            }
+        primerTemplate(current, status, error, {
+          close: () => void finish(),
+          input(primer, share) {
+            const tickChanged = share !== latest.share;
+            latest = { primer, share };
+            saver.schedule(latest, tickChanged ? 0 : 1200);
           },
+          retry: () => saver.schedule(latest, 0),
         }),
         modal,
       );

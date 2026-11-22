@@ -453,7 +453,8 @@ newest 50, written by `saveDeck` when cards change, with Spark before/after from
 `users/{uid}/decks/{id}/notes/current` (`services/cloud/deck-notes.ts`): the owner edits them in stacked dialogs,
 podmates read them, and the owner can copy the decklist, primer, notes and Spark checks as one text. A new
 note's chips start from PodMates' read (`cardRoles()` in the app wiring: engine tags via `rolesFromTraits()`, plus
-combos found in the deck), saved alongside as `app` so the copied text shows where the crafter disagreed. Spark checks
+combos found in the deck), saved alongside as `app` so the copied text shows where the crafter disagreed. Notes and the primer save
+automatically (`autosave.ts`: after a pause, one write at a time, flushed on close). Spark checks
 (`users/{uid}/decks/{id}/sparkChecks/{chronicleId}`) are asked in the Chronicles battle survey for the player's own
 deck (`myBattleDeck()`) and tallied in the Deck Log.
 
