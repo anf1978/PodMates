@@ -3,6 +3,7 @@ import * as cloud from "../../services/cloud/gatherings";
 import { reportError } from "../../services/report-error";
 import { render } from "../../ui/html";
 import { showToast } from "../../ui/toast";
+import { emit } from "../../services/events";
 import { battleTemplate } from "./battle-view";
 import { watchBattleResults } from "./watch";
 import type { ChronicleBattle, ChronicleBattleDeck } from "./state";
@@ -80,6 +81,12 @@ export function renderBattleControls(): void {
                 renderBattleControls();
               }
               showToast("Gathering ended.");
+              // The night is over: now is the time to rate its battles.
+              emit("chronicles:surveys", {
+                podId: context.podId,
+                heading: context.gatheringTitle || "This Gathering",
+                onlyIfPending: true,
+              });
             } catch (error) {
               reportError(error, { operation: "cloud", userTriggered: true });
               showToast("Could not end the Gathering: " + message(error));

@@ -7,6 +7,7 @@ import {
   kindOf,
   opensGathering,
   sampleItem,
+  toRateItem,
   TYPES,
   unreadCount,
   visible,
@@ -117,4 +118,17 @@ it("reads a gathering activity with the survey ref as a survey notice that opens
   expect(TYPES.survey.text("Hana", "Friday")).toBe(
     'Hana ended "Friday" — rate the battles you played',
   );
+});
+
+it("shows the device-built battles-to-rate reminder unless its switch is off or its pod muted", () => {
+  const state = initialState();
+  state.uid = "me";
+  state.toRate = [toRateItem("pod", 2, now - 1000)];
+  expect(visible(state, now).map((i) => i.subject)).toEqual(["You have 2 battles to rate"]);
+  expect(toRateItem("pod", 1, now).subject).toBe("You have 1 battle to rate");
+  state.prefs.muted.pod = true;
+  expect(visible(state, now)).toEqual([]);
+  state.prefs = { types: { toRate: false }, muted: {} };
+  expect(visible(state, now)).toEqual([]);
+  expect(kindOf(item("forged", { type: "toRate" }))).toBeNull();
 });

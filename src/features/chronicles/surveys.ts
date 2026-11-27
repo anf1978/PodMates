@@ -77,14 +77,14 @@ export function surveysPanelTemplate(
 
 /** The dialog opened from the bell's survey notice. */
 export function surveysDialogTemplate(
-  podName: string,
+  heading: string,
   items: Chronicle[],
   close: () => void,
   actions: SurveyListActions,
 ): TemplateResult {
   return html`<button class="tad-close" id="tadCloseBtn" @click=${close}>Close ×</button>
     <h2 class="chronicles-surveys-heading">Battles to rate</h2>
-    <p class="tad-sub chronicles-dialog-sub">${podName}</p>
+    <p class="tad-sub chronicles-dialog-sub">${heading}</p>
     ${
       items.length
         ? rowsTemplate(items, actions)

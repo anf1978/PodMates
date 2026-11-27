@@ -5,8 +5,8 @@ import { getCurrentUser } from "../../services/cloud/session";
 import { PM_LIMITS } from "../../services/cloud/limits";
 import { logBattle } from "../../services/cloud/gatherings";
 import { reportError } from "../../services/report-error";
-import { html, render } from "../../ui/html";
-import { on } from "../../services/events";
+import { render } from "../../ui/html";
+import { emit, on } from "../../services/events";
 import { openTadOverlay, closeTryADeckModal } from "../../ui/tad-modal";
 import { showToast } from "../../ui/toast";
 import { saveSparkCheck } from "../../services/cloud/deck-notes";
@@ -76,20 +76,25 @@ function surveyActions(podId: string, after: () => void): SurveyListActions {
 }
 
 export function renderMatchLog(): void {
-  const area = document.getElementById("matchLogArea");
-  if (!area) return;
-  const podId = runtime?.podId();
+  const podId = runtime?.podId() || null;
   const pending = podId
     ? pendingSurveys(state.entries, state.uid, loadSkipped(state.uid), Date.now())
     : [];
-  render(
-    html`${surveysPanelTemplate(pending, surveyActions(podId || "", renderAfterSurvey))}${historyTemplate(
-      state,
-      openChronicleNotesEditor,
-      confirmDeleteChronicle,
-    )}`,
-    area,
-  );
+  // Above the collapsed journal, so it shows on MyPods without opening Chronicles & Stories.
+  const surveys = document.getElementById("chroniclesSurveysArea");
+  if (surveys)
+    render(surveysPanelTemplate(pending, surveyActions(podId || "", renderAfterSurvey)), surveys);
+  const area = document.getElementById("matchLogArea");
+  if (area) render(historyTemplate(state, openChronicleNotesEditor, confirmDeleteChronicle), area);
+  // The bell keeps a standing "battles to rate" reminder for this pod (also for the host, who
+  // never gets a notice about their own End Gathering).
+  if (state.uid && podId)
+    emit("chronicles:pending", {
+      uid: state.uid,
+      podId,
+      count: pending.length,
+      latestAt: pending[0]?.createdAt || 0,
+    });
 }
 
 function renderAfterSurvey(): void {
@@ -97,8 +102,15 @@ function renderAfterSurvey(): void {
   void refreshCloudChroniclesCache();
 }
 
-/** The bell's survey notice: the battles still to rate in `podId`, whichever pod is active. */
-export async function openSurveys(podId: string, podName: string): Promise<void> {
+/**
+ * The battles still to rate in `podId`, whichever pod is active (from the bell, or right after
+ * ending a Gathering, when `onlyIfPending` keeps an empty list from opening).
+ */
+export async function openSurveys(
+  podId: string,
+  heading: string,
+  onlyIfPending = false,
+): Promise<void> {
   const uid = getCurrentUser()?.uid || null;
   if (!uid || !podId) return;
   let entries: Chronicle[] = [];
@@ -111,13 +123,12 @@ export async function openSurveys(podId: string, podName: string): Promise<void>
   }
   if (getCurrentUser()?.uid !== uid) return;
   const pending = pendingSurveys(entries, uid, loadSkipped(uid), Date.now());
-  const again = (): void => {
-    if (podId === runtime?.podId()) void refreshCloudChroniclesCache();
-    void openSurveys(podId, podName);
-  };
+  if (onlyIfPending && !pending.length) return;
+  if (podId === runtime?.podId()) void refreshCloudChroniclesCache();
+  const again = (): void => void openSurveys(podId, heading);
   const { modal } = openTadOverlay({ modalStyle: "max-width:460px" });
   render(
-    surveysDialogTemplate(podName, pending, closeTryADeckModal, surveyActions(podId, again)),
+    surveysDialogTemplate(heading, pending, closeTryADeckModal, surveyActions(podId, again)),
     modal,
   );
 }
@@ -340,5 +351,8 @@ export function mount(): void {
   render(panelTemplate(clearHistory), panel);
   renderMatchLog();
   offSurveys?.();
-  offSurveys = on("chronicles:surveys", ({ podId, podName }) => void openSurveys(podId, podName));
+  offSurveys = on(
+    "chronicles:surveys",
+    ({ podId, heading, onlyIfPending }) => void openSurveys(podId, heading, onlyIfPending),
+  );
 }

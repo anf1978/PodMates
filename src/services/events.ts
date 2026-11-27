@@ -31,8 +31,13 @@ type AppEvents = {
   "samples:chosen": { key: string };
   /** A deck was saved to the signed-in account from the deck form. */
   "decks:saved": { name: string };
-  /** Open the battles the signed-in player still has to rate in this pod (from a survey notice). */
-  "chronicles:surveys": { podId: string; podName: string };
+  /**
+   * Open the battles the signed-in player still has to rate in this pod (from the bell, or after
+   * End Gathering with `onlyIfPending`); `heading` is shown under the dialog title.
+   */
+  "chronicles:surveys": { podId: string; heading: string; onlyIfPending?: boolean };
+  /** How many battles the signed-in player still has to rate in the active pod (for the bell). */
+  "chronicles:pending": { uid: string; podId: string; count: number; latestAt: number };
   "spoilers:open": WithId<PodDoc>;
   "pods:active": string | null;
   "pods:navigate": undefined;

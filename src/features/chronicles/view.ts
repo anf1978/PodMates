@@ -10,6 +10,7 @@ import {
 
 export function panelTemplate(clear: () => void): TemplateResult {
   return html`
+    <div id="chroniclesSurveysArea"></div>
     <details class="panel-collapsible">
       <summary class="panel-toggle">Chronicles &amp; Stories</summary>
       <div id="matchHistoryBody">

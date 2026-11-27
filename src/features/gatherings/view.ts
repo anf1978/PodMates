@@ -10,6 +10,7 @@ import {
   type Gathering,
 } from "../../services/cloud/gatherings";
 import { reportError } from "../../services/report-error";
+import { emit } from "../../services/events";
 import { occupied } from "./state";
 import { errorMessage } from "./controls";
 import { gatheringRuntime, type ChartDeck, type BattleContext } from "./runtime";
@@ -242,6 +243,12 @@ export async function renderLiveGatheringTray(
           closeTryADeckModal();
           gatheringRuntime().refreshPods();
           showToast("Gathering ended.");
+          // The night is over: now is the time to rate its battles (Chronicles answers).
+          emit("chronicles:surveys", {
+            podId,
+            heading: gathering.title || "This Gathering",
+            onlyIfPending: true,
+          });
         } catch (error) {
           showToast("Could not end the Gathering: " + errorMessage(error));
           await actions.refresh();

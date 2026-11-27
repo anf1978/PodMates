@@ -85,3 +85,5 @@ Gathering, everyone who played gets a bell notice that their battles are ready t
 
 `016` (Gatherings), `017` (Chronicles), `024` (notifications), `032` (stored-type mapping), `041`–`042` (tips),
 `047` (Spark checks in the survey).
+
+Later changes: 053

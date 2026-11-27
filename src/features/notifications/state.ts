@@ -50,6 +50,13 @@ export const TYPES = {
     text: (n: string, s?: string) =>
       n + ' ended "' + (s || "the gathering") + '" — rate the battles you played',
   },
+  // Not a Firestore activity: built on the device from the active pod's Chronicles (it stays while
+  // anything is left to rate, and also reaches the host, who gets no notice of their own action).
+  toRate: {
+    label: "I still have battles to rate",
+    tag: "Rate",
+    text: (_n: string, s?: string) => s || "You have battles to rate",
+  },
   cancelled: {
     label: "A gathering is cancelled",
     tag: "Cancelled",
@@ -81,6 +88,8 @@ export interface InboxState {
   feeds: Map<string, ActivityItem[]>;
   /** Recently added Try-a-Deck decks, as inbox items (podId "", ref = the deck's key). */
   library: NotificationItem[];
+  /** Standing "battles to rate" reminders, one per pod (podId set, ref = "to-rate"). */
+  toRate: NotificationItem[];
   seenAt: number;
   prefs: Preferences;
 }
@@ -91,6 +100,7 @@ export function initialState(): InboxState {
     pods: [],
     feeds: new Map(),
     library: [],
+    toRate: [],
     seenAt: 0,
     prefs: { types: {}, muted: {} },
   };
@@ -100,7 +110,10 @@ export function initialState(): InboxState {
 export function kindOf(item: ActivityItem): NotificationType | null {
   if (item.type === "deck" && item.ref === "updated") return "deckUpdated";
   if (item.type === "gathering" && item.ref === SURVEY_NOTICE_REF) return "survey";
-  if (["deckUpdated", "tryADeck", "survey"].includes(item.type) || !Object.hasOwn(TYPES, item.type))
+  if (
+    ["deckUpdated", "tryADeck", "survey", "toRate"].includes(item.type) ||
+    !Object.hasOwn(TYPES, item.type)
+  )
     return null;
   return item.type as NotificationType;
 }
@@ -118,6 +131,9 @@ export function visible(state: InboxState, now: number): NotificationItem[] {
       out.push({ ...item, type: kind });
     }
   });
+  if (state.prefs.types.toRate !== false) {
+    for (const item of state.toRate) if (!state.prefs.muted[item.podId]) out.push(item);
+  }
   if (state.prefs.types.tryADeck !== false) {
     for (const item of state.library) {
       if (item.createdAt && now - item.createdAt <= 30 * 86400000) out.push(item);
@@ -156,6 +172,20 @@ export function sampleItem(deck: {
     subject: deck.name + (deck.commander ? " (" + deck.commander + ")" : ""),
     ref: deck.key,
     createdAt: deck.addedAt,
+  };
+}
+
+/** The bell's standing reminder that `count` battles in a pod still need rating. */
+export function toRateItem(podId: string, count: number, latestAt: number): NotificationItem {
+  return {
+    id: "to-rate-" + podId,
+    podId,
+    type: "toRate",
+    by: "",
+    byName: "",
+    subject: count === 1 ? "You have 1 battle to rate" : "You have " + count + " battles to rate",
+    ref: "to-rate",
+    createdAt: latestAt,
   };
 }
 

@@ -396,7 +396,9 @@ new/end writes and realtime/fallback teardown.
 The after-battle survey never opens mid-game: `surveys.ts` renders **Battles to rate** above the journal (battles
 the player played in the last 30 days without a response or a device-local skip, `pm_survey_skipped_<uid>`;
 `pendingSurveys()` in `state.ts`) and answers the `chronicles:surveys` event with the same list as a dialog for
-the notice's pod. `endGathering()` in `services/cloud/gatherings.ts` posts the survey notice in the background
+the notice's pod (also opened after End Gathering, with `onlyIfPending`). The list renders in
+`#chroniclesSurveysArea`, above the collapsed journal, and each render emits `chronicles:pending` so the bell can
+keep a device-built `toRate` reminder for the active pod. `endGathering()` in `services/cloud/gatherings.ts` posts the survey notice in the background
 (`surveyRecipients()`; stored as a `gathering` activity with `ref: "survey"`, at most 12 uids per record).
 
 `impact` (prefix `impact-`) owns the default/proposed list, reasons, candidate queue, nominations,

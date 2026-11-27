@@ -7,7 +7,7 @@ import { logBattle } from "../../services/cloud/gatherings";
 import { saveSparkCheck } from "../../services/cloud/deck-notes";
 import { reportError } from "../../services/report-error";
 import { closeTryADeckModal } from "../../ui/tad-modal";
-import { emit } from "../../services/events";
+import { emit, on } from "../../services/events";
 import {
   configureChronicles,
   mount,
@@ -403,7 +403,7 @@ describe("journal interactions", () => {
     vi.mocked(cloud.loadAllChronicles).mockResolvedValue([
       entry({ id: "b9", createdAt: Date.now() }),
     ]);
-    emit("chronicles:surveys", { podId: "pod-a", podName: "Friday Pod" });
+    emit("chronicles:surveys", { podId: "pod-a", heading: "Friday Pod" });
     await vi.waitFor(() =>
       expect(document.querySelector("[data-survey-rate='b9']")).not.toBeNull(),
     );
@@ -414,5 +414,27 @@ describe("journal interactions", () => {
     await vi.waitFor(() =>
       expect(document.querySelector("#tadOverlay")!.textContent).toContain("nothing left to rate"),
     );
+  });
+  it("shows battles to rate above the collapsed journal and tells the bell how many are left", async () => {
+    const pending = vi.fn();
+    const off = on("chronicles:pending", pending);
+    vi.mocked(cloud.loadAllChronicles).mockResolvedValue([entry({ id: "b1", createdAt: 5 })]);
+    vi.spyOn(Date, "now").mockReturnValue(10);
+    await refreshCloudChroniclesCache();
+    const box = document.querySelector("#chroniclesSurveysArea #chroniclesSurveys");
+    expect(box?.closest("details")).toBeNull();
+    expect(pending).toHaveBeenLastCalledWith({ uid: "me", podId: "pod-a", count: 1, latestAt: 5 });
+    click('[data-survey-skip="b1"]');
+    expect(pending).toHaveBeenLastCalledWith({ uid: "me", podId: "pod-a", count: 0, latestAt: 0 });
+    off();
+    vi.restoreAllMocks();
+  });
+
+  it("after End Gathering opens the list only when something is left to rate", async () => {
+    vi.mocked(cloud.loadAllChronicles).mockResolvedValue([]);
+    emit("chronicles:surveys", { podId: "pod-a", heading: "Friday", onlyIfPending: true });
+    await vi.waitFor(() => expect(cloud.loadAllChronicles).toHaveBeenLastCalledWith("pod-a"));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(document.querySelector("#tadOverlay")).toBeNull();
   });
 });

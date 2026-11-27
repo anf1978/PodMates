@@ -12,6 +12,7 @@ import {
   initialState,
   opensGathering,
   sampleItem,
+  toRateItem,
   unreadCount,
   type NotificationItem,
 } from "./state";
@@ -33,6 +34,8 @@ export function mount(bar: HTMLElement): NotificationsFeature {
   let modal: HTMLElement | null = null;
   const unsubs: (() => void)[] = [];
   let timer: ReturnType<typeof setTimeout> | undefined;
+  // Kept outside `state` (which restarts reset): Chronicles reports these whenever it renders.
+  const toRate = new Map<string, { uid: string; item: NotificationItem }>();
   const fragment = document.createDocumentFragment();
   render(bellView(open), fragment);
   const bell = fragment.querySelector<HTMLButtonElement>("#pmBellBtn")!;
@@ -40,6 +43,9 @@ export function mount(bar: HTMLElement): NotificationsFeature {
   bar.prepend(fragment);
 
   function updateBadge(): void {
+    state.toRate = [...toRate.values()]
+      .filter((entry) => entry.uid === state.uid)
+      .map((entry) => entry.item);
     const n = unreadCount(state, Date.now());
     badge.textContent = n > 9 ? "9+" : String(n);
     badge.classList.toggle("pm-notif-unread", n > 0);
@@ -150,9 +156,9 @@ export function mount(bar: HTMLElement): NotificationsFeature {
       emit("gatherings:open", { podId: item.podId, id: item.ref! });
       return;
     }
-    if (item.type === "survey") {
+    if (item.type === "survey" || item.type === "toRate") {
       const pod = state.pods.find((p) => p.id === item.podId);
-      emit("chronicles:surveys", { podId: item.podId, podName: pod?.name || "Pod" });
+      emit("chronicles:surveys", { podId: item.podId, heading: pod?.name || "Pod" });
       return;
     }
     if (item.type === "tryADeck") {
@@ -183,6 +189,12 @@ export function mount(bar: HTMLElement): NotificationsFeature {
     void restart();
   }
   const offMembership = on("pods:membership", restartSoon);
+  const offPending = on("chronicles:pending", ({ uid, podId, count, latestAt }) => {
+    if (count > 0) toRate.set(podId, { uid, item: toRateItem(podId, count, latestAt) });
+    else toRate.delete(podId);
+    updateBadge();
+    redraw();
+  });
   onAuthChange(() => {
     if (disposed) return;
     stop();
@@ -205,6 +217,7 @@ export function mount(bar: HTMLElement): NotificationsFeature {
       clearTimeout(timer);
       stop();
       offMembership();
+      offPending();
       document.removeEventListener("visibilitychange", visibility);
       if (modal?.isConnected) closeTryADeckModal();
       bell.remove();
