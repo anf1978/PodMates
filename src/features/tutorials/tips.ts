@@ -141,6 +141,12 @@ export const TIPS: readonly Tip[] = [
     text: "Rate the battle and add notes. Your pod's history and each deck's battle count build from these.",
   },
   {
+    id: "tip-surveys",
+    when: ".chronicles-surveys-heading",
+    title: "Battles to rate",
+    text: "Battles you played wait here, so nobody stops mid-game. Rate them when the night is over, or skip.",
+  },
+  {
     id: "tip-impact",
     when: ".impact-title",
     title: "Impact cards",

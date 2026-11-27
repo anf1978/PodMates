@@ -20,18 +20,12 @@ export interface BattleRuntime {
 }
 
 let runtime: BattleRuntime;
-let feedback: (podId: string, id: string) => void;
 let log: () => Promise<void>;
 let stopWatching: (() => void) | undefined;
 
-export function configureBattle(
-  value: BattleRuntime,
-  survey: typeof feedback,
-  logBattle: typeof log,
-): void {
+export function configureBattle(value: BattleRuntime, logBattle: typeof log): void {
   stopResultsPolling();
   runtime = value;
-  feedback = survey;
   log = logBattle;
 }
 
@@ -49,8 +43,8 @@ export function startResultsPolling(): void {
     () => runtime.context() === context,
     (id) => {
       context.loggedChronicleId = id;
+      // No survey mid-game: players rate the battle later from Chronicles.
       renderBattleControls();
-      if (!context.isHost) feedback(context.podId, id);
     },
   );
 }

@@ -82,4 +82,4 @@ fields. Roll back code with `git revert`.
 `004`, `012` (seat deck picker), `015` (pods emit host/sample/paint), `017` (battle logging and results), `023`
 (comparison), `024` (notifications open Gatherings).
 
-Later changes: 038
+Later changes: 038, 052

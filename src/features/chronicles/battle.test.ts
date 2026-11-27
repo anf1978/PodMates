@@ -45,7 +45,6 @@ function gathering(overrides: Partial<cloud.Gathering> = {}): cloud.Gathering {
 
 let context: ChronicleBattle | null;
 const unsubscribe = vi.fn();
-const feedback = vi.fn();
 const log = vi.fn<() => Promise<void>>();
 const results = vi.fn<(decks: ChronicleBattleDeck[]) => void>();
 const clearDecks = vi.fn();
@@ -80,7 +79,6 @@ beforeEach(() => {
       openGathering,
       confirmAction: confirm,
     },
-    feedback,
     log,
   );
   renderBattleControls();
@@ -126,7 +124,7 @@ it("requires confirmation for End Gathering and Log Battle", async () => {
   expect(log).toHaveBeenCalledOnce();
 });
 
-it("opens a non-host survey only for a new committed result and tears down its listener", () => {
+it("shows a non-host the logged battle without a mid-game survey, and tears down its listener", () => {
   context!.isHost = false;
   context!.loggedChronicleId = null;
   context!.ignoreChronicleId = "old";
@@ -134,10 +132,11 @@ it("opens a non-host survey only for a new committed result and tears down its l
   const receive = vi.mocked(cloud.watchGathering).mock.calls[0][2];
   receive(gathering({ lastLoggedChronicleId: "new" }), { ...metadata, hasPendingWrites: true });
   receive(gathering(), metadata);
-  expect(feedback).not.toHaveBeenCalled();
+  expect(context!.loggedChronicleId).toBeNull();
   receive(gathering({ lastLoggedChronicleId: "new" }), metadata);
   receive(gathering({ lastLoggedChronicleId: "new" }), metadata);
-  expect(feedback).toHaveBeenCalledExactlyOnceWith("pod-a", "new");
+  expect(context!.loggedChronicleId).toBe("new");
+  expect(document.querySelector("#tadOverlay, #feedbackStatus")).toBeNull();
   expect(unsubscribe).toHaveBeenCalledOnce();
   expect(document.querySelector("#battleControlsArea")!.textContent).toContain(
     "thanks for playing",

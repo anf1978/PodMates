@@ -17,7 +17,9 @@ export function battleTemplate(
   if (context.loggedChronicleId) {
     if (!context.isHost)
       return html`<div class="panel chronicles-battle-thanks">
-        <p>Battle logged — thanks for playing!</p>
+        <p>
+          Battle logged — thanks for playing! Rate it later under Battles to rate in Chronicles.
+        </p>
       </div>`;
     return html`
       <div class="panel chronicles-battle-panel">

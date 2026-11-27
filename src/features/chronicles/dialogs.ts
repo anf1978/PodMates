@@ -91,6 +91,7 @@ export function feedbackTemplate(
   close: () => void,
   submit: () => void,
   mine: SurveyDeck | null = null,
+  skip: () => void = close,
 ): TemplateResult {
   return html`
     <button class="tad-close" id="tadCloseBtn" @click=${close}>Close ×</button>
@@ -114,7 +115,7 @@ export function feedbackTemplate(
       ></textarea>
     </div>
     <div class="row chronicles-feedback-buttons">
-      <button id="skipFeedbackBtn" class="ghost" @click=${close}>Skip</button>
+      <button id="skipFeedbackBtn" class="ghost" @click=${skip}>Skip</button>
       <button id="submitFeedbackBtn" @click=${submit}>Submit</button>
     </div>
     <div id="feedbackStatus" class="chronicles-feedback-status"></div>

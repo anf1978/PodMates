@@ -19,6 +19,11 @@ import { reportError } from "../report-error";
 
 export type ActivityItem = WithId<ActivityDoc> & { podId: string };
 
+/** The `ref` that marks a "gathering" activity as "the battles you played are ready to rate". */
+export const SURVEY_NOTICE_REF = "survey";
+/** The rules accept at most this many uids in an activity's `to`. */
+export const NOTICE_MAX_TO = 12;
+
 export const activityCol = (podId: string) => collection(db, "pods", podId, "activity");
 
 async function activityPodIds(uid: string): Promise<string[]> {
@@ -47,7 +52,7 @@ function activityRecord(
     createdAt: Date.now(),
   };
   if (ref) data.ref = clampText(String(ref), 80);
-  if (to && to.length) data.to = to.slice(0, 12);
+  if (to && to.length) data.to = to.slice(0, NOTICE_MAX_TO);
   return data;
 }
 

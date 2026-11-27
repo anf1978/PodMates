@@ -150,6 +150,11 @@ export function mount(bar: HTMLElement): NotificationsFeature {
       emit("gatherings:open", { podId: item.podId, id: item.ref! });
       return;
     }
+    if (item.type === "survey") {
+      const pod = state.pods.find((p) => p.id === item.podId);
+      emit("chronicles:surveys", { podId: item.podId, podName: pod?.name || "Pod" });
+      return;
+    }
     if (item.type === "tryADeck") {
       emit("samples:preview", { key: item.ref || "" });
       return;

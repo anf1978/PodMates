@@ -7,6 +7,7 @@ import { logBattle } from "../../services/cloud/gatherings";
 import { saveSparkCheck } from "../../services/cloud/deck-notes";
 import { reportError } from "../../services/report-error";
 import { closeTryADeckModal } from "../../ui/tad-modal";
+import { emit } from "../../services/events";
 import {
   configureChronicles,
   mount,
@@ -17,6 +18,8 @@ import {
 import {
   canEditChronicle,
   battleEntry,
+  pendingSurveys,
+  surveyDeckFor,
   emptyState,
   feedbackSummary,
   groupChronicles,
@@ -53,6 +56,40 @@ function entry(overrides: Partial<Chronicle> = {}): Chronicle {
     ...overrides,
   };
 }
+
+describe("battles to rate", () => {
+  const now = 40 * 86400000;
+  it("lists battles the player played and has not rated or skipped, within thirty days, newest first", () => {
+    const entries = [
+      entry({ id: "rated", createdAt: now - 5, feedbackResponses: [{ uid: "me" } as never] }),
+      entry({ id: "older", createdAt: now - 10 }),
+      entry({ id: "newer", createdAt: now - 1 }),
+      entry({ id: "not-mine", participants: ["other"] }),
+      entry({ id: "skipped", createdAt: now - 2 }),
+      entry({ id: "stale", createdAt: now - 31 * 86400000 }),
+    ];
+    expect(pendingSurveys(entries, "me", new Set(["skipped"]), now).map((e) => e.id)).toEqual([
+      "newer",
+      "older",
+    ]);
+    expect(pendingSurveys(entries, null, new Set(), now)).toEqual([]);
+  });
+
+  it("finds the player's own saved deck in a logged battle for the Spark question", () => {
+    const battle = entry({
+      decks: [
+        { commander: "Atraxa", spark: "6.3", deckRef: { uid: "other", id: "x" } },
+        { commander: "Yuriko", spark: "7.1", uid: "me", deckRef: { uid: "me", id: "d1" } },
+      ],
+    });
+    expect(surveyDeckFor(battle, "me")).toEqual({
+      ref: { uid: "me", id: "d1" },
+      name: "Yuriko",
+      spark: 7.1,
+    });
+    expect(surveyDeckFor(entry(), "me")).toBeNull();
+  });
+});
 
 describe("journal state", () => {
   it("snapshots battle identity, full partner names, guest players and one-decimal Spark", () => {
@@ -135,6 +172,7 @@ describe("journal interactions", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    localStorage.clear();
     fake.user = { uid: "me" };
     podId = "pod-a";
     document.body.innerHTML = '<div id="matchHistoryPanel" class="panel"></div>';
@@ -162,7 +200,7 @@ describe("journal interactions", () => {
   });
   afterEach(closeTryADeckModal);
 
-  it("logs the captured battle through the repository before updating controls and opening feedback", async () => {
+  it("logs the captured battle through the repository and updates controls without a mid-game survey", async () => {
     vi.mocked(logBattle).mockResolvedValueOnce("new-battle");
     await runLogBattle();
     expect(logBattle).toHaveBeenCalledWith(
@@ -171,7 +209,8 @@ describe("journal interactions", () => {
       expect.objectContaining({ gatheringId: "g1", participants: ["me"] }),
     );
     expect(battleLogged).toHaveBeenCalledWith(battle.mock.results[0].value.context, "new-battle");
-    expect(document.querySelector("#feedbackStatus")).not.toBeNull();
+    expect(document.querySelector("#feedbackStatus")).toBeNull();
+    await vi.waitFor(() => expect(cloud.loadAllChronicles).toHaveBeenCalledTimes(2));
   });
 
   it("does not replace another dialog when a logged battle is no longer active", async () => {
@@ -334,5 +373,46 @@ describe("journal interactions", () => {
       ),
     );
     expect(reportError).toHaveBeenCalledWith(error, { operation: "cloud", userTriggered: true });
+  });
+  it("lists battles to rate above the journal; Rate saves the survey and Skip only hides it here", async () => {
+    vi.mocked(cloud.loadAllChronicles).mockResolvedValue([
+      entry({ id: "b1", createdAt: Date.now() }),
+      entry({ id: "b2", createdAt: Date.now() - 1 }),
+    ]);
+    await refreshCloudChroniclesCache();
+    expect(document.querySelector("#chroniclesSurveys")!.textContent).toContain(
+      "Battles to rate (2)",
+    );
+    click('[data-survey-skip="b2"]');
+    expect(document.querySelector("[data-survey-skip='b2']")).toBeNull();
+    expect(cloud.addChronicleFeedback).not.toHaveBeenCalled();
+    click('[data-survey-rate="b1"]');
+    click('#funRatingRow [data-rate="5"]');
+    click("#submitFeedbackBtn");
+    await vi.waitFor(() =>
+      expect(cloud.addChronicleFeedback).toHaveBeenCalledWith("pod-a", "b1", {
+        fun: 5,
+        accuracy: null,
+        bestMoment: "",
+      }),
+    );
+  });
+
+  it("opens the battles to rate in the notice's pod, even when another pod is active", async () => {
+    podId = "pod-b";
+    vi.mocked(cloud.loadAllChronicles).mockResolvedValue([
+      entry({ id: "b9", createdAt: Date.now() }),
+    ]);
+    emit("chronicles:surveys", { podId: "pod-a", podName: "Friday Pod" });
+    await vi.waitFor(() =>
+      expect(document.querySelector("[data-survey-rate='b9']")).not.toBeNull(),
+    );
+    expect(cloud.loadAllChronicles).toHaveBeenLastCalledWith("pod-a");
+    expect(document.querySelector("#tadOverlay")!.textContent).toContain("Friday Pod");
+    click('[data-survey-rate="b9"]');
+    click("#skipFeedbackBtn");
+    await vi.waitFor(() =>
+      expect(document.querySelector("#tadOverlay")!.textContent).toContain("nothing left to rate"),
+    );
   });
 });

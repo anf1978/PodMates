@@ -1,5 +1,5 @@
 // Device-local inbox state and pure activity filtering; never sends email or push alerts.
-import type { ActivityItem } from "../../services/cloud/activity";
+import { SURVEY_NOTICE_REF, type ActivityItem } from "../../services/cloud/activity";
 import type { PodDoc, WithId } from "../../services/cloud/types";
 
 export const TYPES = {
@@ -41,6 +41,14 @@ export const TYPES = {
     label: "Someone replies to your invite",
     tag: "Reply",
     text: (n: string, s?: string) => n + " " + (s || "replied"),
+  },
+  // Stored as a "gathering" activity with ref "survey" (the live rules accept only the existing
+  // types), addressed to the players of a Gathering that just ended; kindOf() maps it here.
+  survey: {
+    label: "A battle you played is ready to rate",
+    tag: "Rate",
+    text: (n: string, s?: string) =>
+      n + ' ended "' + (s || "the gathering") + '" — rate the battles you played',
   },
   cancelled: {
     label: "A gathering is cancelled",
@@ -91,7 +99,8 @@ export function initialState(): InboxState {
 /** The inbox kind of a stored activity record, or null for kinds this page does not know. */
 export function kindOf(item: ActivityItem): NotificationType | null {
   if (item.type === "deck" && item.ref === "updated") return "deckUpdated";
-  if (["deckUpdated", "tryADeck"].includes(item.type) || !Object.hasOwn(TYPES, item.type))
+  if (item.type === "gathering" && item.ref === SURVEY_NOTICE_REF) return "survey";
+  if (["deckUpdated", "tryADeck", "survey"].includes(item.type) || !Object.hasOwn(TYPES, item.type))
     return null;
   return item.type as NotificationType;
 }

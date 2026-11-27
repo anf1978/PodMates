@@ -4,6 +4,7 @@ import type { ActivityItem } from "../../services/cloud/activity";
 import {
   ago,
   initialState,
+  kindOf,
   opensGathering,
   sampleItem,
   TYPES,
@@ -104,4 +105,16 @@ it("adds recently added Try-a-Deck decks, with their own switch and no pod filte
   expect(opensGathering(shown[0] as NotificationItem)).toBe(false);
   state.prefs.types.tryADeck = false;
   expect(visible(state, now)).toEqual([]);
+});
+
+it("reads a gathering activity with the survey ref as a survey notice that opens no Gathering", () => {
+  const survey = item("s", { type: "gathering", ref: "survey", subject: "Friday", to: ["me"] });
+  expect(kindOf(survey)).toBe("survey");
+  expect(kindOf(item("g", { type: "gathering", ref: "g1" }))).toBe("gathering");
+  expect(kindOf(item("forged", { type: "survey" }))).toBeNull();
+  const notice = { ...survey, type: "survey" } as NotificationItem;
+  expect(opensGathering(notice)).toBe(false);
+  expect(TYPES.survey.text("Hana", "Friday")).toBe(
+    'Hana ended "Friday" — rate the battles you played',
+  );
 });

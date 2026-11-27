@@ -78,4 +78,4 @@ None.
 `004`, `014` (public profiles read Chronicles), `015` (active pod), `016` (Gatherings), `023` (comparison shows the
 battle).
 
-Later changes: 038, 047
+Later changes: 038, 047, 052

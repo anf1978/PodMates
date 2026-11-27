@@ -5,7 +5,8 @@ import { getCurrentUser } from "../../services/cloud/session";
 import { PM_LIMITS } from "../../services/cloud/limits";
 import { logBattle } from "../../services/cloud/gatherings";
 import { reportError } from "../../services/report-error";
-import { render } from "../../ui/html";
+import { html, render } from "../../ui/html";
+import { on } from "../../services/events";
 import { openTadOverlay, closeTryADeckModal } from "../../ui/tad-modal";
 import { showToast } from "../../ui/toast";
 import { saveSparkCheck } from "../../services/cloud/deck-notes";
@@ -22,11 +23,21 @@ import {
   emptyState,
   chronicleDeck,
   battleEntry,
+  pendingSurveys,
+  surveyDeckFor,
+  type Chronicle,
   type ChroniclesState,
   type ChronicleBattle,
   type ChronicleBattleDeck,
 } from "./state";
 import { historyTemplate, panelTemplate } from "./view";
+import {
+  loadSkipped,
+  skipSurvey,
+  surveysDialogTemplate,
+  surveysPanelTemplate,
+  type SurveyListActions,
+} from "./surveys";
 import { configureBattle, type BattleRuntime } from "./battle";
 import "./chronicles.css";
 
@@ -42,15 +53,73 @@ export interface ChroniclesRuntime extends BattleRuntime {
 let runtime: ChroniclesRuntime;
 let state: ChroniclesState = emptyState();
 let refreshVersion = 0;
+let offSurveys: (() => void) | undefined;
 
 export function configureChronicles(value: ChroniclesRuntime): void {
   runtime = value;
-  configureBattle(value, showFeedbackSurvey, runLogBattle);
+  configureBattle(value, runLogBattle);
+}
+
+/** Rate / Skip for battles on a "Battles to rate" list in `podId`; `after` runs once either is done. */
+function surveyActions(podId: string, after: () => void): SurveyListActions {
+  return {
+    rate: (entry) =>
+      showFeedbackSurvey(podId, entry.id, surveyDeckFor(entry, getCurrentUser()?.uid || null), {
+        done: after,
+        skipped: after,
+      }),
+    skip: (entry) => {
+      skipSurvey(getCurrentUser()?.uid || null, entry.id);
+      after();
+    },
+  };
 }
 
 export function renderMatchLog(): void {
   const area = document.getElementById("matchLogArea");
-  if (area) render(historyTemplate(state, openChronicleNotesEditor, confirmDeleteChronicle), area);
+  if (!area) return;
+  const podId = runtime?.podId();
+  const pending = podId
+    ? pendingSurveys(state.entries, state.uid, loadSkipped(state.uid), Date.now())
+    : [];
+  render(
+    html`${surveysPanelTemplate(pending, surveyActions(podId || "", renderAfterSurvey))}${historyTemplate(
+      state,
+      openChronicleNotesEditor,
+      confirmDeleteChronicle,
+    )}`,
+    area,
+  );
+}
+
+function renderAfterSurvey(): void {
+  renderMatchLog();
+  void refreshCloudChroniclesCache();
+}
+
+/** The bell's survey notice: the battles still to rate in `podId`, whichever pod is active. */
+export async function openSurveys(podId: string, podName: string): Promise<void> {
+  const uid = getCurrentUser()?.uid || null;
+  if (!uid || !podId) return;
+  let entries: Chronicle[] = [];
+  try {
+    entries = await chronicles.loadAllChronicles(podId);
+  } catch (error) {
+    reportError(error, { operation: "cloud", userTriggered: true });
+    showToast("Could not load the battles: " + errorMessage(error));
+    return;
+  }
+  if (getCurrentUser()?.uid !== uid) return;
+  const pending = pendingSurveys(entries, uid, loadSkipped(uid), Date.now());
+  const again = (): void => {
+    if (podId === runtime?.podId()) void refreshCloudChroniclesCache();
+    void openSurveys(podId, podName);
+  };
+  const { modal } = openTadOverlay({ modalStyle: "max-width:460px" });
+  render(
+    surveysDialogTemplate(podName, pending, closeTryADeckModal, surveyActions(podId, again)),
+    modal,
+  );
 }
 
 export async function refreshCloudChroniclesCache(): Promise<void> {
@@ -174,7 +243,9 @@ export async function runLogBattle(): Promise<void> {
       context.gatheringId,
       battleEntry(context, decks),
     );
-    if (runtime.battleLogged(context, chronicleId)) showFeedbackSurvey(context.podId, chronicleId);
+    // No survey now: players rate the battle later, from "Battles to rate" in Chronicles.
+    if (runtime.battleLogged(context, chronicleId) && context.podId === runtime.podId())
+      void refreshCloudChroniclesCache();
   } catch (error) {
     reportError(error, { operation: "cloud", userTriggered: true });
     showToast("Could not log the battle: " + errorMessage(error));
@@ -197,6 +268,7 @@ export function showFeedbackSurvey(
   podId: string,
   chronicleId: string,
   mine: (SurveyDeck & { ref: DeckRef }) | null = myBattleDeck(),
+  after: { done?: () => void; skipped?: () => void } = {},
 ): void {
   let fun = 0;
   let accuracy = 0;
@@ -223,6 +295,7 @@ export function showFeedbackSurvey(
           });
           if (modal.isConnected) closeTryADeckModal();
           showToast("Thanks for the feedback!");
+          after.done?.();
         } catch (error) {
           reportError(error, { operation: "cloud", userTriggered: true });
           const status = modal.querySelector<HTMLElement>("#feedbackStatus")!;
@@ -231,6 +304,13 @@ export function showFeedbackSurvey(
         }
       },
       mine,
+      // Skip from a "Battles to rate" list takes the battle off it (on this device); Close keeps it.
+      () => {
+        closeTryADeckModal();
+        if (!after.skipped) return;
+        skipSurvey(getCurrentUser()?.uid || null, chronicleId);
+        after.skipped();
+      },
     ),
     modal,
   );
@@ -259,4 +339,6 @@ export function mount(): void {
   if (!panel) return;
   render(panelTemplate(clearHistory), panel);
   renderMatchLog();
+  offSurveys?.();
+  offSurveys = on("chronicles:surveys", ({ podId, podName }) => void openSurveys(podId, podName));
 }

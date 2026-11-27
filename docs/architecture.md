@@ -393,6 +393,11 @@ the redacted error sink. Unit tests cover scope/permissions, notes and feedback 
 offline browser suite covers guest journal access/sign-in handoff, and `chronicles.modules.spec.ts` Log Battle
 confirmation and host-only post-battle controls. Repository-mocked tests also cover independent ratings/skip, guest-safe repeat,
 new/end writes and realtime/fallback teardown.
+The after-battle survey never opens mid-game: `surveys.ts` renders **Battles to rate** above the journal (battles
+the player played in the last 30 days without a response or a device-local skip, `pm_survey_skipped_<uid>`;
+`pendingSurveys()` in `state.ts`) and answers the `chronicles:surveys` event with the same list as a dialog for
+the notice's pod. `endGathering()` in `services/cloud/gatherings.ts` posts the survey notice in the background
+(`surveyRecipients()`; stored as a `gathering` activity with `ref: "survey"`, at most 12 uids per record).
 
 `impact` (prefix `impact-`) owns the default/proposed list, reasons, candidate queue, nominations,
 search, reset and the separate Pod view below the radar. Its state helpers compute proposed Power/Spark
@@ -488,6 +493,8 @@ device, with their own switch; tapping one emits `samples:preview`, which the pr
 answers with "Chart this deck". A "deck" activity with `ref: "updated"` is shown as its own kind, `deckUpdated` (`kindOf()` in `state.ts`), with
 its own switch; `services/cloud/deck-update-notice.ts` decides when `saveDeck` posts one (card list changed;
 linked-deck syncs at most daily per device via `pm_deck_update_notice_<uid>`; restores and repairs never).
+A "gathering" activity with `ref: "survey"` (`SURVEY_NOTICE_REF`) is the `survey` kind: addressed to the players of
+a Gathering that just ended; tapping it emits `chronicles:surveys`, which Chronicles answers with Battles to rate.
 Auth changes clear old-account state immediately, and generation guards ignore obsolete pod loads/feed
 callbacks. Membership writes emit `pods:membership` after success, so direct repository callers refresh
 subscriptions too. Navigation uses `gatherings:open` and `pods:open`

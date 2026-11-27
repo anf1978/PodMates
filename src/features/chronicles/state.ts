@@ -14,6 +14,8 @@ export interface ChronicleDeck {
   name?: string;
   player?: string;
   spark?: string | number;
+  uid?: string | null;
+  deckRef?: { uid: string; id: string };
 }
 
 export interface ChroniclesState {
@@ -112,11 +114,69 @@ export function feedbackSummary(responses: FeedbackResponse[]): {
 export function chronicleDeck(value: unknown): ChronicleDeck {
   if (!value || typeof value !== "object") return {};
   const deck = value as Record<string, unknown>;
+  const ref = deck.deckRef as Record<string, unknown> | null | undefined;
   return {
     commander: typeof deck.commander === "string" ? deck.commander : undefined,
     name: typeof deck.name === "string" ? deck.name : undefined,
     player: typeof deck.player === "string" ? deck.player : undefined,
     spark:
       typeof deck.spark === "string" || typeof deck.spark === "number" ? deck.spark : undefined,
+    ...(typeof deck.uid === "string" ? { uid: deck.uid } : {}),
+    ...(ref && typeof ref.uid === "string" && typeof ref.id === "string"
+      ? { deckRef: { uid: ref.uid, id: ref.id } }
+      : {}),
   };
+}
+
+/** How long a logged battle stays on a player's "Battles to rate" list. */
+export const SURVEY_WINDOW_MS = 30 * 86400000;
+
+/**
+ * The battles `uid` played in and has not rated or skipped yet, newest first: the after-battle
+ * survey is answered later, from Chronicles, so nobody has to stop mid-game.
+ */
+export function pendingSurveys(
+  entries: Chronicle[],
+  uid: string | null,
+  skipped: ReadonlySet<string>,
+  now: number,
+): Chronicle[] {
+  if (!uid) return [];
+  return entries
+    .filter(
+      (entry) =>
+        Array.isArray(entry.participants) &&
+        entry.participants.includes(uid) &&
+        !(entry.feedbackResponses || []).some((response) => response?.uid === uid) &&
+        !skipped.has(entry.id) &&
+        now - (entry.createdAt || 0) <= SURVEY_WINDOW_MS,
+    )
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+}
+
+/** The player's own saved deck in a logged battle, for the survey's Spark question. */
+export function surveyDeckFor(
+  entry: Chronicle,
+  uid: string | null,
+): { ref: { uid: string; id: string }; name: string; spark: number } | null {
+  if (!uid) return null;
+  for (const value of entry.decks || []) {
+    const deck = chronicleDeck(value);
+    const spark = Number(deck.spark);
+    if (deck.deckRef?.uid === uid && Number.isFinite(spark))
+      return { ref: deck.deckRef, name: deck.commander || deck.name || "your deck", spark };
+  }
+  return null;
+}
+
+/** One line naming a battle: its commanders, for the survey list. */
+export function battleLabel(entry: Chronicle): string {
+  return (
+    (entry.decks || [])
+      .map(chronicleDeck)
+      .map((deck) => deck.commander || deck.name)
+      .filter(Boolean)
+      .slice(0, 6)
+      .join(" · ") || "Battle"
+  );
 }

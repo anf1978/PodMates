@@ -19,8 +19,8 @@ import {
   type SnapshotMetadata,
   type Unsubscribe,
 } from "./firebase";
-import { logActivity } from "./activity";
-import { addChronicleEntry } from "./chronicles";
+import { logActivity, NOTICE_MAX_TO, notify, SURVEY_NOTICE_REF } from "./activity";
+import { addChronicleEntry, loadAllChronicles } from "./chronicles";
 import { PM_LIMITS } from "./limits";
 import { requireUser } from "./session";
 import { actorName, clampText, deckListProblem } from "./shared";
@@ -291,6 +291,49 @@ export async function endGathering(podId: string, gatheringId: string): Promise<
     { status: "ended", endedAt: Date.now(), updatedAt: serverTimestamp() },
     { merge: true },
   );
+  // Not awaited: the notices must never hold up or fail ending the Gathering.
+  void notifySurveysDue(podId, gatheringId);
+}
+
+/**
+ * The players (signed-in podmates, never guests or the one ending it) who still have a battle of
+ * this Gathering to rate. Only battles logged from it count.
+ */
+export function surveyRecipients(
+  entries: {
+    gatheringId?: string | null;
+    participants?: unknown[];
+    feedbackResponses?: { uid?: string }[];
+  }[],
+  gatheringId: string,
+  self: string,
+): string[] {
+  const out = new Set<string>();
+  for (const entry of entries) {
+    if (entry.gatheringId !== gatheringId) continue;
+    const rated = new Set((entry.feedbackResponses || []).map((response) => response?.uid));
+    for (const uid of entry.participants || [])
+      if (typeof uid === "string" && uid && uid !== self && !rated.has(uid)) out.add(uid);
+  }
+  return [...out];
+}
+
+// One bell notice per twelve players (the rules' limit on `to`), stored as a "gathering" activity
+// with ref "survey" because the live rules accept only the existing activity types.
+async function notifySurveysDue(podId: string, gatheringId: string): Promise<void> {
+  try {
+    const user = requireUser();
+    const [snap, entries] = await Promise.all([
+      getDoc(gatheringRef(podId, gatheringId)),
+      loadAllChronicles(podId),
+    ]);
+    const title = ((snap.data() || {}) as Partial<GatheringDoc>).title || "Gathering";
+    const to = surveyRecipients(entries, gatheringId, user.uid);
+    for (let i = 0; i < to.length; i += NOTICE_MAX_TO)
+      await notify("gathering", title, podId, SURVEY_NOTICE_REF, to.slice(i, i + NOTICE_MAX_TO));
+  } catch (err) {
+    reportError(err, { operation: "cloud" });
+  }
 }
 
 export async function setSeatRsvp(
