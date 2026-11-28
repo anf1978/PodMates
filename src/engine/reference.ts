@@ -4,7 +4,10 @@
 //   p = 168 official precons (Try-a-Deck entries)
 //   t =  36 tuned decks: 6 hand-curated Try-a-Deck entries plus 30 EDHREC
 //           Bracket 4 ("optimized") average decks covering all 15 archetypes
-//   c =  20 cEDH tournament lists from the 20 most competitive commanders
+//   c =  20 cEDH tournament lists: the 20 most-played commanders on EDHTop16 (6 months to
+//           Nov 28, 2026), each with its best finish of the last year
+// The 50 tuned and cEDH lists are committed in pipelines/reference-corpus/decks/ (reference-decks.json
+// records their sources) and re-scored by the builder; they replaced 50 rows frozen in October (055).
 // Regenerated Oct 12, 2026 with the default impact cards in Power and the Commander Spellbook
 // snapshot combos counted (the combo snapshot is part of the standard engine). 15 precons were
 // added Nov 1, 2026 (Fallout x4, Commander Legends: Battle for Baldur's Gate x4, Foundations
@@ -15,7 +18,7 @@
 // datasets (row-parallel). Each row's Command Spark is computed from its five scores (computeSpark);
 // that reproduces the former hand-kept REFERENCE_SPARK table exactly for all 224 rows. Used to give
 // each axis score a percentile and a tier placement against real decks rather than a bare 1-10 number.
-// pipelines/reference-corpus/reference-set.mjs builds the datasets.
+// pipelines/reference-corpus/benchmark-baselines.mjs builds the datasets.
 
 import { computeSpark } from "./spark.ts";
 

@@ -1,8 +1,9 @@
 // Builds the precon benchmarks from the Try-a-Deck sample decks: PRECON_FINGERPRINTS (the "Closest
 // Match" vectors), STAPLES_BASELINE (the staples check), MANABASE_BASELINE (the mana-base check), and
 // the reference set behind every percentile, REFERENCE_SCORES / REFERENCE_TIERS: one row of five axis
-// scores per sample (precons "p", curated decks "t"), then the 50 tuned/cEDH rows carried forward
-// from frozen-reference-rows.json because their decklists are lost.
+// scores per sample (precons "p", curated decks "t"), then one row per committed tuned ("t") and cEDH
+// ("c") reference deck (reference-decks.json + decks/, read by reference-decks.mjs). Until change 055
+// those 50 rows were carried forward unchanged from October because their lists had been lost.
 //
 // History: the original builders were lost. The baselines' aggregation is a line-for-line port of the
 // recovered Nov 3, 2026 Python step (recovered/inline-python-patches-and-calcs.txt, script 7), which
@@ -38,6 +39,7 @@ import {
 } from "../../src/engine/index.ts";
 import { buildFingerprintVector } from "../../src/engine/benchmarks.ts";
 import { isMain } from "../lib/cli.mjs";
+import { readReferenceDecks } from "./reference-decks.mjs";
 import { updateManifest } from "../lib/dataset-manifest.mjs";
 
 /** The 12 staples categories, in the committed file's order. */
@@ -206,21 +208,26 @@ export function buildFingerprints(rows) {
   return rows.map((row) => [row.k, row.fp]);
 }
 
-/** REFERENCE_SCORES / REFERENCE_TIERS: sample rows in sample order, then the frozen rows.
- * @param {DeckFeatures[]} rows @param {{ rows: [string, number[]][] }} frozen */
-export function buildReferenceSet(rows, frozen) {
+/** The reference tier of a sample or reference deck row.
+ * @param {DeckFeatures} row */
+export function referenceTier(row) {
+  if (row.src === "precon") return "p";
+  return row.src === "reference-cedh" ? "c" : "t";
+}
+
+/** REFERENCE_SCORES / REFERENCE_TIERS: sample rows in sample order, then the reference decks in
+ * manifest order (tuned, then cEDH).
+ * @param {DeckFeatures[]} rows @param {DeckFeatures[]} referenceRows */
+export function buildReferenceSet(rows, referenceRows) {
   const sampled = rows.filter((row) => !NOT_IN_REFERENCE.includes(row.k));
-  const scores = [...sampled.map((row) => row.axes), ...frozen.rows.map(([, v]) => v)];
-  const tiers = [
-    ...sampled.map((row) => (row.src === "precon" ? "p" : "t")),
-    ...frozen.rows.map(([tier]) => tier),
-  ];
-  return { scores, tiers };
+  const all = [...sampled, ...referenceRows];
+  return { scores: all.map((row) => row.axes), tiers: all.map(referenceTier) };
 }
 
 /** Every benchmark file's contents, checked for plausible shapes before anything is written.
- * @param {DeckFeatures[]} rows @param {{ rows: [string, number[]][] }} frozen */
-export function buildBenchmarkFiles(rows, frozen) {
+ * The precon benchmarks use the samples only; the reference decks join only the reference set.
+ * @param {DeckFeatures[]} rows @param {DeckFeatures[]} referenceRows */
+export function buildBenchmarkFiles(rows, referenceRows) {
   if (rows.length < 150) throw new Error(`Only ${rows.length} sample decks; expected 150 or more.`);
   const fingerprints = buildFingerprints(rows);
   for (const [key, vector] of fingerprints) {
@@ -229,13 +236,15 @@ export function buildBenchmarkFiles(rows, frozen) {
   }
   const { staples, manabase } = buildBaselines(rows);
   if (Object.keys(manabase.byCount).length !== 5) throw new Error("Mana-base buckets missing.");
-  const reference = buildReferenceSet(rows, frozen);
+  const reference = buildReferenceSet(rows, referenceRows);
   const bad = reference.scores.findIndex(
     (v, i) =>
       v.length !== 5 || !v.every(Number.isFinite) || !["p", "t", "c"].includes(reference.tiers[i]),
   );
   if (bad !== -1) throw new Error(`Bad reference row ${bad}`);
-  if (frozen.rows.length !== 50) throw new Error("Expected the 50 frozen tuned/cEDH rows.");
+  const count = (tier) => referenceRows.filter((row) => referenceTier(row) === tier).length;
+  if (count("t") !== 30 || count("c") !== 20)
+    throw new Error("Expected 30 tuned and 20 cEDH reference decks.");
   const json = (value) => `${JSON.stringify(value)}\n`;
   return {
     REFERENCE_SCORES: json(reference.scores),
@@ -257,9 +266,6 @@ function readPublishedData() {
       gunzipSync(Buffer.from(read("SPELLBOOK_SNAPSHOT_B64"), "base64")).toString("utf8"),
     ),
     winRates: read("winrates"),
-    frozen: JSON.parse(
-      readFileSync(new URL("./frozen-reference-rows.json", import.meta.url), "utf8"),
-    ),
   };
 }
 
@@ -270,13 +276,7 @@ async function main(argv) {
     ? fileURLToPath(new URL("../../public/data/", import.meta.url))
     : argv.find((arg) => !arg.startsWith("--"));
   if (!outDir) throw new Error("Usage: benchmark-baselines.mjs <out-dir> | --update-public-data");
-  const {
-    samples,
-    cardsPayload,
-    spellbook: published,
-    winRates: rates,
-    frozen,
-  } = readPublishedData();
+  const { samples, cardsPayload, spellbook: published, winRates: rates } = readPublishedData();
   // --from-fixtures: the pinned golden fixtures, exactly what benchmark-baselines.test.mjs checks
   // against (the precon importer uses this after extending them).
   const fromFixtures = argv.includes("--from-fixtures");
@@ -287,7 +287,11 @@ async function main(argv) {
   const cards = fromFixtures ? fixture("cards.json") : await decodeCardDatabase(cardsPayload);
   const spellbook = fromFixtures ? fixture("spellbook.json") : published;
   const winRates = fromFixtures ? fixture("winrates.json") : rates;
-  const files = buildBenchmarkFiles(deckFeatures(samples, { cards, spellbook, winRates }), frozen);
+  const data = { cards, spellbook, winRates };
+  const files = buildBenchmarkFiles(
+    deckFeatures(samples, data),
+    deckFeatures(readReferenceDecks(), data),
+  );
   mkdirSync(outDir, { recursive: true });
   // Only files whose contents change are rewritten, so the manifest keeps the others' dates.
   const changed = Object.keys(files).filter((name) => {

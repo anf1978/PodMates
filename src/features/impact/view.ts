@@ -49,7 +49,7 @@ export function renderBody(
   render(
     html`
       <div class="impact-description">
-        ${`Impact cards are cards that show up constantly in competitive (cEDH) lists but almost never in precons or ordinary tuned decks. Each one in a deck adds ${IMPACT_PTS_PER_CARD} to Power (up to ${IMPACT_PTS_CAP}). The default list is chosen from the reference decks and is what the radar always uses.`}
+        ${`Impact cards are cards that show up constantly in competitive (cEDH) lists but almost never in precons or ordinary tuned decks. Each one in a deck adds ${IMPACT_PTS_PER_CARD} to Power (up to ${IMPACT_PTS_CAP}). The default list was chosen from the October 2026 reference decks and is what the radar always uses.`}
       </div>
       ${
         !uid

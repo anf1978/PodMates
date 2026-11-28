@@ -1,5 +1,5 @@
 // Fetches the tuned and cEDH decklists of the reference set into committed files, so they can never be
-// lost again (they were once: see frozen-reference-rows.json and change 054).
+// lost again (the October lists were; their rows stayed frozen until change 055).
 //
 // The manifest, reference-decks.json, is both the spec and the record. Each deck names its tier, key,
 // commander, archetype and where it comes from; this script fills in what it fetched (source URL, event,

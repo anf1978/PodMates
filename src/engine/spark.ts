@@ -48,6 +48,8 @@ export function computeSpark(
  * every precon in Focused or Tuned. The tool-signal count separates the tiers best (precons median 2 and never
  * above 4; tuned decks median 5; cEDH median 6), so it carries the bands together with Spark. With these
  * values: 123 of 153 precons Core, 30 Focused, none Tuned; 34 of 36 tuned decks Tuned; all 20 cEDH lists Tuned.
+ * Re-checked Nov 28, 2026 on the re-sourced reference decks (055): 134 of 168 precons Core, 34 Focused, none
+ * Tuned; 34 of 36 tuned decks Tuned; all 20 cEDH lists Tuned; signal medians unchanged (2 / 5 / 6).
  * There is deliberately no cEDH band (see the "could function at a cEDH level" note in detectBracket). */
 export const SPIRIT_TUNED_SPARK = 6.0,
   SPIRIT_TUNED_SIGNALS = 5;

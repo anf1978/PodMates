@@ -148,18 +148,18 @@ The other datasets listed below
 (except the small code-like tables) are now `public/data/<CONSTANT>.json`, extracted without changing their
 runtime values by `scripts/extract-static-datasets.mjs`. Spellbook retains its original gzip/base64 encoding.
 
-| Constant                                                                                              | Source                                       | Refreshed by                                                    |
-| ----------------------------------------------------------------------------------------------------- | -------------------------------------------- | --------------------------------------------------------------- |
-| `CARD_DB_COMPRESSED_B64`                                                                              | Scryfall oracle bulk data                    | `rebuild-card-database.yml` (weekly)                            |
-| `IX_TAGS_JSON`                                                                                        | Scryfall Tagger function tags                | same workflow                                                   |
-| `COMMANDER_TIER_DATA`                                                                                 | Playgroup.gg win-rates                       | `rebuild-winrate-database.yml` (weekly)                         |
-| `SPELLBOOK_SNAPSHOT_B64`                                                                              | Commander Spellbook export                   | manual (`spellbook-snapshot-probe.yml` → extracted JSON string) |
-| `KNOW_JSON` (~300 KB)                                                                                 | ranked community card lists                  | `know-build.cjs` — **not in repo**                              |
-| `IMPACT_CANDS`                                                                                        | derived from lists + precons                 | `impact-cands.cjs` — **not in repo**                            |
-| `REFERENCE_SCORES`, `REFERENCE_TIERS`                                                                 | engine run over samples + 50 frozen rows     | `pipelines/reference-corpus/benchmark-baselines.mjs` (manual)   |
-| `PRECON_FINGERPRINTS`, `STAPLES_BASELINE`, `MANABASE_BASELINE`                                        | engine run over the 178 sample decks         | `pipelines/reference-corpus/benchmark-baselines.mjs` (manual)   |
-| `TRY_A_DECK_OPTIONS`                                                                                  | hand-curated decklists                       | extracted JSON                                                  |
-| `HARD_COMBOS`, `SOFT_SYNERGIES`, `DEFAULT_IMPACT_CARDS`, `GAME_CHANGER_REASONS`                       | hand-curated code-like tables (still inline) | edited by hand                                                  |
+| Constant                                                                        | Source                                       | Refreshed by                                                    |
+| ------------------------------------------------------------------------------- | -------------------------------------------- | --------------------------------------------------------------- |
+| `CARD_DB_COMPRESSED_B64`                                                        | Scryfall oracle bulk data                    | `rebuild-card-database.yml` (weekly)                            |
+| `IX_TAGS_JSON`                                                                  | Scryfall Tagger function tags                | same workflow                                                   |
+| `COMMANDER_TIER_DATA`                                                           | Playgroup.gg win-rates                       | `rebuild-winrate-database.yml` (weekly)                         |
+| `SPELLBOOK_SNAPSHOT_B64`                                                        | Commander Spellbook export                   | manual (`spellbook-snapshot-probe.yml` → extracted JSON string) |
+| `KNOW_JSON` (~300 KB)                                                           | ranked community card lists                  | `know-build.cjs` — **not in repo**                              |
+| `IMPACT_CANDS`                                                                  | derived from lists + precons                 | `impact-cands.cjs` — **not in repo**                            |
+| `REFERENCE_SCORES`, `REFERENCE_TIERS`                                           | engine run over samples + 50 reference decks | `pipelines/reference-corpus/benchmark-baselines.mjs` (manual)   |
+| `PRECON_FINGERPRINTS`, `STAPLES_BASELINE`, `MANABASE_BASELINE`                  | engine run over the 178 sample decks         | `pipelines/reference-corpus/benchmark-baselines.mjs` (manual)   |
+| `TRY_A_DECK_OPTIONS`                                                            | hand-curated decklists                       | extracted JSON                                                  |
+| `HARD_COMBOS`, `SOFT_SYNERGIES`, `DEFAULT_IMPACT_CARDS`, `GAME_CHANGER_REASONS` | hand-curated code-like tables (still inline) | edited by hand                                                  |
 
 The refactor's regression baseline lives in `tests/golden/`: a DOM-free Node VM harness snapshots the full
 analysis and five axis scores for all **178 sample decks** (four more than the historical 174 above).

@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { decodeCardDatabase } from "../../src/cards/db-codec.js";
 import { HARD_COMBOS } from "../../src/data/combos.ts";
+import { readReferenceDecks } from "../../pipelines/reference-corpus/reference-decks.mjs";
 import { createHarness, decodeSpellbook, fixtureUrl, readDataset, readFixture } from "./harness.ts";
 
 const addFrom = process.argv.includes("--add")
@@ -29,7 +30,10 @@ function overlayPinned(newer) {
 const spellbook = decodeSpellbook();
 const winRates = readFixture("winrates.json");
 const full = createHarness(cards, spellbook, winRates);
-const deckNames = full.samples.map(
+// The Try-a-Deck samples plus the tuned and cEDH reference decks (054), which the reference-set
+// builder scores from these same fixtures.
+const decks = [...full.samples, ...readReferenceDecks()];
+const deckNames = decks.map(
   (sample) =>
     new Set(
       full
@@ -39,7 +43,7 @@ const deckNames = full.samples.map(
     ),
 );
 const needed = new Set();
-for (const sample of full.samples) {
+for (const sample of decks) {
   const match = full.matchSample(sample);
   assert.deepEqual(Array.from(match.notFound), [], `Unmatched cards in ${sample.key}`);
   for (const m of match.matched) needed.add(m.card.n);
@@ -90,7 +94,7 @@ const pinnedCards = [
   ...cards.filter((card) => needed.has(card.n) && !previousNames.has(card.n)),
 ];
 const pinned = createHarness(pinnedCards, pinnedSpellbook, winRates);
-for (const sample of full.samples) {
+for (const sample of decks) {
   assert.equal(
     JSON.stringify(pinned.analyzeSample(sample)),
     JSON.stringify(full.analyzeSample(sample)),
@@ -106,5 +110,5 @@ for (const [file, value] of [
   writeFileSync(new URL(file, fixtureUrl), JSON.stringify(value) + "\n");
 }
 console.log(
-  `Pinned ${pinnedCards.length}/${cards.length} cards and ${rows.length}/${spellbook.c.length} Spellbook rows for ${full.samples.length} decks; full-data parity verified.`,
+  `Pinned ${pinnedCards.length}/${cards.length} cards and ${rows.length}/${spellbook.c.length} Spellbook rows for ${decks.length} decks; full-data parity verified.`,
 );

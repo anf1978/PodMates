@@ -49,8 +49,9 @@ snapshot covers the full analysis and all five axis scores. A refactor must leav
 Scores are calibrated against the reference corpus (`REFERENCE_SCORES` / `REFERENCE_TIERS`, used by
 the app for percentiles). Changing `PATTERNS`, weights, thresholds or curated tables moves every deck.
 The sample rows of that set are built by `pipelines/reference-corpus/benchmark-baselines.mjs` and its test
-fails when an engine change moves them; the 30 tuned and 20 cEDH rows are frozen (lists lost) and cannot be
-re-scored, so a change that would move them needs new reference lists, not a quiet refit. Reference Spark is
+fails when an engine change moves them. The 30 tuned and 20 cEDH rows are scored from the committed lists in
+`pipelines/reference-corpus/decks/` (re-sourced Nov 28, 2026, change 055), so an engine change re-scores them
+with everything else; refitting is still deliberate, never quiet. Reference Spark is
 `computeSpark()` of each row (`referenceSparks()`), not a separate table.
 
 - **Spirit bands** (`spark.ts`): re-fitted Oct 12, 2026 against 153 precons, 36 tuned decks and 20 cEDH

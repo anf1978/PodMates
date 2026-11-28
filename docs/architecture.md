@@ -566,8 +566,9 @@ the pipelines and the Worker are still JavaScript.
 ## Tests
 
 - **Golden** (`tests/golden`): `harness.ts` imports `src/engine` directly and builds an `EngineContext` from pinned
-  card, Spellbook and win-rate fixtures (7,621 cards, 3,397 Spellbook rows including one-card-away candidates;
-  `fixtures/winrates.json`, never the weekly publication). It analyses all 178 Try-a-Deck samples and snapshots
+  card, Spellbook and win-rate fixtures (8,766 cards, 6,392 Spellbook rows including one-card-away candidates,
+  covering the samples and the 50 tuned/cEDH reference decks, which the reference-set builder scores from them;
+  the first 7,621 cards are the original pin; `fixtures/winrates.json`, never the weekly publication). It analyses all 178 Try-a-Deck samples and snapshots
   the full analysis plus all five axes; JSON keys are sorted recursively, array order and floats preserved.
   `harness.test.ts` re-runs every sample with deep-frozen inputs in reverse order and requires identical results.
   No app start-up, DOM or network runs. Regenerate fixtures only deliberately; weekly data refreshes must not move

@@ -1,4 +1,6 @@
 import { readFileSync } from "node:fs";
+import { buildLookupIndexes, matchDecklist } from "../../src/cards/lookup.ts";
+import { parseDecklist } from "../../src/cards/parse-decklist.ts";
 import { describe, expect, it } from "vitest";
 import {
   buildBenchmarkFiles,
@@ -7,6 +9,7 @@ import {
   NOT_IN_REFERENCE,
   roundHalfEven3,
 } from "./benchmark-baselines.mjs";
+import { readReferenceDecks } from "./reference-decks.mjs";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 const json = (path) => JSON.parse(read(path));
@@ -38,8 +41,9 @@ describe("committed precon benchmarks", () => {
     spellbook: json("../../tests/golden/fixtures/spellbook.json"),
     winRates: json("../../tests/golden/fixtures/winrates.json"),
   };
-  const frozen = json("./frozen-reference-rows.json");
-  const files = buildBenchmarkFiles(deckFeatures(samples, data), frozen);
+  const referenceDecks = readReferenceDecks();
+  const referenceRows = deckFeatures(referenceDecks, data);
+  const files = buildBenchmarkFiles(deckFeatures(samples, data), referenceRows);
 
   // A failure means the engine or the samples changed what these files should hold. Refitting
   // moves the Deck Chart's Closest Match, staples and mana-base checks: run
@@ -55,21 +59,34 @@ describe("committed precon benchmarks", () => {
     );
   });
 
-  it("puts every sample but NOT_IN_REFERENCE into the reference set, then the frozen rows", () => {
+  it("puts every sample but NOT_IN_REFERENCE into the reference set, then the reference decks", () => {
     const tiers = JSON.parse(files.REFERENCE_TIERS);
     const included = samples.filter((s) => !NOT_IN_REFERENCE.includes(s.key));
-    expect(tiers).toHaveLength(included.length + 50);
-    expect(tiers.slice(0, included.length)).toEqual(
-      included.map((s) => (s.source === "precon" ? "p" : "t")),
-    );
+    expect(tiers).toEqual([
+      ...included.map((s) => (s.source === "precon" ? "p" : "t")),
+      ...Array(30).fill("t"),
+      ...Array(20).fill("c"),
+    ]);
     expect(JSON.parse(files.REFERENCE_SCORES).slice(included.length)).toEqual(
-      frozen.rows.map(([, v]) => v),
+      referenceRows.map((row) => row.axes),
     );
   });
 
+  it("recognises every card of every reference deck in the pinned fixtures", () => {
+    const indexes = buildLookupIndexes(data.cards);
+    for (const deck of referenceDecks) {
+      const { notFound } = matchDecklist(parseDecklist(deck.decklist).entries, data.cards, indexes);
+      expect(notFound, deck.key).toEqual([]);
+    }
+    expect(referenceDecks.map((d) => d.key)).toEqual(referenceRows.map((row) => row.k));
+  });
+
   it("refuses implausible input", () => {
-    expect(() => buildBenchmarkFiles(deckFeatures(samples.slice(0, 10), data), frozen)).toThrow(
-      "Only 10 sample decks",
+    expect(() =>
+      buildBenchmarkFiles(deckFeatures(samples.slice(0, 10), data), referenceRows),
+    ).toThrow("Only 10 sample decks");
+    expect(() => buildBenchmarkFiles(deckFeatures(samples, data), referenceRows.slice(1))).toThrow(
+      "Expected 30 tuned and 20 cEDH",
     );
   });
 });

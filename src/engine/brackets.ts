@@ -64,6 +64,8 @@ export function comboIsEarly(
 // "Could function at a cEDH level": NOT a Bracket 5 band (cEDH is about the table you play at, which a
 // decklist cannot show). It only says the deck's numbers sit in the range of the 20 competitive lists in the
 // reference set. Fitted Oct 12, 2026: true for 18 of 20 cEDH lists, 10 of 36 tuned decks and 0 of 153 precons.
+// Re-checked Nov 28, 2026 on the re-sourced reference decks (055): 19 of 20 cEDH lists (not Etali), 11 of 36
+// tuned decks and 0 of 168 precons.
 export const CEDH_CAPABLE_MIN_SPARK = 8.0,
   CEDH_CAPABLE_MIN_POWER = 9.5,
   CEDH_CAPABLE_MIN_SIGNALS = 5;
