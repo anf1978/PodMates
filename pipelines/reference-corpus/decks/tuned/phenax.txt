@@ -1,0 +1,85 @@
+1 Phenax, God of Deception
+1 Altar of the Brood
+1 Arcane Signet
+1 Archive Trap
+1 Bloodchief Ascension
+1 Bojuka Bog
+1 Brainstorm
+1 Bruvac the Grandiloquent
+1 Charix, the Raging Isle
+1 Choked Estuary
+1 Clearwater Pathway
+1 Command Tower
+1 Consuming Aberration
+1 Counterspell
+1 Cruel Somnophage
+1 Cut Your Losses
+1 Cyclonic Rift
+1 Dark Ritual
+1 Darkwater Catacombs
+1 Demonic Tutor
+1 Dimir Aqueduct
+1 Dimir Signet
+1 Dramatic Reversal
+1 Drown in the Loch
+1 Drowned Catacomb
+1 Duskmantle Guildmage
+1 Eater of the Dead
+1 Fierce Guardianship
+1 Fleet Swallower
+1 Fractured Sanity
+1 Fraying Sanity
+1 Glimpse the Unthinkable
+1 Hedron Crab
+10 Island
+1 Jace, Memory Adept
+1 Jidoor, Aristocratic Capital
+1 Lightning Greaves
+1 Maddening Cacophony
+1 Mana Drain
+1 Memory Erosion
+1 Mesmeric Orb
+1 Mind Grind
+1 Mindcrank
+1 Morphic Pool
+1 Mortivore
+1 Mystical Tutor
+1 Nemesis of Reason
+1 Nephalia Drownyard
+1 Nighthowler
+1 Polluted Delta
+1 Propaganda
+1 Psychic Corrosion
+1 Reliquary Tower
+1 Rhystic Study
+1 Riverchurn Monument
+1 Ruin Crab
+1 Sewer Nemesis
+1 Shipwreck Marsh
+1 Silent Arbiter
+1 Singularity Rupture
+1 Sol Ring
+1 Sphinx's Tutelage
+1 Sunken Hollow
+7 Swamp
+1 Syr Konrad, the Grim
+1 Tainted Isle
+1 Talisman of Dominance
+1 Tasha's Hideous Laughter
+1 Terisian Mindbreaker
+1 The Ancient One
+1 The Mindskinner
+1 The Walls of Ba Sing Se
+1 The Water Crystal
+1 Thought Vessel
+1 Thousand-Year Elixir
+1 Traumatize
+1 Tree of Perdition
+1 Underground River
+1 Vampiric Tutor
+1 Visions of Beyond
+1 Wall of Frost
+1 Watery Grave
+1 Wight of Precinct Six
+1 Windfall
+1 Zellix, Sanity Flayer

@@ -1,0 +1,92 @@
+1 Phelddagrif
+1 Angel's Trumpet
+1 Arcane Denial
+1 Arcane Signet
+1 Beast Within
+1 Birds of Paradise
+1 Bloom Tender
+1 Boseiju, Who Endures
+1 Bountiful Promenade
+1 Breeding Pool
+1 Command Tower
+1 Consecrated Sphinx
+1 Counterspell
+1 Crafty Cutpurse
+1 Cultivate
+1 Cyclonic Rift
+1 Defense of the Heart
+1 Dictate of Kruphix
+1 Dingus Staff
+1 Enlightened Tutor
+1 Esper Sentinel
+1 Eternal Witness
+1 Exotic Orchard
+1 Ezuri's Predation
+1 Faeburrow Elder
+1 Fierce Guardianship
+1 Flooded Strand
+1 Forbidden Orchard
+3 Forest
+1 Freed from the Real
+1 Generous Gift
+1 Ghostly Prison
+1 Glacial Fortress
+1 Gluntch, the Bestower
+1 Hallowed Fountain
+1 Heartbeat of Spring
+1 Hinterland Harbor
+1 Howling Mine
+1 Idyllic Tutor
+1 Intruder Alarm
+4 Island
+1 Kami of the Crescent Moon
+1 Kodama's Reach
+1 Kwain, Itinerant Meddler
+1 Ley Weaver
+1 Loran of the Third Path
+1 Master of Ceremonies
+1 Maze of Ith
+1 Misty Rainforest
+1 Mystic Remora
+1 Mystical Tutor
+1 Noble Hierarch
+1 Otawara, Soaring City
+1 Path to Exile
+4 Plains
+1 Propaganda
+1 Questing Phelddagrif
+1 Reins of Power
+1 Rejuvenating Springs
+1 Reliquary Tower
+1 Rhystic Study
+1 Rites of Flourishing
+1 Sea of Clouds
+1 Seaside Citadel
+1 Seedborn Muse
+1 Selvala, Explorer Returned
+1 Smothering Tithe
+1 Sol Ring
+1 Spara's Headquarters
+1 Sphere of Safety
+1 Sunpetal Grove
+1 Supreme Verdict
+1 Suture Priest
+1 Swan Song
+1 Swords to Plowshares
+1 Teferi, Time Raveler
+1 Teferi's Protection
+1 Temple Bell
+1 Temple Garden
+1 Tempt with Discovery
+1 The Council of Four
+1 Thought Vessel
+1 Wargate
+1 Wedding Ring
+1 Wilderness Reclamation
+1 Windborn Muse
+1 Windfall
+1 Windswept Heath
+1 Worldly Tutor
+1 Wrath of God
+1 Yavimaya Coast
+1 Yavimaya, Cradle of Growth

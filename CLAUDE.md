@@ -87,7 +87,8 @@ branch without a terminal. Details: `docs/deploy.md`.
 - `public/data/` — committed dataset snapshots (generated); `public/` — icons and manifest.
 - `pipelines/` — typed Node data builders and shared helpers run by Actions; see `pipelines/README.md`.
   `reference-corpus/` builds the precon benchmarks (fingerprints, staples and mana-base baselines) and the
-  reference set's sample rows by hand; a test pins the committed files to its output; `precons/` is the weekly
+  reference set's sample rows by hand; a test pins the committed files to its output; `reference-decks.json` +
+  `decks/` are the committed tuned/cEDH reference lists (`fetch-reference-decks.mjs`); `precons/` is the weekly
   precon importer (MTGJSON → a reviewed Try-a-Deck pull request; `precon-import.yml`);
   its `recovered/` folder holds old chat-session scripts verbatim, never run.
 - `.github/actions/scryfall-bulk/` — shared current-export download/cache; all Scryfall bulk workflows use it.

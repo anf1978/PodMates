@@ -1,0 +1,1087 @@
+{
+  "about": "The tuned (t) and cEDH (c) decks of the PodMates reference set. This file is the spec and the record: fetch-reference-decks.mjs fills in each deck's source, fetch date, card count and primer links and writes its list to decks/<tier>/<key>.txt. The lists are committed so they can never be lost again. Tuned: the 30 EDHREC Bracket 4 (optimized) average decks of the Oct 2026 set. cEDH: the 20 most-played commanders on EDHTop16 (6 months, 50+ player events, as of 2026-11-28), each with its best finish over the last year. Archetypes are assigned by hand.",
+  "selection": {
+    "cedhMeta": "edhtop16.com, sort Popularity, 6 Months, 20+ entries, 50+ players, read 2026-11-28",
+    "cedhEntry": "commander page default (1 year, 50+ players): lowest standing, then larger event, then most recent"
+  },
+  "decks": [
+    {
+      "tier": "t",
+      "key": "korvold",
+      "edhrecSlug": "korvold-fae-cursed-king",
+      "archetype": "Aristocrats",
+      "commander": "Korvold, Fae-Cursed King",
+      "source": {
+        "kind": "edhrec-average-optimized",
+        "url": "https://edhrec.com/average-decks/korvold-fae-cursed-king/optimized",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "EDHREC average decks are statistical averages of many lists; they have no primer.",
+      "cardCount": 100
+    },
+    {
+      "tier": "t",
+      "key": "teysa",
+      "edhrecSlug": "teysa-karlov",
+      "archetype": "Aristocrats",
+      "commander": "Teysa Karlov",
+      "source": {
+        "kind": "edhrec-average-optimized",
+        "url": "https://edhrec.com/average-decks/teysa-karlov/optimized",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "EDHREC average decks are statistical averages of many lists; they have no primer.",
+      "cardCount": 100
+    },
+    {
+      "tier": "t",
+      "key": "adeline",
+      "edhrecSlug": "adeline-resplendent-cathar",
+      "archetype": "Tokens & Go-Wide",
+      "commander": "Adeline, Resplendent Cathar",
+      "source": {
+        "kind": "edhrec-average-optimized",
+        "url": "https://edhrec.com/average-decks/adeline-resplendent-cathar/optimized",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "EDHREC average decks are statistical averages of many lists; they have no primer.",
+      "cardCount": 100
+    },
+    {
+      "tier": "t",
+      "key": "chatterfang",
+      "edhrecSlug": "chatterfang-squirrel-general",
+      "archetype": "Tokens & Go-Wide",
+      "commander": "Chatterfang, Squirrel General",
+      "source": {
+        "kind": "edhrec-average-optimized",
+        "url": "https://edhrec.com/average-decks/chatterfang-squirrel-general/optimized",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "EDHREC average decks are statistical averages of many lists; they have no primer.",
+      "cardCount": 100
+    },
+    {
+      "tier": "t",
+      "key": "derevi",
+      "edhrecSlug": "derevi-empyrial-tactician",
+      "archetype": "Stax & Control",
+      "commander": "Derevi, Empyrial Tactician",
+      "source": {
+        "kind": "edhrec-average-optimized",
+        "url": "https://edhrec.com/average-decks/derevi-empyrial-tactician/optimized",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "EDHREC average decks are statistical averages of many lists; they have no primer.",
+      "cardCount": 100
+    },
+    {
+      "tier": "t",
+      "key": "teferi-temporal-archmage",
+      "edhrecSlug": "teferi-temporal-archmage",
+      "archetype": "Spellslinger",
+      "commander": "Teferi, Temporal Archmage",
+      "source": {
+        "kind": "edhrec-average-optimized",
+        "url": "https://edhrec.com/average-decks/teferi-temporal-archmage/optimized",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "EDHREC average decks are statistical averages of many lists; they have no primer.",
+      "cardCount": 100
+    },
+    {
+      "tier": "t",
+      "key": "veyran",
+      "edhrecSlug": "veyran-voice-of-duality",
+      "archetype": "Spellslinger",
+      "commander": "Veyran, Voice of Duality",
+      "source": {
+        "kind": "edhrec-average-optimized",
+        "url": "https://edhrec.com/average-decks/veyran-voice-of-duality/optimized",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "EDHREC average decks are statistical averages of many lists; they have no primer.",
+      "cardCount": 100
+    },
+    {
+      "tier": "t",
+      "key": "niv-mizzet-parun",
+      "edhrecSlug": "niv-mizzet-parun",
+      "archetype": "Spellslinger",
+      "commander": "Niv-Mizzet, Parun",
+      "source": {
+        "kind": "edhrec-average-optimized",
+        "url": "https://edhrec.com/average-decks/niv-mizzet-parun/optimized",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "EDHREC average decks are statistical averages of many lists; they have no primer.",
+      "cardCount": 100
+    },
+    {
+      "tier": "t",
+      "key": "kaalia",
+      "edhrecSlug": "kaalia-of-the-vast",
+      "archetype": "Ramp & Big Creatures",
+      "commander": "Kaalia of the Vast",
+      "source": {
+        "kind": "edhrec-average-optimized",
+        "url": "https://edhrec.com/average-decks/kaalia-of-the-vast/optimized",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "EDHREC average decks are statistical averages of many lists; they have no primer.",
+      "cardCount": 100
+    },
+    {
+      "tier": "t",
+      "key": "meren",
+      "edhrecSlug": "meren-of-clan-nel-toth",
+      "archetype": "Reanimator & Graveyard",
+      "commander": "Meren of Clan Nel Toth",
+      "source": {
+        "kind": "edhrec-average-optimized",
+        "url": "https://edhrec.com/average-decks/meren-of-clan-nel-toth/optimized",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "EDHREC average decks are statistical averages of many lists; they have no primer.",
+      "cardCount": 100
+    },
+    {
+      "tier": "t",
+      "key": "muldrotha",
+      "edhrecSlug": "muldrotha-the-gravetide",
+      "archetype": "Reanimator & Graveyard",
+      "commander": "Muldrotha, the Gravetide",
+      "source": {
+        "kind": "edhrec-average-optimized",
+        "url": "https://edhrec.com/average-decks/muldrotha-the-gravetide/optimized",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "EDHREC average decks are statistical averages of many lists; they have no primer.",
+      "cardCount": 100
+    },
+    {
+      "tier": "t",
+      "key": "atraxa",
+      "edhrecSlug": "atraxa-praetors-voice",
+      "archetype": "Goodstuff & Multicolor Value",
+      "commander": "Atraxa, Praetors' Voice",
+      "source": {
+        "kind": "edhrec-average-optimized",
+        "url": "https://edhrec.com/average-decks/atraxa-praetors-voice/optimized",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "EDHREC average decks are statistical averages of many lists; they have no primer.",
+      "cardCount": 100
+    },
+    {
+      "tier": "t",
+      "key": "kenrith",
+      "edhrecSlug": "kenrith-the-returned-king",
+      "archetype": "Goodstuff & Multicolor Value",
+      "commander": "Kenrith, the Returned King",
+      "source": {
+        "kind": "edhrec-average-optimized",
+        "url": "https://edhrec.com/average-decks/kenrith-the-returned-king/optimized",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "EDHREC average decks are statistical averages of many lists; they have no primer.",
+      "cardCount": 100
+    },
+    {
+      "tier": "t",
+      "key": "zedruu",
+      "edhrecSlug": "zedruu-the-greathearted",
+      "archetype": "Group Hug & Politics",
+      "commander": "Zedruu the Greathearted",
+      "source": {
+        "kind": "edhrec-average-optimized",
+        "url": "https://edhrec.com/average-decks/zedruu-the-greathearted/optimized",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "EDHREC average decks are statistical averages of many lists; they have no primer.",
+      "cardCount": 100
+    },
+    {
+      "tier": "t",
+      "key": "phelddagrif",
+      "edhrecSlug": "phelddagrif",
+      "archetype": "Group Hug & Politics",
+      "commander": "Phelddagrif",
+      "source": {
+        "kind": "edhrec-average-optimized",
+        "url": "https://edhrec.com/average-decks/phelddagrif/optimized",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "EDHREC average decks are statistical averages of many lists; they have no primer.",
+      "cardCount": 100
+    },
+    {
+      "tier": "t",
+      "key": "brago",
+      "edhrecSlug": "brago-king-eternal",
+      "archetype": "Blink & ETB Value",
+      "commander": "Brago, King Eternal",
+      "source": {
+        "kind": "edhrec-average-optimized",
+        "url": "https://edhrec.com/average-decks/brago-king-eternal/optimized",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "EDHREC average decks are statistical averages of many lists; they have no primer.",
+      "cardCount": 100
+    },
+    {
+      "tier": "t",
+      "key": "roon",
+      "edhrecSlug": "roon-of-the-hidden-realm",
+      "archetype": "Blink & ETB Value",
+      "commander": "Roon of the Hidden Realm",
+      "source": {
+        "kind": "edhrec-average-optimized",
+        "url": "https://edhrec.com/average-decks/roon-of-the-hidden-realm/optimized",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "EDHREC average decks are statistical averages of many lists; they have no primer.",
+      "cardCount": 100
+    },
+    {
+      "tier": "t",
+      "key": "urza",
+      "edhrecSlug": "urza-lord-high-artificer",
+      "archetype": "Artifacts Matter",
+      "commander": "Urza, Lord High Artificer",
+      "source": {
+        "kind": "edhrec-average-optimized",
+        "url": "https://edhrec.com/average-decks/urza-lord-high-artificer/optimized",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "EDHREC average decks are statistical averages of many lists; they have no primer.",
+      "cardCount": 100
+    },
+    {
+      "tier": "t",
+      "key": "breya",
+      "edhrecSlug": "breya-etherium-shaper",
+      "archetype": "Artifacts Matter",
+      "commander": "Breya, Etherium Shaper",
+      "source": {
+        "kind": "edhrec-average-optimized",
+        "url": "https://edhrec.com/average-decks/breya-etherium-shaper/optimized",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "EDHREC average decks are statistical averages of many lists; they have no primer.",
+      "cardCount": 100
+    },
+    {
+      "tier": "t",
+      "key": "the-ur-dragon",
+      "edhrecSlug": "the-ur-dragon",
+      "archetype": "Tribal & Typal",
+      "commander": "The Ur-Dragon",
+      "source": {
+        "kind": "edhrec-average-optimized",
+        "url": "https://edhrec.com/average-decks/the-ur-dragon/optimized",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "EDHREC average decks are statistical averages of many lists; they have no primer.",
+      "cardCount": 100
+    },
+    {
+      "tier": "t",
+      "key": "krenko",
+      "edhrecSlug": "krenko-mob-boss",
+      "archetype": "Tribal & Typal",
+      "commander": "Krenko, Mob Boss",
+      "source": {
+        "kind": "edhrec-average-optimized",
+        "url": "https://edhrec.com/average-decks/krenko-mob-boss/optimized",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "EDHREC average decks are statistical averages of many lists; they have no primer.",
+      "cardCount": 100
+    },
+    {
+      "tier": "t",
+      "key": "edgar-markov",
+      "edhrecSlug": "edgar-markov",
+      "archetype": "Tribal & Typal",
+      "commander": "Edgar Markov",
+      "source": {
+        "kind": "edhrec-average-optimized",
+        "url": "https://edhrec.com/average-decks/edgar-markov/optimized",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "EDHREC average decks are statistical averages of many lists; they have no primer.",
+      "cardCount": 100
+    },
+    {
+      "tier": "t",
+      "key": "zur",
+      "edhrecSlug": "zur-the-enchanter",
+      "archetype": "Enchantments Matter",
+      "commander": "Zur the Enchanter",
+      "source": {
+        "kind": "edhrec-average-optimized",
+        "url": "https://edhrec.com/average-decks/zur-the-enchanter/optimized",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "EDHREC average decks are statistical averages of many lists; they have no primer.",
+      "cardCount": 100
+    },
+    {
+      "tier": "t",
+      "key": "sythis",
+      "edhrecSlug": "sythis-harvests-hand",
+      "archetype": "Enchantments Matter",
+      "commander": "Sythis, Harvest's Hand",
+      "source": {
+        "kind": "edhrec-average-optimized",
+        "url": "https://edhrec.com/average-decks/sythis-harvests-hand/optimized",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "EDHREC average decks are statistical averages of many lists; they have no primer.",
+      "cardCount": 100
+    },
+    {
+      "tier": "t",
+      "key": "tatyova",
+      "edhrecSlug": "tatyova-benthic-druid",
+      "archetype": "Land Matters & Landfall",
+      "commander": "Tatyova, Benthic Druid",
+      "source": {
+        "kind": "edhrec-average-optimized",
+        "url": "https://edhrec.com/average-decks/tatyova-benthic-druid/optimized",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "EDHREC average decks are statistical averages of many lists; they have no primer.",
+      "cardCount": 100
+    },
+    {
+      "tier": "t",
+      "key": "omnath-locus-of-creation",
+      "edhrecSlug": "omnath-locus-of-creation",
+      "archetype": "Land Matters & Landfall",
+      "commander": "Omnath, Locus of Creation",
+      "source": {
+        "kind": "edhrec-average-optimized",
+        "url": "https://edhrec.com/average-decks/omnath-locus-of-creation/optimized",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "EDHREC average decks are statistical averages of many lists; they have no primer.",
+      "cardCount": 100
+    },
+    {
+      "tier": "t",
+      "key": "lord-windgrace",
+      "edhrecSlug": "lord-windgrace",
+      "archetype": "Land Matters & Landfall",
+      "commander": "Lord Windgrace",
+      "source": {
+        "kind": "edhrec-average-optimized",
+        "url": "https://edhrec.com/average-decks/lord-windgrace/optimized",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "EDHREC average decks are statistical averages of many lists; they have no primer.",
+      "cardCount": 100
+    },
+    {
+      "tier": "t",
+      "key": "phenax",
+      "edhrecSlug": "phenax-god-of-deception",
+      "archetype": "Mill & Self-Mill",
+      "commander": "Phenax, God of Deception",
+      "source": {
+        "kind": "edhrec-average-optimized",
+        "url": "https://edhrec.com/average-decks/phenax-god-of-deception/optimized",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "EDHREC average decks are statistical averages of many lists; they have no primer.",
+      "cardCount": 100
+    },
+    {
+      "tier": "t",
+      "key": "sidisi",
+      "edhrecSlug": "sidisi-brood-tyrant",
+      "archetype": "Mill & Self-Mill",
+      "commander": "Sidisi, Brood Tyrant",
+      "source": {
+        "kind": "edhrec-average-optimized",
+        "url": "https://edhrec.com/average-decks/sidisi-brood-tyrant/optimized",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "EDHREC average decks are statistical averages of many lists; they have no primer.",
+      "cardCount": 100
+    },
+    {
+      "tier": "t",
+      "key": "light-paws",
+      "edhrecSlug": "light-paws-emperors-voice",
+      "archetype": "Voltron",
+      "commander": "Light-Paws, Emperor's Voice",
+      "source": {
+        "kind": "edhrec-average-optimized",
+        "url": "https://edhrec.com/average-decks/light-paws-emperors-voice/optimized",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "EDHREC average decks are statistical averages of many lists; they have no primer.",
+      "cardCount": 100
+    },
+    {
+      "tier": "c",
+      "key": "kraum-tymna",
+      "commander": "Kraum, Ludevic's Opus / Tymna the Weaver",
+      "archetype": "Goodstuff & Multicolor Value",
+      "source": {
+        "kind": "edhtop16-tournament",
+        "url": "https://edhtop16.com/tournament/d-grid-on-the-stack/decklist/z0rVgKt4HGOWE57DB3qolitDrri1",
+        "originalList": "https://topdeck.gg/deck/d-grid-on-the-stack/z0rVgKt4HGOWE57DB3qolitDrri1",
+        "event": "Just Jam D-Grid",
+        "players": 200,
+        "standing": 1,
+        "record": "4-1-3",
+        "date": "2026-05-30",
+        "fetched": "2026-11-28"
+      },
+      "primers": [
+        {
+          "title": "💧 Blue Farm💧",
+          "url": "https://www.moxfield.com/decks/2zSXC86KokyKs6vAS9-_sw",
+          "database": "Kraum Tymna Breach (COMPETITIVE)",
+          "updated": "2023-03-20"
+        },
+        {
+          "title": "Blue Farm",
+          "url": "https://www.moxfield.com/decks/7O1sCuIti0igU6Us_Jhadg",
+          "database": "Kraum Tymna Breach (COMPETITIVE)",
+          "updated": "2023-03-20"
+        },
+        {
+          "title": "Blue Farm",
+          "url": "https://www.moxfield.com/decks/RZ9n7bcoekGb7o6IGFPn8g",
+          "database": "Kraum Tymna Breach (COMPETITIVE)",
+          "updated": "2023-03-20"
+        }
+      ],
+      "cardCount": 100
+    },
+    {
+      "tier": "c",
+      "key": "kinnan",
+      "commander": "Kinnan, Bonder Prodigy",
+      "archetype": "Ramp & Big Creatures",
+      "source": {
+        "kind": "edhtop16-tournament",
+        "url": "https://edhtop16.com/tournament/level-7s-siege-at-the-castle-10k/decklist/10XZGpOw5vVlD7VeYRO1XvBv3Ft2",
+        "originalList": "https://topdeck.gg/deck/level-7s-siege-at-the-castle-10k/10XZGpOw5vVlD7VeYRO1XvBv3Ft2",
+        "event": "SIEGE cEDH 10K",
+        "players": 308,
+        "standing": 1,
+        "record": "5-0-3",
+        "date": "2026-06-13",
+        "fetched": "2026-11-28"
+      },
+      "primers": [
+        {
+          "title": "No Bad Cards",
+          "url": "https://moxfield.com/decks/Mi4yPy0jFUGPx6pI5x3OVw",
+          "database": "Kinnan Infinite Mana (COMPETITIVE)",
+          "updated": "2023-12-15"
+        },
+        {
+          "title": "Mana Printer",
+          "url": "https://moxfield.com/decks/b2x5nTi6gEuSlyWhdqDlQQ",
+          "database": "Kinnan Infinite Mana (COMPETITIVE)",
+          "updated": "2023-12-15"
+        }
+      ],
+      "cardCount": 100
+    },
+    {
+      "tier": "c",
+      "key": "rograkh-thrasios",
+      "commander": "Rograkh, Son of Rohgahh / Thrasios, Triton Hero",
+      "archetype": "Goodstuff & Multicolor Value",
+      "source": {
+        "kind": "edhtop16-tournament",
+        "url": "https://edhtop16.com/tournament/land-go-presents-the-boil-2026/decklist/clhr2LS9QzU9gsjjqTWiNNWpzci2",
+        "originalList": "https://topdeck.gg/deck/land-go-presents-the-boil-2026/clhr2LS9QzU9gsjjqTWiNNWpzci2",
+        "event": "Land, Go Presents: The Boil 2026",
+        "players": 268,
+        "standing": 1,
+        "record": "5-0-4",
+        "date": "2026-03-28",
+        "fetched": "2026-11-28"
+      },
+      "primers": [
+        {
+          "title": "Thras-and-Silent Rog",
+          "url": "https://moxfield.com/decks/BNWjUa_lA0mzxNpgpHDGSA",
+          "database": "Rograkh Thrasios Cradlestorm+ (COMPETITIVE)",
+          "updated": "2026-02-16"
+        }
+      ],
+      "cardCount": 100
+    },
+    {
+      "tier": "c",
+      "key": "rograkh-silas",
+      "commander": "Rograkh, Son of Rohgahh / Silas Renn, Seeker Adept",
+      "archetype": "Artifacts Matter",
+      "source": {
+        "kind": "edhtop16-tournament",
+        "url": "https://edhtop16.com/tournament/valencia-cedh-open-tournament-2026/decklist/dqMmjoXLlqUFlt0E4U6zAUBbP4G3",
+        "originalList": "https://topdeck.gg/deck/valencia-cedh-open-tournament-2026/dqMmjoXLlqUFlt0E4U6zAUBbP4G3",
+        "event": "Valencia cEDH Open Tournament 2026",
+        "players": 233,
+        "standing": 1,
+        "record": "5-0-4",
+        "date": "2026-02-28",
+        "fetched": "2026-11-28"
+      },
+      "primers": [
+        {
+          "title": "Rog Turbo Ad Nauseam",
+          "url": "https://www.moxfield.com/decks/yRsS18tYsE-jVgqmK7_Z0w",
+          "database": "Rograkh Silas Turbo Naus (COMPETITIVE)",
+          "updated": "2023-03-20"
+        },
+        {
+          "title": "Rograkh Silas Storm Combo",
+          "url": "https://www.moxfield.com/decks/79hYZQUBdUaA9xD8zLX4vQ",
+          "database": "Rograkh Silas Turbo Naus (COMPETITIVE)",
+          "updated": "2023-03-20"
+        },
+        {
+          "title": "Greatness At Any Cost",
+          "url": "https://moxfield.com/decks/pAPA2nEcuUaTYCuJ31FvXQ",
+          "database": "Rograkh Silas Turbo Naus (COMPETITIVE)",
+          "updated": "2023-03-20"
+        }
+      ],
+      "cardCount": 100
+    },
+    {
+      "tier": "c",
+      "key": "sisay",
+      "commander": "Sisay, Weatherlight Captain",
+      "archetype": "Goodstuff & Multicolor Value",
+      "source": {
+        "kind": "edhtop16-tournament",
+        "url": "https://edhtop16.com/tournament/nacional-de-cedh-100k-1/decklist/Dq0VcdTa8aNUZvy7EBsC7QLbio42",
+        "originalList": "https://topdeck.gg/deck/nacional-de-cedh-100k-1/Dq0VcdTa8aNUZvy7EBsC7QLbio42",
+        "event": "Nacional de CEDH 100K @ WolfCon 2026",
+        "players": 123,
+        "standing": 1,
+        "record": "6-0-1",
+        "date": "2026-08-29",
+        "fetched": "2026-11-28"
+      },
+      "primers": [
+        {
+          "title": "Oath of Sisay",
+          "url": "https://moxfield.com/decks/4_8wod4y7ECmFZi-d_drpA",
+          "database": "Sisay Midrange Tutors (COMPETITIVE)",
+          "updated": "2023-10-21"
+        },
+        {
+          "title": "Sisay, All Pods on Deck",
+          "url": "https://www.moxfield.com/decks/zBZRhI1RjkGnK53uhh6T9w",
+          "database": "Sisay Midrange Tutors (COMPETITIVE)",
+          "updated": "2023-10-21"
+        },
+        {
+          "title": "Sisay Elk",
+          "url": "https://moxfield.com/decks/jPeyBO5VYkq60DdFTHlvZg",
+          "database": "Sisay Midrange Tutors (COMPETITIVE)",
+          "updated": "2023-10-21"
+        },
+        {
+          "title": "Sisay for Dummies",
+          "url": "https://www.moxfield.com/decks/uiyDiFnEQke0z9BKtbfJHQ",
+          "database": "Sisay Midrange Tutors (COMPETITIVE)",
+          "updated": "2023-10-21"
+        }
+      ],
+      "cardCount": 100
+    },
+    {
+      "tier": "c",
+      "key": "thrasios-tymna",
+      "commander": "Thrasios, Triton Hero / Tymna the Weaver",
+      "archetype": "Goodstuff & Multicolor Value",
+      "source": {
+        "kind": "edhtop16-tournament",
+        "url": "https://edhtop16.com/tournament/land-go-open-10k-cedh-tournament/decklist/ZlePjFOXYabVI36O3Ky5iyQ9uV43",
+        "originalList": "https://topdeck.gg/deck/land-go-open-10k-cedh-tournament/ZlePjFOXYabVI36O3Ky5iyQ9uV43",
+        "event": "Land, Go Open 10k cEDH Tournament",
+        "players": 212,
+        "standing": 1,
+        "record": "5-2-2",
+        "date": "2026-05-23",
+        "fetched": "2026-11-28"
+      },
+      "primers": [
+        {
+          "title": "Thrasios Tymna Chain Stasis",
+          "url": "https://www.moxfield.com/decks/3zvonKRG-0adRL5zi2e0Jg",
+          "database": "Thrasios Tymna Midrange (COMPETITIVE)",
+          "updated": "2023-09-21"
+        },
+        {
+          "title": "Turtleguide",
+          "url": "https://www.moxfield.com/decks/4y21sNGeOE2qgFGs3mMOHA",
+          "database": "Thrasios Tymna Midrange (COMPETITIVE)",
+          "updated": "2023-09-21"
+        },
+        {
+          "title": "Sad Farm",
+          "url": "https://moxfield.com/decks/_qHrZ6hjvUaHkRPP4Gpy9g",
+          "database": "Thrasios Tymna Midrange (COMPETITIVE)",
+          "updated": "2023-09-21"
+        },
+        {
+          "title": "Thrasios's Tree Farm",
+          "url": "https://moxfield.com/decks/XvNOa4G7jE-37oi_HJ10ag",
+          "database": "Thrasios Tymna Midrange (COMPETITIVE)",
+          "updated": "2023-09-21"
+        },
+        {
+          "title": "Shuffle Hulk",
+          "url": "https://tappedout.net/mtg-decks/shuffle-hulk/",
+          "database": "[HISTORIC] Thrasios Tymna Flash Hulk (DEPRECATED)",
+          "updated": "2022-03-19"
+        },
+        {
+          "title": "Sacred Hulk",
+          "url": "https://tappedout.net/mtg-decks/sacred-hulk/",
+          "database": "[HISTORIC] Thrasios Tymna Flash Hulk (DEPRECATED)",
+          "updated": "2022-03-19"
+        }
+      ],
+      "cardCount": 100
+    },
+    {
+      "tier": "c",
+      "key": "ral",
+      "commander": "Ral, Monsoon Mage // Ral, Leyline Prodigy",
+      "archetype": "Spellslinger",
+      "source": {
+        "kind": "edhtop16-tournament",
+        "url": "https://edhtop16.com/tournament/css-20000-cedh-invitational-qualifier-1/decklist/gtQQwjeQ5xSUPd3pJOToL3jmlVz2",
+        "originalList": "https://topdeck.gg/deck/css-20000-cedh-invitational-qualifier-1/gtQQwjeQ5xSUPd3pJOToL3jmlVz2",
+        "event": "CCS $20,000 cEDH Invitational Qualifier #1",
+        "players": 143,
+        "standing": 1,
+        "record": "4-0-4",
+        "date": "2026-01-31",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "No primer listed for this commander in the cEDH Decklist Database.",
+      "cardCount": 100
+    },
+    {
+      "tier": "c",
+      "key": "dargo-tymna",
+      "commander": "Dargo, the Shipwrecker / Tymna the Weaver",
+      "archetype": "Aristocrats",
+      "source": {
+        "kind": "edhtop16-tournament",
+        "url": "https://edhtop16.com/tournament/breach-the-bay-cedh-10k/decklist/0WfTxi3Vtvhb6iwVF4f8DpDbhzN2",
+        "originalList": "https://topdeck.gg/deck/breach-the-bay-cedh-10k/0WfTxi3Vtvhb6iwVF4f8DpDbhzN2",
+        "event": "BREACH THE BAY - cEDH 10K",
+        "players": 183,
+        "standing": 1,
+        "record": "4-0-3",
+        "date": "2026-01-24",
+        "fetched": "2026-11-28"
+      },
+      "primers": [
+        {
+          "title": "Dargo Huntin' for Treasure",
+          "url": "https://moxfield.com/decks/6PsoE3IuLke1ZZiQMLJakg",
+          "database": "Dargo Tymna Turbo (COMPETITIVE)",
+          "updated": "2024-07-13"
+        },
+        {
+          "title": "Mad Pod",
+          "url": "https://www.moxfield.com/decks/5Nbm07WvPEqcjRy2xhnBsQ",
+          "database": "Dargo Tymna Turbo (COMPETITIVE)",
+          "updated": "2024-07-13"
+        },
+        {
+          "title": "Tymna Dargo Multipass",
+          "url": "https://www.moxfield.com/decks/MJnAXBjZa0KK1T186FEkmg",
+          "database": "Dargo Tymna Turbo (COMPETITIVE)",
+          "updated": "2024-07-13"
+        }
+      ],
+      "cardCount": 100
+    },
+    {
+      "tier": "c",
+      "key": "vivi",
+      "commander": "Vivi Ornitier",
+      "archetype": "Spellslinger",
+      "source": {
+        "kind": "edhtop16-tournament",
+        "url": "https://edhtop16.com/tournament/cosmic-crown-championship-central-coast-california-league/decklist/niTqlfoXcbaPpxruhI0HMlku79f1",
+        "originalList": "https://topdeck.gg/deck/cosmic-crown-championship-central-coast-california-league/niTqlfoXcbaPpxruhI0HMlku79f1",
+        "event": "$10k Cosmic Crown Championship (Central Coast California League Open)",
+        "players": 118,
+        "standing": 1,
+        "record": "6-0-1",
+        "date": "2026-01-17",
+        "fetched": "2026-11-28"
+      },
+      "primers": [
+        {
+          "title": "...Maybe We Don't Exist",
+          "url": "https://moxfield.com/decks/oumM4rK-O0uZtgaatbHNrA",
+          "database": "Vivi Curiosity Storm (COMPETITIVE)",
+          "updated": "2025-07-20"
+        },
+        {
+          "title": "Turbo Cheerios, Eat Your Wheaties!",
+          "url": "https://moxfield.com/decks/gaEDAZ33BE-8TEq65g_F0Q",
+          "database": "Vivi Curiosity Storm (COMPETITIVE)",
+          "updated": "2025-07-20"
+        }
+      ],
+      "cardCount": 100
+    },
+    {
+      "tier": "c",
+      "key": "ishai-rograkh",
+      "commander": "Ishai, Ojutai Dragonspeaker / Rograkh, Son of Rohgahh",
+      "archetype": "Spellslinger",
+      "source": {
+        "kind": "edhtop16-tournament",
+        "url": "https://edhtop16.com/tournament/misplay-on-the-lake-10k/decklist/Q1cABSjb9kZsLIPMakdeBwHKoBn2",
+        "originalList": "https://topdeck.gg/deck/misplay-on-the-lake-10k/Q1cABSjb9kZsLIPMakdeBwHKoBn2",
+        "event": "Misplay on the Lake",
+        "players": 264,
+        "standing": 1,
+        "record": "5-1-3",
+        "date": "2026-04-18",
+        "fetched": "2026-11-28"
+      },
+      "primers": [
+        {
+          "title": "RogShai",
+          "url": "https://moxfield.com/decks/8F7klUCkik28jy3q_gAQmA",
+          "database": "Ishai Rograkh Jeskai Turbo Storm (COMPETITIVE)",
+          "updated": "2026-02-16"
+        }
+      ],
+      "cardCount": 100
+    },
+    {
+      "tier": "c",
+      "key": "magda",
+      "commander": "Magda, Brazen Outlaw",
+      "archetype": "Tribal & Typal",
+      "source": {
+        "kind": "edhtop16-tournament",
+        "url": "https://edhtop16.com/tournament/mulligans-championship-series-january/decklist/oQYF7Qdfq0atPPZx4P7S0if41Uc2",
+        "originalList": "https://topdeck.gg/deck/mulligans-championship-series-january/oQYF7Qdfq0atPPZx4P7S0if41Uc2",
+        "event": "Mulligan's Championship Series - January w/ Guaranteed Tundra",
+        "players": 73,
+        "standing": 1,
+        "record": "4-2-1",
+        "date": "2026-01-04",
+        "fetched": "2026-11-28"
+      },
+      "primers": [
+        {
+          "title": "Clockside Outlaw",
+          "url": "https://www.moxfield.com/decks/xmH0i1HMHUi2iCd279RYPA",
+          "database": "Magda Clock Combo (COMPETITIVE)",
+          "updated": "2023-12-21"
+        },
+        {
+          "title": "Clock's Tickin'",
+          "url": "https://www.moxfield.com/decks/xHo8U4TkVEG4FOMww9Vtiw",
+          "database": "Magda Clock Combo (COMPETITIVE)",
+          "updated": "2023-12-21"
+        },
+        {
+          "title": "The Magdanomicon",
+          "url": "https://www.moxfield.com/decks/8Y4qOAcLN0O_HHYhOboV3Q",
+          "database": "Magda Clock Combo (COMPETITIVE)",
+          "updated": "2023-12-21"
+        }
+      ],
+      "cardCount": 100
+    },
+    {
+      "tier": "c",
+      "key": "nick-fury",
+      "commander": "Nick Fury, Agent of S.H.I.E.L.D.",
+      "archetype": "Stax & Control",
+      "source": {
+        "kind": "edhtop16-tournament",
+        "url": "https://edhtop16.com/tournament/highlander-3/decklist/tiM4KFkVXnMW4L1Sh7JSbuGEDf82",
+        "originalList": "https://topdeck.gg/deck/highlander-3/tiM4KFkVXnMW4L1Sh7JSbuGEDf82",
+        "event": "Ohio cEDH: Highlander 3",
+        "players": 123,
+        "standing": 1,
+        "record": "5-0-2",
+        "date": "2026-09-26",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "No primer listed for this commander in the cEDH Decklist Database.",
+      "cardCount": 100
+    },
+    {
+      "tier": "c",
+      "key": "thrasios-yoshimaru",
+      "commander": "Thrasios, Triton Hero / Yoshimaru, Ever Faithful",
+      "archetype": "Stax & Control",
+      "source": {
+        "kind": "edhtop16-tournament",
+        "url": "https://edhtop16.com/tournament/commander-wars-iv/decklist/tftZEodiyJPYeZkJ9Qbg8pmgw9m2",
+        "originalList": "https://topdeck.gg/deck/commander-wars-iv/tftZEodiyJPYeZkJ9Qbg8pmgw9m2",
+        "event": "Commander Wars IV",
+        "players": 64,
+        "standing": 1,
+        "record": "4-0-0",
+        "date": "2026-01-18",
+        "fetched": "2026-11-28"
+      },
+      "primers": [
+        {
+          "title": "Merman's Best Friend",
+          "url": "https://www.moxfield.com/decks/cAzAX1Ii6EKYvJob3swtbA",
+          "database": "Thrasios Yoshimaru Cradlestorm (COMPETITIVE)",
+          "updated": "2023-12-11"
+        }
+      ],
+      "cardCount": 100
+    },
+    {
+      "tier": "c",
+      "key": "crystal",
+      "commander": "Crystal, Inhuman Princess",
+      "archetype": "Stax & Control",
+      "source": {
+        "kind": "edhtop16-tournament",
+        "url": "https://edhtop16.com/tournament/cedh-at-new-city-brewery-461/decklist/B6FchZianPVz1KDravHhLLbAwAM2",
+        "originalList": "https://topdeck.gg/deck/cedh-at-new-city-brewery-461/B6FchZianPVz1KDravHhLLbAwAM2",
+        "event": "CEDH at New City Brewery",
+        "players": 64,
+        "standing": 1,
+        "record": "3-1-2",
+        "date": "2026-09-05",
+        "fetched": "2026-11-28"
+      },
+      "primers": [
+        {
+          "title": "Stormy Breach Princess",
+          "url": "https://moxfield.com/decks/s5P9q30Rw0qdMIe5D0-JdA",
+          "database": "Crystal Breach Storm (BREW)",
+          "updated": "2026-08-19"
+        }
+      ],
+      "cardCount": 100
+    },
+    {
+      "tier": "c",
+      "key": "etali",
+      "commander": "Etali, Primal Conqueror // Etali, Primal Sickness",
+      "archetype": "Ramp & Big Creatures",
+      "source": {
+        "kind": "edhtop16-tournament",
+        "url": "https://edhtop16.com/tournament/the-quest-part-1/decklist/mOBunvnDL7ganJlc7RSas8LNWdq1",
+        "originalList": "https://topdeck.gg/deck/the-quest-part-1/mOBunvnDL7ganJlc7RSas8LNWdq1",
+        "event": "The Quest for a Cause - $10k cEDH Charity Main Event",
+        "players": 260,
+        "standing": 1,
+        "record": "5-0-3",
+        "date": "2026-05-16",
+        "fetched": "2026-11-28"
+      },
+      "primers": [
+        {
+          "title": "Flintstone Gummy",
+          "url": "https://www.moxfield.com/decks/ib0mCeSAhU65ZzpCHo_Btw",
+          "database": "Etali Combo (COMPETITIVE)",
+          "updated": "2024-07-13"
+        }
+      ],
+      "cardCount": 100
+    },
+    {
+      "tier": "c",
+      "key": "tayam",
+      "commander": "Tayam, Luminous Enigma",
+      "archetype": "Reanimator & Graveyard",
+      "source": {
+        "kind": "edhtop16-tournament",
+        "url": "https://edhtop16.com/tournament/commandergeddon-10-brought-to-you-by-jenes-mtg/decklist/vnPyLtYsW6MXojRQ66jBzIySID92",
+        "originalList": "https://topdeck.gg/deck/commandergeddon-10-brought-to-you-by-jenes-mtg/vnPyLtYsW6MXojRQ66jBzIySID92",
+        "event": "Commandergeddon 10: brought to you by Jene's MTG & Irresistible Force",
+        "players": 173,
+        "standing": 1,
+        "record": "7-1-0",
+        "date": "2026-06-05",
+        "fetched": "2026-11-28"
+      },
+      "primers": [
+        {
+          "title": "Tayam Midrange Adnaus",
+          "url": "https://www.moxfield.com/decks/rVEjo7IdpECuP96MlsjcrQ",
+          "database": "Tayam Midrange (COMPETITIVE)",
+          "updated": "2023-08-03"
+        },
+        {
+          "title": "I Can Only Count to Three",
+          "url": "https://moxfield.com/decks/RJ1At_uUGES0OaMTCGk-2A",
+          "database": "Tayam Midrange (COMPETITIVE)",
+          "updated": "2023-08-03"
+        }
+      ],
+      "cardCount": 100
+    },
+    {
+      "tier": "c",
+      "key": "ob-nixilis",
+      "commander": "Ob Nixilis, Captive Kingpin",
+      "archetype": "Aristocrats",
+      "source": {
+        "kind": "edhtop16-tournament",
+        "url": "https://edhtop16.com/tournament/weekly-mulligans-february-1st/decklist/xgoFcKyBmNMBHadFuS5eGzPiBGD2",
+        "originalList": "https://topdeck.gg/deck/weekly-mulligans-february-1st/xgoFcKyBmNMBHadFuS5eGzPiBGD2",
+        "event": "Mulligan Championship Series - February w/ Guaranteed Taiga + Bayou",
+        "players": 63,
+        "standing": 1,
+        "record": "5-1-1",
+        "date": "2026-02-01",
+        "fetched": "2026-11-28"
+      },
+      "primers": [
+        {
+          "title": "Roberto Nixilonius is: Chinfather",
+          "url": "https://moxfield.com/decks/JotXCPe_TUaM5RiKVQkEmQ",
+          "database": "Ob Nixilis Ping (COMPETITIVE)",
+          "updated": "2023-10-15"
+        }
+      ],
+      "cardCount": 100
+    },
+    {
+      "tier": "c",
+      "key": "tivit",
+      "commander": "Tivit, Seller of Secrets",
+      "archetype": "Artifacts Matter",
+      "source": {
+        "kind": "edhtop16-tournament",
+        "url": "https://edhtop16.com/tournament/the-boil-beignets-beatdowns-redemption-event/decklist/YtsQRowNkORkQR3N68DNMAJen0u1",
+        "originalList": "https://topdeck.gg/deck/the-boil-beignets-beatdowns-redemption-event/YtsQRowNkORkQR3N68DNMAJen0u1",
+        "event": "The Boil - Beignets & Beatdowns Redemption Event",
+        "players": 91,
+        "standing": 1,
+        "record": "2-0-1",
+        "date": "2026-03-29",
+        "fetched": "2026-11-28"
+      },
+      "primers": [
+        {
+          "title": "The Master of Ceremonies",
+          "url": "https://moxfield.com/decks/uIm7e_KXcUGhv1JB4X4vhQ",
+          "database": "Tivit Midrange Combo (COMPETITIVE)",
+          "updated": "2025-04-20"
+        }
+      ],
+      "cardCount": 100
+    },
+    {
+      "tier": "c",
+      "key": "kefka",
+      "commander": "Kefka, Court Mage // Kefka, Ruler of Ruin",
+      "archetype": "Spellslinger",
+      "source": {
+        "kind": "edhtop16-tournament",
+        "url": "https://edhtop16.com/tournament/cedh-monthly-dual-land-tournament/decklist/A8N9blZZuvOMluITWdLrt3UwlaC2",
+        "originalList": "https://topdeck.gg/deck/cedh-monthly-dual-land-tournament/A8N9blZZuvOMluITWdLrt3UwlaC2",
+        "event": "CEDH Monthly Dual Land Tournament - May",
+        "players": 58,
+        "standing": 1,
+        "record": "4-2-0",
+        "date": "2026-05-02",
+        "fetched": "2026-11-28"
+      },
+      "primers": [],
+      "primerNote": "No primer listed for this commander in the cEDH Decklist Database.",
+      "cardCount": 100
+    },
+    {
+      "tier": "c",
+      "key": "winota",
+      "commander": "Winota, Joiner of Forces",
+      "archetype": "Tokens & Go-Wide",
+      "source": {
+        "kind": "edhtop16-tournament",
+        "url": "https://edhtop16.com/tournament/best-in-the-west-platinum-qualifier-3k/decklist/jAoxgyuEIWXvpCLXzXg1haW5Vp62",
+        "originalList": "https://topdeck.gg/deck/best-in-the-west-platinum-qualifier-3k/jAoxgyuEIWXvpCLXzXg1haW5Vp62",
+        "event": "Best in the West Platinum Qualifier 3K",
+        "players": 72,
+        "standing": 1,
+        "record": "4-1-2",
+        "date": "2026-07-18",
+        "fetched": "2026-11-28"
+      },
+      "primers": [
+        {
+          "title": "Winota Snowball Stax",
+          "url": "https://www.moxfield.com/decks/j-0aJlxuOUm9FnKRvJcfZw",
+          "database": "Winota Stax (COMPETITIVE)",
+          "updated": "2022-02-05"
+        },
+        {
+          "title": "Winota Avalanche",
+          "url": "https://www.moxfield.com/decks/vreLLzMBwk2e4UoyV7mZUw",
+          "database": "Winota Stax (COMPETITIVE)",
+          "updated": "2022-02-05"
+        },
+        {
+          "title": "Red Famine",
+          "url": "https://moxfield.com/decks/K1g-UAe7I0WK1yZgSYD_SA",
+          "database": "Winota Stax (COMPETITIVE)",
+          "updated": "2022-02-05"
+        }
+      ],
+      "cardCount": 100
+    }
+  ]
+}

@@ -133,7 +133,13 @@ artifact builder for the Commander Spellbook snapshot, never a baseline publishe
 - The same builder writes the reference set, `REFERENCE_SCORES` / `REFERENCE_TIERS`: one row of five
   one-decimal axis scores per sample (precons `p`, curated decks `t`; `NOT_IN_REFERENCE` lists samples
   not scored in yet), then the 30 tuned and 20 cEDH rows from `frozen-reference-rows.json`. Those decks'
-  lists are lost, so their rows are carried forward and cannot be re-scored if the engine changes.
+  October lists are lost, so their rows are carried forward and cannot be re-scored if the engine changes.
+- `fetch-reference-decks.mjs` re-sourced those 50 decks (054): `reference-decks.json` is the spec and record
+  (tier, commander, archetype, source URL and fetch date, event for cEDH, primer links) and
+  `decks/{tuned,cedh}/<key>.txt` the committed 100-card lists. Tuned: EDHREC optimized average decks; cEDH:
+  EDHTop16's 20 most-played commanders, best finish each; primer links from the cEDH Decklist Database's
+  GitHub data. Needs network (edhrec.com, json.edhrec.com, edhtop16.com, raw.githubusercontent.com;
+  `NODE_USE_ENV_PROXY=1` behind a proxy); existing files are kept unless `--refresh`. Nothing reads them yet.
 
 ## Precon importer (`precons/`)
 
